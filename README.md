@@ -4,7 +4,7 @@ Python script that automates downloading anime from animepahe.ru
 
 The script applies web scraping techniques to automate the download process
 
-Wrote it cause I got tired of clicking links upon links and a having a billion tabs on your my browser, Mendokusai naa
+Wrote it cause I got tired of clicking links upon links and a having a billion tabs on my browser, Mendokusai naa
 
 
 ## Installation
