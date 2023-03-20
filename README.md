@@ -1,4 +1,4 @@
-# Senpwai
+# Senpwai v1.0
 
 Python script that automates downloading anime from animepahe.ru
 
