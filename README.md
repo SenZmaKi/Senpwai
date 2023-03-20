@@ -9,6 +9,10 @@ Wrote it cause I got tired of clicking links upon links and a having a billion t
 
 ## Installation
 
+### Pre-requisites
+
+You'll need to have either Edge or Chrome installed on your system, support for Firefox comming soon
+
 ### For the non-tech savvy users
 
 I converted the python script to an executable you can find it in the link below:
