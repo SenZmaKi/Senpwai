@@ -10,6 +10,9 @@ import json
 import re
 from bs4 import BeautifulSoup
 
+from selenium.webdriver.remote.remote_connection import LOGGER
+
+
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver import EdgeOptions
@@ -38,7 +41,10 @@ import pathlib
 
 from tqdm import tqdm as tqdm
 
+from subprocess import CREATE_NO_WINDOW
+
 home_url = "https://animepahe.ru/"
+google_url = "https://google.com"
 anime_url = home_url+"anime/"
 api_url_extension = "api?m="
 search_url_extension = api_url_extension+"search&q="
@@ -48,26 +54,48 @@ sub_or_dub = "sub"
 yes_list = ["yes", "yeah", "1", "y"]
 no_list = ["no", "nope", "0", "n"]
 
-anime_folder_path = "C:\\Anime"
+anime_folder_path = "C:\Anime"
+default_download_folder_path = None
 
 
+valid_connection = False
+mendokusai = 0
 
-keyword = input("Enter the name of the anime you want to download> ")
+#tests if user has a valid internet connection
+while not valid_connection:
+    print("Testing for a valid internet connection.. .")
+    try:
+        internet_test = requests.get(google_url)
+        print("Success!!!\n")
+        valid_connection = True
+
+    except:
+        mendokusai +=1
+        time.sleep(2)
+        print("Baka you don't have an internet connection")
+        if mendokusai >= 5:
+            print("What a drag\n")
+            mendokusai = 0
+        elif mendokusai < 10:
+            print("\n")
+        time.sleep(5)
+    
 
 #Searches for the anime in the animepahe database
-def Searcher(keyword):
-    full_search_url = home_url+search_url_extension+keyword
-    response = requests.get(full_search_url)
-    results = json.loads(response.content.decode("UTF-8"))["data"]
-    return results
-try:
-    results = Searcher(keyword)
-except:
-    print("Baka you don't have an internet connection")
+def Searcher():
+    try:
+        keyword = input("Enter the name of the anime you want to download> ")
+        full_search_url = home_url+search_url_extension+keyword
+        response = requests.get(full_search_url)
+        results = json.loads(response.content.decode("UTF-8"))["data"]
+        return results
+    except:
+        print("\nI couldn't find that anime maybe check for a spelling error or try a different name? ")
+        return Searcher()
+
 
 
 # In[ ]:
-
 
 #Prompts the user to select the index of the anime they want from a list of the search results and returns the id of the chosen anime
 def AnimeSelection(results):
@@ -75,8 +103,11 @@ def AnimeSelection(results):
         print("Please enter the number belonging to the anime you want from the list below")
         for index, result in enumerate(results):
             print(index+1, result["title"])
-
-        index_of_chosen_anime = int(input("Number> "))-1
+        print("Or if the anime isn't in the list above enter s to search again")
+        try:
+            index_of_chosen_anime = int(input("> "))-1
+        except:
+            return 0, 0
 
         if not index_of_chosen_anime < 0 and not len(results) <= index_of_chosen_anime:
             for index, result in enumerate(results):
@@ -86,22 +117,25 @@ def AnimeSelection(results):
                     return anime_id, anime_title
         else:
             print("\nInvalid number Senpwai")
+            return 0, 0
+        
+anime_id, anime_title = AnimeSelection(Searcher())
 
-anime_id, anime_title = AnimeSelection(results)
+while anime_id == 0 and anime_title == 0:
+   anime_id, anime_title = AnimeSelection(Searcher())
 
 
 # In[ ]:
 
 
-def SetDownloadFolderPath(anime_title):
+def SetDownloadFolderPath():
     
     root = tk.Tk()
     root.withdraw()
 
 # Prompt the user to choose a folder directory
-    folder_path = filedialog.askdirectory(title="Choose folder to put the downloaded anime")
-    download_folder = folder_path+"/"+anime_title
-    download_folder = download_folder.replace("/", "\\\\")
+    download_folder = filedialog.askdirectory(title="Choose folder to put the downloaded anime")
+    download_folder = download_folder.replace("/", "\\")
     try:
         os.mkdir(download_folder)
     except:
@@ -110,15 +144,6 @@ def SetDownloadFolderPath(anime_title):
 
 
 
-download_folder_path = SetDownloadFolderPath(anime_title)
-
-try:
-    os.mkdir(download_folder_path)
-    
-except:
-    pass
-
-download_folder_path = anime_folder_path+"\\"+anime_title
 
 
 # In[ ]:
@@ -190,11 +215,11 @@ download_sizes = DownloadSizes(download_info)
 def DownloadSettings(quality="69", sub_or_dub="69"):
 
     def quality_chooser(quality):
-        if quality == "360p" or quality == "360":
+        if quality == "360p" or quality == "360" or quality == "3" or quality == "60":
             return "360"
-        elif quality == "720p" or quality =="720":
+        elif quality == "720p" or quality =="720" or quality == "7" or quality == "20":
             return "720"
-        elif quality == "1080p" or quality =="1080":
+        elif quality == "1080p" or quality =="1080" or quality == "1" or quality == "80":
             return "1080"
         else:
             return "error"
@@ -217,12 +242,17 @@ def SettingsPrompt():
     quality = ""
     sub_or_dub = ""
     while met_conditions < 2:
-        while DownloadSettings(quality=quality)[0] == "error":
+        quality = DownloadSettings(quality=quality)[0]
+        while quality == "error":
             quality = input("What quality do you want to download in Senpwai uWu? 360p, 720p or 1080p> ").lower()
+            quality = DownloadSettings(quality=quality)[0]
+
         met_conditions+=1
 
-        while DownloadSettings(sub_or_dub=sub_or_dub)[1] == "error":
+        sub_or_dub = DownloadSettings(sub_or_dub=sub_or_dub)[1]
+        while sub_or_dub == "error":
             sub_or_dub = input("Sub or dub> ").lower()
+            sub_or_dub = DownloadSettings(sub_or_dub=sub_or_dub)[1]
         met_conditions+=1
     return quality, sub_or_dub
 
@@ -251,30 +281,43 @@ def SaveSettings():
         print("Would you like to uWuse the following swaved settings?")
         with open(config_path) as config_file:
             config_settings = json.load(config_file)
-            print(f"quality: {config_settings['quality']}p")
-            print(f"{config_settings['sub_or_dub']}")
-        reply = input("> ")
-        if len([y for y in yes_list if y == reply]):
-            quality, sub_or_dub = config_settings["quality"], config_settings["sub_or_dub"]
-            quality, sub_or_dub = DownloadSettings(quality=quality)[0], DownloadSettings(sub_or_dub=sub_or_dub)[1]
-        elif len([n for n in no_list if n == reply]) > 0:
+            print(f"Quality: {config_settings['quality']}")
+            print(f"Default download folder: {config_settings['default_download_folder_path']}")
+            print(f"Sub or dub: {config_settings['sub_or_dub']}")
 
-            quality, sub_or_dub = SettingsPrompt()
-            save_dict = {"quality": quality, "sub_or_dub": sub_or_dub}
-            with open(config_path, "w") as config_file   :
-                json.dump(save_dict, config_file)
+            reply = False
+        while not reply:
+            reply = input("> ")
+            if len([y for y in yes_list if y == reply]) > 0:
+                quality, sub_or_dub = config_settings["quality"], config_settings["sub_or_dub"]
+                default_download_folder_path = config_settings["default_download_folder_path"]
+                quality, sub_or_dub = DownloadSettings(quality=quality)[0], DownloadSettings(sub_or_dub=sub_or_dub)[1]
+                reply = True
+                
+            elif len([n for n in no_list if n == reply]) > 0:
+                quality, sub_or_dub = SettingsPrompt()
+                default_download_folder_path = SetDownloadFolderPath()
+                save_dict = {"quality": quality, "sub_or_dub": sub_or_dub, "default_download_folder_path": default_download_folder_path}
+                with open(config_path, "w") as config_file   :
+                    json.dump(save_dict, config_file)
+                reply = True
+            else:
+                print("I don't understand what you mean. Yes or no?")
+                reply = False
 
     elif not config_path.is_file():
         quality, sub_or_dub = SettingsPrompt()
-        save_dict = {"quality": quality, "sub_or_dub": sub_or_dub}
+        default_download_folder_path = SetDownloadFolderPath()
+        save_dict = {"quality": quality, "sub_or_dub": sub_or_dub, "default_download_folder_path": default_download_folder_path}
         with open(config_path, "w") as config_file   :
             json.dump(save_dict, config_file)
         
-    return quality, sub_or_dub
+    return quality, sub_or_dub, default_download_folder_path
 
 
 
-quality, sub_or_dub = SaveSettings()
+quality, sub_or_dub, default_download_folder_path = SaveSettings()
+download_folder_path = default_download_folder_path+"\\"+anime_title
 
 
 # In[ ]:
@@ -290,10 +333,10 @@ def ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub):
         elif quality == "1080":
             return 2
     quality = quality_initialiser(quality)
-    if sub_or_dub == "sub":
+    if sub_or_dub == "sub" or sub_or_dub == "s":
         configured_download_links = [episode_links[:3] for episode_links in download_links]
         configured_download_sizes = [episode_links[:3] for episode_links in download_sizes]
-    elif sub_or_dub == "dub":
+    elif sub_or_dub == "dub" or sub_or_dub == "d":
         if len(download_links[0]) == 3:
             print("There seems to be no dub for this anime, switching to sub")
             configured_download_links = [episode_links[:3] for episode_links in download_links]
@@ -306,7 +349,7 @@ def ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub):
     configured_download_sizes = [episode_links[quality] for episode_links in configured_download_sizes]
     
     return configured_download_links, configured_download_sizes
-
+print(f"Quality: {quality}")
 configured_download_links, configured_download_sizes = ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub)
 total_download_size = sum(configured_download_sizes)
 
@@ -336,6 +379,7 @@ def DownloadSizeCalculator(configured_download_sizes, download_folder_path):
 #This is some pretty sensitive code especially the file manipulation part, most of it is Supaghetti code and I don't understand how half of it works
 #Alter at your risk, you have been warned
 def DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, anime_title):
+
 
 
 #Installs browser driver manages and checks whether user is using supported browser then creates a webdriver object of the respective browser as a headless browser and returns it
@@ -386,18 +430,24 @@ def DownloadEpisodes(configured_download_links, download_folder_path, configured
             service_edge = EdgeService(executable_path=EdgeChromiumDriverManager().install())
             service_chrome = ChromeService(executable_path=ChromeDriverManager().install())
             service_firefox = FirefoxService(executable_path=GeckoDriverManager().install())
+
+            service_edge.creation_flags =  CREATE_NO_WINDOW
+            service_chrome.creation_flags =  CREATE_NO_WINDOW
+            service_firefox.creation_flags =  CREATE_NO_WINDOW
+            
+            
         
         except:
             return 0
 
 #Checks whether user is using a supported browser then returns a webdriver object for the respective used browser
         try:
-            driver_chrome = webdriver.Chrome(service=service_chrome, options=chrome_options)
-            return driver_chrome
+            driver_edge = webdriver.Edge(service=service_edge, options=edge_options)
+            return driver_edge
         except:
             try:
-                driver_edge = webdriver.Edge(service=service_edge, options=edge_options)
-                return driver_edge
+                driver_chrome = webdriver.Chrome(service=service_chrome, options=chrome_options)
+                return driver_chrome
             except:
                 try:
                     driver_firefox = webdriver.Firefox(service=service_firefox, options=firefox_options)
@@ -442,40 +492,28 @@ def DownloadEpisodes(configured_download_links, download_folder_path, configured
                 return 1
         return 0
     
+
+    #absolute dogshit progress bar, fails half the time XD
     def ProgressBar(total_size, download_folder_path, anime_title, index):
-        file_tmp = pathlib.Path(download_folder_path).glob("*.tmp")
-        file_crdownload = pathlib.Path(download_folder_path).glob("*.crdownload")
+        
 
-        try:        
-            file = next(file_tmp)
-
-        except:
-            try:
-                file = next(file_crdownload)
-            except:
-                return 0
-            
-        file_path = file.resolve()
-
-        try:
-            with tqdm(total=total_size, unit='Mb', unit_scale=True, desc=f'Downloading {anime_title} Episode {index+1}') as progress_bar:
-            # Loop until the download is complete
-                download_complete = False
-                while not download_complete:
-                    # Get the current size of the file being downloaded
-                    current_size = os.path.getsize(file_path)/1000000
-                    # Calculate the progress of the download
-                    # Update the progress bar
-                    progress_bar.update(current_size - progress_bar.n)
-                    # Check if the download is complete
-                    if current_size >= total_size:
-                        download_complete = True
-                progress_bar.desc = f"Completed {anime_title} Episode {index+1}"
-            # Hide the progress bar
-                progress_bar.close()
-        except:
-            print("Failed to load progress bar but the download should continue normally... .I think :o")
-            return 0
+        with tqdm(total=round(total_size), unit='MB', unit_scale=True, desc=f'Downloading {anime_title} Episode {index+1}') as progress_bar:
+        # Loop until the download is complete
+            download_complete = False
+            while not download_complete:
+                download_file = list(pathlib.Path(download_folder_path).glob("*"))
+                current_size = round(os.path.getsize(download_file[-1])/1000000)
+                # Calculate the progress of the download
+                # Update the progress bar
+                progress_bar.update(current_size - progress_bar.n)
+                # Check if the download is complete
+                if current_size >= total_size:
+                    download_complete = True
+            progress_bar.update(total_size-progress_bar.n)
+            progress_bar.set_description(f"Completed {anime_title} Episode {index+1}")
+            progress_bar.close()
+            print("\n")
+       
 
     tmpDeleter(download_folder_path)
     
@@ -487,7 +525,6 @@ def DownloadEpisodes(configured_download_links, download_folder_path, configured
     
     while True:
 
-        try:
             if not CompletionCheck(download_folder_path, total_downloads):
 
                 if file_count < total_downloads:
@@ -508,42 +545,50 @@ def DownloadEpisodes(configured_download_links, download_folder_path, configured
                         server_download_link = server_download_link.replace("/f/", "/d/", 1)
                         #click the download link by submitting a dynamically generated form
                         browser_page.find_element(By.CSS_SELECTOR, 'form[action="%s"]' %server_download_link).submit()
-                        print("Downloading.. .")
                         #wait for the file being downloaded to reflect in the download folder
                         time.sleep(2)
                         file_count+=1
+                        current_time = time.time()
 
                         ProgressBar(configured_download_sizes[index], download_folder_path, anime_title, index)
                         while(StillDownloading(download_folder_path)):
-                            time.sleep(2)
 
+                            if current_time - time.time() > 10800:
+                                browser_page.quit()
                             #if one download takes more than 3 hours then exit as a fail
+                                return 0
+                            time.sleep(2)
+                        #if the first download has completed then open the folder
+                        if index - start_index == 0:
+                            os.startfile(download_folder_path)
+                        
+
 
                     
                 else:
                     #wait before checking for completion again
                     time.sleep(2)
+            else:
+                browser_page.quit()
+                return 1
 
 
         
     
-        except:
-                return 0
 
 
-def DownloadStatus(download_status):
+def DownloadStatus(download_status, download_folder_path):
     if download_status:
         return "All downloads completed succesfully, Senpwai ga saikyou no stando Da MUDA"
     elif not download_status:
-        return "Error while trying to download, you probably don't have an internet connection, Baka. Or something goofy happened on my end. Please try again uWu"
+        return "Error while trying to download, you probably don't have an internet connection, Baka. Or something goofy happened on my end. Please try again uWu\nAlready downloaded episodes will be ignored, you can count on me"
 
 
 
-prompt_reply = input(f"The total download size is {DownloadSizeCalculator(configured_download_sizes, download_folder_path)} MB")
+prompt_reply = input(f"The total download size is {DownloadSizeCalculator(configured_download_sizes, download_folder_path)} MB. Continue? ")
 if len([y for y in yes_list if y == prompt_reply]) > 0:
-    print("I will try my best to skip files that are already downloaded, Gambarimasu")
     print("Let me cook")
-    print(DownloadStatus(DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, anime_title)))
+    print(DownloadStatus(DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, anime_title)), download_folder_path)
 
 elif len([n for n in no_list if n == prompt_reply]) > 0:
     print("Sadge :(")
