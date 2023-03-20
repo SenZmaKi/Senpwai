@@ -10,7 +10,6 @@ import json
 import re
 from bs4 import BeautifulSoup
 
-from selenium.webdriver.remote.remote_connection import LOGGER
 
 
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
@@ -54,8 +53,8 @@ sub_or_dub = "sub"
 yes_list = ["yes", "yeah", "1", "y"]
 no_list = ["no", "nope", "0", "n"]
 
-anime_folder_path = "C:\Anime"
 default_download_folder_path = None
+senpwai_stuff_path = "C:\\Senpwai_stuff"
 
 
 valid_connection = False
@@ -76,7 +75,7 @@ while not valid_connection:
         if mendokusai >= 5:
             print("What a drag\n")
             mendokusai = 0
-        elif mendokusai < 10:
+        elif mendokusai < 5:
             print("\n")
         time.sleep(5)
     
@@ -132,10 +131,11 @@ def SetDownloadFolderPath():
     
     root = tk.Tk()
     root.withdraw()
-
 # Prompt the user to choose a folder directory
     download_folder = filedialog.askdirectory(title="Choose folder to put the downloaded anime")
+    download_folder.replace("\\\\", "\\")
     download_folder = download_folder.replace("/", "\\")
+    print(download_folder)
     try:
         os.mkdir(download_folder)
     except:
@@ -264,9 +264,7 @@ def SettingsPrompt():
 # In[ ]:
 
 
-def SaveSettings():
-    senpwai_stuff_path = anime_folder_path+"\\Senpwai stuff"
-
+def SaveSettings(senpwai_stuff_path):
     try:
         os.mkdir(senpwai_stuff_path)
     except:
@@ -315,9 +313,8 @@ def SaveSettings():
     return quality, sub_or_dub, default_download_folder_path
 
 
-
-quality, sub_or_dub, default_download_folder_path = SaveSettings()
-download_folder_path = default_download_folder_path+"\\"+anime_title
+quality, sub_or_dub, default_download_folder_path = SaveSettings(senpwai_stuff_path)
+download_folder_path = default_download_folder_path+anime_title
 
 
 # In[ ]:
@@ -349,7 +346,6 @@ def ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub):
     configured_download_sizes = [episode_links[quality] for episode_links in configured_download_sizes]
     
     return configured_download_links, configured_download_sizes
-print(f"Quality: {quality}")
 configured_download_links, configured_download_sizes = ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub)
 total_download_size = sum(configured_download_sizes)
 
@@ -502,13 +498,17 @@ def DownloadEpisodes(configured_download_links, download_folder_path, configured
             download_complete = False
             while not download_complete:
                 download_file = list(pathlib.Path(download_folder_path).glob("*"))
-                current_size = round(os.path.getsize(download_file[-1])/1000000)
-                # Calculate the progress of the download
-                # Update the progress bar
-                progress_bar.update(current_size - progress_bar.n)
-                # Check if the download is complete
-                if current_size >= total_size:
+                try:
+                    # Calculate the progress of the download
+                    current_size = round(os.path.getsize(download_file[-1])/1000000)
+                    # Update the progress bar
+                    progress_bar.update(current_size - progress_bar.n)
+                    # Check if the download is complete
+                    if current_size >= total_size:
+                        download_complete = True
+                except:
                     download_complete = True
+                    pass
             progress_bar.update(total_size-progress_bar.n)
             progress_bar.set_description(f"Completed {anime_title} Episode {index+1}")
             progress_bar.close()
@@ -529,22 +529,27 @@ def DownloadEpisodes(configured_download_links, download_folder_path, configured
 
                 if file_count < total_downloads:
                     for index in range(start_index, total_downloads):
-                        files = pathlib.Path(download_folder_path).glob("*")
+                        page_not_found = True
+                        while page_not_found:
+                            try:
+                                files = pathlib.Path(download_folder_path).glob("*")
 
-                        #Selenium is used causse of the dynamically generated content
-                        #get the pahewin predownload page
-                        browser_page.get(configured_download_links[index])
-                        #wait for the link to be dynamically generated
-                        time.sleep(6)
-                        #parse the new page with the link to the download page then search for the ddownload link
-                        soup = BeautifulSoup(browser_page.page_source, "html.parser")
-                        server_download_link = soup.find_all("a", class_="btn btn-primary btn-block redirect")[0]["href"]
-                        #get the final download page
+                                #Selenium is used causse of the dynamically generated content
+                                #get the pahewin predownload page
+                                browser_page.get(configured_download_links[index])
+                                #wait for the link to be dynamically generated
+                                time.sleep(6)
+                                #parse the new page with the link to the download page then search for the ddownload link
+                                soup = BeautifulSoup(browser_page.page_source, "html.parser")
+                                server_download_link = soup.find_all("a", class_="btn btn-primary btn-block redirect")[0]["href"]
+                                #get the final download page
 
-                        browser_page.get(server_download_link)                       
-                        server_download_link = server_download_link.replace("/f/", "/d/", 1)
-                        #click the download link by submitting a dynamically generated form
-                        browser_page.find_element(By.CSS_SELECTOR, 'form[action="%s"]' %server_download_link).submit()
+                                browser_page.get(server_download_link)                       
+                                server_download_link = server_download_link.replace("/f/", "/d/", 1)
+                                #click the download link by submitting a dynamically generated form
+                                browser_page.find_element(By.CSS_SELECTOR, 'form[action="%s"]' %server_download_link).submit()
+                            except:
+                                page_not_found = False
                         #wait for the file being downloaded to reflect in the download folder
                         time.sleep(2)
                         file_count+=1
@@ -577,7 +582,7 @@ def DownloadEpisodes(configured_download_links, download_folder_path, configured
     
 
 
-def DownloadStatus(download_status, download_folder_path):
+def DownloadStatus(download_status):
     if download_status:
         return "All downloads completed succesfully, Senpwai ga saikyou no stando Da MUDA"
     elif not download_status:
@@ -588,7 +593,7 @@ def DownloadStatus(download_status, download_folder_path):
 prompt_reply = input(f"The total download size is {DownloadSizeCalculator(configured_download_sizes, download_folder_path)} MB. Continue? ")
 if len([y for y in yes_list if y == prompt_reply]) > 0:
     print("Let me cook")
-    print(DownloadStatus(DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, anime_title)), download_folder_path)
+    print(DownloadStatus(DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, anime_title)))
 
 elif len([n for n in no_list if n == prompt_reply]) > 0:
     print("Sadge :(")
