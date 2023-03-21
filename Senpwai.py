@@ -65,22 +65,24 @@ valid_connection = False
 mendokusai = 0
 download_again = True
 
+print(" Hewwo\n")
+
 #main program loop
 while download_again:
 #tests if user has a valid internet connection
     while not valid_connection:
-        print("Testing for a valid internet connection.. .")
+        print(" Testing for a valid internet connection.. .")
         try:
             internet_test = requests.get(google_url)
-            print("Success!!!\n")
+            print(" Success!!!\n")
             valid_connection = True
 
         except:
             mendokusai +=1
             time.sleep(2)
-            print("Baka you don't have an internet connection")
+            print(" Baka you don't have an internet connection")
             if mendokusai >= 5:
-                print("What a drag\n")
+                print(" What a drag\n")
                 mendokusai = 0
             elif mendokusai < 5:
                 print("\n")
@@ -90,13 +92,13 @@ while download_again:
     #Searches for the anime in the animepahe database
     def Searcher():
         try:
-            keyword = input("Enter the name of the anime you want to download> ")
+            keyword = input(" Enter the name of the anime you want to download> ")
             full_search_url = home_url+search_url_extension+keyword
             response = requests.get(full_search_url)
             results = json.loads(response.content.decode("UTF-8"))["data"]
             return results
         except:
-            print("\nI couldn't find that anime maybe check for a spelling error or try a different name? ")
+            print("\n I couldn't find that anime maybe check for a spelling error or try a different name? ")
             return Searcher()
 
 
@@ -106,10 +108,10 @@ while download_again:
     #Prompts the user to select the index of the anime they want from a list of the search results and returns the id of the chosen anime
     def AnimeSelection(results):
         while "anime_id" not in locals():    
-            print("Please enter the number belonging to the anime you want from the list below")
+            print(" Please enter the number belonging to the anime you want from the list below")
             for index, result in enumerate(results):
-                print(f" {index+1} {result['title']}")
-            print("Or if the anime isn't in the list above enter s to search again")
+                print(f"  {index+1} {result['title']}")
+            print(" Or if the anime isn't in the list above enter s to search again")
             try:
                 index_of_chosen_anime = int(input("> "))-1
             except:
@@ -122,7 +124,7 @@ while download_again:
                         anime_title = result["title"]
                         return anime_id, anime_title
             else:
-                print("\nInvalid number Senpwai")
+                print("\n Invalid number Senpai")
                 return 0, 0
             
     anime_id, anime_title = AnimeSelection(Searcher())
@@ -153,7 +155,7 @@ while download_again:
 
     # In[ ]:
 
-    print("Just give me a moment, choto choto")
+    print(" Just give me a moment, choto choto :P")
 
     #Issues a GET request to the server together with the id of the anime and returns a list of the links(not donwload links) to all the episodes of that anime
     def EpisodeLinks(anime_id):
@@ -249,7 +251,7 @@ while download_again:
         while met_conditions < 2:
             quality = DownloadSettings(quality=quality)[0]
             while quality == "error":
-                quality = input("What quality do you want to download in Senpwai uWu? 360p, 720p or 1080p> ").lower()
+                quality = input("What quality do you want to download in uWu? 360p, 720p or 1080p> ").lower()
                 quality = DownloadSettings(quality=quality)[0]
 
             met_conditions+=1
@@ -281,12 +283,12 @@ while download_again:
 
     #if there is a config file then prompt the user on whether they want to use the saved settings
         if config_path.is_file():
-            print("Would you like to uWuse the following swaved settings?")
+            print(" Would you like to uWuse the following swaved settings?")
             with open(config_path) as config_file:
                 config_settings = json.load(config_file)
-                print(f"Quality: {config_settings['quality']}")
-                print(f"Default download folder: {config_settings['default_download_folder_path']}")
-                print(f"Sub or dub: {config_settings['sub_or_dub']}")
+                print(f" Quality: {config_settings['quality']}")
+                print(f" Default download folder: {config_settings['default_download_folder_path']}")
+                print(f" Sub or dub: {config_settings['sub_or_dub']}")
 
                 reply = False
             while not reply:
@@ -305,7 +307,7 @@ while download_again:
                         json.dump(save_dict, config_file)
                     reply = True
                 else:
-                    print("I don't understand what you mean. Yes or no?")
+                    print(" I don't understand what you mean. Yes or no?")
                     reply = False
 
         elif not config_path.is_file():
@@ -340,7 +342,7 @@ while download_again:
             configured_download_sizes = [episode_links[:3] for episode_links in download_sizes]
         elif sub_or_dub == "dub" or sub_or_dub == "d":
             if len(download_links[0]) == 3:
-                print("There seems to be no dub for this anime, switching to sub")
+                print(" There seems to be no dub for this anime, switching to sub")
                 configured_download_links = [episode_links[:3] for episode_links in download_links]
                 configured_download_sizes = [episode_links[:3] for episode_links in download_sizes]
             elif len(download_links[0]) == 6:
@@ -364,30 +366,7 @@ while download_again:
                 #deletes the temporary file
                 f.unlink()
 
-    def DownloadSizeCalculator(configured_download_sizes, download_folder_path):
-        running_instance = True
-        while running_instance:
-            try:
-                tmpDeleter(download_folder_path)
-                running_instance = False
-            except:
-                print("Please restart your computer, this program uses a headless browser and there seems to be one that has gone rogue :O")
-                print("And it is 1 billion percent not my fault :O")
-                print("Or you can try and cancel any paused downloads that you find running in the background\n")
-                time.sleep(5)
-
-        files = pathlib.Path(download_folder_path).glob("*")
-        file_count = len(list(files))
-        print("I can either automatically detect the currently downloaded episodes in the folder then download ALL the missing ones for example if there are no episodes I will start downloading from episode one and so on OR you can enter the episode from which you want to start downloading from")
-        print("if the automatic detection causes errors then restart and just specify the episode to start downloading from")
-        reply = input("Enter d to automatically detect or enter the episode number to start from a specific episode> ")
-        try:
-            file_count = int(reply)-1
-            download_size = sum(configured_download_sizes[file_count:])
-        except:
-            download_size = sum(configured_download_sizes[file_count:])
-
-        return download_size, file_count
+    
 
     # In[ ]:
 
@@ -396,14 +375,14 @@ while download_again:
     #Automates download process
     #This is some pretty sensitive code especially the file manipulation part, most of it is Supaghetti code and I don't understand how half of it works
     #Alter at your risk, you have been warned
-    def DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, file_count, anime_title):
-        #with the way winows handles stuff without this line the anime wont be able to be downloaded to the C:\\ drive or D:\\ annoying ass bug
+    def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes, download_folder_path, anime_title):
+        #with the way windows handles stuff without this line the anime wont be able to be downloaded to the C:\\ drive or D:\\ annoying ass bug
         fixed_download_folder_path = download_folder_path.replace("\\\\", "\\")
 
 
 
 
-    #Installs browser driver manages and checks whether user is using supported browser then creates a webdriver object of the respective browser as a headless browser and returns it
+    #Installs browser driver manager and checks whether user is using supported browser then creates a webdriver object of the respective browser as a headless browser and returns it
         def SupportedBrowserCheck():
 
         #configures the settings for the headless browser
@@ -470,7 +449,7 @@ while download_again:
                     driver_chrome = webdriver.Chrome(service=service_chrome, options=chrome_options)
                     return driver_chrome
                 except:
-                    print("Sowwy the onwy supported browsers are Chrome, Edge")
+                    print(" Sowwy the onwy supported browsers are Chrome, Edge")
                     webbrowser.open_new("https://google.com/chrome")
 
         browser_page = SupportedBrowserCheck()
@@ -484,16 +463,15 @@ while download_again:
 
 
         #Check whether downloads are complete and returns True or False
-        def CompletionCheck(download_folder_path, total_downloads):
-            files = pathlib.Path(download_folder_path).glob("*")
-            file_count = len(list(files))
+        def CompletionCheck(download_folder_path, total_downloads, file_count):
+
             files = pathlib.Path(download_folder_path).glob("*")
         #search for .tmp or .crdownload file which means downloads are still in progress
             for f in files:
                 if f.suffix == ".crdownload" or f.suffix == ".tmp":
                     time.sleep(2)
                     return 0
-        #check if the the number of files is is less than the total number of files to be download
+        #check if the the number of files is less than the total number of files to be downloaded, assuming files already in the folder are downloaded files
         #note this MUST execute after we have checked for temporary files otherwise a file being downloaded will be counted as a complete file
             if file_count < total_downloads:
                 return 0
@@ -510,22 +488,25 @@ while download_again:
         
 
         #absolute dogshit progress bar, fails half the time XD
-        def ProgressBar(total_size, download_folder_path, anime_title, index):
+        def ProgressBar(episode_size, download_folder_path, anime_title, index):
             
 
-            with tqdm(total=round(total_size), unit='MB', unit_scale=True, desc=f'Downloading {anime_title} Episode {index+1}') as progress_bar:
+            with tqdm(total=round(episode_size), unit='MB', unit_scale=True, desc=f'Downloading {anime_title} Episode {index+1}') as progress_bar:
             # Loop until the download is complete
                 download_complete = False
                 error = False
                 while not download_complete and not error:
                     try:
-                        download_file = list(pathlib.Path(download_folder_path).glob("*"))
+                        file_paths = list(pathlib.Path(download_folder_path).glob("*"))
+                        # Sort the list by the creation time of the files
+                        file_paths.sort(key=lambda x: os.path.getctime(x))
+                        downloading_file = file_paths[-1]
                         # Calculate the progress of the download
-                        current_size = round(os.path.getsize(download_file[-1])/1000000)
+                        current_size = round(os.path.getsize(downloading_file)/1000000)
                         # Update the progress bar
                         progress_bar.update(current_size - progress_bar.n)
                         # Check if the download is complete
-                        if current_size >= total_size:
+                        if current_size >= episode_size:
                             download_complete = True
                     except:
                         error = True
@@ -533,9 +514,10 @@ while download_again:
                         progress_bar.close()
                         pass
                 if not error:
-                    progress_bar.update(total_size-progress_bar.n)
+                    progress_bar.update(episode_size-progress_bar.n)
                     progress_bar.set_description(f"Completed {anime_title} Episode {index+1}")
                     progress_bar.close()
+                print("\n")
 
         def exit_handler(browser_page):
 
@@ -548,75 +530,81 @@ while download_again:
 
         tmpDeleter(download_folder_path)
         
-        start_index = file_count
-        total_downloads = len(configured_download_links)-file_count
+        #keeps track of the number of currently downloaded files
+        file_count = 0
+        #total number of files to be downloaded
+        total_downloads = len(predicted_episodes_links)
 
-        print("Give me a sec master")
+        print(" Give me a sec Senpai")
 
-        try:
-            while True:
-                    
-                    atexit.register(exit_handler, browser_page)
+        while True:
+                
+                atexit.register(exit_handler, browser_page)
 
-                    if not CompletionCheck(download_folder_path, total_downloads):
+                if not CompletionCheck(download_folder_path, total_downloads, file_count):
 
-                        if file_count < len(configured_download_links):
-                            for index in range(start_index, len(configured_download_links)):
-                                page_not_found = True
-                                while page_not_found:
-                                    try:
+                    for index in range(total_downloads):
+                        page_not_found = True
+                        while page_not_found:
+                            try:
 
-                                        #Selenium is used causse of the dynamically generated content
-                                        #get the pahewin predownload page
-                                        browser_page.get(configured_download_links[index])
-                                        #wait for the link to be dynamically generated
-                                        time.sleep(6)
-                                        print("Working on it.. .")
-                                        #parse the new page with the link to the download page then search for the ddownload link
-                                        soup = BeautifulSoup(browser_page.page_source, "html.parser")
-                                        server_download_link = soup.find_all("a", class_="btn btn-primary btn-block redirect")[0]["href"]
-                                        #get the final download page
+                                #Selenium is used cause of the dynamically generated content
+                                #get the pahewin predownload page
+                                browser_page.get(predicted_episodes_links[index])
+                                #wait for the link to be dynamically generated
+                                time.sleep(6)
+                                print(" ( ⚆ _ ⚆) Working on it.. .")
+                                #parse the new page with the link to the download page then search for the ddownload link
+                                soup = BeautifulSoup(browser_page.page_source, "html.parser")
+                                server_download_link = soup.find_all("a", class_="btn btn-primary btn-block redirect")[0]["href"]
+                                #get the final download page
 
-                                        browser_page.get(server_download_link)                       
-                                        server_download_link = server_download_link.replace("/f/", "/d/", 1)
-                                        #click the download link by submitting a dynamically generated form
-                                        browser_page.find_element(By.CSS_SELECTOR, 'form[action="%s"]' %server_download_link).submit()
-                                        page_not_found = False
-                                    except:
-                                        page_not_found = False
-                                #wait for the file being downloaded to reflect in the download folder
-                                time.sleep(2)
-                                file_count+=1
-                                current_time = time.time()
+                                browser_page.get(server_download_link)                       
+                                server_download_link = server_download_link.replace("/f/", "/d/", 1)
+                                #click the download link by submitting a dynamically generated form
+                                browser_page.find_element(By.CSS_SELECTOR, 'form[action="%s"]' %server_download_link).submit()
+                                page_not_found = False
+                            except:
+                                page_not_found = False
+                        #wait for the file being downloaded to reflect in the download folder
+                        time.sleep(2)
+                        file_count+=1
+                        current_time = time.time()
 
-                                ProgressBar(configured_download_sizes[index], download_folder_path, anime_title, index)
-                                while(StillDownloading(download_folder_path)):
+                        episode_index = predicted_episodes_indices[index]
+                        ProgressBar(predicted_episodes_sizes[index], download_folder_path, anime_title, episode_index)
+                        while(StillDownloading(download_folder_path)):
 
-                                    if current_time - time.time() > 10800:
-                                        browser_page.quit()
-                                    #if one download takes more than 3 hours then exit as a fail
-                                        return 0
-                                    time.sleep(2)
-                                #if the first download has completed then open the folder
-                                if index - start_index == 0:
-                                    os.startfile(download_folder_path)
-                                
-
-
-                            
-                        else:
-                            #wait before checking for completion again
+                            if current_time - time.time() > 10800:
+                                browser_page.quit()
+                            #if one download takes more than 3 hours then exit as a fail
+                                return 0
                             time.sleep(2)
-                    else:
-                        browser_page.quit()
-                        os.startfile(download_folder_path)
-                        return 1
-        except:
-            try:
-                browser_page.quit()
-                return 0
-            except:
-                return 0
+                        file_paths = list(pathlib.Path(download_folder_path).glob("*"))
+                        # Sort the list by the creation time of the files
+                        file_paths.sort(key=lambda x: os.path.getctime(x))
+                        downloaded_file = file_paths[-1]                            
+                        episode_number = str(episode_index+1)
+                        new_episode_name = anime_title+" Episode "+episode_number+".mp4"
+
+                        new_folder_path = os.path.dirname(downloaded_file)
+                        new_file_path = os.path.join(new_folder_path, new_episode_name)
+                        os.rename(downloaded_file, new_file_path)
+                        
+                        if file_count-1 == 0:
+                        #if the first download has completed then open the folder
+                            os.startfile(new_folder_path)
+                        
+
+
+                    
+
+                else:
+                    browser_page.quit()
+                    #If the last download is complete then open the folder again
+                    os.startfile(new_folder_path)
+                    return 1
+        
 
 
             
@@ -625,36 +613,100 @@ while download_again:
 
     def DownloadStatus(download_status):
         if download_status:
-            return "All downloads completed succesfully, Senpwai ga saikyou no stando Da MUDA"
+            return " All downloads completed succesfully ↖(^▽^)↗ , Senpwai ga saikyou no stando Da MUDA"
         elif not download_status:
-            return "Error while trying to download, you probably don't have an internet connection, Baka. Or something goofy happened on my end. Please try again uWu\nAlready downloaded episodes will be ignored, you can count on me"
+            return " Error while trying to download (⌣̩̩́_⌣̩̩̀) , you probably don't have an internet connection. Or something goofy happened on my end. Please try again uWu\nAlready downloaded episodes will be ignored, you can count on me"
 
 
     def ContinueLooper():
-        print("Would you like to continue downloading anime?")
+        print(" Would you like to continue downloading anime?")
         reply = input("> ")
         if len([n for n in no_list if n == reply]) > 0:
-            print("\nExiting.. .")
+            print("\n Exiting.. .")
             time.sleep(5)
             return False
         elif len([y for y in yes_list if y == reply]) > 0:
             return True
+    
+    #Predicts which episodes to download
+    def DynamicEpisodePredictor(download_folder_path, configured_download_links, configured_download_sizes, anime_title, start_index):
+        
+        #pattern to find the episode files in the current defeault download folder
+        #common ChatGpt W
+        pattern = re.compile(r'\b{}\s+Episode\s+(\d+)\D.*'.format(anime_title))
+        files = list(pathlib.Path(download_folder_path).glob("*"))
 
-    calculated_download_size, file_count = DownloadSizeCalculator(configured_download_sizes, download_folder_path)
+        already_available_episodes_indices = []
+        for file_path in files:
+            match = pattern.search(str(file_path))
+            if match:
+                episode_number = int(match.group(1))
+                #Computer the indices of the already available episodes
+                already_available_episodes_indices.append(episode_number-1)
+            
+        #Compute the indices of the episodes to be downloaded
+        #Only add an episode if it's not in the already available episodes AND it's not an untracked episode i.e when the user specifies where to start
+        predicted_episodes_indices = [episode_index for episode_index in range(len(configured_download_links)) if episode_index not in already_available_episodes_indices and episode_index >= start_index]
+
+        predicted_episodes_links = [configured_download_links[predicted_episode_link] for predicted_episode_link in predicted_episodes_indices]
+        predicted_episodes_sizes = [configured_download_sizes[predicted_episode_size] for predicted_episode_size in predicted_episodes_indices]
+        return predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes
+    
+    def DownloadSizeCalculator(predicted_episodes_sizes, download_folder_path):
+        running_instance = True
+        while running_instance:
+            try:
+                tmpDeleter(download_folder_path)
+                running_instance = False
+            except:
+                print(" Please restart your computer, this program uses a headless browser and there seems to be one that has gone rogue :O")
+                print(" And it is 1 billion percent not my fault :O")
+                print(" Or you can try and cancel any paused downloads that you find running in the background\n")
+                time.sleep(5)
+        return sum(predicted_episodes_sizes)
+
+
+
+    def StartEpisodePrompt(configured_download_links):
+        print("I can either automatically detect the currently downloaded episodes in the folder then download ONLY the missing ones for example if there are no episodes I will start downloading from episode one and so on OR you can enter the episode from which you want to start downloading from")
+        reply = input(" Enter d to automatically detect or enter the episode number to start from a specific episode> ")
+        try:
+            start_index = int(reply)-1
+            try:
+                configured_download_links[start_index]
+                return start_index
+            except: 
+                while True:
+                    start_index = int(input("Enter a valid Episode, (*/\*) bakayarou> "))-1
+                    try:
+                        configured_download_links[start_index]
+                        return start_index
+                    except:
+                        pass
+        except:
+            return 0
+
+    start_index = StartEpisodePrompt(configured_download_links)
+    predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes = DynamicEpisodePredictor(download_folder_path, configured_download_links, configured_download_sizes, anime_title, start_index)
+    calculated_download_size = DownloadSizeCalculator(predicted_episodes_sizes, download_folder_path)
+
     prompt_reply = input(f"The total download size is {calculated_download_size} MB. Continue? ")
     if len([y for y in yes_list if y == prompt_reply]) > 0:
-        print("If you experience any glitches, crashes, errors or failed downloads just restart the app :O\nIf they persist check https://github.com/SenZmaKi/Senpwai for a new version of me\nOr post your issue on https://github.com/SenZmaKi/Senpwai/issues for my creator to hopefully address it\n")
-        print("Hol up let me cook")
-        print("Getting things ready.. .")
-        print(DownloadStatus(DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, file_count, anime_title)))
+        print(" If you experience any glitches, crashes, errors or failed downloads just restart the app :O\n If they persist check https://github.com/SenZmaKi/Senpwai for a new version of me\n Or post your issue on https://github.com/SenZmaKi/Senpwai/issues for my creator to hopefully address it\n")
+        print(" Hol up let me cook")
+        print(" Getting things ready.. .")
+        if calculated_download_size > 0:
+            print(DownloadStatus(DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes, download_folder_path, anime_title)))
+        elif calculated_download_size <= 0:
+            print(" Oe, baka, there's nothing to download (-_-) ")
         download_again = ContinueLooper()
         
         exit = True
     elif len([n for n in no_list if n == prompt_reply]) > 0:
-        print("Sadge :(")
+        print(" Sadge :C")
         download_again = ContinueLooper()
 
-print("Sugoma")
+print(" ( ͡° ͜ʖ ͡°) Sayonara")
 
 
 # In[ ]:
