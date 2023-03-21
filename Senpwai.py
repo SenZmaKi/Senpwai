@@ -44,6 +44,8 @@ from tqdm import tqdm as tqdm
 
 from subprocess import CREATE_NO_WINDOW
 
+import atexit
+
 home_url = "https://animepahe.ru/"
 google_url = "https://google.com"
 anime_url = home_url+"anime/"
@@ -370,14 +372,22 @@ while download_again:
                 running_instance = False
             except:
                 print("Please restart your computer, this program uses a headless browser and there seems to be one that has gone rogue :O")
-                print("And it is 1 billion percent not my fault :O\n")
+                print("And it is 1 billion percent not my fault :O")
+                print("Or you can try and cancel any paused downloads that you find running in the background\n")
                 time.sleep(5)
 
         files = pathlib.Path(download_folder_path).glob("*")
         file_count = len(list(files))
-        download_size = sum(configured_download_sizes[file_count:])
-        return download_size
+        print("I can either automatically detect the currently downloaded episodes in the folder then download ALL the missing ones for example if there are no episodes I will start downloading from episode one and so on OR you can enter the episode from which you want to start downloading from")
+        print("if the automatic detection causes errors then restart and just specify the episode to start downloading from")
+        reply = input("Enter d to automatically detect or enter the episode number to start from a specific episode> ")
+        try:
+            file_count = int(reply)-1
+            download_size = sum(configured_download_sizes[file_count:])
+        except:
+            download_size = sum(configured_download_sizes[file_count:])
 
+        return download_size, file_count
 
     # In[ ]:
 
@@ -386,7 +396,7 @@ while download_again:
     #Automates download process
     #This is some pretty sensitive code especially the file manipulation part, most of it is Supaghetti code and I don't understand how half of it works
     #Alter at your risk, you have been warned
-    def DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, anime_title):
+    def DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, file_count, anime_title):
         #with the way winows handles stuff without this line the anime wont be able to be downloaded to the C:\\ drive or D:\\ annoying ass bug
         fixed_download_folder_path = download_folder_path.replace("\\\\", "\\")
 
@@ -527,30 +537,41 @@ while download_again:
                     progress_bar.set_description(f"Completed {anime_title} Episode {index+1}")
                     progress_bar.close()
 
+        def exit_handler(browser_page):
+
+            try:
+                browser_page.quit()
+                return 0
+            except:
+                return 0
+
+
         tmpDeleter(download_folder_path)
         
-        files = pathlib.Path(download_folder_path).glob("*")
-        file_count = len(list(files))
         start_index = file_count
-        total_downloads = len(configured_download_links)
+        total_downloads = len(configured_download_links)-file_count
+
+        print("Give me a sec master")
 
         try:
             while True:
+                    
+                    atexit.register(exit_handler, browser_page)
 
                     if not CompletionCheck(download_folder_path, total_downloads):
 
-                        if file_count < total_downloads:
-                            for index in range(start_index, total_downloads):
+                        if file_count < len(configured_download_links):
+                            for index in range(start_index, len(configured_download_links)):
                                 page_not_found = True
                                 while page_not_found:
                                     try:
-                                        files = pathlib.Path(download_folder_path).glob("*")
 
                                         #Selenium is used causse of the dynamically generated content
                                         #get the pahewin predownload page
                                         browser_page.get(configured_download_links[index])
                                         #wait for the link to be dynamically generated
                                         time.sleep(6)
+                                        print("Working on it.. .")
                                         #parse the new page with the link to the download page then search for the ddownload link
                                         soup = BeautifulSoup(browser_page.page_source, "html.parser")
                                         server_download_link = soup.find_all("a", class_="btn btn-primary btn-block redirect")[0]["href"]
@@ -619,12 +640,13 @@ while download_again:
         elif len([y for y in yes_list if y == reply]) > 0:
             return True
 
-    prompt_reply = input(f"The total download size is {DownloadSizeCalculator(configured_download_sizes, download_folder_path)} MB. Continue? ")
+    calculated_download_size, file_count = DownloadSizeCalculator(configured_download_sizes, download_folder_path)
+    prompt_reply = input(f"The total download size is {calculated_download_size} MB. Continue? ")
     if len([y for y in yes_list if y == prompt_reply]) > 0:
         print("If you experience any glitches, crashes, errors or failed downloads just restart the app :O\nIf they persist check https://github.com/SenZmaKi/Senpwai for a new version of me\nOr post your issue on https://github.com/SenZmaKi/Senpwai/issues for my creator to hopefully address it\n")
         print("Hol up let me cook")
         print("Getting things ready.. .")
-        print(DownloadStatus(DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, anime_title)))
+        print(DownloadStatus(DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, file_count, anime_title)))
         download_again = ContinueLooper()
         
         exit = True
