@@ -506,7 +506,8 @@ while download_again:
             with tqdm(total=round(total_size), unit='MB', unit_scale=True, desc=f'Downloading {anime_title} Episode {index+1}') as progress_bar:
             # Loop until the download is complete
                 download_complete = False
-                while not download_complete:
+                error = False
+                while not download_complete and not error:
                     try:
                         download_file = list(pathlib.Path(download_folder_path).glob("*"))
                         # Calculate the progress of the download
@@ -517,13 +518,14 @@ while download_again:
                         if current_size >= total_size:
                             download_complete = True
                     except:
-                        download_complete = True
+                        error = True
+                        progress_bar.set_description(f"Error tracking download of Episode {index+1}")
+                        progress_bar.close()
                         pass
-                progress_bar.update(total_size-progress_bar.n)
-                progress_bar.set_description(f"Completed {anime_title} Episode {index+1}")
-                progress_bar.close()
-                print("\n")
-        
+                if not error:
+                    progress_bar.update(total_size-progress_bar.n)
+                    progress_bar.set_description(f"Completed {anime_title} Episode {index+1}")
+                    progress_bar.close()
 
         tmpDeleter(download_folder_path)
         
