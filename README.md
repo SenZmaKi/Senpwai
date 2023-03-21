@@ -1,4 +1,4 @@
-# Senpwai v1.0
+# Senpwai
 
 Python script that automates downloading anime from animepahe.ru
 
@@ -32,8 +32,6 @@ Once you clone the repository run
 to install all the libraries I used in your virtual environment
 
 Then just run the code as you would normally do
-
-I would advise using the .py file stead of the .ipynb cause I simply converted the .py to a notebook so the notebook has a lot of syntax errors
 
 You can also just download the file stead of cloning then follow the same process
 
