@@ -21,9 +21,11 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver import ChromeOptions
 
-from webdriver_manager.firefox import GeckoDriverManager
-from selenium.webdriver.firefox.service import Service as FirefoxService
-from selenium.webdriver import FirefoxOptions
+
+#Working on firefox support
+#from webdriver_manager.firefox import GeckoDriverManager
+#from selenium.webdriver.firefox.service import Service as FirefoxService
+#from selenium.webdriver import FirefoxOptions
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -396,25 +398,25 @@ while download_again:
         #configures the settings for the headless browser
             edge_options = EdgeOptions()
             chrome_options = ChromeOptions()
-            firefox_options = FirefoxOptions()
+            #firefox_options = FirefoxOptions()
 
             edge_options.add_argument("--headless=new")
             chrome_options.add_argument("--headless=new")
-            firefox_options.add_argument("--headless=new")
+            #firefox_options.add_argument("--headless=new")
 
 
             edge_options.add_argument('--disable-extensions')
             chrome_options.add_argument('--disable-extensions')
-            firefox_options.add_argument('--disable-extensions')
+            #firefox_options.add_argument('--disable-extensions')
             
             
             edge_options.add_argument('--disable-infobars')
             chrome_options.add_argument('--disable-infobars')
-            firefox_options.add_argument('--disable-infobars')
+            #firefox_options.add_argument('--disable-infobars')
             
             edge_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--no-sandbox')
-            firefox_options.add_argument('--no-sandbox')
+            #firefox_options.add_argument('--no-sandbox')
 
             edge_options.add_experimental_option("prefs", {
                 "download.default_directory": download_folder_path,
@@ -437,11 +439,11 @@ while download_again:
             try:
                 service_edge = EdgeService(executable_path=EdgeChromiumDriverManager().install())
                 service_chrome = ChromeService(executable_path=ChromeDriverManager().install())
-                service_firefox = FirefoxService(executable_path=GeckoDriverManager().install())
+                #service_firefox = FirefoxService(executable_path=GeckoDriverManager().install())
 
                 service_edge.creation_flags =  CREATE_NO_WINDOW
                 service_chrome.creation_flags =  CREATE_NO_WINDOW
-                service_firefox.creation_flags =  CREATE_NO_WINDOW
+                #service_firefox.creation_flags =  CREATE_NO_WINDOW
                 
                 
             
@@ -457,13 +459,8 @@ while download_again:
                     driver_chrome = webdriver.Chrome(service=service_chrome, options=chrome_options)
                     return driver_chrome
                 except:
-                    try:
-                        driver_firefox = webdriver.Firefox(service=service_firefox, options=firefox_options)
-                        print("Setting default anime download location is unsupported in firefox, so check your default browser download location")
-                        return driver_firefox
-                    except:
-                        print("Sowwy the onwy supported browses are Chrome, Edge and Firefox")
-                        webbrowser.open_new("https://google.com/chrome")
+                    print("Sowwy the onwy supported browsers are Chrome, Edge")
+                    webbrowser.open_new("https://google.com/chrome")
 
         browser_page = SupportedBrowserCheck()
 
@@ -621,7 +618,7 @@ while download_again:
 
     prompt_reply = input(f"The total download size is {DownloadSizeCalculator(configured_download_sizes, download_folder_path)} MB. Continue? ")
     if len([y for y in yes_list if y == prompt_reply]) > 0:
-        print("If you experience any glitches, crashes, errors or failed downloads just restart the app :O\n")
+        print("If you experience any glitches, crashes, errors or failed downloads just restart the app :O\n If they persist check https://github.com/SenZmaKi/Senpwai for a new version of Senpwai\n")
         print("Hol up let me cook")
         print("Getting things ready.. .")
         print(DownloadStatus(DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, anime_title)))
