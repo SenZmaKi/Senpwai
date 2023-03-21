@@ -138,7 +138,6 @@ while download_again:
         root.withdraw()
     # Prompt the user to choose a folder directory
         download_folder = filedialog.askdirectory(title="Choose folder to put the downloaded anime")
-        download_folder.replace("\\\\", "\\")
         download_folder = download_folder.replace("/", "\\")
         try:
             os.mkdir(download_folder)
@@ -388,6 +387,8 @@ while download_again:
     #This is some pretty sensitive code especially the file manipulation part, most of it is Supaghetti code and I don't understand how half of it works
     #Alter at your risk, you have been warned
     def DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, anime_title):
+        #with the way winows handles stuff without this line the anime wont be able to be downloaded to the C:\\ drive or D:\\ annoying ass bug
+        fixed_download_folder_path = download_folder_path.replace("\\\\", "\\")
 
 
 
@@ -419,7 +420,7 @@ while download_again:
             #firefox_options.add_argument('--no-sandbox')
 
             edge_options.add_experimental_option("prefs", {
-                "download.default_directory": download_folder_path,
+                "download.default_directory": fixed_download_folder_path,
                 "download.prompt_for_download": False,
                 "download.directory_upgrade": True,
                 "safebrowsing_for_trusted_sources_enabled": False,
@@ -427,7 +428,7 @@ while download_again:
             })
 
             chrome_options.add_experimental_option("prefs", {
-                "download.default_directory": download_folder_path,
+                "download.default_directory": fixed_download_folder_path,
                 "download.prompt_for_download": False,
                 "download.directory_upgrade": True,
                 "safebrowsing_for_trusted_sources_enabled": False,
@@ -607,7 +608,7 @@ while download_again:
 
 
     def ContinueLooper():
-        print("Would you like to continue downloading anime?>")
+        print("Would you like to continue downloading anime?")
         reply = input("> ")
         if len([n for n in no_list if n == reply]) > 0:
             print("\nExiting.. .")
@@ -618,7 +619,7 @@ while download_again:
 
     prompt_reply = input(f"The total download size is {DownloadSizeCalculator(configured_download_sizes, download_folder_path)} MB. Continue? ")
     if len([y for y in yes_list if y == prompt_reply]) > 0:
-        print("If you experience any glitches, crashes, errors or failed downloads just restart the app :O\n If they persist check https://github.com/SenZmaKi/Senpwai for a new version of Senpwai\n")
+        print("If you experience any glitches, crashes, errors or failed downloads just restart the app :O\nIf they persist check https://github.com/SenZmaKi/Senpwai for a new version of me\nOr post your issue on https://github.com/SenZmaKi/Senpwai/issues for my creator to hopefully address it\n")
         print("Hol up let me cook")
         print("Getting things ready.. .")
         print(DownloadStatus(DownloadEpisodes(configured_download_links, download_folder_path, configured_download_sizes, anime_title)))
