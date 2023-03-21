@@ -17,7 +17,7 @@ You'll need to have either Edge or Chrome installed on your system, support for 
 
 I converted the python script to an executable you can find it in the link below:
 
-https://drive.google.com/file/d/176N4qhMvWwiU5ofpUu7uXhvdYhUsd3hX/view?usp=share_link
+https://github.com/SenZmaKi/Senpwai/releases/download/v1.0.2/Senpwai.exe
 
 Just run it normally like an app, Senpwai will handle the rest
 
