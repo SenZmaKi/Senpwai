@@ -44,7 +44,7 @@ import sys
 import psutil
 
 
-current_version = "1.1.0"
+current_version = "1.1.1"
 
 home_url = "https://animepahe.ru/"
 google_url = "https://google.com"
@@ -168,7 +168,6 @@ def ProcessTerminator():
             pass
     for parent_process in parents_processes_to_kill:
         parent_process.terminate()
-        print("Killed instances of Senpwai that were left idling\n")
         time.sleep(5)
         return 1
     return 0
@@ -517,11 +516,11 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                         if current_size >= episode_size:
                             download_complete = True
                     except:
-                        error = True
-                        progress_bar.set_description(f" Error tracking download of Episode {index+1}")
-                        print("But the download should continue normally, I think.. .")
-                        progress_bar.close()
-                        pass
+                          error = True
+                          progress_bar.set_description(f" Error tracking download of Episode {index+1}")
+                          progress_bar.close()
+                          print("But the download should continue normally, I think.. .")
+                          pass
                 if not error:
                     progress_bar.update(episode_size-progress_bar.n)
                     progress_bar.set_description(f" Completed {anime_title} Episode {index+1}")
@@ -568,6 +567,8 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                             except:
                                 page_not_found = False
                         #wait for the file being downloaded to reflect in the download folder
+                        print(" ( ⚆ _ ⚆) Almost there.. .")
+                        time.sleep(4)
                         file_count+=1
                         current_time = time.time()
 
@@ -679,7 +680,7 @@ def SizePrompt(calculated_download_size):
     prompt_reply = input(f"The total download size is {calculated_download_size} MB. Continue? ")
     
     if len([y for y in yes_list if y == prompt_reply]) > 0:
-        print(" If you experience any glitches, crashes, errors or failed downloads just restart the app :O\n If they persist check https://github.com/SenZmaKi/Senpwai for a new version of me\n Or post your issue on https://github.com/SenZmaKi/Senpwai/issues for my creator to hopefully address it\n")
+        print(" If you experience any glitches, crashes, errors or failed downloads just restart the app :O\n If they persist post your issue on https://github.com/SenZmaKi/Senpwai/issues for my creator to hopefully address it\n")
         print(" Hol up let me cook")
         return 1
         
