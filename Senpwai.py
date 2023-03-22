@@ -47,7 +47,7 @@ from subprocess import CREATE_NO_WINDOW
 import atexit
 import sys
 
-current_version = "1.0.3"
+current_version = "1.1.0"
 
 home_url = "https://animepahe.ru/"
 google_url = "https://google.com"
