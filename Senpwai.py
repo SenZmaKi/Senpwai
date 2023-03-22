@@ -45,6 +45,9 @@ from tqdm import tqdm as tqdm
 from subprocess import CREATE_NO_WINDOW
 
 import atexit
+import sys
+
+current_version = "1.0.3"
 
 home_url = "https://animepahe.ru/"
 google_url = "https://google.com"
@@ -54,22 +57,93 @@ search_url_extension = api_url_extension+"search&q="
 quality = "720p"
 sub_or_dub = "sub"
 
-yes_list = ["yes", "yeah", "1", "y"]
+yes_list = ["yes", "yeah", "1", "y", "ok", "k", "cool"]
 no_list = ["no", "nope", "0", "n"]
 
 default_download_folder_path = None
 senpwai_stuff_path = "C:\\Senpwai_stuff"
 
-
 valid_connection = False
 mendokusai = 0
 download_again = True
+
+
+repo_url = "https://github.com/SenZmaKi/Senpwai"
+github_home_url =  "https://github.com"
+version_download_url = "https://github.com/SenZmaKi/Senpwai/releases/download/"
 
 print(" Hewwo\n")
 
 #main program loop
 while download_again:
 #tests if user has a valid internet connection
+
+
+    def VersionUpdater(current_version, repo_url, github_home_url, version_download_url):
+        #Scrapes the repository homepage to find the latest version
+        repo_page = requests.get(repo_url).content
+        soup = BeautifulSoup(repo_page, "html.parser")
+        latest_version = soup.find_all("a", class_="Link--primary d-flex no-underline")
+
+        pattern = "\d.*"
+        tag_url = github_home_url+latest_version[0]["href"]
+        latest_version = re.search(pattern, tag_url).group()
+
+        latest_version_int = int(latest_version.replace("v", "").replace(".", ""))
+        current_version_int = int(current_version.replace("v", "").replace(".", ""))
+
+        #Checks if the current running version is the latest
+        if latest_version_int > current_version_int:
+            print(" Seems like there's a newer version of me, guess I'm turning into an old hag XD")
+            print(" Would you like to update to the new version? ")
+            while True:
+                reply = input("> ")
+
+                if(len([y for y in yes_list if reply == y])>0):
+
+                    latest_version_download_url = version_download_url+"v"+latest_version+"/Senpwai.exe"        
+                    response = requests.get(latest_version_download_url, stream=True)
+                    total_size_in_bytes= int(response.headers.get('content-length', 0))
+                    block_size = 1024 #1 Kibibyte
+                    progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True, desc=" Downloading younger me")
+                    updated_version_folder = ".\\Updated Senpwai"
+                    try:
+                        os.mkdir(updated_version_folder)
+                    except:
+                        pass
+
+                    with open(updated_version_folder+"\\Senpwai.exe", 'wb') as file:
+                        for data in response.iter_content(block_size):
+                            progress_bar.update(len(data))
+                            file.write(data)
+                    
+                    if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
+                        progress_bar.desc = " Error something went wrong"
+                        progress_bar.close()    
+                        return 0
+                    else:
+                        progress_bar.desc = " Complete"
+                        progress_bar.close()
+                        print(" I will now open a folder containing the new me")
+                        time.sleep(5)
+                        os.startfile(updated_version_folder)
+                        print(" Now just place that version of me in your location of choice, I advise you put me in the desktop so that we see each other everyday :)")
+                        print(" Then delete me, it's been good Senpai, sayonara")
+                        time.sleep(15)
+                        sys.exit(" I don't wanna go :(")
+
+
+
+                elif(len([n for n in no_list if reply == n])):
+                    print(" Ok but you'll probably run into some nasty bugs with this version")
+                    return 0
+
+                else:
+                    print(" I dont understand what you mean, wakaranai")
+
+
+
+
     while not valid_connection:
         print(" Testing for a valid internet connection.. .")
         try:
@@ -88,6 +162,7 @@ while download_again:
                 print("\n")
             time.sleep(5)
         
+    VersionUpdater(current_version, repo_url, github_home_url, version_download_url)
 
     #Searches for the anime in the animepahe database
     def Searcher():
@@ -491,7 +566,7 @@ while download_again:
         def ProgressBar(episode_size, download_folder_path, anime_title, index):
             
 
-            with tqdm(total=round(episode_size), unit='MB', unit_scale=True, desc=f'Downloading {anime_title} Episode {index+1}') as progress_bar:
+            with tqdm(total=round(episode_size), unit='MB', unit_scale=True, desc=f' Downloading {anime_title} Episode {index+1}') as progress_bar:
             # Loop until the download is complete
                 download_complete = False
                 error = False
@@ -510,12 +585,12 @@ while download_again:
                             download_complete = True
                     except:
                         error = True
-                        progress_bar.set_description(f"Error tracking download of Episode {index+1}")
+                        progress_bar.set_description(f" Error tracking download of Episode {index+1}")
                         progress_bar.close()
                         pass
                 if not error:
                     progress_bar.update(episode_size-progress_bar.n)
-                    progress_bar.set_description(f"Completed {anime_title} Episode {index+1}")
+                    progress_bar.set_description(f" Completed {anime_title} Episode {index+1}")
                     progress_bar.close()
                 print("\n")
 
@@ -706,7 +781,7 @@ while download_again:
         print(" Sadge :C")
         download_again = ContinueLooper()
 
-print(" ( ͡° ͜ʖ ͡°) Sayonara")
+sys.exit(" ( ͡° ͜ʖ ͡°) Sayonara")
 
 
 # In[ ]:
