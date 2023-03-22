@@ -729,9 +729,10 @@ def __main__():
                 print(DownloadStatus(DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes, download_folder_path, anime_title)))
                 run = ContinueLooper()
             
-            elif not calculated_download_size <= 0:
+            elif  calculated_download_size <= 0:
                 print(" Oe, baka, there's nothing to download (-_-) ")
                 print(" You probably already have all the episodes of this anime ")
+                run = ContinueLooper()
             
         elif not size_prompt_reply:
             print(" Sadge :(")
