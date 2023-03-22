@@ -1,6 +1,6 @@
 # Senpwai
 
-Python script that automates downloading anime from animepahe.ru
+Python console app that automates downloading complete seasons of anime from animepahe.ru
 
 The script applies web scraping techniques to automate the download process
 
