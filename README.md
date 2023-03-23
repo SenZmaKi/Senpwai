@@ -1,6 +1,6 @@
 # Senpwai
 
-Python script that automates downloading anime from animepahe.ru
+Python console app that automates downloading complete seasons of anime from animepahe.ru
 
 The script applies web scraping techniques to automate the download process
 
@@ -17,7 +17,7 @@ You'll need to have either Edge or Chrome installed on your system, support for 
 
 I converted the python script to an executable you can find it in the link below:
 
-https://github.com/SenZmaKi/Senpwai/releases/download/v1.0.2/Senpwai.exe
+https://github.com/SenZmaKi/Senpwai/releases/download/v1.1.1/Senpwai.exe
 
 Just run it normally like an app, Senpwai will handle the rest
 
