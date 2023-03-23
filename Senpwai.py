@@ -43,7 +43,7 @@ import sys
 import psutil
 
 
-current_version = "1.2.0"
+current_version = "1.2.1"
 
 home_url = "https://animepahe.ru/"
 google_url = "https://google.com"
@@ -95,7 +95,7 @@ def VersionUpdater(current_version, repo_url, github_home_url, version_download_
                 total_size_in_bytes= int(response.headers.get('content-length', 0))
                 block_size = 1024 #1 Kibibyte
                 progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True, desc=" Downloading younger me")
-                updated_version_folder = ".\\Updated Senpwai"
+                updated_version_folder = os.path.dirname(os.path.abspath(sys.executable))+"\\Updated Senpwai"
                 try:
                     os.mkdir(updated_version_folder)
                 except:
