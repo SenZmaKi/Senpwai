@@ -1,4 +1,3 @@
-#Ignore the Run Cell etc, I was working with jupyter notebooks before I converted into python file
 import requests
 import json
 import re
@@ -44,7 +43,7 @@ import sys
 import psutil
 
 
-current_version = "1.1.1"
+current_version = "1.2.0"
 
 home_url = "https://animepahe.ru/"
 google_url = "https://google.com"
@@ -58,7 +57,7 @@ yes_list = ["yes", "yeah", "1", "y", "ok", "k", "cool"]
 no_list = ["no", "nope", "0", "n"]
 
 default_download_folder_path = None
-senpwai_stuff_path = "C:\\Senpwai_stuff"
+senpwai_stuff_path = os.environ["PROGRAMDATA"]+"\\Senpwai"
 
 
 
@@ -436,31 +435,26 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
 
         
     #Installs Browser Driver Managers for the respective browsers, this is to be used by Selenium
+
             try:
-                service_edge = EdgeService(executable_path=EdgeChromiumDriverManager().install())
                 service_chrome = ChromeService(executable_path=ChromeDriverManager().install())
-                #service_firefox = FirefoxService(executable_path=GeckoDriverManager().install())
-
-                service_edge.creation_flags =  CREATE_NO_WINDOW
-                service_chrome.creation_flags =  CREATE_NO_WINDOW
-                #service_firefox.creation_flags =  CREATE_NO_WINDOW
-                
-                
-            
-            except:
-                return 0
-
-    #Checks whether user is using a supported browser then returns a webdriver object for the respective used browser
-            try:
-                driver_edge = webdriver.Edge(service=service_edge, options=edge_options)
-                return driver_edge
+                service_chrome.creation_flags = CREATE_NO_WINDOW
+                driver_chrome = webdriver.Chrome(service=service_chrome, options=chrome_options)
+                return driver_chrome
             except:
                 try:
-                    driver_chrome = webdriver.Chrome(service=service_chrome, options=chrome_options)
-                    return driver_chrome
+                    service_edge = EdgeService(executable_path=EdgeChromiumDriverManager().install())
+                    service_edge.creation_flags = CREATE_NO_WINDOW
+                    driver_edge = webdriver.Edge(service=service_edge, options=edge_options)
+                    return driver_edge
                 except:
-                    print(" Sowwy the onwy supported browsers are Chrome, Edge")
-                    webbrowser.open_new("https://google.com/chrome")
+                    print(" Sowwy the onwy supported browsers are Chrome and Edge")
+                    webbrowser.open_new("https://www.google.com/chrome/")
+                    return 0
+
+
+
+
 
         browser_page = SupportedBrowserCheck()
 
