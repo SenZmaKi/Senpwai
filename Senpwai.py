@@ -4,6 +4,9 @@ import re
 from bs4 import BeautifulSoup
 
 
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 from selenium.webdriver.edge.service import Service as EdgeService
@@ -13,6 +16,8 @@ from selenium.webdriver import EdgeOptions
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver import ChromeOptions
+
+
 
 
 #Working on firefox support
@@ -55,8 +60,8 @@ search_url_extension = api_url_extension+"search&q="
 quality = "720p"
 sub_or_dub = "sub"
 
-yes_list = ["yes", "yeah", "1", "y", "ok", "k", "cool"]
-no_list = ["no", "nope", "0", "n"]
+yes_list = ["yes", "yeah", "1", 1, "y", "ok", "k", "cool"]
+no_list = ["no", "nope", "0", 0, "n"]
 
 default_download_folder_path = None
 senpwai_stuff_path = os.environ["PROGRAMDATA"]+"\\Senpwai"
@@ -69,7 +74,12 @@ version_download_url = "https://github.com/SenZmaKi/Senpwai/releases/download/"
 
 anime_references = ["It's called the Attack Titan", "Tatakae tatake", "Ohio Final Boss", "Tokio tomare", "Wonder of Ohio","Omoshire ore ga zangetsu da", "Getsuga Tenshou", "Rasenghan", "Za Warudo", "Star Pratina", "Nigurendayooo", "Korega jyuu da", "Mendokusai", "Dattebayo", "Bankai", "Kono asuratonkachi", "I devoured Barou and he devoured me right back", "United of States of Smaaaaash", "One for All Full Cowling"]
 
+chrome_downloads_page = 'chrome://downloads'
+edge_downloads_page = 'edge://downloads/all'
 
+app_pid = os.getpid()
+
+#Detects whether the input the user entered is Y or N
 def key_prompt():
         sys.stdout.write("> ")
         sys.stdout.flush()
@@ -77,16 +87,29 @@ def key_prompt():
             if keyboard.is_pressed("y") or keyboard.is_pressed("Y"):
                 sys.stdout.write("\n") 
                 sys.stdout.flush()
+                flush_input()
                 return 1
             elif keyboard.is_pressed("n") or keyboard.is_pressed("N"):
                 sys.stdout.write("\n") 
                 sys.stdout.flush()
+                flush_input()
                 return 0
             elif keyboard.is_pressed("esc"):
                 sys.stdout.write("\n") 
                 sys.stdout.flush()
-                keyboard_exit_handler()
+                flush_input()
+                exit_handler()
 
+#Flushes users input from the inputstream after key_prompt() is called
+def flush_input():
+    #wait a little bit cause the buffers don't update immediately
+    time.sleep(0.1)
+    try:
+        import msvcrt
+        while msvcrt.kbhit():
+            msvcrt.getch()
+    except:
+        pass
 #Prints output with a delay to simulate typing
 def slow_print(text, delay_time=0.01): 
     for character in text:      
@@ -114,7 +137,7 @@ def VersionUpdater(current_version, repo_url, github_home_url, version_download_
         slow_print(" Seems like there's a new version of me, guess I'm turning into an old hag XD")
         slow_print(" Would you like to update to the new version? ")
         while True:
-            reply = input("> ")
+            reply = key_prompt()
 
             if(len([y for y in yes_list if reply == y])>0):
 
@@ -220,13 +243,13 @@ def exit_message():
 
 
 
-#Exit from program if user enters x or esc
-def keyboard_exit_handler():
+#Exit from program if user enters esc
+def exit_handler():
     exit_message()
     ProcessTerminator()
     os._exit(1)
 
-keyboard.add_hotkey('esc',keyboard_exit_handler)
+keyboard.add_hotkey('esc', exit_handler)
 
 
 
@@ -366,7 +389,7 @@ def SaveSettings(senpwai_stuff_path):
 
             reply = False
         while not reply:
-            reply = input("> ")
+            reply = key_prompt()
             if len([y for y in yes_list if y == reply]) > 0:
                 quality, sub_or_dub = config_settings["quality"], config_settings["sub_or_dub"]
                 default_download_folder_path = config_settings["default_download_folder_path"]
@@ -435,6 +458,7 @@ def tmpDeleter(download_folder_path):
 #Alter at your risk, you have been warned
     
 def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes, download_folder_path, anime_title):
+        
         #with the way windows handles stuff without this line the anime wont be able to be downloaded to the C:\\ drive or D:\\ annoying ass bug
         fixed_download_folder_path = download_folder_path.replace("\\\\", "\\")
 
@@ -448,7 +472,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
             #firefox_options = FirefoxOptions()
 
             edge_options.add_argument("--headless=new")
-            chrome_options.add_argument("--headless=new")
+            #chrome_options.add_argument("--headless=new")
             #firefox_options.add_argument("--headless=new")
 
 
@@ -489,13 +513,14 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                 service_chrome = ChromeService(executable_path=ChromeDriverManager().install())
                 service_chrome.creation_flags = CREATE_NO_WINDOW
                 driver_chrome = webdriver.Chrome(service=service_chrome, options=chrome_options)
-                return driver_chrome
+                chrome_downloads_page
+                return driver_chrome, chrome_downloads_page
             except:
                 try:
                     service_edge = EdgeService(executable_path=EdgeChromiumDriverManager().install())
                     service_edge.creation_flags = CREATE_NO_WINDOW
                     driver_edge = webdriver.Edge(service=service_edge, options=edge_options)
-                    return driver_edge
+                    return driver_edge, edge_downloads_page
                 except:
                     slow_print(" Sowwy the onwy supported browsers are Chrome and Edge")
                     webbrowser.open_new("https://www.google.com/chrome/")
@@ -505,7 +530,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
 
 
 
-        browser_page = SupportedBrowserCheck()
+        driver, downloads_manager_page = SupportedBrowserCheck()
 
 
         #Warning!!! sensitive supaghetti code, alter at your own risk
@@ -535,17 +560,52 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                 if f.suffix == ".crdownload" or f.suffix == ".tmp":
                     return 1
             return 0
-    
 
+        def pause_or_resume():
+
+            try:
+                details_element_reference = driver.execute_script('return document.querySelector("downloads-manager").shadowRoot.querySelector("iron-list").querySelector("downloads-item").shadowRoot.querySelector("#details")')
+                pause_or_resume_element_reference = driver.execute_script('return arguments[0].querySelector("#safe").querySelector("span:nth-of-type(2)").querySelector("cr-button")', details_element_reference)
+                flush_input()
+                return driver.execute_script("arguments[0].click();", pause_or_resume_element_reference)
+            except:
+                pass
+
+        def download_error_state():
+            try:
+                details_element_reference = driver.execute_script('return document.querySelector("downloads-manager").shadowRoot.querySelector("iron-list").querySelector("downloads-item").shadowRoot.querySelector("#details")')
+                tag_element_reference = driver.execute_script('return arguments[0].querySelector("#title-area").querySelector("#tag")', details_element_reference)
+                return True if len(tag_element_reference.get_attribute('innerHTML'))>0 else False
+            except:
+                pass
+
+        def DownloadErrorHandler():
+            pass
+        
+        #detect if user presses space
         #absolute dogshit progress bar, fails half the time XD
         def ProgressBar(episode_size, download_folder_path, anime_title, index):
             
 
             with tqdm(total=round(episode_size), unit='MB', unit_scale=True, desc=f' Downloading {anime_title} Episode {index+1}') as progress_bar:
             # Loop until the download is complete
+                paused = False
                 download_complete = False
                 error = False
                 while not download_complete and not error:
+                    if keyboard.is_pressed('space') or keyboard.is_pressed('p') or keyboard.is_pressed('P'):
+                        pause_or_resume()
+                        flush_input()
+                        paused = True
+                    if paused:
+                        progress_bar.set_description(f" Paused")
+                        while paused:
+                            if keyboard.is_pressed('space') or keyboard.is_pressed('p') or keyboard.is_pressed('P'):
+                                pause_or_resume()
+                                paused = False
+                        progress_bar.set_description(f" Downloading {anime_title} Episode {index+1}")
+
+
                     try:
                         file_paths = list(pathlib.Path(download_folder_path).glob("*"))
                         # Sort the list by the creation time of the files
@@ -558,6 +618,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                         # Check if the download is complete
                         if current_size >= episode_size:
                             download_complete = True
+
                     except:
                           error = True
                           progress_bar.set_description(f" Error tracking download of Episode {index+1}")
@@ -568,6 +629,8 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                     progress_bar.update(episode_size-progress_bar.n)
                     progress_bar.set_description(f" Completed {anime_title} Episode {index+1}")
                     progress_bar.close()
+                    if paused:
+                        pause_or_resume()
                 slow_print("\n")
 
 
@@ -589,7 +652,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                     for index in range(total_downloads):
                         page_not_found = True
                         while page_not_found:
-                            try:
+                            #try:
 
                                 #Selenium is used cause of the dynamically generated content
                                 #get the pahewin predownload page
@@ -602,18 +665,21 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                                 soup = BeautifulSoup(pahewin_page, "html.parser")
                                 server_download_link = soup.find_all("a", class_="btn btn-primary btn-block redirect")[0]["href"]
                                 #get the final download page
-
-                                browser_page.get(server_download_link)                       
+                                driver.get(server_download_link)      
+                                #The difference btw the download page and the file page is that the latter has an d in the url where the other has a f
+                                # who woulda though lol                 
                                 server_download_link = server_download_link.replace("/f/", "/d/", 1)
+                                #wait for a max of 10 seconds until the link is loaded in
+                                WebDriverWait(driver, 50).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'form[action="%s"]' %server_download_link)))
                                 #click the download link by submitting a dynamically generated form
-                                browser_page.find_element(By.CSS_SELECTOR, 'form[action="%s"]' %server_download_link).submit()
-                                print(browser_page.response_headers)
-                                print("Resume")
-                                browser_page.quit()
-                                return
+                                driver.find_element(By.CSS_SELECTOR, 'form[action="%s"]' %server_download_link).submit()
+                                #go to the download page to manage the download
+                                driver.get(downloads_manager_page)
+                                # Wait for the downloads-manager element to appear
+                                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'downloads-manager')))
                                 page_not_found = False
-                            except:
-                                page_not_found = False
+                            #except:
+                                #page_not_found = False
                         #wait for the file being downloaded to reflect in the download folder
                         slow_print(" ( ⚆ _ ⚆) Almost there.. .")
                         time.sleep(1)
@@ -625,7 +691,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                         while(StillDownloading(download_folder_path)):
 
                             if current_time - time.time() > 10800:
-                                browser_page.quit()
+                                driver.quit()
                             #if one download takes more than 3 hours then exit as a fail
                                 return 0
                             time.sleep(2)
@@ -650,7 +716,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                     
 
                 else:
-                    browser_page.quit()
+                    driver.quit()
                     #If the last download is complete then open the folder again
                     os.startfile(new_folder_path)
                     return 1
@@ -666,10 +732,9 @@ def DownloadStatus(download_status):
 #Once downloading is done prompts if the user wants to download more
 def ContinueLooper():
     slow_print(" Would you like to continue downloading anime?")
-    reply = input("> ")
+    reply = key_prompt()
     if len([n for n in no_list if n == reply]) > 0:
-        slow_print("\n Exiting.. .")
-        time.sleep(5)
+        exit_handler
         return False
     elif len([y for y in yes_list if y == reply]) > 0:
         return True
@@ -727,7 +792,7 @@ def StartEpisodePrompt(configured_download_links):
 #Shows the calculated total download size to the user and prompts them if they want to continue
 def SizePrompt(calculated_download_size):
     slow_print(f"The total download size is {calculated_download_size} MB. Continue? ")
-    prompt_reply = input("> ")
+    prompt_reply = key_prompt()
     
     if len([y for y in yes_list if y == prompt_reply]) > 0:
         slow_print(" If you experience any glitches, crashes, errors or failed downloads just restart the app :O\n If they persist post your issue on https://github.com/SenZmaKi/Senpwai/issues for my creator to hopefully address it\n")
@@ -775,7 +840,7 @@ def __main__():
 
         if size_prompt_reply:
 
-            if calculated_download_size > 0:
+            if calculated_download_size > 0:                
                 slow_print(DownloadStatus(DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes, download_folder_path, anime_title)))
                 run = ContinueLooper()
             
