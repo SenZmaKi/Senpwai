@@ -7,10 +7,10 @@ from bs4 import BeautifulSoup
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
-from selenium.webdriver.edge.service import Service as EdgeService
-from selenium.webdriver import EdgeOptions
+#Dropped edge support
+# from webdriver_manager.microsoft import EdgeChromiumDriverManager
+# from selenium.webdriver.edge.service import Service as EdgeService
+# from selenium.webdriver import EdgeOptions
 
 
 from webdriver_manager.chrome import ChromeDriverManager
@@ -48,12 +48,15 @@ import psutil
 from random import randint
 
 import keyboard
+import pyautogui
+import ping3
+app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
 
 
 current_version = "1.2.1"
 
 home_url = "https://animepahe.ru/"
-google_url = "https://google.com"
+google_com = "google.com"
 anime_url = home_url+"anime/"
 api_url_extension = "api?m="
 search_url_extension = api_url_extension+"search&q="
@@ -73,11 +76,13 @@ github_home_url =  "https://github.com"
 version_download_url = "https://github.com/SenZmaKi/Senpwai/releases/download/"
 
 anime_references = ["It's called the Attack Titan", "Tatakae tatake", "Ohio Final Boss", "Tokio tomare", "Wonder of Ohio","Omoshire ore ga zangetsu da", "Getsuga Tenshou", "Rasenghan", "Za Warudo", "Star Pratina", "Nigurendayooo", "Korega jyuu da", "Mendokusai", "Dattebayo", "Bankai", "Kono asuratonkachi", "I devoured Barou and he devoured me right back", "United of States of Smaaaaash", "One for All Full Cowling"]
+internet_responses = ["Kono baka!!! You don't have internet", "Yaaarou, no internet connection", "Bakayorou!!! Check your internet", "Fuzakerna teme!!! You don't have internet", "Oe oe oe mate. Network problem", "Mendokusai, no network", "How am I supposed to cook without internet? ", "Bro got no internet damn", "No internets?"]
 
 chrome_downloads_page = 'chrome://downloads'
 edge_downloads_page = 'edge://downloads/all'
 
 app_pid = os.getpid()
+automate = False
 
 #Detects whether the input the user entered is Y or N
 def key_prompt():
@@ -186,22 +191,22 @@ def InternetTest():
     mendokusai = 0
     while not valid_connection:
         slow_print(" Testing for a valid internet connection.. .")
-        try:
-            requests.get(google_url)
+        response = ping3.ping(google_com)
+        if response:
             slow_print(" Success!!!\n")
             valid_connection = True
             return
-
-        except:
+        else:
             mendokusai +=1
             time.sleep(2)
-            slow_print(" Baka you don't have an internet connection")
+            slow_print(f" {internet_responses[randint(0, len(internet_responses)-1)]}")
             if mendokusai >= 3:
                 slow_print(f" {anime_references[randint(0, len(anime_references)-1)]}\n")
                 mendokusai = 0
             elif mendokusai < 3:
                 slow_print("\n")
             time.sleep(5)
+
 
 #Kills all instances of drivers that may have been left running previously cause they result in errors and take up space
 def ProcessTerminator():
@@ -260,8 +265,19 @@ def AnimeSelection(results):
         for index, result in enumerate(results):
             slow_print(f"  {index+1} {result['title']}", delay_time=0.005)
         slow_print(" Or if the anime isn't in the list above enter s to search again")
+        slow_print(" You can also enter the Number of the anime followed by a and I will automatically used the saved settings and detect missing episodes")
+
+        index_of_chosen_anime = input("> ")
+        pattern = r"(\d+)\s*a"  
+        match = re.search(pattern, index_of_chosen_anime)
+        if match:
+            index_of_chosen_anime = match.group(1)
+            global automate
+            automate = True
+
         try:
-            index_of_chosen_anime = int(input("> "))-1
+            index_of_chosen_anime = int(index_of_chosen_anime)-1
+
         except:
             return 0, 0
 
@@ -379,7 +395,7 @@ def SaveSettings(senpwai_stuff_path):
     sub_or_dub = ""
 
 #if there is a config file then prompt the user on whether they want to use the saved settings
-    if config_path.is_file():
+    if config_path.is_file() and not automate:
         slow_print(" Would you like to uWuse the following swaved settings?")
         with open(config_path) as config_file:
             config_settings = json.load(config_file)
@@ -406,6 +422,13 @@ def SaveSettings(senpwai_stuff_path):
             else:
                 slow_print(" I don't understand what you mean. Yes or no?")
                 reply = False
+    elif config_path.is_file() and automate:
+        with open(config_path) as config_file:
+                config_settings = json.load(config_file)
+        quality, sub_or_dub = config_settings["quality"], config_settings["sub_or_dub"]
+        default_download_folder_path = config_settings["default_download_folder_path"]
+        quality, sub_or_dub = DownloadSettings(quality=quality)[0], DownloadSettings(sub_or_dub=sub_or_dub)[1]
+
 
     elif not config_path.is_file():
         quality, sub_or_dub = SettingsPrompt()
@@ -467,36 +490,28 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
         def SupportedBrowserCheck():
 
         #configures the settings for the headless browser
-            edge_options = EdgeOptions()
             chrome_options = ChromeOptions()
+            #edge_options = EdgeOptions()
             #firefox_options = FirefoxOptions()
 
-            edge_options.add_argument("--headless=new")
-            #chrome_options.add_argument("--headless=new")
+            chrome_options.add_argument("--headless=new")
+            #edge_options.add_argument("--headless=new")
             #firefox_options.add_argument("--headless=new")
 
 
-            edge_options.add_argument('--disable-extensions')
             chrome_options.add_argument('--disable-extensions')
+            #edge_options.add_argument('--disable-extensions')
             #firefox_options.add_argument('--disable-extensions')
             
             
-            edge_options.add_argument('--disable-infobars')
             chrome_options.add_argument('--disable-infobars')
+            #edge_options.add_argument('--disable-infobars')
             #firefox_options.add_argument('--disable-infobars')
             
             
-            edge_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--no-sandbox')
+            #edge_options.add_argument('--no-sandbox')
             #firefox_options.add_argument('--no-sandbox')
-
-            edge_options.add_experimental_option("prefs", {
-                "download.default_directory": fixed_download_folder_path,
-                "download.prompt_for_download": False,
-                "download.directory_upgrade": True,
-                "safebrowsing_for_trusted_sources_enabled": False,
-                "safebrowsing.enabled": False
-            })
 
             chrome_options.add_experimental_option("prefs", {
                 "download.default_directory": fixed_download_folder_path,
@@ -505,6 +520,15 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                 "safebrowsing_for_trusted_sources_enabled": False,
                 "safebrowsing.enabled": False
             })
+
+            # edge_options.add_experimental_option("prefs", {
+            #     "download.default_directory": fixed_download_folder_path,
+            #     "download.prompt_for_download": False,
+            #     "download.directory_upgrade": True,
+            #     "safebrowsing_for_trusted_sources_enabled": False,
+            #     "safebrowsing.enabled": False
+            # })
+
 
         
     #Installs Browser Driver Managers for the respective browsers, this is to be used by Selenium
@@ -516,15 +540,15 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                 chrome_downloads_page
                 return driver_chrome, chrome_downloads_page
             except:
-                try:
-                    service_edge = EdgeService(executable_path=EdgeChromiumDriverManager().install())
-                    service_edge.creation_flags = CREATE_NO_WINDOW
-                    driver_edge = webdriver.Edge(service=service_edge, options=edge_options)
-                    return driver_edge, edge_downloads_page
-                except:
-                    slow_print(" Sowwy the onwy supported browsers are Chrome and Edge")
-                    webbrowser.open_new("https://www.google.com/chrome/")
-                    return 0
+                slow_print(" Sowwy the onwy currently supported browser is Google Chrome, please install it and try again")
+                webbrowser.open_new("https://www.google.com/chrome/")
+                exit_handler()
+                return 0
+                # try:
+                #     service_edge = EdgeService(executable_path=EdgeChromiumDriverManager().install())
+                #     service_edge.creation_flags = CREATE_NO_WINDOW
+                #     driver_edge = webdriver.Edge(service=service_edge, options=edge_options)
+                #     return driver_edge, edge_downloads_page
 
 
 
@@ -560,51 +584,134 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                 if f.suffix == ".crdownload" or f.suffix == ".tmp":
                     return 1
             return 0
+    
 
-        def pause_or_resume():
+        def download_error():
 
             try:
-                details_element_reference = driver.execute_script('return document.querySelector("downloads-manager").shadowRoot.querySelector("iron-list").querySelector("downloads-item").shadowRoot.querySelector("#details")')
-                pause_or_resume_element_reference = driver.execute_script('return arguments[0].querySelector("#safe").querySelector("span:nth-of-type(2)").querySelector("cr-button")', details_element_reference)
-                flush_input()
-                return driver.execute_script("arguments[0].click();", pause_or_resume_element_reference)
-            except:
-                pass
-
-        def download_error_state():
-            try:
-                details_element_reference = driver.execute_script('return document.querySelector("downloads-manager").shadowRoot.querySelector("iron-list").querySelector("downloads-item").shadowRoot.querySelector("#details")')
+                details_element_reference = driver.execute_script('return document.querySelector("downloads-manager").shadowRoot.querySelector("#mainContainer").querySelector("#downloadsList").querySelector("#frb0").shadowRoot.querySelector("#content").querySelector("#details")')
                 tag_element_reference = driver.execute_script('return arguments[0].querySelector("#title-area").querySelector("#tag")', details_element_reference)
                 return True if len(tag_element_reference.get_attribute('innerHTML'))>0 else False
             except:
-                pass
+                return False
 
         def DownloadErrorHandler():
-            pass
+            try:
+                details_element_reference = driver.execute_script('return document.querySelector("downloads-manager").shadowRoot.querySelector("#mainContainer").querySelector("#downloadsList").querySelector("#frb0").shadowRoot.querySelector("#content").querySelector("#details")')
+                resume_element_reference = driver.execute_script('return arguments[0].querySelector("#safe").querySelector("span:nth-of-type(2)").querySelector("cr-button")', details_element_reference)
+                #test for internet connection and test if the download can resume normally
+                def error_fix_attempt():
+                    if resume_element_reference.get_attribute('innerHTML').strip() == 'Pause':
+                        #Click pause then resume hence two clicks
+                        driver.execute_script("arguments[0].click();", resume_element_reference)
+                        time.sleep(1)
+                        driver.execute_script("arguments[0].click();", resume_element_reference)
+                        time.sleep(1)
+                        if download_error() == False:
+                            return 1
+                        else:
+                            return 0
+                    else:
+                        return 0
+                
+                total_retries = 5
+                succesful_resume = False
+                for retry in range(total_retries):
+                    succesful_resume = error_fix_attempt()
+                    if succesful_resume:
+                        return 1
+                return 0
+            except:
+                return 0
+
+
+           
+                    
         
         #detect if user presses space
         #absolute dogshit progress bar, fails half the time XD
         def ProgressBar(episode_size, download_folder_path, anime_title, index):
             
+            last_network_check_time = 0
+            last_call_time = 0
+        #Checks if user has a network connection, if they do wait 5 seconds before trying again, if not try again immediately
+            def network_test(initial_network_status):
+                test_delay = 5
+                nonlocal last_network_check_time
+                current_time = time.time()
+                elapsed_time = current_time - last_network_check_time
+                if not initial_network_status:
+                    return ping3.ping(google_com)
+                elif initial_network_status:
+                    if elapsed_time >= test_delay:
+                        last_network_check_time = current_time
+                        return ping3.ping(google_com)
+                return initial_network_status
+        
+            #Scuffed pause button
+            paused = False
+            def pause_or_resume(event):
+                def call_back():
+                    try:
+                        nonlocal paused
+                        active_window_name = pyautogui.getActiveWindow().title
+                        if event.name == 'space' and active_window_name == app_name:
+                            details_element_reference = driver.execute_script('return document.querySelector("downloads-manager").shadowRoot.querySelector("#mainContainer").querySelector("#downloadsList").querySelector("#frb0").shadowRoot.querySelector("#content").querySelector("#details")')
+                            pause_or_resume_element_reference = driver.execute_script('return arguments[0].querySelector("#safe").querySelector("span:nth-of-type(2)").querySelector("cr-button")', details_element_reference)
+                            driver.execute_script("arguments[0].click();", pause_or_resume_element_reference)
+                            if not paused:
+                                paused = True
+                            elif paused:
+                                paused = False
+                            return 1
+                    except:
+                       return 0 
+
+                #Prevent multiple successive keyboard inputs from being loaded
+                nonlocal last_call_time
+                delay = 0.6
+                current_time = time.time()
+                time_since_last_call = current_time - last_call_time
+
+                if time_since_last_call < delay:
+                    return 
+                else:
+                    last_call_time = current_time
+                    return call_back()
+            
+          
+            download_complete = False
+            error = False
 
             with tqdm(total=round(episode_size), unit='MB', unit_scale=True, desc=f' Downloading {anime_title} Episode {index+1}') as progress_bar:
-            # Loop until the download is complete
-                paused = False
-                download_complete = False
-                error = False
-                while not download_complete and not error:
-                    if keyboard.is_pressed('space') or keyboard.is_pressed('p') or keyboard.is_pressed('P'):
-                        pause_or_resume()
-                        flush_input()
-                        paused = True
-                    if paused:
-                        progress_bar.set_description(f" Paused")
-                        while paused:
-                            if keyboard.is_pressed('space') or keyboard.is_pressed('p') or keyboard.is_pressed('P'):
-                                pause_or_resume()
-                                paused = False
-                        progress_bar.set_description(f" Downloading {anime_title} Episode {index+1}")
+                keyboard.hook(pause_or_resume)
 
+            # Loop until the download is complete
+                initial_status = True
+                while not download_complete and not error:
+
+                    network_status = network_test(initial_status)
+                    initial_status = network_status
+                    
+                    if network_status:
+                        if download_error():
+                            progress_bar.set_description(f" Attempting to fix error.. .")
+                            error_fix_status = DownloadErrorHandler()
+                            if error_fix_status == 1:
+                                progress_bar.set_description(f" Success!!!")
+                                pass
+                            elif error_fix_status == 0:
+                                progress_bar.set_description(f" Attempt failed :( Restarting")
+                                keyboard.unhook(pause_or_resume)         
+                                return 0
+                    elif not network_status:
+                        progress_bar.set_description(f" {internet_responses[randint(0, len(internet_responses)-1)]}")
+
+ 
+                    if paused and network_status:
+                        progress_bar.set_description(f" Paused")
+                    elif not paused and network_status:
+                        progress_bar.set_description(f" Downloading {anime_title} Episode {index+1}")
 
                     try:
                         file_paths = list(pathlib.Path(download_folder_path).glob("*"))
@@ -624,14 +731,22 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                           progress_bar.set_description(f" Error tracking download of Episode {index+1}")
                           progress_bar.close()
                           slow_print("But the download should continue normally, I think.. .")
+                          keyboard.unhook(pause_or_resume)         
                           pass
                 if not error:
+                    time.sleep(1)
                     progress_bar.update(episode_size-progress_bar.n)
                     progress_bar.set_description(f" Completed {anime_title} Episode {index+1}")
                     progress_bar.close()
-                    if paused:
-                        pause_or_resume()
+                    if paused:                        
+                        class event:
+                            def __init__(self) -> None:
+                                self.name = 'space'
+
+                        pause_or_resume(event())
+                    keyboard.unhook(pause_or_resume)         
                 slow_print("\n")
+                return 1
 
 
 
@@ -652,7 +767,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                     for index in range(total_downloads):
                         page_not_found = True
                         while page_not_found:
-                            #try:
+                            try:
 
                                 #Selenium is used cause of the dynamically generated content
                                 #get the pahewin predownload page
@@ -670,7 +785,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                                 # who woulda though lol                 
                                 server_download_link = server_download_link.replace("/f/", "/d/", 1)
                                 #wait for a max of 10 seconds until the link is loaded in
-                                WebDriverWait(driver, 50).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'form[action="%s"]' %server_download_link)))
+                                WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'form[action="%s"]' %server_download_link)))
                                 #click the download link by submitting a dynamically generated form
                                 driver.find_element(By.CSS_SELECTOR, 'form[action="%s"]' %server_download_link).submit()
                                 #go to the download page to manage the download
@@ -678,8 +793,12 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                                 # Wait for the downloads-manager element to appear
                                 WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'downloads-manager')))
                                 page_not_found = False
-                            #except:
-                                #page_not_found = False
+                            except:
+                                #if the above lines fail then try again
+                                if not ping3.ping(google_com):
+                                    slow_print(f" {internet_responses[randint(0, len(internet_responses)-1)]}")
+                                    time.sleep(3)
+                                page_not_found = True
                         #wait for the file being downloaded to reflect in the download folder
                         slow_print(" ( ⚆ _ ⚆) Almost there.. .")
                         time.sleep(1)
@@ -687,33 +806,33 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                         current_time = time.time()
 
                         episode_index = predicted_episodes_indices[index]
-                        ProgressBar(predicted_episodes_sizes[index], download_folder_path, anime_title, episode_index)
-                        while(StillDownloading(download_folder_path)):
+                        download_exit_status = ProgressBar(predicted_episodes_sizes[index], download_folder_path, anime_title, episode_index)
+                        if download_exit_status == 1:
+                            while(StillDownloading(download_folder_path)):
 
-                            if current_time - time.time() > 10800:
-                                driver.quit()
-                            #if one download takes more than 3 hours then exit as a fail
-                                return 0
-                            time.sleep(2)
-                        file_paths = list(pathlib.Path(download_folder_path).glob("*"))
-                        # Sort the list by the creation time of the files
-                        file_paths.sort(key=lambda x: os.path.getctime(x))
-                        downloaded_file = file_paths[-1]                            
-                        episode_number = str(episode_index+1)
-                        new_episode_name = anime_title+" Episode "+episode_number+".mp4"
+                                if current_time - time.time() > 10800:
+                                    driver.quit()
+                                #if one download takes more than 3 hours then exit as a fail
+                                    return 0
+                                time.sleep(2)
+                            file_paths = list(pathlib.Path(download_folder_path).glob("*"))
+                            # Sort the list by the creation time of the files
+                            file_paths.sort(key=lambda x: os.path.getctime(x))
+                            downloaded_file = file_paths[-1]                            
+                            episode_number = str(episode_index+1)
+                            new_episode_name = anime_title+" Episode "+episode_number+".mp4"
 
-                        new_folder_path = os.path.dirname(downloaded_file)
-                        new_file_path = os.path.join(new_folder_path, new_episode_name)
-                        os.rename(downloaded_file, new_file_path)
-                        
-                        if file_count-1 == 0:
-                        #if the first download has completed then open the folder
-                            os.startfile(new_folder_path)
-                        
-                        
-
-
-                    
+                            new_folder_path = os.path.dirname(downloaded_file)
+                            new_file_path = os.path.join(new_folder_path, new_episode_name)
+                            os.rename(downloaded_file, new_file_path)
+                            
+                            if file_count-1 == 0:
+                            #if the first download has completed then open the folder
+                                os.startfile(new_folder_path)
+                        elif download_exit_status == 0:
+                            driver.quit()
+                            return DownloadEpisodes(predicted_episodes_indices[index:], predicted_episodes_links[index:], predicted_episodes_sizes[index:], download_folder_path, anime_title)
+                                         
 
                 else:
                     driver.quit()
@@ -734,7 +853,7 @@ def ContinueLooper():
     slow_print(" Would you like to continue downloading anime?")
     reply = key_prompt()
     if len([n for n in no_list if n == reply]) > 0:
-        exit_handler
+        exit_handler()
         return False
     elif len([y for y in yes_list if y == reply]) > 0:
         return True
@@ -820,6 +939,7 @@ def __main__():
         #If the anime isn't found keep prompting the user
         while anime_id == 0 and anime_title == 0:
             anime_id, anime_title = AnimeSelection(Searcher())
+        quality, sub_or_dub, default_download_folder_path = SaveSettings(senpwai_stuff_path)
         slow_print(" Just give me a moment, choto choto :P")
         #Links to the episodes
         episode_links = EpisodeLinks(anime_id)
@@ -827,16 +947,20 @@ def __main__():
         download_links, download_info = DownloadData(episode_links)
         #From the download_info extract the sizes of each episode per quality
         download_sizes = DownloadSizes(download_info)
-        quality, sub_or_dub, default_download_folder_path = SaveSettings(senpwai_stuff_path)
         download_folder_path = default_download_folder_path+"\\"+anime_title
         #Based off the user's setting configure the links and sizes
         configured_download_links, configured_download_sizes = ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub)
-
-        start_index = StartEpisodePrompt(configured_download_links)
+        if not automate:
+            start_index = StartEpisodePrompt(configured_download_links)
+        elif automate:
+            start_index = 0
         predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes = DynamicEpisodePredictor(download_folder_path, configured_download_links, configured_download_sizes, anime_title, start_index)
         calculated_download_size = DownloadSizeCalculator(predicted_episodes_sizes, download_folder_path)
-
-        size_prompt_reply = SizePrompt(calculated_download_size)
+        if not automate:
+            size_prompt_reply = SizePrompt(calculated_download_size)
+        elif automate:
+            slow_print(f" Total download size is {calculated_download_size} MB")
+            size_prompt_reply = 1
 
         if size_prompt_reply:
 
