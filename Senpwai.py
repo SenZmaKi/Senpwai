@@ -49,7 +49,14 @@ from random import randint
 
 import keyboard
 import pyautogui
+
 import ping3
+
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+from pygame import mixer
+import time
+
+
 app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
 
 
@@ -75,7 +82,13 @@ repo_url = "https://github.com/SenZmaKi/Senpwai"
 github_home_url =  "https://github.com"
 version_download_url = "https://github.com/SenZmaKi/Senpwai/releases/download/"
 
-anime_references = ["It's called the Attack Titan", "Tatakae tatake", "Ohio Final Boss", "Tokio tomare", "Wonder of Ohio","Omoshire ore ga zangetsu da", "Getsuga Tenshou", "Rasenghan", "Za Warudo", "Star Pratina", "Nigurendayooo", "Korega jyuu da", "Mendokusai", "Dattebayo", "Bankai", "Kono asuratonkachi", "I devoured Barou and he devoured me right back", "United of States of Smaaaaash", "One for All Full Cowling"]
+anime_references = ["It's called the Attack Titan", "Tatakae tatake", "Ohio Final Boss", "Tokio tomare", "Wonder of Ohio","Omoshire ore ga zangetsu da", "Getsuga Tenshou", "Rasenghan",
+                     "Za Warudo", "Star Pratina", "Nigurendayooo", "Korega jyuu da", "Mendokusai", "Dattebayo", "Bankai", "Kono asuratonkachi", "I devoured Barou and he devoured me right back",
+                      "United of States of Smaaaaash", "One for All Full Cowling", "Maid in Heaven Tokio Kasotsuru", "Nyaaa", "Pony Stark",
+                     "Dysfunctional Degenerate", "Alpha Sigma", "But Hey that's just a theory", "Bro fist", "King Crimson", "Sticky Fingers", "Watch Daily Lives of HighSchool Boys",
+                     "Watch Prison School", "Watch Grand Blue", "Watch Golden Boy, funniest shit I've ever seen", "Watch Isekai Ojii-san", "Read Kengan Asura", "Read A Thousand Splendid Suns"
+                     , "Ryuujin no ken wo kurae!!!", "Ryuuga wakateki wo kurae", "Ookami o wagateki wo kurae", "Nerf this", "And dey say Chivalry is dead", "Who's next?", "Ryoiki Tenkai",
+                     "Ban.. .Kai Tensa Zangetsu", "Bankai Senbonzakura Kageyoshi", "Bankai Hihio Zabimaru", "Huuuero Zabimaru"]
 internet_responses = ["Kono baka!!! You don't have internet", "Yaaarou, no internet connection", "Bakayorou!!! Check your internet", "Fuzakerna teme!!! You don't have internet", "Oe oe oe mate. Network problem", "Mendokusai, no network", "How am I supposed to cook without internet? ", "Bro got no internet damn", "No internets?"]
 
 chrome_downloads_page = 'chrome://downloads'
@@ -83,6 +96,39 @@ edge_downloads_page = 'edge://downloads/all'
 
 app_pid = os.getpid()
 automate = False
+
+mute_path = pathlib.Path(senpwai_stuff_path+"\\mute.txt")
+#if a file named mute exists we mute else we don't mute
+#lowkey y favourite implementation of a mute system XD, it's so dumb
+mute = mute_path.is_file()
+
+#Set the audio path depending on whether we are running from from an executable(app) or script
+if getattr(sys, 'frozen', False):
+    audio_dir = os.path.join(sys._MEIPASS, 'audio')
+else:
+    audio_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'audio')
+
+join = os.path.join
+
+audio_paths = { "typing": join(audio_dir, 'typing.wav'),
+               "downloads complete": join(audio_dir, 'all downloads completed succesfully.wav'),
+               'almost': join(audio_dir, "almost there.wav"),
+               'sec': join(audio_dir, "give me a sec Senpai.wav"),
+               'hol up': join(audio_dir, 'hol up let me cook.wav'),
+               'moment': join(audio_dir, 'just give me a moment.wav'),
+               'enter number': join(audio_dir, 'please enter the number belonging to the anime you want from the list below.wav'),
+               'sub': join(audio_dir, 'sub or dub.wav'),
+               'valid internet': join(audio_dir, 'testing for a valid internet connection.wav'),
+               'quality': join(audio_dir, 'what quality do you want do download in.wav'),
+               'working': join(audio_dir, 'working on it.wav'),
+               'continue downloading': join(audio_dir, 'would you like to continue downloading.wav'),
+               'update': join(audio_dir, 'would you like to update to the new version.wav'),
+               'settings': join(audio_dir, 'would you like to you uWuse the following swaved settings.wav'),
+               "name": join(audio_dir, "name.wav")
+
+               
+               }
+
 
 #Detects whether the input the user entered is Y or N
 def key_prompt():
@@ -115,8 +161,30 @@ def flush_input():
             msvcrt.getch()
     except:
         pass
+
+def play_audio(audio_paths):
+    global mute
+    def decorator(fun):
+        def wrapper(*args, **kwargs):
+                if not mute:
+                    if len(args)>=2:
+                            player = mixer.Sound(audio_paths[args[1]])
+                            player.play()
+                            fun(*args, *kwargs)
+                    elif len(args)<2:
+                        player = mixer.Sound(audio_paths["typing"])
+                        player.play(loops=-1)
+                        fun(*args, *kwargs)
+                        player.stop()
+                elif mute:
+                    fun(*args, *kwargs)
+
+        return wrapper
+    return decorator
+
 #Prints output with a delay to simulate typing
-def slow_print(text, delay_time=0.01): 
+@play_audio(audio_paths)
+def slow_print(text, audio=None, delay_time=0.01): 
     for character in text:      
         sys.stdout.write(character) 
         sys.stdout.flush()
@@ -140,7 +208,7 @@ def VersionUpdater(current_version, repo_url, github_home_url, version_download_
     #Checks if the current running version is the latest
     if latest_version_int > current_version_int:
         slow_print(" Seems like there's a new version of me, guess I'm turning into an old hag XD")
-        slow_print(" Would you like to update to the new version? ")
+        slow_print(" Would you like to update to the new version? ", "update")
         while True:
             reply = key_prompt()
 
@@ -190,7 +258,7 @@ def InternetTest():
     valid_connection = False
     mendokusai = 0
     while not valid_connection:
-        slow_print(" Testing for a valid internet connection.. .")
+        slow_print(" Testing for a valid internet connection.. .", "valid internet")
         response = ping3.ping(google_com)
         if response:
             slow_print(" Success!!!\n")
@@ -230,7 +298,7 @@ def ProcessTerminator():
 #Searches for the anime from the animepahe database
 def Searcher():
     try:
-        slow_print(" Enter the name of the anime you want to download")
+        slow_print(" Enter the name of the anime you want to download", "name")
         keyword = input("> ")
         full_search_url = home_url+search_url_extension+keyword
         response = requests.get(full_search_url)
@@ -249,19 +317,75 @@ def exit_message():
 
 
 #Exit from program if user enters esc
+exit_handler_last_call_time = 0
 def exit_handler():
-    exit_message()
-    ProcessTerminator()
-    os._exit(1)
+    def call_back():
+        active_window_name = pyautogui.getActiveWindow().title
+        if app_name == active_window_name:
+            exit_message()
+            ProcessTerminator()
+            os._exit(1)
+
+        #prevent multiple key presses
+    global exit_handler_last_call_time
+    delay = 2
+    current_time = time.time()
+    time_since_last_call = current_time - exit_handler_last_call_time
+
+    if time_since_last_call < delay:
+        return 
+    else:
+        exit_handler_last_call_time = current_time
+        return call_back()
+
 
 keyboard.add_hotkey('esc', exit_handler)
 
+#mute the app if user presses ctrl+m or ctrl+M
+muter_last_call_time = 0
+def muter():
+    def call_back():
+        active_window_name = pyautogui.getActiveWindow().title
+        if app_name == active_window_name:
+            global mute
+            if mute:
+                mute = False
+            elif not mute:
+                mute = True
+                    
+            try:
+                os.mkdir(senpwai_stuff_path)
+            except:
+                pass
+
+            mute_path = pathlib.Path(senpwai_stuff_path+"\\mute.txt")
+            if not mute_path.is_file() and mute:
+                    with open(mute_path, "w"):
+                        pass
+            elif mute_path.is_file() and not mute:
+                mute_path.unlink()
+                
+
+    #prevent multiple key presses
+    global muter_last_call_time
+    delay = 0.6
+    current_time = time.time()
+    time_since_last_call = current_time - muter_last_call_time
+
+    if time_since_last_call < delay:
+        return 
+    else:
+        muter_last_call_time = current_time
+        return call_back()
+
+
+keyboard.add_hotkey('ctrl+m', muter)
 
 
 #Prompts the user to select the index of the anime they want from a list of the search results and returns the id of the chosen anime
 def AnimeSelection(results):
     while "anime_id" not in locals():    
-        slow_print(" Please enter the number belonging to the anime you want from the list below")
+        slow_print(" Please enter the number belonging to the anime you want from the list below", "enter number")
         for index, result in enumerate(results):
             slow_print(f"  {index+1} {result['title']}", delay_time=0.005)
         slow_print(" Or if the anime isn't in the list above enter s to search again")
@@ -368,7 +492,7 @@ def SettingsPrompt():
     while met_conditions < 2:
         quality = DownloadSettings(quality=quality)[0]
         while quality == "error":
-            slow_print("What quality do you want to download in uWu? 360p, 720p or 1080p?")
+            slow_print("What quality do you want to download in uWu? 360p, 720p or 1080p?", "quality")
             quality = input("> ").lower()
             quality = DownloadSettings(quality=quality)[0]
 
@@ -376,7 +500,7 @@ def SettingsPrompt():
 
         sub_or_dub = DownloadSettings(sub_or_dub=sub_or_dub)[1]
         while sub_or_dub == "error":
-            slow_print("Sub or dub?")
+            slow_print("Sub or dub?", "sub")
             sub_or_dub = input("> ").lower()
             sub_or_dub = DownloadSettings(sub_or_dub=sub_or_dub)[1]
         met_conditions+=1
@@ -396,7 +520,7 @@ def SaveSettings(senpwai_stuff_path):
 
 #if there is a config file then prompt the user on whether they want to use the saved settings
     if config_path.is_file() and not automate:
-        slow_print(" Would you like to uWuse the following swaved settings?")
+        slow_print(" Would you like to uWuse the following swaved settings?", "settings")
         with open(config_path) as config_file:
             config_settings = json.load(config_file)
             slow_print(f" Quality: {config_settings['quality']}")
@@ -745,7 +869,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
 
                         pause_or_resume(event())
                     keyboard.unhook(pause_or_resume)         
-                slow_print("\n")
+                print("\n")
                 return 1
 
 
@@ -757,7 +881,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
         #total number of files to be downloaded
         total_downloads = len(predicted_episodes_links)
 
-        slow_print(" Give me a sec Senpai")
+        slow_print(" Give me a sec Senpai", "sec")
 
         while True:
                 
@@ -775,7 +899,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                                 pahewin_page = requests.get(predicted_episodes_links[index]).content
 
                                 #wait for the link to be dynamically generated
-                                slow_print(" ( ⚆ _ ⚆) Working on it.. .")
+                                slow_print(" ( ⚆ _ ⚆) Working on it.. .", "working")
                                 #parse the new page with the link to the download page then search for the ddownload link
                                 soup = BeautifulSoup(pahewin_page, "html.parser")
                                 server_download_link = soup.find_all("a", class_="btn btn-primary btn-block redirect")[0]["href"]
@@ -800,20 +924,20 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                                     time.sleep(3)
                                 page_not_found = True
                         #wait for the file being downloaded to reflect in the download folder
-                        slow_print(" ( ⚆ _ ⚆) Almost there.. .")
+                        slow_print(" ( ⚆ _ ⚆) Almost there.. .", "almost")
                         time.sleep(1)
                         file_count+=1
-                        current_time = time.time()
 
                         episode_index = predicted_episodes_indices[index]
                         download_exit_status = ProgressBar(predicted_episodes_sizes[index], download_folder_path, anime_title, episode_index)
+                        exit_time = time.time()
                         if download_exit_status == 1:
                             while(StillDownloading(download_folder_path)):
 
-                                if current_time - time.time() > 10800:
+                                if time.time() - exit_time > 60:
                                     driver.quit()
-                                #if one download takes more than 3 hours then exit as a fail
-                                    return 0
+                                    #if one download takes more than 1 min to finish then try again
+                                    return DownloadEpisodes(predicted_episodes_indices[index:], predicted_episodes_links[index:], predicted_episodes_sizes[index:], download_folder_path, anime_title)
                                 time.sleep(2)
                             file_paths = list(pathlib.Path(download_folder_path).glob("*"))
                             # Sort the list by the creation time of the files
@@ -829,7 +953,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                             if file_count-1 == 0:
                             #if the first download has completed then open the folder
                                 os.startfile(new_folder_path)
-                        elif download_exit_status == 0:
+                        if download_exit_status == 0:
                             driver.quit()
                             return DownloadEpisodes(predicted_episodes_indices[index:], predicted_episodes_links[index:], predicted_episodes_sizes[index:], download_folder_path, anime_title)
                                          
@@ -837,20 +961,22 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                 else:
                     driver.quit()
                     #If the last download is complete then open the folder again
-                    os.startfile(new_folder_path)
+                    if file_count-1 != 0:
+                        os.startfile(new_folder_path)
                     return 1
 
 #Simply checks the status of downloads from DownloadEpisodes after automation is complete, print the messages depending on what DownloadEpisodes returns
 #Takes DownloadEpisodes as the arguerment
 def DownloadStatus(download_status):
     if download_status:
-        return " All downloads completed succesfully [(^O^)] , Senpwai ga saikyou no stando Da MUDA"
+        slow_print(" All downloads completed succesfully [(^O^)] , Senpwai ga saikyou no stando Da MUDA", "downloads complete")
+        time.sleep(2)
     elif not download_status:
-        return" Error while trying to download (⌣̩̩́_⌣̩̩̀) , you probably don't have an internet connection. Or something goofy happened on my end. Please try again uWu\nAlready downloaded episodes will be ignored, you can count on me"
+        slow_print(" Error while trying to download (⌣̩̩́_⌣̩̩̀) , you probably don't have an internet connection. Or something goofy happened on my end. Please try again uWu\nAlready downloaded episodes will be ignored, you can count on me")
 
 #Once downloading is done prompts if the user wants to download more
 def ContinueLooper():
-    slow_print(" Would you like to continue downloading anime?")
+    slow_print(" Would you like to continue downloading anime?", "continue downloading")
     reply = key_prompt()
     if len([n for n in no_list if n == reply]) > 0:
         exit_handler()
@@ -915,7 +1041,7 @@ def SizePrompt(calculated_download_size):
     
     if len([y for y in yes_list if y == prompt_reply]) > 0:
         slow_print(" If you experience any glitches, crashes, errors or failed downloads just restart the app :O\n If they persist post your issue on https://github.com/SenZmaKi/Senpwai/issues for my creator to hopefully address it\n")
-        slow_print(" Hol up let me cook")
+        slow_print(" Hol up let me cook", "hol up")
         return 1
         
     elif len([n for n in no_list if n == prompt_reply]) > 0:
@@ -924,10 +1050,12 @@ def SizePrompt(calculated_download_size):
 #Main program loop
 
 
-def __main__():
+def main():
 
+    mixer.init()
     slow_print(" Hewwo\n")
-    slow_print(" Avoid clicking X to exit, Press Esc instead\n")
+    slow_print(" Avoid clicking X to exit, Press Esc instead")
+    slow_print(" Enter Ctrl+M to mute or unmute. This will be saved in settings\n")
     ProcessTerminator()
     InternetTest()
     VersionUpdater(current_version, repo_url, github_home_url, version_download_url)
@@ -940,7 +1068,7 @@ def __main__():
         while anime_id == 0 and anime_title == 0:
             anime_id, anime_title = AnimeSelection(Searcher())
         quality, sub_or_dub, default_download_folder_path = SaveSettings(senpwai_stuff_path)
-        slow_print(" Just give me a moment, choto choto :P")
+        slow_print(" Just give me a moment, choto choto :P", "moment")
         #Links to the episodes
         episode_links = EpisodeLinks(anime_id)
         #Split the generated links into download_links and info about the downloads i.e quality and size
@@ -965,7 +1093,7 @@ def __main__():
         if size_prompt_reply:
 
             if calculated_download_size > 0:                
-                slow_print(DownloadStatus(DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes, download_folder_path, anime_title)))
+                DownloadStatus(DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes, download_folder_path, anime_title))
                 run = ContinueLooper()
             
             elif  calculated_download_size <= 0:
@@ -979,5 +1107,6 @@ def __main__():
 
     
 
-__main__()
-    
+if __name__ == "__main__":
+   # stuff only to run when not called via 'import' here
+   main()    
