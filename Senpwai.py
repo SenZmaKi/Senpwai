@@ -55,12 +55,18 @@ import ping3
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 from pygame import mixer
 import time
+from colorama import init, Fore, Back, Style
 
 
-app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
+app_name = sys.executable
+
+#The name of my workspace in vs code basically
+#Comment out the above app_name and set it to the window of where you run the code in order for 
+#the keyboard module to load your inputs, this is to prevent inputs from being detected even if the app isn't the active window
+#app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
 
 
-current_version = "1.2.1"
+current_version = "1.4.0"
 
 home_url = "https://animepahe.ru/"
 google_com = "google.com"
@@ -87,14 +93,13 @@ anime_references = ["It's called the Attack Titan", "Tatakae tatake", "Ohio Fina
                       "United of States of Smaaaaash", "One for All Full Cowling", "Maid in Heaven Tokio Kasotsuru", "Nyaaa", "Pony Stark",
                      "Dysfunctional Degenerate", "Alpha Sigma", "But Hey that's just a theory", "Bro fist", "King Crimson", "Sticky Fingers", "Watch Daily Lives of HighSchool Boys",
                      "Watch Prison School", "Watch Grand Blue", "Watch Golden Boy, funniest shit I've ever seen", "Watch Isekai Ojii-san", "Read Kengan Asura", "Read A Thousand Splendid Suns"
-                     , "Ryuujin no ken wo kurae!!!", "Ryuuga wakateki wo kurae", "Ookami o wagateki wo kurae", "Nerf this", "And dey say Chivalry is dead", "Who's next?", "Ryoiki Tenkai",
+                     , "Ryuujin no ken wo kurae!!!", "Ryuuga wakateki wo kurau", "Ookami o wagateki wo kurae", "Nerf this", "And dey say Chivalry is dead", "Who's next?", "Ryoiki Tenkai",
                      "Ban.. .Kai Tensa Zangetsu", "Bankai Senbonzakura Kageyoshi", "Bankai Hihio Zabimaru", "Huuuero Zabimaru"]
 internet_responses = ["Kono baka!!! You don't have internet", "Yaaarou, no internet connection", "Bakayorou!!! Check your internet", "Fuzakerna teme!!! You don't have internet", "Oe oe oe mate. Network problem", "Mendokusai, no network", "How am I supposed to cook without internet? ", "Bro got no internet damn", "No internets?"]
 
 chrome_downloads_page = 'chrome://downloads'
 edge_downloads_page = 'edge://downloads/all'
 
-app_pid = os.getpid()
 automate = False
 
 mute_path = pathlib.Path(senpwai_stuff_path+"\\mute.txt")
@@ -109,6 +114,8 @@ else:
     audio_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'audio')
 
 join = os.path.join
+output_colour = Fore.LIGHTGREEN_EX
+input_colour = Fore.LIGHTYELLOW_EX
 
 audio_paths = { "typing": join(audio_dir, 'typing.wav'),
                "downloads complete": join(audio_dir, 'all downloads completed succesfully.wav'),
@@ -132,24 +139,26 @@ audio_paths = { "typing": join(audio_dir, 'typing.wav'),
 
 #Detects whether the input the user entered is Y or N
 def key_prompt():
-        sys.stdout.write("> ")
+        sys.stdout.write(input_colour+"> ")
+        print(output_colour)
         sys.stdout.flush()
         while True:
-            if keyboard.is_pressed("y") or keyboard.is_pressed("Y"):
-                sys.stdout.write("\n") 
-                sys.stdout.flush()
-                flush_input()
-                return 1
-            elif keyboard.is_pressed("n") or keyboard.is_pressed("N"):
-                sys.stdout.write("\n") 
-                sys.stdout.flush()
-                flush_input()
-                return 0
-            elif keyboard.is_pressed("esc"):
-                sys.stdout.write("\n") 
-                sys.stdout.flush()
-                flush_input()
-                exit_handler()
+            if pyautogui.getActiveWindow().title == app_name:
+                if keyboard.is_pressed("y") or keyboard.is_pressed("Y"):
+                    sys.stdout.write("\n") 
+                    sys.stdout.flush()
+                    flush_input()
+                    return 1
+                elif keyboard.is_pressed("n") or keyboard.is_pressed("N"):
+                    sys.stdout.write("\n") 
+                    sys.stdout.flush()
+                    flush_input()
+                    return 0
+                elif keyboard.is_pressed("esc"):
+                    sys.stdout.write("\n") 
+                    sys.stdout.flush()
+                    flush_input()
+                    exit_handler()
 
 #Flushes users input from the inputstream after key_prompt() is called
 def flush_input():
@@ -299,7 +308,8 @@ def ProcessTerminator():
 def Searcher():
     try:
         slow_print(" Enter the name of the anime you want to download", "name")
-        keyword = input("> ")
+        keyword = input(input_colour+"> ")
+        print(output_colour)
         full_search_url = home_url+search_url_extension+keyword
         response = requests.get(full_search_url)
         results = json.loads(response.content.decode("UTF-8"))["data"]
@@ -328,7 +338,7 @@ def exit_handler():
 
         #prevent multiple key presses
     global exit_handler_last_call_time
-    delay = 2
+    delay = 0.6
     current_time = time.time()
     time_since_last_call = current_time - exit_handler_last_call_time
 
@@ -379,7 +389,7 @@ def muter():
         return call_back()
 
 
-keyboard.add_hotkey('ctrl+m', muter)
+keyboard.add_hotkey('alt+m', muter)
 
 
 #Prompts the user to select the index of the anime they want from a list of the search results and returns the id of the chosen anime
@@ -391,7 +401,8 @@ def AnimeSelection(results):
         slow_print(" Or if the anime isn't in the list above enter s to search again")
         slow_print(" You can also enter the Number of the anime followed by a and I will automatically used the saved settings and detect missing episodes")
 
-        index_of_chosen_anime = input("> ")
+        index_of_chosen_anime = input(input_colour+"> ")
+        print(output_colour)
         pattern = r"(\d+)\s*a"  
         match = re.search(pattern, index_of_chosen_anime)
         if match:
@@ -493,7 +504,8 @@ def SettingsPrompt():
         quality = DownloadSettings(quality=quality)[0]
         while quality == "error":
             slow_print("What quality do you want to download in uWu? 360p, 720p or 1080p?", "quality")
-            quality = input("> ").lower()
+            quality = input(input_colour+"> ").lower()
+            print(output_colour)
             quality = DownloadSettings(quality=quality)[0]
 
         met_conditions+=1
@@ -501,7 +513,8 @@ def SettingsPrompt():
         sub_or_dub = DownloadSettings(sub_or_dub=sub_or_dub)[1]
         while sub_or_dub == "error":
             slow_print("Sub or dub?", "sub")
-            sub_or_dub = input("> ").lower()
+            sub_or_dub = input(input_colour+"> ").lower()
+            print(output_colour)
             sub_or_dub = DownloadSettings(sub_or_dub=sub_or_dub)[1]
         met_conditions+=1
     return quality, sub_or_dub
@@ -806,6 +819,8 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
           
             download_complete = False
             error = False
+            #otherwise the message will constantly switch
+            ran_index = randint(0, len(internet_responses)-1)
 
             with tqdm(total=round(episode_size), unit='MB', unit_scale=True, desc=f' Downloading {anime_title} Episode {index+1}') as progress_bar:
                 keyboard.hook(pause_or_resume)
@@ -829,7 +844,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                                 keyboard.unhook(pause_or_resume)         
                                 return 0
                     elif not network_status:
-                        progress_bar.set_description(f" {internet_responses[randint(0, len(internet_responses)-1)]}")
+                        progress_bar.set_description(f" {internet_responses[ran_index]}")
 
  
                     if paused and network_status:
@@ -969,8 +984,15 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
 #Takes DownloadEpisodes as the arguerment
 def DownloadStatus(download_status):
     if download_status:
-        slow_print(" All downloads completed succesfully [(^O^)] , Senpwai ga saikyou no stando Da MUDA", "downloads complete")
-        time.sleep(2)
+        if mute:
+            mute = False
+            #To ensure the user is notified when all downloads are completed
+            slow_print(" All downloads completed succesfully [(^O^)] , Senpwai ga saikyou no stando Da MUDA", "downloads complete")
+            time.sleep(2)
+            mute =  True
+        else:
+            slow_print(" All downloads completed succesfully [(^O^)] , Senpwai ga saikyou no stando Da MUDA", "downloads complete")
+            time.sleep(2)
     elif not download_status:
         slow_print(" Error while trying to download (⌣̩̩́_⌣̩̩̀) , you probably don't have an internet connection. Or something goofy happened on my end. Please try again uWu\nAlready downloaded episodes will be ignored, you can count on me")
 
@@ -1016,7 +1038,8 @@ def DownloadSizeCalculator(predicted_episodes_sizes, download_folder_path):
 #Determeines from which episode to start downloading based of user input
 def StartEpisodePrompt(configured_download_links):
     slow_print("Enter d for me to detect then download episodes you don't have OR Enter the episode number for me start downloading from a specific episode")
-    reply = input("> ")
+    reply = input(input_colour+"> ")
+    print(output_colour)
     try:
         start_index = int(reply)-1
         try:
@@ -1052,10 +1075,13 @@ def SizePrompt(calculated_download_size):
 
 def main():
 
+
+    init(convert=True)
     mixer.init()
+    print(output_colour)
     slow_print(" Hewwo\n")
     slow_print(" Avoid clicking X to exit, Press Esc instead")
-    slow_print(" Enter Ctrl+M to mute or unmute. This will be saved in settings\n")
+    slow_print(" Enter Alt+M to mute or unmute. This will be saved in settings\n")
     ProcessTerminator()
     InternetTest()
     VersionUpdater(current_version, repo_url, github_home_url, version_download_url)
