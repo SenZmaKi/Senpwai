@@ -11,7 +11,9 @@ Wrote it cause I got tired of clicking links upon links and a having a billion t
 
 ### Pre-requisites
 
-You'll need to have either Chrome or Edge installed on your system, preferably Chrome
+Currently only works on Windows OS
+
+You'll need to have Chrome installed
 
 Support for Firefox coming soon
 
@@ -35,7 +37,7 @@ Then just run the code as you would normally do
 
 If you want to build it into an executable like I did, run
 
-```pyinstaller --onefile --icon=Senpwai_icon.ico Senpwai.py```
+```pyinstaller --onefile --icon=Senpwai_icon.ico --add-data "audio;audio" Senpwai.py```
 
 
 ## Epilogue
