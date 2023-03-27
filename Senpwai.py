@@ -1097,6 +1097,7 @@ def SizePrompt(calculated_download_size):
     
     if len([y for y in yes_list if y == prompt_reply]) > 0:
         slow_print(" If you experience any glitches, crashes, errors or failed downloads just restart the app :O\n If they persist post your issue on https://github.com/SenZmaKi/Senpwai/issues for my creator to hopefully address it\n")
+        slow_print(" Enter spacebar to pause or resume downloads\n")
         slow_print(" Hol up let me cook", "hol up")
         return 1
         
