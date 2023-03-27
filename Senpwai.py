@@ -56,15 +56,17 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 from pygame import mixer
 import time
 from colorama import init, Fore, Back, Style
+import threading
 
 
-app_name = sys.executable
-
+#app_name = sys.executable
 #The name of my workspace in vs code basically
 #Comment out the above app_name and set it to the window of where you run the code in order for 
 #the keyboard module to load your inputs, this is to prevent inputs from being detected even if the app isn't the active window
 #app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
 
+app_name = "Senpwai"
+os.system("title " + app_name)
 
 current_version = "1.4.0"
 
@@ -131,34 +133,58 @@ audio_paths = { "typing": join(audio_dir, 'typing.wav'),
                'continue downloading': join(audio_dir, 'would you like to continue downloading.wav'),
                'update': join(audio_dir, 'would you like to update to the new version.wav'),
                'settings': join(audio_dir, 'would you like to you uWuse the following swaved settings.wav'),
-               "name": join(audio_dir, "name.wav")
+               "name": join(audio_dir, "name.wav"),
+               "systems": join(audio_dir, "systems online.wav")
 
                
                }
+#just a loading animation
+def loading_animation(condition):
+    animation = "|/-\\"
+    idx = 0
+    while not condition[0]:
+        print(f" {animation[idx % len(animation)]} ", end="\r")
+        idx += 1      
+        time.sleep(0.1)
+
+def systems_online():
+    player = mixer.music
+    player.load(audio_paths['systems'])
+    player.play()
+    animation = "|/-\\"
+    idx = 0
+    while player.get_busy():
+        print(f"  {animation[idx % len(animation)]}", end="\r")
+        idx += 1      
+        time.sleep(0.1)
 
 
 #Detects whether the input the user entered is Y or N
 def key_prompt():
         sys.stdout.write(input_colour+"> ")
-        print(output_colour)
-        sys.stdout.flush()
+        print(output_colour, end="")
         while True:
-            if pyautogui.getActiveWindow().title == app_name:
-                if keyboard.is_pressed("y") or keyboard.is_pressed("Y"):
-                    sys.stdout.write("\n") 
-                    sys.stdout.flush()
-                    flush_input()
-                    return 1
-                elif keyboard.is_pressed("n") or keyboard.is_pressed("N"):
-                    sys.stdout.write("\n") 
-                    sys.stdout.flush()
-                    flush_input()
-                    return 0
-                elif keyboard.is_pressed("esc"):
-                    sys.stdout.write("\n") 
-                    sys.stdout.flush()
-                    flush_input()
-                    exit_handler()
+            try:
+                #to handle cases when there is no active window e.g when user is on the desktop
+                active_window = pyautogui.getActiveWindow()
+                if active_window != None and active_window.title == app_name:
+                    if keyboard.is_pressed("y") or keyboard.is_pressed("Y"):
+                        sys.stdout.write("\n") 
+                        sys.stdout.flush()
+                        flush_input()
+                        return 1
+                    elif keyboard.is_pressed("n") or keyboard.is_pressed("N"):
+                        sys.stdout.write("\n") 
+                        sys.stdout.flush()
+                        flush_input()
+                        return 0
+                    elif keyboard.is_pressed("esc"):
+                        sys.stdout.write("\n") 
+                        sys.stdout.flush()
+                        flush_input()
+                        exit_handler()
+            except:
+                pass
 
 #Flushes users input from the inputstream after key_prompt() is called
 def flush_input():
@@ -309,7 +335,7 @@ def Searcher():
     try:
         slow_print(" Enter the name of the anime you want to download", "name")
         keyword = input(input_colour+"> ")
-        print(output_colour)
+        print(output_colour, end="")
         full_search_url = home_url+search_url_extension+keyword
         response = requests.get(full_search_url)
         results = json.loads(response.content.decode("UTF-8"))["data"]
@@ -330,8 +356,10 @@ def exit_message():
 exit_handler_last_call_time = 0
 def exit_handler():
     def call_back():
-        active_window_name = pyautogui.getActiveWindow().title
-        if app_name == active_window_name:
+        #to handle cases where there is no active window
+        print(output_colour, end="")
+        active_window = pyautogui.getActiveWindow()
+        if active_window != None and app_name == active_window.title:
             exit_message()
             ProcessTerminator()
             os._exit(1)
@@ -355,8 +383,8 @@ keyboard.add_hotkey('esc', exit_handler)
 muter_last_call_time = 0
 def muter():
     def call_back():
-        active_window_name = pyautogui.getActiveWindow().title
-        if app_name == active_window_name:
+        active_window = pyautogui.getActiveWindow()
+        if active_window != None and app_name == active_window.title:
             global mute
             if mute:
                 mute = False
@@ -402,7 +430,7 @@ def AnimeSelection(results):
         slow_print(" You can also enter the Number of the anime followed by a and I will automatically used the saved settings and detect missing episodes")
 
         index_of_chosen_anime = input(input_colour+"> ")
-        print(output_colour)
+        print(output_colour, end="")
         pattern = r"(\d+)\s*a"  
         match = re.search(pattern, index_of_chosen_anime)
         if match:
@@ -505,7 +533,7 @@ def SettingsPrompt():
         while quality == "error":
             slow_print("What quality do you want to download in uWu? 360p, 720p or 1080p?", "quality")
             quality = input(input_colour+"> ").lower()
-            print(output_colour)
+            print(output_colour, end="")
             quality = DownloadSettings(quality=quality)[0]
 
         met_conditions+=1
@@ -514,7 +542,7 @@ def SettingsPrompt():
         while sub_or_dub == "error":
             slow_print("Sub or dub?", "sub")
             sub_or_dub = input(input_colour+"> ").lower()
-            print(output_colour)
+            print(output_colour, end="")
             sub_or_dub = DownloadSettings(sub_or_dub=sub_or_dub)[1]
         met_conditions+=1
     return quality, sub_or_dub
@@ -791,8 +819,8 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                 def call_back():
                     try:
                         nonlocal paused
-                        active_window_name = pyautogui.getActiveWindow().title
-                        if event.name == 'space' and active_window_name == app_name:
+                        active_window = pyautogui.getActiveWindow()
+                        if event.name == 'space' and active_window != None and active_window.title == app_name:
                             details_element_reference = driver.execute_script('return document.querySelector("downloads-manager").shadowRoot.querySelector("#mainContainer").querySelector("#downloadsList").querySelector("#frb0").shadowRoot.querySelector("#content").querySelector("#details")')
                             pause_or_resume_element_reference = driver.execute_script('return arguments[0].querySelector("#safe").querySelector("span:nth-of-type(2)").querySelector("cr-button")', details_element_reference)
                             driver.execute_script("arguments[0].click();", pause_or_resume_element_reference)
@@ -843,11 +871,11 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                                 progress_bar.set_description(f" Attempt failed :( Restarting")
                                 keyboard.unhook(pause_or_resume)         
                                 return 0
-                    elif not network_status:
+                    elif not network_status and not paused:
                         progress_bar.set_description(f" {internet_responses[ran_index]}")
 
  
-                    if paused and network_status:
+                    if paused:
                         progress_bar.set_description(f" Paused")
                     elif not paused and network_status:
                         progress_bar.set_description(f" Downloading {anime_title} Episode {index+1}")
@@ -904,8 +932,8 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                 if not CompletionCheck(download_folder_path, total_downloads, file_count):
 
                     for index in range(total_downloads):
-                        page_not_found = True
-                        while page_not_found:
+                        page_found = [False]
+                        while not page_found[0]:
                             try:
 
                                 #Selenium is used cause of the dynamically generated content
@@ -915,6 +943,8 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
 
                                 #wait for the link to be dynamically generated
                                 slow_print(" ( ⚆ _ ⚆) Working on it.. .", "working")
+                                animationThread = threading.Thread(target=loading_animation, args=(page_found, ))
+                                animationThread.start()
                                 #parse the new page with the link to the download page then search for the ddownload link
                                 soup = BeautifulSoup(pahewin_page, "html.parser")
                                 server_download_link = soup.find_all("a", class_="btn btn-primary btn-block redirect")[0]["href"]
@@ -931,13 +961,15 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                                 driver.get(downloads_manager_page)
                                 # Wait for the downloads-manager element to appear
                                 WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'downloads-manager')))
-                                page_not_found = False
+                                page_found[0] = True
                             except:
                                 #if the above lines fail then try again
+                                #To kill the loading animation thread
+                                page_found[0] = True
                                 if not ping3.ping(google_com):
                                     slow_print(f" {internet_responses[randint(0, len(internet_responses)-1)]}")
                                     time.sleep(3)
-                                page_not_found = True
+                                page_found[0] = False
                         #wait for the file being downloaded to reflect in the download folder
                         slow_print(" ( ⚆ _ ⚆) Almost there.. .", "almost")
                         time.sleep(1)
@@ -983,6 +1015,7 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
 #Simply checks the status of downloads from DownloadEpisodes after automation is complete, print the messages depending on what DownloadEpisodes returns
 #Takes DownloadEpisodes as the arguerment
 def DownloadStatus(download_status):
+    global mute
     if download_status:
         if mute:
             mute = False
@@ -1037,9 +1070,9 @@ def DownloadSizeCalculator(predicted_episodes_sizes, download_folder_path):
 
 #Determeines from which episode to start downloading based of user input
 def StartEpisodePrompt(configured_download_links):
-    slow_print("Enter d for me to detect then download episodes you don't have OR Enter the episode number for me start downloading from a specific episode")
+    slow_print(" Enter d for me to detect then download episodes you don't have OR Enter the episode number for me start downloading from a specific episode")
     reply = input(input_colour+"> ")
-    print(output_colour)
+    print(output_colour, end="")
     try:
         start_index = int(reply)-1
         try:
@@ -1078,8 +1111,11 @@ def main():
 
     init(convert=True)
     mixer.init()
-    print(output_colour)
+    print(output_colour, end="")
     slow_print(" Hewwo\n")
+    if not mute:
+        systems_online()
+    
     slow_print(" Avoid clicking X to exit, Press Esc instead")
     slow_print(" Enter Alt+M to mute or unmute. This will be saved in settings\n")
     ProcessTerminator()
