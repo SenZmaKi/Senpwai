@@ -68,7 +68,7 @@ import threading
 app_name = "Senpwai"
 os.system("title " + app_name)
 
-current_version = "1.4.0"
+current_version = "1.4.1"
 
 home_url = "https://animepahe.ru/"
 google_com = "google.com"
