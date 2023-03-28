@@ -63,9 +63,9 @@ import threading
 #The name of my workspace in vs code basically
 #Comment out the above app_name and set it to the window of where you run the code in order for 
 #the keyboard module to load your inputs, this is to prevent inputs from being detected even if the app isn't the active window
-#app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
+app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
 
-app_name = "Senpwai"
+#app_name = "Senpwai"
 os.system("title " + app_name)
 
 current_version = "1.4.1"
@@ -471,8 +471,23 @@ def SetDownloadFolderPath():
 #Returns the links to the episodes from animepahe
 def EpisodeLinks(anime_id):
     #Issues a GET request to the server together with the id of the anime and returns a list of the links(not donwload links) to all the episodes of that anime
-    response = requests.get(home_url+api_url_extension+"release&id="+anime_id+"&sort=episode_asc")
-    episode_data = json.loads(response.content.decode("UTF-8"))["data"]
+    page_url = (home_url+api_url_extension+"release&id="+anime_id+"&sort=episode_asc")
+    def episodes_pipeline(page_url):
+        complete_episode_data = []
+        next_page_url = page_url
+        page_no = 1
+        #Loop through all pages while scraping episode data in each page
+        while next_page_url != None:
+            page_url = page_url+f"&page={page_no}"
+            response = requests.get(page_url)
+            decoded_anime_page = json.loads(response.content.decode("UTF-8"))
+            episode_data = decoded_anime_page["data"]
+            complete_episode_data = complete_episode_data+episode_data
+            next_page_url = decoded_anime_page["next_page_url"]
+            page_no+=1
+        return complete_episode_data
+
+    episode_data = episodes_pipeline(page_url)
     episode_sessions = [episode["session"] for episode in episode_data]
     episode_links = [home_url+"play/"+anime_id+"/"+str(episode_session) for episode_session in episode_sessions]
     return  episode_links
@@ -480,10 +495,11 @@ def EpisodeLinks(anime_id):
 #Splits the episode links into two datasets, the download_links, and the infomation about the downloads i.e quality 360p, 720p or 1080p and size in megabytes
 def DownloadData(episode_links):
     download_data = []
-    for episode_link in episode_links:
+    for i, episode_link in enumerate(episode_links):
         episode_page = requests.get(episode_link).content
         soup = BeautifulSoup(episode_page, "html.parser")
         download_data.append(soup.find_all("a", class_="dropdown-item", target="_blank"))
+        print("Episode ", i)
     #Scrapes the download data of each episode and stores the links for each quality and dub or sub in a list which is contained in another list containing all episodes
     download_links = [[download_link["href"] for download_link in episode_data] for episode_data in download_data]
     #Scrapes the download data of each episode and stores the info for each quality and dub or sub in a list which is contained in another list containing all episodes
@@ -1134,10 +1150,13 @@ def main():
         slow_print(" Just give me a moment, choto choto :P", "moment")
         #Links to the episodes
         episode_links = EpisodeLinks(anime_id)
+        print("donwload links done")
         #Split the generated links into download_links and info about the downloads i.e quality and size
         download_links, download_info = DownloadData(episode_links)
+        print("donwload data done")
         #From the download_info extract the sizes of each episode per quality
         download_sizes = DownloadSizes(download_info)
+        print("donwload sizes done")
         download_folder_path = default_download_folder_path+"\\"+anime_title
         #Based off the user's setting configure the links and sizes
         configured_download_links, configured_download_sizes = ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub)
