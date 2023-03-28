@@ -63,12 +63,12 @@ import threading
 #The name of my workspace in vs code basically
 #Comment out the above app_name and set it to the window of where you run the code in order for 
 #the keyboard module to load your inputs, this is to prevent inputs from being detected even if the app isn't the active window
-app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
+#app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
 
-#app_name = "Senpwai"
+app_name = "Senpwai"
 os.system("title " + app_name)
 
-current_version = "1.4.1"
+current_version = "1.4.5"
 
 home_url = "https://animepahe.ru/"
 google_com = "google.com"
@@ -77,6 +77,8 @@ api_url_extension = "api?m="
 search_url_extension = api_url_extension+"search&q="
 quality = "720p"
 sub_or_dub = "sub"
+automate = False
+
 
 yes_list = ["yes", "yeah", "1", 1, "y", "ok", "k", "cool"]
 no_list = ["no", "nope", "0", 0, "n"]
@@ -102,7 +104,6 @@ internet_responses = ["Kono baka!!! You don't have internet", "Yaaarou, no inter
 chrome_downloads_page = 'chrome://downloads'
 edge_downloads_page = 'edge://downloads/all'
 
-automate = False
 
 mute_path = pathlib.Path(senpwai_stuff_path+"\\mute.txt")
 #if a file named mute exists we mute else we don't mute
@@ -499,7 +500,6 @@ def DownloadData(episode_links):
         episode_page = requests.get(episode_link).content
         soup = BeautifulSoup(episode_page, "html.parser")
         download_data.append(soup.find_all("a", class_="dropdown-item", target="_blank"))
-        print("Episode ", i)
     #Scrapes the download data of each episode and stores the links for each quality and dub or sub in a list which is contained in another list containing all episodes
     download_links = [[download_link["href"] for download_link in episode_data] for episode_data in download_data]
     #Scrapes the download data of each episode and stores the info for each quality and dub or sub in a list which is contained in another list containing all episodes
@@ -1056,7 +1056,7 @@ def ContinueLooper():
         return True
 
 #Predicts which episodes to download by detecting the ones that have already been downloaded then excluding them
-def DynamicEpisodePredictor(download_folder_path, episode_links, anime_title, start_index):
+def DynamicEpisodePredictor(download_folder_path, episode_links, anime_title, start_index, end_index):
     
     #pattern to find the episode files in the current defeault download folder
     #common ChatGpt W
@@ -1073,8 +1073,7 @@ def DynamicEpisodePredictor(download_folder_path, episode_links, anime_title, st
         
     #Compute the indices of the episodes to be downloaded
     #Only add an episode if it's not in the already available episodes AND it's not an untracked episode i.e when the user specifies where to start
-    predicted_episodes_indices = [episode_index for episode_index in range(len(episode_links)) if episode_index not in already_available_episodes_indices and episode_index >= start_index]
-
+    predicted_episodes_indices = [episode_index for episode_index in range(len(episode_links)) if episode_index not in already_available_episodes_indices and episode_index >= start_index and episode_index <= end_index]
     predicted_episodes_links = [episode_links[predicted_episode_link] for predicted_episode_link in predicted_episodes_indices]
     return predicted_episodes_indices, predicted_episodes_links
 
@@ -1085,25 +1084,34 @@ def DownloadSizeCalculator(predicted_episodes_sizes, download_folder_path):
 
 #Determeines from which episode to start downloading based of user input
 def StartEpisodePrompt(episode_links):
-    slow_print(" Enter d for me to detect then download episodes you don't have OR Enter the episode number for me start downloading from a specific episode")
-    reply = input(input_colour+"> ")
-    print(output_colour, end="")
-    try:
-        start_index = int(reply)-1
-        try:
-            episode_links[start_index]
-            return start_index
-        except: 
-            while True:
-                slow_print("Enter a valid Episode, (*/\*) bakayarou")
-                start_index = int("> ")-1
+    while True:
+        slow_print(" Enter d for me to detect then download episodes you don't have OR\n Enter the episode number for me to start downloading from a specific episode OR\n Enter the episode number to start from followed by space or hyphen then the episode number to stop downloading to download in a specific range")
+        reply = input(input_colour+"> ")
+        print(output_colour, end="")
+
+        if reply == "d":
+            return 0, len(episode_links)-1
+        else:
+            try:
+                start_index = int(reply)-1
+                episode_links[start_index]
+                return start_index, len(episode_links)-1
+            except:
                 try:
+                    pattern = r"(\d+)[\s-]+(\d+)"
+                    matches = re.findall(pattern, reply)
+                    start_index, end_index = matches[0]
+                    start_index = int(start_index)-1
+                    end_index = int(end_index)-1
+
                     episode_links[start_index]
-                    return start_index
+                    episode_links[end_index]
+                    return start_index, end_index
                 except:
+                    slow_print(f" Invalid episode Bakayarou\n This anime has {len(episode_links)} episodes\n Maybe that episode isn't out yet\n")
                     pass
-    except:
-        return 0
+
+            
 
 #Shows the calculated total download size to the user and prompts them if they want to continue
 def SizePrompt(calculated_download_size):
@@ -1112,7 +1120,7 @@ def SizePrompt(calculated_download_size):
     
     if len([y for y in yes_list if y == prompt_reply]) > 0:
         slow_print(" If you experience any glitches, crashes, errors or failed downloads just restart the app :O\n If they persist post your issue on https://github.com/SenZmaKi/Senpwai/issues for my creator to hopefully address it\n")
-        slow_print(" Enter spacebar to pause or resume downloads\n")
+        slow_print(" Tap spacebar to pause or resume downloads\n")
         slow_print(" Hol up let me cook", "hol up")
         return 1
         
@@ -1133,13 +1141,16 @@ def main():
         systems_online()
     
     slow_print(" Avoid clicking X to exit, Press Esc instead")
-    slow_print(" Enter Alt+M to mute or unmute. This will be saved in settings\n")
+    slow_print(" Tap Alt+M to mute or unmute. This will be saved in settings\n")
     ProcessTerminator()
     InternetTest()
     VersionUpdater(current_version, repo_url, github_home_url, version_download_url)
 
     run = True
     while run:
+        global automate
+        automate = False
+
         anime_id, anime_title = AnimeSelection(Searcher())
 
         #If the anime isn't found keep prompting the user
@@ -1152,15 +1163,17 @@ def main():
         episode_links = EpisodeLinks(anime_id)
 
         if not automate:
-            start_index = StartEpisodePrompt(episode_links)
+            start_index, end_index = StartEpisodePrompt(episode_links)
         elif automate:
             start_index = 0
-        predicted_episodes_indices, predicted_episodes_links = DynamicEpisodePredictor(download_folder_path, episode_links, anime_title, start_index)
+            end_index = len(episode_links)-1
+
+        download_folder_path = default_download_folder_path+"\\"+anime_title
+        predicted_episodes_indices, predicted_episodes_links = DynamicEpisodePredictor(download_folder_path, episode_links, anime_title, start_index, end_index)
         #Split the generated links into download_links and info about the downloads i.e quality and size
         download_links, download_info = DownloadData(predicted_episodes_links)
         #From the download_info extract the sizes of each episode per quality
         download_sizes = DownloadSizes(download_info)
-        download_folder_path = default_download_folder_path+"\\"+anime_title
         #Based off the user's setting configure the links and sizes
         configured_download_links, configured_download_sizes = ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub)
         calculated_download_size = DownloadSizeCalculator(configured_download_sizes, download_folder_path)
