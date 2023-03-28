@@ -1056,7 +1056,7 @@ def ContinueLooper():
         return True
 
 #Predicts which episodes to download by detecting the ones that have already been downloaded then excluding them
-def DynamicEpisodePredictor(download_folder_path, configured_download_links, configured_download_sizes, anime_title, start_index):
+def DynamicEpisodePredictor(download_folder_path, episode_links, anime_title, start_index):
     
     #pattern to find the episode files in the current defeault download folder
     #common ChatGpt W
@@ -1073,11 +1073,10 @@ def DynamicEpisodePredictor(download_folder_path, configured_download_links, con
         
     #Compute the indices of the episodes to be downloaded
     #Only add an episode if it's not in the already available episodes AND it's not an untracked episode i.e when the user specifies where to start
-    predicted_episodes_indices = [episode_index for episode_index in range(len(configured_download_links)) if episode_index not in already_available_episodes_indices and episode_index >= start_index]
+    predicted_episodes_indices = [episode_index for episode_index in range(len(episode_links)) if episode_index not in already_available_episodes_indices and episode_index >= start_index]
 
-    predicted_episodes_links = [configured_download_links[predicted_episode_link] for predicted_episode_link in predicted_episodes_indices]
-    predicted_episodes_sizes = [configured_download_sizes[predicted_episode_size] for predicted_episode_size in predicted_episodes_indices]
-    return predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes
+    predicted_episodes_links = [episode_links[predicted_episode_link] for predicted_episode_link in predicted_episodes_indices]
+    return predicted_episodes_indices, predicted_episodes_links
 
 #Calculates the total download size of the predicted episodes that are to be queued 
 def DownloadSizeCalculator(predicted_episodes_sizes, download_folder_path):
@@ -1085,21 +1084,21 @@ def DownloadSizeCalculator(predicted_episodes_sizes, download_folder_path):
     return sum(predicted_episodes_sizes)
 
 #Determeines from which episode to start downloading based of user input
-def StartEpisodePrompt(configured_download_links):
+def StartEpisodePrompt(episode_links):
     slow_print(" Enter d for me to detect then download episodes you don't have OR Enter the episode number for me start downloading from a specific episode")
     reply = input(input_colour+"> ")
     print(output_colour, end="")
     try:
         start_index = int(reply)-1
         try:
-            configured_download_links[start_index]
+            episode_links[start_index]
             return start_index
         except: 
             while True:
                 slow_print("Enter a valid Episode, (*/\*) bakayarou")
                 start_index = int("> ")-1
                 try:
-                    configured_download_links[start_index]
+                    episode_links[start_index]
                     return start_index
                 except:
                     pass
@@ -1148,24 +1147,23 @@ def main():
             anime_id, anime_title = AnimeSelection(Searcher())
         quality, sub_or_dub, default_download_folder_path = SaveSettings(senpwai_stuff_path)
         slow_print(" Just give me a moment, choto choto :P", "moment")
+
         #Links to the episodes
         episode_links = EpisodeLinks(anime_id)
-        print("donwload links done")
+
+        if not automate:
+            start_index = StartEpisodePrompt(episode_links)
+        elif automate:
+            start_index = 0
+        predicted_episodes_indices, predicted_episodes_links = DynamicEpisodePredictor(download_folder_path, episode_links, anime_title, start_index)
         #Split the generated links into download_links and info about the downloads i.e quality and size
-        download_links, download_info = DownloadData(episode_links)
-        print("donwload data done")
+        download_links, download_info = DownloadData(predicted_episodes_links)
         #From the download_info extract the sizes of each episode per quality
         download_sizes = DownloadSizes(download_info)
-        print("donwload sizes done")
         download_folder_path = default_download_folder_path+"\\"+anime_title
         #Based off the user's setting configure the links and sizes
         configured_download_links, configured_download_sizes = ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub)
-        if not automate:
-            start_index = StartEpisodePrompt(configured_download_links)
-        elif automate:
-            start_index = 0
-        predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes = DynamicEpisodePredictor(download_folder_path, configured_download_links, configured_download_sizes, anime_title, start_index)
-        calculated_download_size = DownloadSizeCalculator(predicted_episodes_sizes, download_folder_path)
+        calculated_download_size = DownloadSizeCalculator(configured_download_sizes, download_folder_path)
         if not automate:
             size_prompt_reply = SizePrompt(calculated_download_size)
         elif automate:
@@ -1175,7 +1173,7 @@ def main():
         if size_prompt_reply:
 
             if calculated_download_size > 0:                
-                DownloadStatus(DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes, download_folder_path, anime_title))
+                DownloadStatus(DownloadEpisodes(predicted_episodes_indices, configured_download_links, configured_download_sizes, download_folder_path, anime_title))
                 run = ContinueLooper()
             
             elif  calculated_download_size <= 0:
