@@ -68,7 +68,7 @@ import threading
 app_name = "Senpwai"
 os.system("title " + app_name)
 
-current_version = "1.4.5"
+current_version = "1.4.6"
 
 home_url = "https://animepahe.ru/"
 google_com = "google.com"
@@ -496,10 +496,14 @@ def EpisodeLinks(anime_id):
 #Splits the episode links into two datasets, the download_links, and the infomation about the downloads i.e quality 360p, 720p or 1080p and size in megabytes
 def DownloadData(episode_links):
     download_data = []
-    for i, episode_link in enumerate(episode_links):
-        episode_page = requests.get(episode_link).content
-        soup = BeautifulSoup(episode_page, "html.parser")
-        download_data.append(soup.find_all("a", class_="dropdown-item", target="_blank"))
+    with tqdm(total=len(episode_links), desc=" Getting things ready", unit="eps") as progress_bar:
+        for i, episode_link in enumerate(episode_links):
+            episode_page = requests.get(episode_link).content
+            soup = BeautifulSoup(episode_page, "html.parser")
+            download_data.append(soup.find_all("a", class_="dropdown-item", target="_blank"))
+            progress_bar.update(i+1 - progress_bar.n)
+        progress_bar.set_description(" Done")
+        progress_bar.close()
     #Scrapes the download data of each episode and stores the links for each quality and dub or sub in a list which is contained in another list containing all episodes
     download_links = [[download_link["href"] for download_link in episode_data] for episode_data in download_data]
     #Scrapes the download data of each episode and stores the info for each quality and dub or sub in a list which is contained in another list containing all episodes
@@ -517,7 +521,6 @@ def DownloadSizes(download_info):
     return download_sizes
 
 #Based off user input provided in SettingsPrompt() (check line 288 for), configures setting for the downloads the quality and whether subbed or dubbed then returns values that refer to each setting
-
 def DownloadSettings(quality="69", sub_or_dub="69"):
 
     def quality_chooser(quality):
@@ -595,6 +598,9 @@ def SaveSettings(senpwai_stuff_path):
                 
             elif len([n for n in no_list if n == reply]) > 0:
                 quality, sub_or_dub = SettingsPrompt()
+                slow_print(" I will now ask for the download folder, avoid folders that require Administrator access otherwise the download will fail!!!")
+                slow_print(" For example instead of using C:/Users/YourName/Downloads/Anime use C:/Users/PC/Downloads/Anime")
+                time.sleep(2)
                 default_download_folder_path = SetDownloadFolderPath()
                 save_dict = {"quality": quality, "sub_or_dub": sub_or_dub, "default_download_folder_path": default_download_folder_path}
                 with open(config_path, "w") as config_file   :
@@ -630,20 +636,56 @@ def ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub):
         elif quality == "1080":
             return 2
     quality = quality_initialiser(quality)
-    if sub_or_dub == "sub" or sub_or_dub == "s":
-        configured_download_links = [episode_links[:3] for episode_links in download_links]
-        configured_download_sizes = [episode_links[:3] for episode_links in download_sizes]
-    elif sub_or_dub == "dub" or sub_or_dub == "d":
-        if len(download_links[0]) == 3:
+
+    num_of_links = len(download_links[0])
+    #Explicit is better than implicit lol
+    if sub_or_dub == "d" or "dub" and (num_of_links == 5 or num_of_links == 3 or num_of_links == 2 or num_of_links == 1):
             slow_print(" There seems to be no dub for this anime, switching to sub")
+            sub_or_dub = "s"
+    if num_of_links == 6:
+        if sub_or_dub == "sub" or sub_or_dub == "s":
             configured_download_links = [episode_links[:3] for episode_links in download_links]
             configured_download_sizes = [episode_links[:3] for episode_links in download_sizes]
-        elif len(download_links[0]) == 6:
-            configured_download_links = [episode_links[3:] for episode_links in download_links]
-            configured_download_sizes = [episode_links[3:] for episode_links in download_sizes]
+        elif sub_or_dub == "dub" or sub_or_dub == "d":
+            configured_download_links = [episode_links[:3] for episode_links in download_links]
+            configured_download_sizes = [episode_links[:3] for episode_links in download_sizes]
 
-    configured_download_links = [episode_links[quality] for episode_links in configured_download_links]
-    configured_download_sizes = [episode_links[quality] for episode_links in configured_download_sizes]
+        configured_download_links = [episode_links[quality] for episode_links in configured_download_links]
+        configured_download_sizes = [episode_links[quality] for episode_links in configured_download_sizes]
+
+    elif num_of_links == 4:
+        if quality == 0:
+            slow_print(" There seems to be no 360p for this anime, switching to 720p")
+            quality = 1
+        #To handle only 720p and 1080p
+        quality-=1
+        if sub_or_dub == "sub" or sub_or_dub == "s":
+            configured_download_links = [episode_links[:2] for episode_links in download_links]
+            configured_download_sizes = [episode_links[:2] for episode_links in download_sizes]
+        elif sub_or_dub == "dub" or sub_or_dub == "d":
+            configured_download_links = [episode_links[:2] for episode_links in download_links]
+            configured_download_sizes = [episode_links[:2] for episode_links in download_sizes]
+
+        configured_download_links = [episode_links[quality] for episode_links in configured_download_links]
+        configured_download_sizes = [episode_links[quality] for episode_links in configured_download_sizes]
+        
+    elif num_of_links == 3:
+        configured_download_links = [episode_links[quality] for episode_links in download_links]
+        configured_download_sizes = [episode_links[quality] for episode_links in download_sizes]
+    
+    elif num_of_links == 2:
+        if quality == 0:
+            slow_print(" Theres seems to be no 360p for this anime, switching to 720p")
+            quality = 1
+        quality-=1
+        configured_download_links = [episode_links[quality] for episode_links in download_links]
+        configured_download_sizes = [episode_links[quality] for episode_links in download_sizes]
+    elif num_of_links == 1:
+        slow_print(" There seems to be only one quality for this anime, switching to that")
+        configured_download_links = [episode_links[0] for episode_links in download_links]
+        configured_download_sizes = [episode_links[0] for episode_links in download_sizes]
+
+
     
     return configured_download_links, configured_download_sizes
 
@@ -1005,7 +1047,12 @@ def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predi
                             file_paths = list(pathlib.Path(download_folder_path).glob("*"))
                             # Sort the list by the creation time of the files
                             file_paths.sort(key=lambda x: os.path.getctime(x))
-                            downloaded_file = file_paths[-1]                            
+                            try:
+                                downloaded_file = file_paths[-1]
+                            except IndexError:
+                                slow_print(" Baka you probably set the download folder to a folder that requires admin access, like I said instead of C:/Users/YourName/Downloads/Anime use C:/Users/PC/Downloads/Anime")
+                                slow_print(" Next time when I ask if you want to use the saved settings say No then change the download folder, yapari baka ka")
+                                return 0
                             episode_number = str(episode_index+1)
                             new_episode_name = anime_title+" Episode "+episode_number+".mp4"
 
@@ -1043,7 +1090,7 @@ def DownloadStatus(download_status):
             slow_print(" All downloads completed succesfully [(^O^)] , Senpwai ga saikyou no stando Da MUDA", "downloads complete")
             time.sleep(2)
     elif not download_status:
-        slow_print(" Error while trying to download (⌣̩̩́_⌣̩̩̀) , you probably don't have an internet connection. Or something goofy happened on my end. Please try again uWu\nAlready downloaded episodes will be ignored, you can count on me")
+        slow_print(" Download error :(. Please try again uWu\n")
 
 #Once downloading is done prompts if the user wants to download more
 def ContinueLooper():
