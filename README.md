@@ -6,16 +6,23 @@ The app applies web scraping techniques using BeautifulSoup and Selenium to auto
 
 Wrote it cause I got tired of clicking links upon links and a having a billion tabs on my browser, Mendokusai naa
 
+## Capabilities
+- Download any anime provided it's in the animepahe database
+- Download anime in either 360p, 720p or 1080p depending on user's choice
+- Download either sub or dub depending on user's choice
+- Download a complete season or episodes within a range e.g 14-21
+- Automatically detect already downloaded episodes and avoid downloading them
+- Calculate then show the total download size to the user
+
 
 ## Installation
 
 ### Pre-requisites
 
-Currently only works on Windows OS
+- Currently only works on Windows OS
 
-You'll need to have Chrome installed
+- You'll need to have Chrome installed
 
-Support for Firefox coming soon
 
 ### For the non-tech savvy users
 
@@ -38,6 +45,9 @@ Then just run the code as you would normally do
 If you want to build it into an executable like I did, run
 
 ```pyinstaller --onefile --icon=Senpwai_icon.ico --add-data "audio;audio" Senpwai.py```
+
+## Disclaimer
+Your antivirus may flag it as malware cause I basically converted python code to an executable, this video explains it: https://youtu.be/bqNvkAfTvIc?t=100 trust me it's not malware. The full source code is up on the repo if you're still suspicious.
 
 
 ## Epilogue
