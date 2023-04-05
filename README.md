@@ -42,12 +42,14 @@ To install all the libraries I used in your virtual environment, once you clone 
 
 Then just run the code as you would normally do
 
+You should rename the global varibale ```app_name``` to whatever window you're running the code from in order for the script to register your keyboard inputs
+
 If you want to build it into an executable like I did, run
 
 ```pyinstaller --onefile --icon=Senpwai_icon.ico --add-data "audio;audio" Senpwai.py```
 
 ## Disclaimer
-Your antivirus may flag it as malware cause I basically converted python code to an executable, this video explains it: https://youtu.be/bqNvkAfTvIc?t=100 trust me it's not malware. The full source code is up on the repo if you're still suspicious.
+It is preferable to use the python script since your antivirus may flag the executable as malware cause I basically converted python code to an executable, this video explains it: https://youtu.be/bqNvkAfTvIc?t=100 trust me it's not malware. The full source code is up on the repo if you're still suspicious.
 
 
 ## Epilogue
@@ -55,5 +57,6 @@ Hopefully Senpwai helps a clown like me out there too
 
 Gambarte and take care of Senpwai for me, she's a fragile one
 
-<a href="https://www.buymeacoffee.com/SenZmaKi" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+## Donations
 
+[![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/SenZmaKi)
