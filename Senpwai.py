@@ -619,6 +619,8 @@ def SaveSettings(senpwai_stuff_path):
 
     elif not config_path.is_file():
         quality, sub_or_dub = SettingsPrompt()
+        slow_print(" I will now ask for the download folder, avoid folders that require Administrator access otherwise the download will fail!!!")
+        slow_print(" For example instead of using C:/Users/YourName/Downloads/Anime use C:/Users/PC/Downloads/Anime")
         default_download_folder_path = SetDownloadFolderPath()
         save_dict = {"quality": quality, "sub_or_dub": sub_or_dub, "default_download_folder_path": default_download_folder_path}
         with open(config_path, "w") as config_file   :
@@ -639,7 +641,7 @@ def ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub):
 
     num_of_links = len(download_links[0])
     #Explicit is better than implicit lol
-    if sub_or_dub == "d" or "dub" and (num_of_links == 5 or num_of_links == 3 or num_of_links == 2 or num_of_links == 1):
+    if sub_or_dub == "d" or sub_or_dub == "dub" and (num_of_links == 5 or num_of_links == 3 or num_of_links == 2 or num_of_links == 1):
             slow_print(" There seems to be no dub for this anime, switching to sub")
             sub_or_dub = "s"
     if num_of_links == 6:
