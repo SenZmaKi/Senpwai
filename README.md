@@ -42,6 +42,8 @@ To install all the libraries I used in your virtual environment, once you clone 
 
 Then just run the code as you would normally do
 
+You should rename the global varibale ```app_name``` to whatever window you're running the code from in order for the script to register your keyboard inputs
+
 If you want to build it into an executable like I did, run
 
 ```pyinstaller --onefile --icon=Senpwai_icon.ico --add-data "audio;audio" Senpwai.py```
