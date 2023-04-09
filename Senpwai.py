@@ -640,7 +640,8 @@ def ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub):
         elif quality == "1080":
             return 2
     quality = quality_initialiser(quality)
-
+    if len(download_links) == 0:
+        return [], []
     num_of_links = len(download_links[0])
     #Explicit is better than implicit lol
     if sub_or_dub == "d" or sub_or_dub == "dub" and (num_of_links == 5 or num_of_links == 3 or num_of_links == 2 or num_of_links == 1):
