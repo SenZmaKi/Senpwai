@@ -59,16 +59,16 @@ from colorama import init, Fore, Back, Style
 import threading
 
 
-#app_name = sys.executable
 #The name of my workspace in vs code basically
-#Comment out the above app_name and set it to the window of where you run the code in order for 
+#Uncomment out the below app_name and set it to the window of where you run the code from in order for 
 #the keyboard module to load your inputs, this is to prevent inputs from being detected even if the app isn't the active window
-#app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
+#then comment out app_name = "Senpwai" cause that is used to set the app_name when the script is built into an executable(app)
 
+#app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
 app_name = "Senpwai"
 os.system("title " + app_name)
 
-current_version = "1.4.6"
+current_version = "1.4.8"
 
 home_url = "https://animepahe.ru/"
 google_com = "google.com"
@@ -107,7 +107,7 @@ edge_downloads_page = 'edge://downloads/all'
 
 mute_path = pathlib.Path(senpwai_stuff_path+"\\mute.txt")
 #if a file named mute exists we mute else we don't mute
-#lowkey y favourite implementation of a mute system XD, it's so dumb
+#lowkey my favourite line of code in the whole script, implementation of a mute system XD, it's so dumb
 mute = mute_path.is_file()
 
 #Set the audio path depending on whether we are running from from an executable(app) or script
@@ -147,7 +147,7 @@ def loading_animation(condition):
         print(f" {animation[idx % len(animation)]} ", end="\r")
         idx += 1      
         time.sleep(0.1)
-
+#The goofy aah audio that plays when the app starts
 def systems_online():
     player = mixer.music
     player.load(audio_paths['systems'])
@@ -218,7 +218,7 @@ def play_audio(audio_paths):
         return wrapper
     return decorator
 
-#Prints output with a delay to simulate typing
+#Prints output with a delay to simulate typing and plays audio in conjunction
 @play_audio(audio_paths)
 def slow_print(text, audio=None, delay_time=0.01): 
     for character in text:      
@@ -328,7 +328,7 @@ def ProcessTerminator():
             pass
     for parent_process in parents_processes_to_kill:
         parent_process.terminate()
-        time.sleep(5)
+        #time.sleep(5)
         return 1
     return 0
 #Searches for the anime from the animepahe database
@@ -357,9 +357,10 @@ def exit_message():
 exit_handler_last_call_time = 0
 def exit_handler():
     def call_back():
-        #to handle cases where there is no active window
         print(output_colour, end="")
         active_window = pyautogui.getActiveWindow()
+        #to handle cases where there is no active window we check first if the object returned by getActiveWindow is not None
+        #without this a bug where the program crashes if the user is on the desktop then tries pressing esc i.e NoneType object has no attribute title, you get?
         if active_window != None and app_name == active_window.title:
             exit_message()
             ProcessTerminator()
@@ -421,7 +422,7 @@ def muter():
 keyboard.add_hotkey('alt+m', muter)
 
 
-#Prompts the user to select the index of the anime they want from a list of the search results and returns the id of the chosen anime
+#Prompts the user to select the index of the anime they want from a list of the search results and returns the id of the chosen anime or 0, 0 if they choose an invalid number
 def AnimeSelection(results):
     while "anime_id" not in locals():    
         slow_print(" Please enter the number belonging to the anime you want from the list below", "enter number")
@@ -471,13 +472,14 @@ def SetDownloadFolderPath():
 
 #Returns the links to the episodes from animepahe
 def EpisodeLinks(anime_id):
-    #Issues a GET request to the server together with the id of the anime and returns a list of the links(not donwload links) to all the episodes of that anime
+    #Issues a GET request to the server together with the id of the anime and returns a list of the episode page links(not donwload links) to all the episodes of that anime
     page_url = (home_url+api_url_extension+"release&id="+anime_id+"&sort=episode_asc")
     def episodes_pipeline(page_url):
         complete_episode_data = []
         next_page_url = page_url
         page_no = 1
         #Loop through all pages while scraping episode data in each page
+        #Kinda like traversiong a linked list
         while next_page_url != None:
             page_url = page_url+f"&page={page_no}"
             response = requests.get(page_url)
@@ -493,7 +495,7 @@ def EpisodeLinks(anime_id):
     episode_links = [home_url+"play/"+anime_id+"/"+str(episode_session) for episode_session in episode_sessions]
     return  episode_links
 
-#Splits the episode links into two datasets, the download_links, and the infomation about the downloads i.e quality 360p, 720p or 1080p and size in megabytes
+#Splits the episode links into two datasets, the download_links, and the information about the downloads i.e quality 360p, 720p or 1080p and size in megabytes
 def DownloadData(episode_links):
     download_data = []
     with tqdm(total=len(episode_links), desc=" Getting things ready", unit="eps") as progress_bar:
@@ -514,13 +516,13 @@ def DownloadData(episode_links):
 #Example [[Episode 1[size in 360p, size in 720p, size in 1080p]], [Episode 2[size in 360p, size in 720p, size in 1080p]]]
 def DownloadSizes(download_info):
     #You dont have to understand what happens here cause even I don't lol, ChatGpt for the win
-    #The function uses a regular expression to find an expression that matches it's "syntax" starts with ( and ends with MB)
-    #This match is then striped of the MB part in order to convert it into an integer, but before that it is converted into a string cause re.findall returns a string
-    #The string is then converted into an integer and voila we have the sizes of our episodes
+    #The function uses a regular expression to find an expression that matches it's pattern starts with "(" and ends with "MB)"
+    #This match is then striped of the MB part in order to convert it into an integer, but before that it is converted into a string cause re.findall returns a list
+    #The string is then converted into an integer and appended into the list "download sizes" using the list comprehension and voila we have the sizes of our episodes
     download_sizes = [[int("".join(re.findall(r'\((.*?)MB\)'.strip("MB"), episode_info))) for episode_info in episode_data] for episode_data in download_info]
     return download_sizes
 
-#Based off user input provided in SettingsPrompt() (check line 288 for), configures setting for the downloads the quality and whether subbed or dubbed then returns values that refer to each setting
+#Based off user input provided in SettingsPrompt() (check line 288 ), configure settings for the download, the quality and whether subbed or dubbed then returns single values that refer to each setting
 def DownloadSettings(quality="69", sub_or_dub="69"):
 
     def quality_chooser(quality):
@@ -703,7 +705,7 @@ def tmpDeleter(download_folder_path):
 
 #Automates the whole download process
 #This is some pretty sensitive code especially the file manipulation part, most of it is Supaghetti code and I don't understand how half of it works
-#Alter at your risk, you have been warned
+#Alter at your own risk, you have been warned
     
 def DownloadEpisodes(predicted_episodes_indices, predicted_episodes_links, predicted_episodes_sizes, download_folder_path, anime_title):
         
