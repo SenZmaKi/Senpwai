@@ -58,6 +58,8 @@ import time
 from colorama import init, Fore, Back, Style
 import threading
 
+import string
+
 
 #The name of my workspace in vs code basically
 #Uncomment out the below app_name and set it to the window of where you run the code from in order for 
@@ -68,7 +70,7 @@ import threading
 app_name = "Senpwai"
 os.system("title " + app_name)
 
-current_version = "1.4.8"
+current_version = "1.4.9"
 
 home_url = "https://animepahe.ru/"
 google_com = "google.com"
@@ -1178,10 +1180,14 @@ def SizePrompt(calculated_download_size):
         
     elif len([n for n in no_list if n == prompt_reply]) > 0:
         return 0
+    
+#Santises folder name to only allow names that windows can create a folder with
+def sanitise_name(name):
+    valid_chars = set(string.printable) - set('\\/:*?"<>|')
+    sanitized = ''.join(filter(lambda c: c in valid_chars, name))
+    return sanitized[:255].rstrip()
 
 #Main program loop
-
-
 def main():
 
 
@@ -1204,6 +1210,7 @@ def main():
         automate = False
 
         anime_id, anime_title = AnimeSelection(Searcher())
+        anime_title = sanitise_name(anime_title)
 
         #If the anime isn't found keep prompting the user
         while anime_id == 0 and anime_title == 0:
