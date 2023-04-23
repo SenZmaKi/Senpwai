@@ -19,14 +19,14 @@ Wrote it cause I got tired of clicking links upon links and a having a billion t
 
 ### Pre-requisites
 
-- Currently only works on Windows OS
+- Only Windows OS is currently supported
 
-- You'll need to have Chrome installed
+- You'll need to also have Google Chrome installed
 
 
 ### For the non-tech savvy users
 
-I converted the python code to an executable, the link to the releases is down below:
+I built the python script to an executable (app), the link to the releases is down below:
 
 https://github.com/SenZmaKi/Senpwai/releases
 
@@ -42,14 +42,14 @@ To install all the libraries I used in your virtual environment, once you clone 
 
 Then just run the code as you would normally do
 
-You should rename the global varibale ```app_name``` to whatever window you're running the code from in order for the script to register your keyboard inputs
+You should rename the global variable ```app_name``` to whatever window you're running the code from in order for the script to register your keyboard inputs
 
 If you want to build it into an executable like I did, run
 
 ```pyinstaller --onefile --icon=Senpwai_icon.ico --add-data "audio;audio" Senpwai.py```
 
 ## Disclaimer
-It is preferable to use the python script since your antivirus may flag the executable as malware cause I basically converted python code to an executable, this video explains it: https://youtu.be/bqNvkAfTvIc?t=100 trust me it's not malware. The full source code is up on the repo if you're still suspicious.
+It is preferable to use the python script since your antivirus may flag the executable as malware cause I basically converted python code to an executable, this video explains it: https://youtu.be/bqNvkAfTvIc?t=100 trust me it's not malware. The complete source code is up on the repo if you're still suspicious.
 
 
 ## Epilogue
