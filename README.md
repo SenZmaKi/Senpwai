@@ -53,7 +53,7 @@ It is preferable to use the python script since your antivirus may flag the exec
 
 
 ## Epilogue
-Hopefully Senpwai helps a clown like me out there too
+She may not be the cleanest, the most well documented or the most optimised but she's my first ever real project so she holds a special place in my black heart
 
 Gambarte and take care of Senpwai for me, she's a fragile one
 
