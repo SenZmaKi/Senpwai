@@ -1,18 +1,27 @@
 # Senpwai
 
-Python console app that automates downloading complete seasons of anime
+ Free and open source windows console app written in python that automates downloading complete seasons or batches of an anime
 
 The app applies web scraping techniques using BeautifulSoup and Selenium to automate the download process
+
+The episodes are sourced from animepahe
 
 Wrote it cause I got tired of clicking links upon links and a having a billion tabs on my browser, Mendokusai naa
 
 ## Capabilities
-- Download any anime provided it's in the animepahe database
-- Download anime in either 360p, 720p or 1080p depending on user's choice
-- Download either sub or dub depending on user's choice
+- Download any anime
+
 - Download a complete season or episodes within a range e.g 14-21
-- Automatically detect already downloaded episodes and avoid downloading them
+
+- Download either sub or dub depending on user's preference
+
+- Download anime in either 360p, 720p or 1080p depending on user's preference
+
+- Automatically detect and keep track of already downloaded episodes then avoid downloading them
+
 - Calculate then show the total download size to the user
+
+- Cool sound and vfx, at least in my opinion lol
 
 
 ## Installation
@@ -49,7 +58,7 @@ If you want to build it into an executable like I did, run
 ```pyinstaller --onefile --icon=Senpwai_icon.ico --add-data "audio;audio" Senpwai.py```
 
 ## Disclaimer
-It is preferable to use the python script since your antivirus may flag the executable as malware cause I basically converted python code to an executable, this video explains it: https://youtu.be/bqNvkAfTvIc?t=100 trust me it's not malware. The complete source code is up on the repo if you're still suspicious.
+It is preferable to use the python script since your antivirus may flag the executable as malware cause I basically converted python code to an executable, this video explains it: https://youtu.be/bqNvkAfTvIc?t=100. The complete source code is up on the repo.
 
 
 ## Epilogue
