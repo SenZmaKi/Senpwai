@@ -67,8 +67,8 @@ import string
 #then comment out app_name = "Senpwai" cause that is used to set the app_name when the script is built into an executable(app)
 
 #app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
-app_name = "Senpwai.py - Senpwai - Visual Studio Code"
-#app_name = "Senpwai"
+#app_name = "Senpwai.py - Senpwai - Visual Studio Code"
+app_name = "Senpwai"
 os.system("title " + app_name)
 
 current_version = "1.5.1"
