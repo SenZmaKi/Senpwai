@@ -67,10 +67,11 @@ import string
 #then comment out app_name = "Senpwai" cause that is used to set the app_name when the script is built into an executable(app)
 
 #app_name = "Senpwai.py - Senpwai (Workspace) - Visual Studio Code"
-app_name = "Senpwai"
+app_name = "Senpwai.py - Senpwai - Visual Studio Code"
+#app_name = "Senpwai"
 os.system("title " + app_name)
 
-current_version = "1.4.9"
+current_version = "1.5.1"
 
 home_url = "https://animepahe.ru/"
 google_com = "google.com"
@@ -316,14 +317,14 @@ def InternetTest():
 
 #Kills all instances of drivers that may have been left running previously cause they result in errors and take up space
 def ProcessTerminator():
-    parent_name_edge = "msedgedriver.exe"
+    #parent_name_edge = "msedgedriver.exe"
     parent_name_chrome = "chromedriver.exe"
     parents_processes_to_kill = []
     for child_process in psutil.process_iter(['pid', 'name']):
         child_process = psutil.Process(child_process.info['pid'])
         try:
             parent_process = child_process.parent()
-            if parent_name_edge == parent_process.name() or parent_name_chrome == parent_process.name():
+            if parent_name_chrome == parent_process.name():
                 parents_processes_to_kill.append(parent_process)
                 child_process.terminate()
         except:
@@ -426,37 +427,39 @@ keyboard.add_hotkey('alt+m', muter)
 
 #Prompts the user to select the index of the anime they want from a list of the search results and returns the id of the chosen anime or 0, 0 if they choose an invalid number
 def AnimeSelection(results):
-    while "anime_id" not in locals():    
-        slow_print(" Please enter the number belonging to the anime you want from the list below", "enter number")
-        for index, result in enumerate(results):
-            slow_print(f"  {index+1} {result['title']}", delay_time=0.005)
-        slow_print(" Or if the anime isn't in the list above enter s to search again")
-        slow_print(" You can also enter the Number of the anime followed by a and I will automatically used the saved settings and detect missing episodes")
+    slow_print(" Please enter the number belonging to the anime you want from the list below", "enter number")
+    for index, result in enumerate(results):
+        slow_print(f"  {index+1} {result['title']}", delay_time=0.005)
+    slow_print(" Or if the anime isn't in the list above enter s to search again")
+    slow_print(" You can also enter the number of the anime followed by a and I will automatically used the saved settings and detect missing episodes")
 
-        index_of_chosen_anime = input(input_colour+"> ")
-        print(output_colour, end="")
-        pattern = r"(\d+)\s*a"  
-        match = re.search(pattern, index_of_chosen_anime)
-        if match:
-            index_of_chosen_anime = match.group(1)
-            global automate
-            automate = True
+    index_of_chosen_anime = input(input_colour+"> ")
+    print(output_colour, end="")
+    if index_of_chosen_anime == "s":
+        return AnimeSelection(Searcher())
+    
+    pattern = r"(\d+)\s*a"  
+    match = re.search(pattern, index_of_chosen_anime)
+    if match:
+        index_of_chosen_anime = match.group(1)
+        global automate
+        automate = True
 
-        try:
-            index_of_chosen_anime = int(index_of_chosen_anime)-1
-
-        except:
-            return 0, 0
-
-        if not index_of_chosen_anime < 0 and not len(results) <= index_of_chosen_anime:
-            for index, result in enumerate(results):
-                if index == index_of_chosen_anime:
-                    anime_id = result["session"]
-                    anime_title = result["title"]
-                    return anime_id, anime_title
-        else:
+    try:
+        index_of_chosen_anime = int(index_of_chosen_anime)-1
+        #If they pick a number outside the range of the fetched results
+        if index_of_chosen_anime < 0 or index_of_chosen_anime >= len(results):
             slow_print("\n Invalid number Senpai")
-            return 0, 0
+            return AnimeSelection(results)
+    except:
+        slow_print("\n Invalid number Senpai")
+        return AnimeSelection(results)
+
+    for index, result in enumerate(results):
+        if index == index_of_chosen_anime:
+            anime_id = result["session"]
+            anime_title = result["title"]
+            return anime_id, anime_title
         
 #Sets the folder to download the anime to by prompting the user for a folder
 def SetDownloadFolderPath():
