@@ -586,48 +586,31 @@ def SaveSettings(senpwai_stuff_path):
     sub_or_dub = ""
 
 #if there is a config file then prompt the user on whether they want to use the saved settings
-    if config_path.is_file() and not automate:
-        slow_print(" Would you like to uWuse the following swaved settings?", "settings")
+    use_saved_settings = False
+    if config_path.is_file():
         with open(config_path) as config_file:
             config_settings = json.load(config_file)
+        if not automate:
+            slow_print(" Would you like to uWuse the following swaved settings?", "settings")
             slow_print(f" Quality: {config_settings['quality']}")
             slow_print(f" Default download folder: {config_settings['default_download_folder_path']}")
             slow_print(f" Sub or dub: {config_settings['sub_or_dub']}")
+            use_saved_settings = key_prompt()
 
-            reply = False
-        while not reply:
-            reply = key_prompt()
-            if len([y for y in yes_list if y == reply]) > 0:
-                quality, sub_or_dub = config_settings["quality"], config_settings["sub_or_dub"]
-                default_download_folder_path = config_settings["default_download_folder_path"]
-                quality, sub_or_dub = DownloadSettings(quality=quality)[0], DownloadSettings(sub_or_dub=sub_or_dub)[1]
-                reply = True
-                
-            elif len([n for n in no_list if n == reply]) > 0:
-                quality, sub_or_dub = SettingsPrompt()
-                slow_print(" I will now ask for the download folder, avoid folders that require Administrator access otherwise the download will fail!!!")
-                slow_print(" For example instead of using C:/Users/YourName/Downloads/Anime use C:/Users/PC/Downloads/Anime")
-                time.sleep(2)
-                default_download_folder_path = SetDownloadFolderPath()
-                save_dict = {"quality": quality, "sub_or_dub": sub_or_dub, "default_download_folder_path": default_download_folder_path}
-                with open(config_path, "w") as config_file   :
-                    json.dump(save_dict, config_file)
-                reply = True
-            else:
-                slow_print(" I don't understand what you mean. Yes or no?")
-                reply = False
-    elif config_path.is_file() and automate:
+        elif automate:
+            use_saved_settings = True
+    
+    if use_saved_settings:
         with open(config_path) as config_file:
                 config_settings = json.load(config_file)
         quality, sub_or_dub = config_settings["quality"], config_settings["sub_or_dub"]
         default_download_folder_path = config_settings["default_download_folder_path"]
-        quality, sub_or_dub = DownloadSettings(quality=quality)[0], DownloadSettings(sub_or_dub=sub_or_dub)[1]
-
-
-    elif not config_path.is_file():
+        quality, sub_or_dub = DownloadSettings(quality, sub_or_dub)
+    elif not use_saved_settings:
         quality, sub_or_dub = SettingsPrompt()
         slow_print(" I will now ask for the download folder, avoid folders that require Administrator access otherwise the download will fail!!!")
         slow_print(" For example instead of using C:/Users/YourName/Downloads/Anime use C:/Users/PC/Downloads/Anime")
+        time.sleep(2)
         default_download_folder_path = SetDownloadFolderPath()
         save_dict = {"quality": quality, "sub_or_dub": sub_or_dub, "default_download_folder_path": default_download_folder_path}
         with open(config_path, "w") as config_file   :
