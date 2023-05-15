@@ -535,7 +535,7 @@ def DownloadSettings(quality="69", sub_or_dub="69"):
             return "360"
         elif quality == "720p" or quality =="720" or quality == "7" or quality == "20":
             return "720"
-        elif quality == "1080p" or quality =="1080" or quality == "1" or quality == "80":
+        elif quality == "1080p" or quality =="1080" or quality == "1" or quality == "80" or quality == "10":
             return "1080"
         else:
             return "error"
@@ -648,33 +648,32 @@ def ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub):
     if len(download_links) == 0:
         return [], []
     num_of_links = len(download_links[0])
-    #Explicit is better than implicit lol
-    if sub_or_dub == "d" or sub_or_dub == "dub" and (num_of_links == 5 or num_of_links == 3 or num_of_links == 2 or num_of_links == 1):
-            slow_print(" There seems to be no dub for this anime, switching to sub")
-            sub_or_dub = "s"
+    if sub_or_dub == "dub" and (num_of_links != 6 and num_of_links != 4):
+            slow_print(" Sumimasen, there seems to be no dub for this anime, switching to sub")
+            sub_or_dub = "sub"
     if num_of_links == 6:
-        if sub_or_dub == "sub" or sub_or_dub == "s":
+        if sub_or_dub == "sub":
             configured_download_links = [episode_links[:3] for episode_links in download_links]
             configured_download_sizes = [episode_links[:3] for episode_links in download_sizes]
-        elif sub_or_dub == "dub" or sub_or_dub == "d":
-            configured_download_links = [episode_links[:3] for episode_links in download_links]
-            configured_download_sizes = [episode_links[:3] for episode_links in download_sizes]
+        elif sub_or_dub == "dub":
+            configured_download_links = [episode_links[3:] for episode_links in download_links]
+            configured_download_sizes = [episode_links[3:] for episode_links in download_sizes]
 
         configured_download_links = [episode_links[quality] for episode_links in configured_download_links]
         configured_download_sizes = [episode_links[quality] for episode_links in configured_download_sizes]
 
     elif num_of_links == 4:
         if quality == 0:
-            slow_print(" There seems to be no 360p for this anime, switching to 720p")
+            slow_print(" Sumanai, there seems to be no 360p for this anime, switching to 720p")
             quality = 1
         #To handle only 720p and 1080p
         quality-=1
-        if sub_or_dub == "sub" or sub_or_dub == "s":
-            configured_download_links = [episode_links[:2] for episode_links in download_links]
-            configured_download_sizes = [episode_links[:2] for episode_links in download_sizes]
-        elif sub_or_dub == "dub" or sub_or_dub == "d":
-            configured_download_links = [episode_links[:2] for episode_links in download_links]
-            configured_download_sizes = [episode_links[:2] for episode_links in download_sizes]
+        if sub_or_dub == "sub":
+            configured_download_links = [episode_links[2:] for episode_links in download_links]
+            configured_download_sizes = [episode_links[2:] for episode_links in download_sizes]
+        elif sub_or_dub == "dub":
+            configured_download_links = [episode_links[2:] for episode_links in download_links]
+            configured_download_sizes = [episode_links[2:] for episode_links in download_sizes]
 
         configured_download_links = [episode_links[quality] for episode_links in configured_download_links]
         configured_download_sizes = [episode_links[quality] for episode_links in configured_download_sizes]
@@ -685,7 +684,7 @@ def ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub):
     
     elif num_of_links == 2:
         if quality == 0:
-            slow_print(" Theres seems to be no 360p for this anime, switching to 720p")
+            slow_print(" Huh, there seems to be no 360p for this anime, switching to 720p")
             quality = 1
         quality-=1
         configured_download_links = [episode_links[quality] for episode_links in download_links]
@@ -696,7 +695,6 @@ def ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub):
         configured_download_sizes = [episode_links[0] for episode_links in download_sizes]
 
 
-    
     return configured_download_links, configured_download_sizes
 
 
