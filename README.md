@@ -8,6 +8,8 @@ The episodes are sourced from animepahe
 
 Wrote it cause I got tired of clicking links upon links and a having a billion tabs on my browser, Mendokusai naa
 
+[Video demo](https://youtu.be/JHWPWLrmrlE)
+
 ## Capabilities
 - Download any anime
 
@@ -49,16 +51,20 @@ To install all the libraries I used in your virtual environment, once you clone 
 
 ```pip install -r requirements.txt```
 
+Rename the global variable ```app_name``` to whatever window you're running the code from in order for the script to register your keyboard inputs
+
 Then just run the code as you would normally do
 
-You should rename the global variable ```app_name``` to whatever window you're running the code from in order for the script to register your keyboard inputs
+If you want to build it into an executable like I did; 
 
-If you want to build it into an executable like I did, run
+- First install pyinstaller, it's not included in the requirements cause it's not actually used in the source code, it's just used to build the script into an exe
+```pip install pyinstaller```
 
+- Then run
 ```pyinstaller --onefile --icon=Senpwai_icon.ico --add-data "audio;audio" Senpwai.py```
 
 ## Disclaimer
-It is preferable to use the python script since your antivirus may flag the executable as malware cause I basically converted python code to an executable, this video explains it: https://youtu.be/bqNvkAfTvIc?t=100. The complete source code is up on the repo.
+It is preferable to use the python script since your antivirus may flag the executable as malware cause I basically converted the python script into an executable, this video explains it: https://youtu.be/bqNvkAfTvIc?t=100. The complete source code is up on the repo.
 
 
 ## Epilogue
