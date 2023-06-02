@@ -227,7 +227,7 @@ class Download():
 
     def pause_or_resume(self, event: keyboard.KeyboardEvent) -> None:
         active_window = pyautogui.getActiveWindow()
-        if event.name == 'space' and active_window != None and active_window.title == self.app_name:
+        if active_window != None and active_window.title == self.app_name:
             try:
                 self.click_pause_button()
                 self.paused = not self.paused
@@ -268,11 +268,10 @@ class Download():
         last_net_test_time = 0
         net_test_intervals = 5
         downloading_file = self.get_downloading_file()
-        download_complete = False
         response_idx = randint(0, len(self.net_responses)-1)
         with tqdm(total=round(self.size), unit='MB', unit_scale=True, desc=f' Downloading {self.title}') as progress_bar:
             pause_hook = keyboard.on_press_key('space', self.pause_or_resume)  
-            while not download_complete:
+            while not self.complete:
                 elapsed_time = time.time() - last_net_test_time
                 if elapsed_time >= net_test_intervals:
                     net_status = ping3.ping(google_dot_com)
@@ -295,11 +294,11 @@ class Download():
                 try:
                     current_size = round(os.path.getsize(downloading_file)/1000000)
                 except FileNotFoundError:
-                    download_complete = True
+                    self.complete = True
                     break
                 progress_bar.update(current_size - progress_bar.n)
                 if current_size >= self.size:
-                    download_complete = True
+                    self.complete = True
                     progress_bar.set_description(' Complete')
                     progress_bar.close()
             while self.still_downloading(): continue
