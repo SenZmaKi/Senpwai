@@ -655,8 +655,8 @@ def ConfigureDownloadData(download_links, download_sizes, quality, sub_or_dub):
             configured_download_links = [episode_links[2:] for episode_links in download_links]
             configured_download_sizes = [episode_links[2:] for episode_links in download_sizes]
         elif sub_or_dub == "dub":
-            configured_download_links = [episode_links[2:] for episode_links in download_links]
-            configured_download_sizes = [episode_links[2:] for episode_links in download_sizes]
+            configured_download_links = [episode_links[:2] for episode_links in download_links]
+            configured_download_sizes = [episode_links[:2] for episode_links in download_sizes]
 
         configured_download_links = [episode_links[quality] for episode_links in configured_download_links]
         configured_download_sizes = [episode_links[quality] for episode_links in configured_download_sizes]
