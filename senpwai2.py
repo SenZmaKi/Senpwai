@@ -633,34 +633,36 @@ class DownloadButton(QPushButton):
         invalid_input = False
         haved_count = self.chosen_anime_window.anime_details.haved_count
         haved_end = self.chosen_anime_window.anime_details.haved_end
-        if haved_count and haved_end :                                   # Greater than for cases where a goofy user may create an episode file with a title that has an episode number greater than the total episode count
-            if haved_end >= haved_count:
-                end_episode = ""
-                start_episode = ""
-                self.chosen_anime_window.end_episode_input.setText("")
-                self.chosen_anime_window.start_episode_input.setText("")
-                invalid_input = True
+                                        # Greater than for cases where a goofy user may create an episode file with a title that has an episode number greater than the total episode count
+        if haved_count and haved_end and haved_end >= haved_count:
+            end_episode = ""
+            start_episode = ""
+            self.chosen_anime_window.end_episode_input.setText("")
+            self.chosen_anime_window.start_episode_input.setText("")
+            invalid_input = True
 
-            elif (end_episode) == "0"  or (end_episode != "" and start_episode  != "" and (int(end_episode) < int(start_episode) or (int(end_episode) > self.chosen_anime_window.anime_details.episode_count))):
-                end_episode = ""
-                self.chosen_anime_window.end_episode_input.setText("")
-                invalid_input = True
-            elif(start_episode == "0" or start_episode == "" or int(start_episode) > self.chosen_anime_window.anime_details.episode_count):
-                start_episode = ""
-                self.chosen_anime_window.start_episode_input.setText("")
-                invalid_input = True
-            if invalid_input:
-                self.chosen_anime_window.episode_count.setStyleSheet("""
-                QLabel {
-                    color: white;
-                    font-size: 20px;
-                    font-family: "Berlin Sans FB Demi";
-                    background-color: rgba(255, 0, 0, 255);
-                    border-radius: 10px;
-                    padding: 5px;
-                    border: 1px solid black;
-                        }
-                        """)
+        if (end_episode) == "0"  or (end_episode != "" and start_episode  != "" and (int(end_episode) < int(start_episode) or (int(end_episode) > self.chosen_anime_window.anime_details.episode_count))):
+            end_episode = ""
+            self.chosen_anime_window.end_episode_input.setText("")
+            invalid_input = True
+
+        if (start_episode == "0" or start_episode == "" or int(start_episode) > self.chosen_anime_window.anime_details.episode_count):
+            start_episode = ""
+            self.chosen_anime_window.start_episode_input.setText("")
+            invalid_input = True
+
+        if invalid_input:
+            self.chosen_anime_window.episode_count.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-size: 20px;
+                font-family: "Berlin Sans FB Demi";
+                background-color: rgba(255, 0, 0, 255);
+                border-radius: 10px;
+                padding: 5px;
+                border: 1px solid black;
+                    }
+                    """)
             return
         start_episode = int(start_episode)
         end_episode = int(end_episode)-1 if end_episode != "" else int(self.chosen_anime_window.anime_details.episode_count)
