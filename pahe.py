@@ -23,7 +23,7 @@ from pygetwindow import getActiveWindowTitle
 
 from ping3 import ping
 from random import randint
-from typing import Callable, Any, cast
+from typing import Callable, cast
 
 pahe_home_url = 'https://animepahe.ru'
 api_url_extension = '/api?m='
@@ -148,7 +148,7 @@ def bind_quality_to_link_info(quality: str, download_links: list[list[str]], dow
 def get_download_sizes(episode_info: list[str]) -> tuple[int, list[int]]:
     pattern = r'\((.*?)MB\)'
     total_size = 0
-    download_sizes = []
+    download_sizes: list[int] = []
     for episode in episode_info:
         match = cast(re.Match, re.search(pattern, episode))
         size = int(match.group(1))
@@ -283,64 +283,54 @@ class Download():
             download_progress_has_changed = False
             downloading_file = self.get_downloading_file()
             response_idx = randint(0, len(self.net_responses)-1)
-            has_internet = True
             progress_bar = None if not self.console_app else tqdm(total=round(self.total_download_size), unit='MB', unit_scale=True, desc=f' Downloading {self.title}')
             prev_file_size = 0
-            error_encountered = True
-
+            current_file_size = 0
             while not self.complete:
-                has_internet = True
-                error_encountered = False
-                if not download_progress_has_changed:
-                    current_unchanged_count += 1
-                    if current_unchanged_count >= max_allowed_unchanged_count:
-                        current_unchanged_count = 0
-                        has_internet = True if ping(google_dot_com) else False
-                        if has_internet and not self.paused:
-                            error_encountered = True
-                        else:
-                            self.progress_update_callback(-3) # Status no network
-                            if progress_bar: progress_bar.set_description(f' {self.net_responses[response_idx]}')
-
                 if self.paused:
                     self.progress_update_callback(-2) # Status download is paused
                     if progress_bar: progress_bar.set_description(' Paused')
+                    continue
+        
+                if not download_progress_has_changed:
+                    if current_unchanged_count > max_allowed_unchanged_count:
+                        current_unchanged_count = 0
+                        if ping(google_dot_com): 
+                            if self.download_error() and self.still_downloading():                                         
+                                self.progress_update_callback(-4) # Status error detected but attempting fix               
+                                if progress_bar: progress_bar.set_description(' Attempting to fix error')                  
+                                if not self.fix_download_error():                                                          
+                                    self.progress_update_callback(-5) # Status failed error fix hence restarting           
+                                    if progress_bar: progress_bar.set_description(' Attempt failed, restarting  :(')       
+                                    return False                                                                           
+                        else:
+                            self.progress_update_callback(-3) # Status no network
+                            if progress_bar: progress_bar.set_description(f' {self.net_responses[response_idx]}')
+                            continue
 
-                elif error_encountered: 
-                    if self.download_error() and self.still_downloading():
-                        self.progress_update_callback(-4) # Status error detected but attempting fix
-                        if progress_bar: progress_bar.set_description(' Attempting to fix error')
-                        if not self.fix_download_error():
-                            self.progress_update_callback(-5) # Status failed error fix hence restarting
-                            if progress_bar: progress_bar.set_description(' Attempt failed, restarting  :(')
-                            return False
-                        else: error_encountered = False
-
-                if not error_encountered:
-                    self.progress_update_callback(-1) # Status download proceeding
-                    if progress_bar: progress_bar.set_description(f' Downloading {self.title}')          
-                    try:
-                        current_file_size = round(os.path.getsize(downloading_file)/1000000)
-                    except FileNotFoundError:
-                        self.complete = True
-                        break
-                    if current_file_size >= self.total_download_size:
-                        self.complete = True
-                    if self.complete:
-                        self.progress_update_callback(-6) # Status download complete
-                        if progress_bar:
-                            progress_bar.set_description(' Complete')
-                            progress_bar.close()
-                        break
-                    self.progress_update_callback(current_file_size)
-                    if progress_bar: progress_bar.update(current_file_size)
-                    download_progress_has_changed = current_file_size > prev_file_size
-                    current_unchanged_count = 0 if download_progress_has_changed else current_unchanged_count
-                    prev_file_size = current_file_size
-
-            while self.still_downloading(): continue    
-            self.rename()
-            return True
+                self.progress_update_callback(-1) # Status download proceeding
+                if progress_bar: progress_bar.set_description(f' Downloading {self.title}')          
+                try:                                                           # file size in MBs
+                    current_file_size = round(os.path.getsize(downloading_file)/1000,000)
+                except FileNotFoundError: self.complete = True
+                if current_file_size >= self.total_download_size: self.complete = True
+                if self.complete:
+                    self.progress_update_callback(-6) # Status download complete
+                    while self.still_downloading(): continue    
+                    self.rename()   
+                    if progress_bar:
+                        progress_bar.set_description(' Complete')
+                        progress_bar.close()
+                    return True 
+                self.progress_update_callback(current_file_size)
+                if progress_bar: progress_bar.update(current_file_size)
+                download_progress_has_changed = current_file_size > prev_file_size
+                current_unchanged_count = 0 if download_progress_has_changed else current_unchanged_count + 1
+                prev_file_size = current_file_size
+            return False
+            
+            
+            
     
 def extract_poster_summary_and_episode_count(anime_id: str) -> tuple[str, str, int]:
     page_link = f'{pahe_home_url}/anime/{anime_id}'
