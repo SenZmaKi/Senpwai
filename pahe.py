@@ -45,11 +45,18 @@ def extract_anime_id_title_and_page_link(result: dict) -> tuple[str, str, str]:
     page_link = f'{pahe_home_url}{api_url_extension}release&id={anime_id}&sort=episode_asc'
     return anime_id, title, page_link
 
+def get_total_episode_page_count(anime_page_link: str)->int:
+    page_url = f'{anime_page_link}&page={1}'
+    response = requests.get(page_url).content
+    decoded_anime_page = json.loads(response.decode('UTF-8'))
+    total_episode_page_count: int = decoded_anime_page['last_page']
+    return total_episode_page_count
 # Issues GET requests together with the id of the anime to retrieve a list of the episode page links(not download links) 
-def get_episode_page_links(start_episode: int, end_episode: int, anime_page_link: str, anime_id: str) -> list[str]:
+def get_episode_page_links(start_episode: int, end_episode: int, anime_page_link: str, anime_id: str, progress_update_callback: Callable=lambda update: None, console_app=False) -> list[str]:
     page_url = anime_page_link
     episodes_data = []
     page_no = 1
+    progress_bar = None if not console_app else tqdm(total=end_episode, desc=' Fetching episode page links', units='eps')
     while page_url != None:
         page_url = f'{anime_page_link}&page={page_no}'
         response = requests.get(page_url).content
@@ -57,6 +64,8 @@ def get_episode_page_links(start_episode: int, end_episode: int, anime_page_link
         episodes_data+=decoded_anime_page['data']
         page_url = decoded_anime_page["next_page_url"]
         page_no+=1
+        progress_update_callback(1)
+        if progress_bar: progress_bar.update()
     episodes_data = list(filter(lambda episode: type(episode['episode']) != float, episodes_data)) # To avoid episodes like 7.5 and 5.5 cause they're usually just recaps
     episodes_data = episodes_data[start_episode-1: end_episode] # Take note cause indices work diff from episode numbers
     episode_sessions = [episode['session'] for episode in episodes_data]
@@ -70,9 +79,9 @@ def get_download_page_links_and_info(episode_page_links: list[str], progress_upd
         episode_page = requests.get(episode_page_link).content
         soup = BeautifulSoup(episode_page, parser)
         download_data.append(soup.find_all('a', class_='dropdown-item', target='_blank'))
+        progress_update_callback(1)
         if progress_bar: 
             progress_bar.update(idx+1 - progress_bar.n)
-            progress_update_callback(1)
     if progress_bar:
         progress_bar.set_description(' Done')
         progress_bar.close()

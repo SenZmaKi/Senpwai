@@ -16,7 +16,7 @@ from subprocess import CREATE_NO_WINDOW
 
 from typing import Callable, cast, NoReturn
 
-gogo_home_url = 'https://gogoanime.cl' 
+gogo_home_url = 'https://gogoanime.hu' 
 parser = 'html.parser'
 dub_extension = ' (Dub)'
 
@@ -77,7 +77,7 @@ def get_all_quality_links(download_page_link: str, driver: Chrome, max_load_wait
             return get_all_quality_links(download_page_link, driver, max_load_wait_time, load_wait_time+1)
     return all_quality_links
 
-def get_direct_download_link_as_per_quality(download_page_links: list[str], quality: str, driver: Chrome, max_load_wait_time=25, console_app=False) -> list[str]:
+def get_direct_download_link_as_per_quality(download_page_links: list[str], quality: str, driver: Chrome, progress_update_call_back: Callable=lambda update: None, max_load_wait_time=25, console_app=False) -> list[str]:
     download_links: list[str] = []
     quality_dict = {'360': 0,
                     '480': 1,
@@ -92,6 +92,7 @@ def get_direct_download_link_as_per_quality(download_page_links: list[str], qual
         if len(all_quality_links) != 4:
             chosen_quality = 0 if quality == '360' or quality == '480' else -1
         download_links.append(all_quality_links[chosen_quality])
+        progress_update_call_back(1)
         if progress_bar: progress_bar.update(idx+1 - progress_bar.n)
     if progress_bar:
         progress_bar.set_description(' Done')
@@ -99,7 +100,6 @@ def get_direct_download_link_as_per_quality(download_page_links: list[str], qual
     return download_links
 
 def get_download_page_links(episode_page_links: list[str], progress_update_callback: Callable = lambda x: None, console_app = False) -> list[str]:
-    
     progress_bar = None if not console_app else tqdm(total=len(episode_page_links), desc=' Fetching download page links', unit='eps')
     download_page_links: list[str] = []
     for idx, episode_page_link in enumerate(episode_page_links):
@@ -115,13 +115,14 @@ def get_download_page_links(episode_page_links: list[str], progress_update_callb
         progress_bar.set_description(' Done')
     return download_page_links
 
-def calculate_download_size(download_links: list[str], console_app=False) -> int:
+def calculate_download_total_size(download_links: list[str], progress_update_callback: Callable=lambda update: None, console_app=False) -> int:
     progress_bar = None if not console_app else tqdm(total=len(download_links), desc=' Calculating total download size', unit='eps')
     total_size = 0
     for idx, link in enumerate(download_links):
         response = requests.get(link, stream=True)
         size = response.headers.get('content-length', 0)
         total_size += int(size)
+        progress_update_callback(1)
         if progress_bar: progress_bar.update(idx+1 - progress_bar.n)
     if progress_bar:
         progress_bar.set_description(' Done')
@@ -176,15 +177,24 @@ def extract_poster_summary_and_episode_count(anime_page_link: str) -> tuple[str,
     episode_count = cast(Tag, cast(ResultSet[Tag], cast(Tag, soup.find('ul', id='episode_page')).find_all('li'))[-1].find('a')).get_text().split('-')[-1]
     return (poster_link, summary, int(episode_count))
 
-def dub_available(anime_title: str) -> str | None:
+def dub_available(anime_title: str) -> bool:
     dub_title = f'{anime_title}{dub_extension}'
     results  = search(dub_title)
     for result in results:
         title = cast(str, cast(Tag, result.find('a'))['title'])
-        page_link = gogo_home_url + cast(str, cast(Tag, result.find('a'))['href'])
-        if dub_title == title:
-            return page_link
-    return None
+        if dub_title == title: return True
+    return False
+# Assumes dub is available
+def get_dub_anime_page_link(anime_title: str) -> str:
+    dub_title = f'{anime_title}{dub_extension}'
+    results  = search(dub_title)
+    page_link = ''
+    for result in results:
+        title = cast(str, cast(Tag, result.find('a'))['title'])
+        if dub_title == title: 
+            page_link = gogo_home_url + cast(str, cast(Tag, result.find('a'))['href'])
+            break
+    return page_link
 
 def test_getting_direct_download_links(query_anime_title: str, start_episode: int, end_episode: int, quality: str, sub_or_dub='sub') -> list[str]:
     result = search(query_anime_title)[0]
@@ -195,7 +205,7 @@ def test_getting_direct_download_links(query_anime_title: str, start_episode: in
     download_page_links = get_download_page_links(episode_page_links, console_app=True)
     chrome_driver = set_up_headless_browser()
     download_links = get_direct_download_link_as_per_quality(download_page_links, quality, chrome_driver, max_load_wait_time=50, console_app=True)
-    calculate_download_size(download_links, console_app=True)
+    calculate_download_total_size(download_links, console_app=True)
     chrome_driver.close()
     return download_links
 
