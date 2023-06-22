@@ -158,7 +158,7 @@ class Download():
         file_path = os.path.join(self.path, file_title)
         progress_bar = None  if not self.console_app else tqdm(desc= f'Downloading {self.title}: ', total=total, unit='iB', unit_scale=True, unit_divisor=1024)
         keyboard.on_press_key('space', self.pause_or_resume)
-        with open(file_path) as file:
+        with open(file_path, 'wb') as file:
             for data in response.iter_content(chunk_size=1024):
                 if progress_bar and self.paused:
                     progress_bar.set_description(' Paused')
