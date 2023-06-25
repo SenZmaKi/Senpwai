@@ -274,6 +274,7 @@ class DownloadProgressBar(ProgressBar):
         self.layout.addWidget(self.pause_button)
         self.layout.addWidget(self.folder_button)
         self.layout.addWidget(self.cancel_button)
+        
 
     def pause_or_resume(self):
         if not self.pause_callback(): return
@@ -288,17 +289,22 @@ class AnimeDetails():
         self.sanitised_title = sanitise_title(anime.title)
         self.anime_folder_path = self.get_anime_folder_path()
         self.potentially_haved_episodes = self.get_potentially_haved_episodes()
+        self.haved_episodes: list[int] = []
         self.haved_start, self.haved_end, self.haved_count = self.get_start_end_and_count_of_haved_episodes()
         self.dub_available = self.get_dub_availablilty_status()
         self.poster, self.summary, self.episode_count = self.get_poster_image_summary_and_episode_count()
-        self.start_download_episode = None
-        self.end_download_episode = None
+        self.start_download_episode = 0
+        self.end_download_episode = 0
         self.quality = quality
         self.sub_or_dub = sub_or_dub 
         self.direct_download_links: list[str] = []
         self.download_info: list[str] = []
-        self.download_sizes: list[int] = []
         self.total_download_size: int = 0
+        self.episodes_to_download: list[int] = []
+
+    def dynamic_episodes_predictor(self):
+        for episode in range(self.start_download_episode, self.end_download_episode+1):
+            if episode not in self.haved_episodes: self.episodes_to_download.append(episode)
 
     def get_anime_folder_path(self) -> str | None:
         path = os.path.join(default_download_folder_path, self.sanitised_title)
@@ -311,15 +317,14 @@ class AnimeDetails():
 
     def get_start_end_and_count_of_haved_episodes(self) -> tuple[int, int, int] | tuple[None, None, None]:
         pattern = fr"{self.anime.title} Episode (\d+)"
-        haved_episodes = []
         if self.potentially_haved_episodes:
             for episode in self.potentially_haved_episodes:
                 match = re.search(pattern, episode.name)
                 if match:
                     episode_number = int(match.group(1))
-                    if episode_number > 0: haved_episodes.append(episode_number)
-            haved_episodes.sort()
-        return (haved_episodes[0], haved_episodes[-1], len(haved_episodes)) if len(haved_episodes) > 0 else (None, None, None)
+                    if episode_number > 0: self.haved_episodes.append(episode_number)
+            self.haved_episodes.sort()
+        return (self.haved_episodes[0], self.haved_episodes[-1], len(self.haved_episodes)) if len(self.haved_episodes) > 0 else (None, None, None)
     
     def get_dub_availablilty_status(self) -> bool:
         dub_available = False
@@ -583,7 +588,7 @@ class GetDownloadPageThread(QThread):
         self.finished.connect(lambda download_page_links, download_info: finished_callback(download_page_links, download_info))
     def run(self):
         if self.site == pahe_name:
-            download_page_links, download_info = pahe.get_download_page_links_and_info(self.episode_page_links, self.progress_update_callback)
+            download_page_links, download_info = pahe.get_pahewin_download_page_links_and_info(self.episode_page_links, self.progress_update_callback)
             self.finished.emit(download_page_links, download_info)
         elif self.site == gogo_name:
             download_page_links = gogo.get_download_page_links(self.episode_page_links, self.progress_update_callback)
@@ -602,7 +607,8 @@ class GetDirectDownloadLinksThread(QThread):
     def run(self):
         if self.anime_details.site == pahe_name:
             bound_links, bound_info = pahe.bind_sub_or_dub_to_link_info(self.anime_details.sub_or_dub, cast(list[list[str]], self.download_page_links), self.download_info)
-            bound_links, self.anime_details.download_info = pahe.bind_quality_to_link_info(self.anime_details.quality, bound_links, bound_info )
+            bound_links, bound_info = pahe.bind_quality_to_link_info(self.anime_details.quality, bound_links, bound_info )
+            self.anime_details.total_download_size = pahe.calculate_total_download_size(bound_info)
             self.anime_details.direct_download_links = pahe.get_direct_download_links(bound_links)
             self.finished.emit()
         if self.anime_details.site ==  gogo_name:
@@ -618,10 +624,11 @@ class CalculateDownloadSizes(QThread):
         self.anime_details = anime_details
         self.finished.connect(finished_callback)
     def run(self):
-        if self.anime_details.site == pahe_name:
-            self.anime_details.total_download_size, self.anime_details.download_sizes = pahe.get_download_sizes(self.anime_details.download_info)
-        elif self.anime_details.site == gogo_name:                # With gogoanime we dont have to store the download sizes for each episode since we dont use a headless browser to actually download just to get the links
+        if self.anime_details.site == gogo_name:                # With gogoanime we dont have to store the download sizes for each episode since we dont use a headless browser to actually download just to get the links
             self.anime_details.total_download_size = gogo.calculate_download_total_size(self.anime_details.direct_download_links, self.progress_update_callback)
+        self.finished.emit()
+        
+        
 class ChosenAnimeWindow(QWidget):
     def __init__(self, parent: MainWindow, anime_details: AnimeDetails):
         super().__init__(parent)
