@@ -1,3 +1,11 @@
+# Developer's note
+Currently working on an update that adds the following features
+- A graphical user interface
+- Option to download from either gogoanime or animepahe
+- Drops the need for a headless browser for animepahe downloads, though for gogoanime the headless browser will still be required cause of captcha block
+- Introduces Linux and possibly Mac support
+
+
 # Senpwai
 
  Free and open source windows console app written in python that automates downloading complete seasons or batches of an anime
