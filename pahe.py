@@ -176,6 +176,7 @@ def decrypt_token_and_post_url_page(full_key: str, key: str, v1: int, v2: int):
         r += chr(get_string(s, v2) - v1)
         i += 1
     return r
+
         
 def get_direct_download_links(pahewin_download_page_links: list[str], progress_update_callback: Callable=lambda x: None, console_app=False) -> list[str]:
     progress_bar = None if not console_app else tqdm(total=len(pahewin_download_page_links), desc=' Fetching direct download links', unit='eps')
@@ -211,12 +212,17 @@ class Download():
         self.extension = file_extension
         self.path = download_folder
         self.paused = False
+        self.cancelled = False
         self.complete = False
         self.progress_update_callback = progress_update_callback
         self.console_app = console_app
+        self.file_path = None
         
     def pause_or_resume(self):
         self.paused = not self.paused
+        print(f'{self.title} Paused: {self.paused}')
+    def cancel(self):
+        self.cancelled = True
 
     def start_download(self):
         response = requests.get(self.link, stream=True)
@@ -224,18 +230,25 @@ class Download():
         file_title = f'{self.title}{self.extension}'
         temporary_file_title =  f'{self.title} [Downloading]{self.extension}'
         temp_file_path = os.path.join(self.path, temporary_file_title)
+        self.file_path = temp_file_path
         download_completed_file_path = os.path.join(self.path, file_title)
-        progress_bar = None  if not self.console_app else tqdm(desc= f'Downloading {self.title}: ', total=total, unit='iB', unit_scale=True, unit_divisor=1024)
+        progress_bar = None  if not self.console_app else tqdm(desc= f'Downloading {self.title}: ', total=total, unit='iB', unit_scale=True, unit_divisor=1024*1024)
         with open(temp_file_path, 'wb') as file:
-            for data in response.iter_content(chunk_size=1024):
+            for data in response.iter_content(chunk_size=1024*1024):
+                if self.cancelled:
+                    print('cancelled')
+                    return
                 if progress_bar and self.paused:
                     progress_bar.set_description(' Paused')
-                while self.paused: continue
+                while self.paused: 
+                    print(self.title)
+                    pass
                 if progress_bar: progress_bar.set_description(f'Downloading {self.title}: ')
                 size = file.write(data)
                 self.progress_update_callback(size)
                 if progress_bar: progress_bar.update(size)
-        os.rename(temp_file_path, download_completed_file_path )
+        os.rename(temp_file_path, download_completed_file_path)
+        self.file_path = download_completed_file_path
         if progress_bar: progress_bar.set_description(f'Completed {self.title}')
 
 def extract_poster_summary_and_episode_count(anime_id: str) -> tuple[str, str, int]:
