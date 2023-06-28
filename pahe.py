@@ -220,7 +220,6 @@ class Download():
         
     def pause_or_resume(self):
         self.paused = not self.paused
-        print(f'{self.title} Paused: {self.paused}')
     def cancel(self):
         self.cancelled = True
 
@@ -240,9 +239,7 @@ class Download():
                     return
                 if progress_bar and self.paused:
                     progress_bar.set_description(' Paused')
-                while self.paused: 
-                    print(self.title)
-                    pass
+                while self.paused: pass
                 if progress_bar: progress_bar.set_description(f'Downloading {self.title}: ')
                 size = file.write(data)
                 self.progress_update_callback(size)
