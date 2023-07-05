@@ -235,11 +235,10 @@ class Download():
         with open(temp_file_path, 'wb') as file:
             for data in response.iter_content(chunk_size=1024*1024):
                 if self.cancelled:
-                    print('cancelled')
                     return
                 if progress_bar and self.paused:
                     progress_bar.set_description(' Paused')
-                while self.paused: pass
+                while self.paused: continue
                 if progress_bar: progress_bar.set_description(f'Downloading {self.title}: ')
                 size = file.write(data)
                 self.progress_update_callback(size)
