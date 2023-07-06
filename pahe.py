@@ -258,7 +258,7 @@ def extract_poster_summary_and_episode_count(anime_id: str) -> tuple[str, str, i
 
     page_link = f'{pahe_home_url}{api_url_extension}release&id={anime_id}&sort=episode_desc'
     response = requests.get(page_link).content
-    episode_count = json.loads(response)['data'][0]['episode']
+    episode_count = json.loads(response)['total']
     return (poster_link, summary, int(episode_count))
 
 def test_getting_direct_download_links(query_anime_title: str, start_episode: int, end_episode: int, quality: str, sub_or_dub='sub') -> list[str]:

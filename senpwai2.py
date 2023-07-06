@@ -266,10 +266,12 @@ class ProgressBar(QWidget):
         self.percentage.setText(f"{percent_new_value}%")
         self.current_against_max_values.setText(f" {round(new_value/self.units_divisor)}/{round(max_value/self.units_divisor)} {self.units}")
         # In cases of annoying division by zero crash where downloads update super quick
-        if time_elapsed > 0:
+        if time_elapsed > 0 and added_value > 0:
             rate = added_value / time_elapsed
             eta = (max_value - new_value) * (1/rate) 
-            self.eta.setText(f"{round(eta/60)} mins left"if eta >= 60 else f"{round(eta)} secs left")
+            if eta >= 3600: self.eta.setText(f"{round(eta/3600, 1)} hrs left")
+            elif eta >= 60: self.eta.setText(f"{round(eta/60)} mins left")
+            else: self.eta.setText(f"{round(eta)} secs left")
             self.rate.setText(f" {round(rate/self.units_divisor, 1)} {self.units}/s")
             self.prev_time = curr_time
 
@@ -399,8 +401,8 @@ class MainWindow(QMainWindow):
         self.switch_to_search_window()
         self.setup_chosen_anime_window_thread = None
        
-        # For testing purposes
-        # self.setup_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=aca87d16-3c41-ef18-25c5-e35e198194d0", "aca87d16-3c41-ef18-25c5-e35e198194d0"), pahe_name)
+        # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
+        # self.setup_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=742037aa-5ae5-4de6-99cd-3e4ae17ebab5", "742037aa-5ae5-4de6-99cd-3e4ae17ebab5"), pahe_name)
 
     def center_window(self) -> None:
         screen_geometry = QGuiApplication.primaryScreen().geometry()
@@ -560,7 +562,7 @@ class DownloadedEpisodeCount(QLabel):
         super().__init__(parent)
         self.total_episodes = total_episodes
         self.current_episodes = 0
-        self.resize(120, 30)
+        self.resize(100, 50)
         self.move(350, 100)
         self.setText(f"{0}/{total_episodes} eps")
         self.setStyleSheet("""
@@ -614,18 +616,17 @@ class DownloadWindow(QWidget):
                               , download_page_progress_bar.update).start()
         
     def get_direct_download_links(self, download_page_links: list[str], download_info: list[list[str]], anime_details: AnimeDetails):
-        if anime_details.site == gogo_name: 
-            direct_download_links_progress_bar =  ProgressBar(self, "Retrieving direct download links", "", 400, 33, len(download_page_links), "eps") 
-            self.downloads_layout.insertWidget(0, direct_download_links_progress_bar)
-            return GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda: self.start_download(anime_details), direct_download_links_progress_bar.update).start()
-        GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda: self.start_download(anime_details), lambda x: None).start()
+        direct_download_links_progress_bar =  ProgressBar(self, "Retrieving direct download links", "", 400, 33, len(download_page_links), "eps") 
+        self.downloads_layout.insertWidget(0, direct_download_links_progress_bar)
+        GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda: self.start_download(anime_details), direct_download_links_progress_bar.update).start()
 
     def start_download(self, anime_details: AnimeDetails):
         if not anime_details.anime_folder_path:
             anime_details.anime_folder_path = os.path.join(default_download_folder_path, anime_details.sanitised_title)
             os.mkdir(anime_details.anime_folder_path)                          
         displayed_title = anime_details.sanitised_title if len(anime_details.sanitised_title)<=20 else f"{anime_details.sanitised_title[:17]}.. ."
-        anime_progress_bar = ProgressBar(self.anime_progress_widget, "Downloading", displayed_title, 400, 50, anime_details.total_download_size*ibytes_to_mbs_divisor, "MBs", ibytes_to_mbs_divisor)
+        anime_progress_bar = ProgressBar(self.anime_progress_widget, "Downloading", displayed_title, 425, 50, anime_details.total_download_size, "MBs")
+        anime_progress_bar.resize(980, 60)
         anime_progress_bar.move(10, 10)
         anime_progress_bar.show()
         downloaded_episode_count = DownloadedEpisodeCount(self.anime_progress_widget, len(anime_details.predicted_episodes_to_download))
@@ -634,7 +635,7 @@ class DownloadWindow(QWidget):
 
     @pyqtSlot(str, int)   
     def receive_download_progress_bar_details(self, episode_title: str, episode_size: int):
-        self.progress_bars[episode_title] = DownloadProgressBar(self, "Downloading", episode_title, 400, 33, episode_size, "MBs", ibytes_to_mbs_divisor)
+        self.progress_bars[episode_title] = DownloadProgressBar(self, "Downloading", episode_title, 500, 33, episode_size, "MBs", ibytes_to_mbs_divisor)
         self.downloads_layout.insertWidget(0, self.progress_bars[episode_title])
 
 
@@ -653,11 +654,10 @@ class DownloadThread(QThread):
         self.displayed_episode_title = displayed_episode_title
         self.finished.connect(finished_callback)
         self.anime_progress_bar_callback = anime_progress_bar_callback
-        self.update_bar.connect(self.progress_bar.update)
         self.update_bar.connect(self.anime_progress_bar_callback)
+        self.update_bar.connect(self.progress_bar.update)
         self.mutex = mutex
     
-
     def run(self):
         if self.site == pahe_name:
             download = pahe.Download(self.link, self.title, self.download_folder, lambda x: self.update_bar.emit(x))
@@ -674,26 +674,28 @@ class DownloadThread(QThread):
         
 class DownloadManagerThread(QThread):
     send_progress_bar_details = pyqtSignal(str, int)
+    update_anime_progress_bar = pyqtSignal(int)
     def __init__(self, download_window: DownloadWindow, anime_details: AnimeDetails, anime_progress_bar: ProgressBar, downloaded_episode_count: DownloadedEpisodeCount) -> None:
         super().__init__(download_window)
         self.anime_progress_bar = anime_progress_bar
         self.download_window = download_window
         self.downloaded_episode_count = downloaded_episode_count
         self.anime_details = anime_details
+        self.update_anime_progress_bar.connect(anime_progress_bar.update)
         self.send_progress_bar_details.connect(download_window.receive_download_progress_bar_details)
         self.prev_bar = None
         self.mutex = QMutex()
+
+    # The total size for animepahe isn't accurate, below is to appropriately handle updating the anime_progress_bar if site is animepahe 
+    @pyqtSlot(int)
+    def handle_updating_anime_progress_bar(self, added: int):
+        added_rounded = round(added / ibytes_to_mbs_divisor)
+        self.update_anime_progress_bar.emit(added_rounded)
 
     @pyqtSlot(str)
     def pop_from_progress_bars(self, episode_title: str):
         self.download_window.progress_bars.pop(episode_title)
         self.downloaded_episode_count.update(1)
-        last_episode = self.anime_details.predicted_episodes_to_download[-1]
-        # The total size for animepahe isn't accurate, below is to appropriately handle completed downloads 
-        if self.anime_details.site == pahe_name and episode_title.endswith(str(last_episode)):
-            print('cum')
-            self.anime_progress_bar.update(self.anime_progress_bar.bar.maximum()-self.anime_progress_bar.bar.value())
-
 
     def get_exact_episode_size(self, link: str) -> int:
         return int(requests.get(link, stream=True).headers['content-length'])
@@ -709,7 +711,7 @@ class DownloadManagerThread(QThread):
             while displayed_episode_title not in self.download_window.progress_bars: continue  
             DownloadThread(self, link, episode_title, download_size, self.anime_details.site, cast(str, self.anime_details.anime_folder_path), 
                            self.download_window.progress_bars[displayed_episode_title], displayed_episode_title, self.pop_from_progress_bars, 
-                           self.anime_progress_bar.update, self.mutex).start()
+                           self.handle_updating_anime_progress_bar, self.mutex).start()
 
 class GetEpisodePageLinksThread(QThread):
     finished = pyqtSignal(list)
@@ -762,7 +764,7 @@ class GetDirectDownloadLinksThread(QThread):
             bound_links, bound_info = pahe.bind_sub_or_dub_to_link_info(self.anime_details.sub_or_dub, cast(list[list[str]], self.download_page_links), self.download_info)
             bound_links, bound_info = pahe.bind_quality_to_link_info(self.anime_details.quality, bound_links, bound_info )
             self.anime_details.total_download_size = pahe.calculate_total_download_size(bound_info)
-            self.anime_details.direct_download_links = pahe.get_direct_download_links(bound_links)
+            self.anime_details.direct_download_links = pahe.get_direct_download_links(bound_links, lambda x: self.update_bar.emit(x))
             self.finished.emit()
         if self.anime_details.site ==  gogo_name:
             self.anime_details.direct_download_links = gogo.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality, 
