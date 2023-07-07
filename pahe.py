@@ -4,29 +4,19 @@ import json
 from tqdm import tqdm
 import os
 import re
-from ping3 import ping
 from typing import Callable, cast, Any
 from math import pow
 from time import sleep
+from intersection import network_monad, parser, test_downloading
 
 pahe_home_url = 'https://animepahe.ru'
 api_url_extension = '/api?m='
-parser = 'html.parser'
-google_dot_com = 'google.com'
-ibytes_to_mbs_divisor = 1024*1023
-
-def network_monad(function: Callable) -> Any:
-    while True:
-        try:
-            return function()
-        except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
-            print('Connection Error')
-            sleep(1)
 
 
 def search(keyword: str) -> list[dict]:
     search_url = pahe_home_url+api_url_extension+'search&q='+keyword
-    response = requests.get(search_url).content
+    response = network_monad(lambda: network_monad(
+        lambda: requests.get(search_url).content))
     try:
         decoded = json.loads(response.decode('UTF-8'))
         return decoded['data']
@@ -43,7 +33,8 @@ def extract_anime_id_title_and_page_link(result: dict) -> tuple[str, str, str]:
 
 def get_total_episode_page_count(anime_page_link: str) -> int:
     page_url = f'{anime_page_link}&page={1}'
-    response = requests.get(page_url).content
+    response = network_monad(lambda: network_monad(
+        lambda: requests.get(page_url).content))
     decoded_anime_page = json.loads(response.decode('UTF-8'))
     total_episode_page_count: int = decoded_anime_page['last_page']
     return total_episode_page_count
@@ -58,7 +49,8 @@ def get_episode_page_links(start_episode: int, end_episode: int, anime_page_link
         total=end_episode, desc=' Fetching episode page links', units='eps')
     while page_url != None:
         page_url = f'{anime_page_link}&page={page_no}'
-        response = requests.get(page_url).content
+        response = network_monad(
+            lambda page_url=page_url: requests.get(page_url).content)
         decoded_anime_page = json.loads(response.decode('UTF-8'))
         episodes_data += decoded_anime_page['data']
         page_url = decoded_anime_page["next_page_url"]
@@ -82,7 +74,8 @@ def get_pahewin_download_page_links_and_info(episode_page_links: list[str], prog
         episode_page_links), desc=' Fetching download page links', unit='eps')
     download_data: list[ResultSet[BeautifulSoup]] = []
     for idx, episode_page_link in enumerate(episode_page_links):
-        episode_page = requests.get(episode_page_link).content
+        episode_page = network_monad(
+            lambda episode_page_link=episode_page_link: requests.get(episode_page_link).content)
         soup = BeautifulSoup(episode_page, parser)
         download_data.append(soup.find_all(
             'a', class_='dropdown-item', target='_blank'))
@@ -103,7 +96,7 @@ def get_pahewin_download_page_links_and_info(episode_page_links: list[str], prog
 
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
     page_url = f'{anime_page_link}&page={1}'
-    response = requests.get(page_url).content
+    response = network_monad(lambda: requests.get(page_url).content)
     decoded_anime_page = json.loads(response.decode('UTF-8'))
     episodes_data = decoded_anime_page['data']
     episode_sessions = [episode['session'] for episode in episodes_data]
@@ -219,12 +212,14 @@ def get_direct_download_links(pahewin_download_page_links: list[str], progress_u
     param_regex = re.compile(
         r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""")
     for idx, pahewin_link in enumerate(pahewin_download_page_links):
-        kwik_download_page = requests.get(pahewin_link).content
+        kwik_download_page = network_monad(
+            lambda pahewin_link=pahewin_link: requests.get(pahewin_link).content)
         soup = BeautifulSoup(kwik_download_page, parser)
         download_link = cast(str, cast(Tag, soup.find(
             "a", class_="btn btn-primary btn-block redirect"))["href"])
 
-        response = requests.get(download_link)
+        response = network_monad(
+            lambda download_link=download_link: requests.get(download_link))
         cookies = response.cookies
         match = cast(re.Match, param_regex.search(response.text))
         full_key, key, v1, v2 = match.group(1), match.group(
@@ -234,8 +229,8 @@ def get_direct_download_links(pahewin_download_page_links: list[str], progress_u
         soup = BeautifulSoup(decrypted, parser)
         post_url = cast(str, cast(Tag, soup.form)['action'])
         token_value = cast(str, cast(Tag, soup.input)['value'])
-        response = requests.post(post_url, headers={'Referer': download_link}, cookies=cookies, data={
-                                 '_token': token_value}, allow_redirects=False)
+        response = network_monad(lambda post_url=post_url, download_link=download_link, cookies=cookies, token_value=token_value: requests.post(post_url, headers={'Referer': download_link}, cookies=cookies, data={
+                                 '_token': token_value}, allow_redirects=False))
         direct_download_link = response.headers['location']
         direct_download_links.append(direct_download_link)
         progress_update_callback(1)
@@ -247,80 +242,9 @@ def get_direct_download_links(pahewin_download_page_links: list[str], progress_u
     return direct_download_links
 
 
-class Download():
-    def __init__(self, link: str, episode_title: str, download_folder: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', console_app=False) -> None:
-        self.link = link
-        self.title = episode_title
-        self.extension = file_extension
-        self.path = download_folder
-        self.paused = False
-        self.cancelled = False
-        self.complete = False
-        self.progress_update_callback = progress_update_callback
-        self.console_app = console_app
-        self.file_path = None
-
-    def pause_or_resume(self):
-        self.paused = not self.paused
-
-    def cancel(self):
-        self.cancelled = True
-
-    def start_download(self):
-        response = network_monad(lambda: requests.get(
-            self.link, stream=True, timeout=30))
-
-        def response_ranged(start_byte): return requests.get(
-            self.link, stream=True, headers={'Range': f'bytes={start_byte}-'}, timeout=30)
-        
-        total = int(response.headers.get('content-length', 0))
-        file_title = f'{self.title}{self.extension}'
-        temporary_file_title = f'{self.title} [Downloading]{self.extension}'
-        temp_file_path = os.path.join(self.path, temporary_file_title)
-        self.file_path = temp_file_path
-        download_completed_file_path = os.path.join(self.path, file_title)
-        progress_bar = None if not self.console_app else tqdm(
-            desc=f' Downloading {self.title}: ', total=total, unit='iB', unit_scale=True, unit_divisor=ibytes_to_mbs_divisor)
-
-        def handle_download(start_byte: int = 0):
-            mode = 'wb' if start_byte == 0 else 'ab'
-            with open(temp_file_path, mode) as file:
-                iter_content = response.iter_content(chunk_size=ibytes_to_mbs_divisor) if start_byte == 0 else network_monad(
-                    lambda: response_ranged(start_byte).iter_content(chunk_size=ibytes_to_mbs_divisor))
-                while True:
-                    try:
-                        data = network_monad(lambda: (next(iter_content)))
-                        if self.cancelled:
-                            return
-                        if progress_bar and self.paused:
-                            progress_bar.set_description(' Paused')
-                        while self.paused:
-                            continue
-                        if progress_bar:
-                            progress_bar.set_description(
-                                f' Downloading {self.title}: ')
-                        size = file.write(data)
-                        self.progress_update_callback(size)
-                        if progress_bar:
-                            progress_bar.update(size)
-                    except StopIteration:
-                        print('Stop Iteration')
-                        break
-
-            file_size = os.path.getsize(temp_file_path)
-            print(file_size)
-            print(total)
-            return True if file_size >= total else handle_download(file_size)
-        handle_download()
-        os.rename(temp_file_path, download_completed_file_path)
-        self.file_path = download_completed_file_path
-        if progress_bar:
-            progress_bar.set_description(f' Completed {self.title}')
-
-
 def extract_poster_summary_and_episode_count(anime_id: str) -> tuple[str, str, int]:
     page_link = f'{pahe_home_url}/anime/{anime_id}'
-    response = requests.get(page_link).content
+    response = network_monad(lambda: requests.get(page_link).content)
     soup = BeautifulSoup(response, parser)
     poster = soup.find(class_='youtube-preview')
     if not isinstance(poster, Tag):
@@ -329,7 +253,7 @@ def extract_poster_summary_and_episode_count(anime_id: str) -> tuple[str, str, i
     summary = cast(Tag, soup.find(class_='anime-synopsis')).get_text()
 
     page_link = f'{pahe_home_url}{api_url_extension}release&id={anime_id}&sort=episode_desc'
-    response = requests.get(page_link).content
+    response = network_monad(lambda: requests.get(page_link).content)
     episode_count = json.loads(response)['total']
     return (poster_link, summary, int(episode_count))
 
@@ -345,13 +269,8 @@ def test_getting_direct_download_links(query_anime_title: str, start_episode: in
         episode_page_links, console_app=True)
     direct_download_links = get_direct_download_links(bind_quality_to_link_info(
         quality, *bind_sub_or_dub_to_link_info(sub_or_dub, download_page_links, download_info))[0], console_app=True)
+    list(map(print, direct_download_links))
     return direct_download_links
-
-
-def test_downloading(anime_title: str, direct_download_links: list[str]):
-    for idx, link in enumerate(direct_download_links):
-        Download(link, f'{anime_title} Episode {idx+1}',
-                 os.path.abspath("test-downloads"), console_app=True).start_download()
 
 
 def main():
@@ -362,11 +281,12 @@ def main():
     start_episode = 1
     end_episode = 4
 
-#    direct_download_links = test_getting_direct_download_links(query, start_episode, end_episode, quality, sub_or_dub )
-#    test_downloading(query, direct_download_links)
+    direct_download_links = test_getting_direct_download_links(
+        query, start_episode, end_episode, quality, sub_or_dub)
+    test_downloading(query, direct_download_links)
 
-    test_downloading('Senyuu.', [
-                     'https://eu-11.files.nextcdn.org/get/11/04/d3185322653a395e921c3f66ada4a12ed482a9b2b77f3edc65c412f4378d9e79?file=AnimePahe_Senyuu._-_03_BD_360p_Final8.mp4&token=-_aOZ9BLRIfTgUw9DNi43A&expires=1688735253'])
+#    test_downloading('Senyuu.', [
+#                     'https://eu-11.files.nextcdn.org/get/11/04/d3185322653a395e921c3f66ada4a12ed482a9b2b77f3edc65c412f4378d9e79?file=AnimePahe_Senyuu._-_03_BD_360p_Final8.mp4&token=-_aOZ9BLRIfTgUw9DNi43A&expires=1688735253'])
 
 
 if __name__ == "__main__":

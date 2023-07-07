@@ -12,12 +12,10 @@ import gogo
 from pathlib import Path
 from random import randint  
 import requests
-import string
-import re
-import time
-import threading
 from typing import Callable, cast
-
+from intersection import ibytes_to_mbs_divisor, sanitise_title, Download
+from time import time
+import re
 
 pahe_name = "pahe"
 gogo_name = "gogo"
@@ -46,12 +44,8 @@ folder_icon_path = os.path.join(assets_path, "folder.png")
 pause_icon_path = os.path.join(assets_path, "pause.png")
 resume_icon_path = os.path.join(assets_path, "resume.png")
 cancel_icon_path = os.path.join(assets_path, "cancel.png")
-ibytes_to_mbs_divisor = 1024*1024
 
 
-# Goofy aah function to avoid screen blinking bug during window switch XD
-def sleep_before_updating_screen():
-    time.sleep(0)
 
 class Anime():
     def __init__(self, title: str, page_link: str, anime_id: str|None) -> None:
@@ -248,7 +242,7 @@ class ProgressBar(QWidget):
         self.items_layout.addWidget(self.eta)
         self.items_layout.addWidget(self.rate)
         self.items_layout.addWidget(self.current_against_max_values)
-        self.prev_time = time.time()
+        self.prev_time = time()
 
     @pyqtSlot(int)
     def update(self, added_value: int):
@@ -422,9 +416,7 @@ class MainWindow(QMainWindow):
         self.setup_chosen_anime_window_thread = None
         self.search_window.loading.stop()
         self.chosen_anime_window = ChosenAnimeWindow(self, anime_details)
-        sleep_before_updating_screen()
         self.setCentralWidget(self.chosen_anime_window)
-        sleep_before_updating_screen()
         self.setup_chosen_anime_window_thread = None
 
         # For testing purposes
@@ -659,14 +651,10 @@ class DownloadThread(QThread):
         self.mutex = mutex
     
     def run(self):
-        if self.site == pahe_name:
-            download = pahe.Download(self.link, self.title, self.download_folder, lambda x: self.update_bar.emit(x))
-            self.progress_bar.pause_callback = download.pause_or_resume
-            self.progress_bar.cancel_callback = download.cancel
-            download.start_download()
-        # elif self.site == gogo_name:
-        #     download = gogo.Download(self.link, self.title, self.download_folder, self.progress_bar.update)
-        #     download.start_download()
+        download = Download(self.link, self.title, self.download_folder, lambda x: self.update_bar.emit(x))
+        self.progress_bar.pause_callback = download.pause_or_resume
+        self.progress_bar.cancel_callback = download.cancel
+        download.start_download()
 
         self.mutex.lock()
         self.finished.emit(self.displayed_episode_title)
@@ -1061,11 +1049,6 @@ class HavedEpisodes(QLabel):
         if not count: self.setText("You have No episodes of this anime")
         else: self.setText(f"You have {count} episodes from {start} to {end}") if count != 1 else self.setText(f"You have {count} episode from {start} to {end}")
 
-#Santises folder name to only allow names that windows can create a folder with
-def sanitise_title(title: str):
-    valid_chars = set(string.printable) - set('\\/:*?"<>|')
-    sanitised = ''.join(filter(lambda c: c in valid_chars, title))
-    return sanitised[:255].rstrip()
 
 class EpisodeInput(QLineEdit):
     def __init__(self, parent, x: int, y: int, start_or_end):
