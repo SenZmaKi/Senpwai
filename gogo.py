@@ -14,7 +14,7 @@ from selenium.webdriver import ChromeOptions
 from selenium.webdriver import Chrome
 from subprocess import CREATE_NO_WINDOW
 from typing import Callable, cast, NoReturn
-from intersection import parser, Download, network_monad, test_downloading
+from intersection import parser, Download, network_monad, test_downloading, match_quality
 
 gogo_home_url = 'https://gogoanime.hu'
 dub_extension = ' (Dub)'
@@ -68,44 +68,37 @@ def set_up_headless_browser() -> Chrome:
     chrome_driver = Chrome(service=service_chrome, options=chrome_options)
     return chrome_driver
 
-
-def get_all_quality_links(download_page_link: str, driver: Chrome, max_load_wait_time: int, load_wait_time=1) -> list[str]:
+def get_links_and_quality_info(download_page_link: str, driver: Chrome, max_load_wait_time: int, load_wait_time=1) -> tuple[list[str], list[str]]:
     driver.get(download_page_link)
     time.sleep(load_wait_time)
     soup = BeautifulSoup(driver.page_source, parser)
-    all_page_links = soup.find_all('a')
-    all_quality_links = [link['href']
-                         for link in all_page_links if 'download' in link.attrs]
-    if (len(all_quality_links) == 0):
+    links_and_infos = soup.find_all('a')
+    links = [link_and_info['href']
+                         for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
+    quality_infos = [link_and_info.text.replace('P', 'p') for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
+    if (len(links) == 0):
         if load_wait_time >= max_load_wait_time:
             raise TimeoutError
         else:
-            return get_all_quality_links(download_page_link, driver, max_load_wait_time, load_wait_time+1)
-    return all_quality_links
+            return get_links_and_quality_info(download_page_link, driver, max_load_wait_time, load_wait_time+1)
+    return (links, quality_infos)
 
 
 def get_direct_download_link_as_per_quality(download_page_links: list[str], quality: str, driver: Chrome, progress_update_call_back: Callable = lambda update: None, max_load_wait_time=25, console_app=False) -> list[str]:
     download_links: list[str] = []
-    quality_dict = {'360': 0,
-                    '480': 1,
-                    '720': 2,
-                    '1080': 3}
-    chosen_quality = quality_dict[quality]
-
     progress_bar = None if not console_app else tqdm(
         total=len(download_page_links), desc=' Fetching download links', unit='eps')
     download_links: list[str] = []
     for idx, page_link in enumerate(download_page_links):
-        all_quality_links = get_all_quality_links(
+        links, quality_infos = get_links_and_quality_info(
             page_link, driver, max_load_wait_time)
-        if len(all_quality_links) != 4:
-            chosen_quality = 0 if quality == '360' or quality == '480' else -1
-        download_links.append(all_quality_links[chosen_quality])
+        quality_idx = match_quality(quality_infos, quality)
+        download_links.append(links[quality_idx])
         progress_update_call_back(1)
         if progress_bar:
             progress_bar.update(idx+1 - progress_bar.n)
     if progress_bar:
-        progress_bar.set_description(' Done')
+        progress_bar.set_description(' Complete')
         progress_bar.close()
     return download_links
 
@@ -213,7 +206,7 @@ def test_getting_direct_download_links(query_anime_title: str, start_episode: in
 def main():
     # Download settings
     query = 'Senyuu.'
-    quality = '360'
+    quality = '360p'
     sub_or_dub = 'sub'
     start_episode = 1
     end_episode = 4

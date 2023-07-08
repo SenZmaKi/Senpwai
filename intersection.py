@@ -1,12 +1,55 @@
 from tqdm import tqdm
 import os
 from time import sleep
-from typing import Callable, Any
+from typing import Callable, Any, cast
 import requests
 from string import printable
+import re
 
 parser = 'html.parser'
 ibytes_to_mbs_divisor = 1024*1024
+qualities = ['144p', '240p', '360p', '480p',
+             '540p', '720p', '800p', '1080p']
+quality_pattern = re.compile(r'\b(\d{3,4}p)\b')
+
+
+class QualityAndIndices:
+    def __init__(self, quality: str, index: int):
+        self.quality = quality
+        self.index = index
+        self.index2: int = 0
+
+
+def match_quality(potential_qualities: list[str], chosen_quality: str) -> int:
+    detected_qualities: list[QualityAndIndices] = []
+    for idx, potential_quality in enumerate(potential_qualities):
+        match = quality_pattern.search(potential_quality)
+        if match:
+            quality = cast(str, match.group(1))
+            if quality == chosen_quality:
+                return idx
+            else:
+                detected_qualities.append(QualityAndIndices(quality, idx))
+
+    def get_and_set_up_index2(q_and_i: QualityAndIndices) -> int:
+        q_and_i.index2 = qualities.index(q_and_i.quality)
+        return q_and_i.index2
+    global qualities
+    detected_qualities.sort(
+        key=get_and_set_up_index2)
+    chosen_quality_idx = qualities.index(chosen_quality)
+
+    closest = detected_qualities[0]
+    for quality in detected_qualities:
+        if closest.index2 > chosen_quality_idx:
+            break
+        closest = quality
+
+    return closest.index
+
+
+# potential_qualities = ['Download (720p - mp4)', 'Download (720 - mp4)', 'Download (480p - mp4)', 'Download (720 - mp4)', 'Download (144p - mp4)']
+# print(potential_qualities[(match_quality(potential_qualities, '720p'))])
 
 
 def sanitise_title(title: str):

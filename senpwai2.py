@@ -1,11 +1,8 @@
 import sys
-import typing
-from PyQt6 import QtGui
 from PyQt6.QtGui import QColor, QPalette, QPixmap, QGuiApplication, QPen, QPainterPath, QPainter
 from PyQt6.QtGui import QMovie, QKeyEvent, QIcon
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QProgressBar
-from PyQt6.QtCore import QObject, Qt, QSize, QThread, pyqtSignal, QTimer, QEvent, QPoint, QByteArray, QMetaObject, pyqtSlot, QMutex
-from PyQt6.sip import array
+from PyQt6.QtCore import QObject, Qt, QSize, QThread, pyqtSignal, QEvent, QPoint, pyqtSlot, QMutex
 import os
 import pahe
 import gogo
@@ -23,10 +20,10 @@ gogo_name = "gogo"
 dub = "dub"
 sub = "sub"
 sub_or_dub = sub
-q_1080 = "1080"
-q_720 = "720"
-q_480 = "480"
-q_360 = "360"
+q_1080 = "1080p"
+q_720 = "720p"
+q_480 = "480p"
+q_360 = "360p"
 default_quality = q_360
 default_download_folder_path = os.path.abspath(r'C:\\Users\\PC\\Downloads\\Anime')
 default_site = pahe_name
@@ -247,7 +244,7 @@ class ProgressBar(QWidget):
     @pyqtSlot(int)
     def update(self, added_value: int):
         new_value = self.bar.value() + added_value
-        curr_time = time.time()
+        curr_time = time()
         time_elapsed = curr_time - self.prev_time
         max_value = self.bar.maximum()
         if new_value >= max_value:
@@ -610,7 +607,15 @@ class DownloadWindow(QWidget):
     def get_direct_download_links(self, download_page_links: list[str], download_info: list[list[str]], anime_details: AnimeDetails):
         direct_download_links_progress_bar =  ProgressBar(self, "Retrieving direct download links", "", 400, 33, len(download_page_links), "eps") 
         self.downloads_layout.insertWidget(0, direct_download_links_progress_bar)
-        GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda: self.start_download(anime_details), direct_download_links_progress_bar.update).start()
+        GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda: self.calculate_download_size(anime_details), direct_download_links_progress_bar.update).start()
+
+    def calculate_download_size(self, anime_details: AnimeDetails):
+        if anime_details.site == gogo_name:
+            calculating_download_size_progress_bar = ProgressBar(self, "Calcutlating total download size", "", 400, 33, len(anime_details.direct_download_links), "eps")
+            self.downloads_layout.insertWidget(0, calculating_download_size_progress_bar)
+            CalculateDownloadSizes(self, anime_details, lambda : self.start_download(anime_details), calculating_download_size_progress_bar.update).start()
+        elif anime_details.site == pahe_name:
+            CalculateDownloadSizes(self, anime_details, lambda : self.start_download(anime_details), lambda x: None).start()
 
     def start_download(self, anime_details: AnimeDetails):
         if not anime_details.anime_folder_path:
@@ -686,7 +691,8 @@ class DownloadManagerThread(QThread):
         self.downloaded_episode_count.update(1)
 
     def get_exact_episode_size(self, link: str) -> int:
-        return int(requests.get(link, stream=True).headers['content-length'])
+        response = requests.get(link, stream=True)
+        return int(response.headers['content-length'])
 
     def run(self):
         for idx, link in enumerate(self.anime_details.direct_download_links):
@@ -751,7 +757,7 @@ class GetDirectDownloadLinksThread(QThread):
         if self.anime_details.site == pahe_name:
             bound_links, bound_info = pahe.bind_sub_or_dub_to_link_info(self.anime_details.sub_or_dub, cast(list[list[str]], self.download_page_links), self.download_info)
             bound_links, bound_info = pahe.bind_quality_to_link_info(self.anime_details.quality, bound_links, bound_info )
-            self.anime_details.total_download_size = pahe.calculate_total_download_size(bound_info)
+            self.anime_details.download_info = bound_info
             self.anime_details.direct_download_links = pahe.get_direct_download_links(bound_links, lambda x: self.update_bar.emit(x))
             self.finished.emit()
         if self.anime_details.site ==  gogo_name:
@@ -771,6 +777,8 @@ class CalculateDownloadSizes(QThread):
     def run(self):
         if self.anime_details.site == gogo_name:                # With gogoanime we dont have to store the download sizes for each episode since we dont use a headless browser to actually download just to get the links
             self.anime_details.total_download_size = gogo.calculate_download_total_size(self.anime_details.direct_download_links, lambda x: self.update_bar.emit(x))
+        elif self.anime_details.site == pahe_name:
+            self.anime_details.total_download_size = pahe.calculate_total_download_size(self.anime_details.download_info)
         self.finished.emit()
         
         
@@ -803,9 +811,10 @@ class ChosenAnimeWindow(QWidget):
             self.sub_button.click()
         
         self.button_1080 = QualityButton(self, 565, 400, q_1080) 
-        self.button_720 = QualityButton(self, 630, 400, q_720) 
-        self.button_480 = QualityButton(self, 695, 400, q_480) 
-        self.button_360 = QualityButton(self, 760, 400, q_360) 
+        self.button_1080.setFixedSize(69, 40)
+        self.button_720 = QualityButton(self, 639, 400, q_720) 
+        self.button_480 = QualityButton(self, 704, 400, q_480) 
+        self.button_360 = QualityButton(self, 769, 400, q_360) 
         self.setup_quality_buttons_color_clicked_status()
         self.quality_buttons_list = [self.button_1080, self.button_720, self.button_480, self.button_360]
 

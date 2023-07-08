@@ -7,7 +7,7 @@ import re
 from typing import Callable, cast, Any
 from math import pow
 from time import sleep
-from intersection import network_monad, parser, test_downloading
+from intersection import network_monad, parser, test_downloading, match_quality
 
 pahe_home_url = 'https://animepahe.ru'
 api_url_extension = '/api?m='
@@ -125,10 +125,7 @@ def bind_sub_or_dub_to_link_info(sub_or_dub: str, pahewin_download_page_links: l
         infos: list[str] = []
         for idx_in, info in enumerate(episode_info):
             match = re.search(dub_pattern, info)
-            if sub_or_dub == 'dub' and match:
-                links.append(pahewin_download_page_links[idx_out][idx_in])
-                infos.append(info)
-            elif sub_or_dub == 'sub' and not match:
+            if (sub_or_dub == 'dub' and match) or (sub_or_dub == 'sub' and not match):
                 links.append(pahewin_download_page_links[idx_out][idx_in])
                 infos.append(info)
         bound_links.append(links)
@@ -138,32 +135,17 @@ def bind_sub_or_dub_to_link_info(sub_or_dub: str, pahewin_download_page_links: l
 
 
 def bind_quality_to_link_info(quality: str, pahewin_download_page_links: list[list[str]], download_info: list[list[str]]) -> tuple[list[str], list[str]]:
-    if quality == '480':
-        quality = '360'
-    quality_pattern = rf'\b({quality})p\b'
     bound_links: list[str] = []
     bound_info: list[str] = []
     for idx_out, episode_info in enumerate(download_info):
-        match: re.Match[str] | None = None
-        for idx_in, info in enumerate(episode_info):
-            match = re.search(quality_pattern, info)
-            if match:
-                bound_links.append(
-                    pahewin_download_page_links[idx_out][idx_in])
-                bound_info.append(info)
-                break
-        if not match:
-            if quality == '360':
-                bound_links.append(pahewin_download_page_links[idx_out][0])
-                bound_info.append(episode_info[0])
-            elif quality == '1080' or quality == '720':
-                bound_links.append(pahewin_download_page_links[idx_out][-1])
-                bound_info.append(episode_info[-1])
+        idx_in = match_quality(episode_info, quality)
+        bound_links.append(pahewin_download_page_links[idx_out][idx_in])
+        bound_info.append(episode_info[idx_in]) 
     return (bound_links, bound_info)
 
 
 def calculate_total_download_size(bound_info: list[str]) -> int:
-    pattern = r'\((.*?)MB\)'
+    pattern = r'\b(\d+)MB\b'
     total_size = 0
     download_sizes: list[int] = []
     for episode in bound_info:
@@ -269,21 +251,22 @@ def test_getting_direct_download_links(query_anime_title: str, start_episode: in
         episode_page_links, console_app=True)
     direct_download_links = get_direct_download_links(bind_quality_to_link_info(
         quality, *bind_sub_or_dub_to_link_info(sub_or_dub, download_page_links, download_info))[0], console_app=True)
-    list(map(print, direct_download_links))
+    # list(map(print, direct_download_links))
+    list(map(print, download_info))
     return direct_download_links
 
 
 def main():
     # Download settings
     query = 'Senyuu.'
-    quality = '360'
+    quality = '360p'
     sub_or_dub = 'sub'
     start_episode = 1
     end_episode = 4
 
     direct_download_links = test_getting_direct_download_links(
         query, start_episode, end_episode, quality, sub_or_dub)
-    test_downloading(query, direct_download_links)
+    # test_downloading(query, direct_download_links)
 
 #    test_downloading('Senyuu.', [
 #                     'https://eu-11.files.nextcdn.org/get/11/04/d3185322653a395e921c3f66ada4a12ed482a9b2b77f3edc65c412f4378d9e79?file=AnimePahe_Senyuu._-_03_BD_360p_Final8.mp4&token=-_aOZ9BLRIfTgUw9DNi43A&expires=1688735253'])
