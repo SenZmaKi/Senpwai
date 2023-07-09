@@ -14,7 +14,7 @@ from selenium.webdriver import ChromeOptions
 from selenium.webdriver import Chrome
 from subprocess import CREATE_NO_WINDOW
 from typing import Callable, cast, NoReturn
-from intersection import parser, Download, network_monad, test_downloading, match_quality
+from intersection import parser, Download, network_monad, test_downloading, match_quality, ibytes_to_mbs_divisor
 
 gogo_home_url = 'https://gogoanime.hu'
 dub_extension = ' (Dub)'
@@ -138,7 +138,7 @@ def calculate_download_total_size(download_links: list[str], progress_update_cal
     if progress_bar:
         progress_bar.set_description(' Done')
         progress_bar.close()
-    total_size = round(total_size/1048576)
+    total_size = round(total_size/ibytes_to_mbs_divisor)
     return total_size
 
 

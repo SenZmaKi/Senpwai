@@ -41,15 +41,15 @@ def match_quality(potential_qualities: list[str], chosen_quality: str) -> int:
 
     closest = detected_qualities[0]
     for quality in detected_qualities:
-        if closest.index2 > chosen_quality_idx:
+        if quality.index2 > chosen_quality_idx:
             break
         closest = quality
 
     return closest.index
 
 
-# potential_qualities = ['Download (720p - mp4)', 'Download (720 - mp4)', 'Download (480p - mp4)', 'Download (720 - mp4)', 'Download (144p - mp4)']
-# print(potential_qualities[(match_quality(potential_qualities, '720p'))])
+# potential_qualities = ['Download (1080p - mp4)', 'Download (720 - mp4)', 'Download (4 - mp4)', 'Download (360p - mp4)', 'Download (144p - mp4)']
+# print(potential_qualities[(match_quality(potential_qualities, '480p'))])
 
 
 def sanitise_title(title: str):
@@ -107,7 +107,7 @@ class Download():
         progress_bar = None if not self.console_app else tqdm(
             desc=f' Downloading {self.title}: ', total=total, unit='iB', unit_scale=True, unit_divisor=ibytes_to_mbs_divisor)
 
-        def handle_download(start_byte: int = 0):
+        def handle_download(start_byte: int = 0)->bool:
             mode = 'wb' if start_byte == 0 else 'ab'
             with open(temp_file_path, mode) as file:
                 iter_content = response.iter_content(chunk_size=ibytes_to_mbs_divisor) if start_byte == 0 else network_monad(
@@ -115,12 +115,12 @@ class Download():
                 while True:
                     try:
                         data = network_monad(lambda: (next(iter_content)))
-                        if self.cancelled:
-                            return
                         if progress_bar and self.paused:
                             progress_bar.set_description(' Paused')
                         while self.paused:
                             continue
+                        if self.cancelled:
+                            return False
                         if progress_bar:
                             progress_bar.set_description(
                                 f' Downloading {self.title}: ')
@@ -132,8 +132,10 @@ class Download():
                         break
 
             file_size = os.path.getsize(temp_file_path)
-            return None if file_size >= total else handle_download(file_size)
-        handle_download()
+            return True if file_size >= total else handle_download(file_size)
+        if not handle_download(): 
+            os.unlink(temp_file_path)
+            return
         os.rename(temp_file_path, download_completed_file_path)
         self.file_path = download_completed_file_path
         if progress_bar:
