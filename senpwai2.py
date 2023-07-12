@@ -25,14 +25,14 @@ q_720 = "720p"
 q_480 = "480p"
 q_360 = "360p"
 default_quality = q_360
-default_download_folder_path = os.path.abspath(r'C:\\Users\\PC\\Downloads\\Anime')
-default_download_folder_path = os.path.abspath(r'D:\Series')
+default_download_folder_path = [os.path.abspath(r'C:\\Users\\PC\\Downloads\\Anime'), os.path.abspath(r'D:\Series')]
 default_site = pahe_name
 max_simutaneous_downloads = 4 
 
 root_path = os.path.abspath(r'.\\')
 assets_path = os.path.join(root_path, "assets")
 
+senpwai_icon_path = os.path.abspath("Senpwai_icon.ico")
 bckg_images_path = os.path.join(assets_path, "background-images")
 bckg_images = list(Path(bckg_images_path).glob("*"))
 bckg_image_path = str(bckg_images[randint(0, len(bckg_images)-1)])
@@ -42,7 +42,7 @@ folder_icon_path = os.path.join(assets_path, "folder.png")
 pause_icon_path = os.path.join(assets_path, "pause.png")
 resume_icon_path = os.path.join(assets_path, "resume.png")
 cancel_icon_path = os.path.join(assets_path, "cancel.png")
-
+download_complete_icon_path = os.path.join(assets_path, "download-complete.png")
 
 
 class Anime():
@@ -353,6 +353,7 @@ class AnimeDetails():
         self.anime = anime
         self.site = site
         self.sanitised_title = sanitise_title(anime.title)
+        self.chosen_default_download_path: str = ''
         self.anime_folder_path = self.get_anime_folder_path()
         self.potentially_haved_episodes = self.get_potentially_haved_episodes()
         self.haved_episodes: list[int] = []
@@ -370,12 +371,18 @@ class AnimeDetails():
 
     def get_anime_folder_path(self) -> str | None:
         def try_path(title: str)->str | None:
-            potential = os.path.join(default_download_folder_path, title)
-            upper = potential.upper()
-            lower = potential.lower()
-            if os.path.isdir(potential): return potential
-            if os.path.isdir(upper): return upper
-            if os.path.isdir(lower): return lower
+            detected = None
+            for path in default_download_folder_path:
+                potential = os.path.join(path, title)
+                upper = potential.upper()
+                lower = potential.lower()
+                if os.path.isdir(potential): detected = potential 
+                if os.path.isdir(upper):  detected = upper
+                if os.path.isdir(lower): detected = lower
+                if detected:
+                    self.chosen_default_download_path = path
+                    return detected
+            self.chosen_default_download_path = default_download_folder_path[0]
             return None
         
         path = try_path(self.sanitised_title)
@@ -434,15 +441,20 @@ class MainWindow(QMainWindow):
         window_position = QPoint(center_point.x() - self.rect().center().x(), center_point.y() - self.rect().center().y())
         self.move(window_position)
         # For testing purposes switch order to revert
+        self.tray_icon = QSystemTrayIcon(QIcon(senpwai_icon_path), self)
+        self.tray_icon.show()
         self.download_window = DownloadWindow(self)
         self.search_window = SearchWindow(self)
         self.switch_to_search_window()
         self.setup_chosen_anime_window_thread = None
-        self.tray_icon = QSystemTrayIcon(QIcon("Senpwai_ico"))
-       
+
         # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
         # self.setup_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=44c117c4-5e63-49a4-212a-eefabe8685f9", "44c117c4-5e63-49a4-212a-eefabe8685f9"), pahe_name)
         # self.setup_chosen_anime_window(Anime("Senyuu", "https://gogoanime.hu/category/senyuu-", None), gogo_name)
+
+    def restore_window(self):
+        self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
+        self.activateWindow()
 
     def center_window(self) -> None:
         screen_geometry = QGuiApplication.primaryScreen().geometry()
@@ -596,10 +608,15 @@ class SearchBar(QLineEdit):
 
 
 class DownloadedEpisodeCount(QLabel):
-    def __init__(self, parent, total_episodes: int):
+    def __init__(self, parent, total_episodes: int, tray_icon: QSystemTrayIcon, anime_title: str, 
+                 download_complete_icon: QIcon, anime_folder_path: str):
         super().__init__(parent)
         self.total_episodes = total_episodes
         self.current_episodes = 0
+        self.tray_icon = tray_icon
+        self.tray_icon.messageClicked.connect(lambda : os.startfile(anime_folder_path))
+        self.anime_title = anime_title
+        self.download_complete_icon = download_complete_icon
         self.resize(100, 50)
         self.move(200, 100)
         self.setText(f"{0}/{total_episodes} eps")
@@ -614,9 +631,16 @@ class DownloadedEpisodeCount(QLabel):
                     }
                     """)
         self.show()
+
+    def download_complete_notification(self):
+        self.tray_icon.showMessage("Download Complete", self.anime_title, self.download_complete_icon)
+
+
     def update(self, added_episode_count: int):
         self.current_episodes+=added_episode_count
         self.setText(f"{self.current_episodes}/{self.total_episodes} eps")
+        if self.current_episodes == self.total_episodes:
+            self.download_complete_notification()
 
 class CancelAllButton(QPushButton):
     def __init__(self, parent):
@@ -713,16 +737,19 @@ class PauseAllButton(QPushButton):
 
 
 class DownloadWindow(QWidget):
-    def __init__(self, parent: MainWindow):
-        super().__init__(parent)
-        self.setFixedSize(parent.size())
+    def __init__(self, main_window: MainWindow):
+        super().__init__(main_window)
+        self.main_window = main_window
+        self.setFixedSize(main_window.size())
         BckgImg(self)
+        self.download_complete_icon = QIcon(download_complete_icon_path)
+        self.tray_icon = main_window.tray_icon
         self.downloads_layout = QVBoxLayout(self)
         ScrollableSection(self, self.downloads_layout, 1000, 440, 5, 200)
         self.anime_progress_widget = QWidget(self)
         self.anime_progress_widget.resize(1000, 210)
         self.anime_progress_widget.move(0, 0)
-        
+
     def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(self, anime_details: AnimeDetails):
         for episode in range(anime_details.start_download_episode, anime_details.end_download_episode+1):
             if episode not in anime_details.haved_episodes: anime_details.predicted_episodes_to_download.append(episode)
@@ -760,14 +787,15 @@ class DownloadWindow(QWidget):
 
     def start_download(self, anime_details: AnimeDetails):
         if not anime_details.anime_folder_path:
-            anime_details.anime_folder_path = os.path.join(default_download_folder_path, anime_details.sanitised_title)
+            anime_details.anime_folder_path = os.path.join(anime_details.chosen_default_download_path, anime_details.sanitised_title)
             os.mkdir(anime_details.anime_folder_path)                          
         displayed_title = anime_details.sanitised_title if len(anime_details.sanitised_title)<=24 else f"{anime_details.sanitised_title[:24]}.. ."
         anime_progress_bar = DownloadProgressBar(self.anime_progress_widget, "Downloading", displayed_title, 425, 50, anime_details.total_download_size, "MB", 1, False)
         anime_progress_bar.resize(980, 60)
         anime_progress_bar.move(10, 10)
         anime_progress_bar.show()
-        downloaded_episode_count = DownloadedEpisodeCount(self.anime_progress_widget, len(anime_details.predicted_episodes_to_download))
+        downloaded_episode_count = DownloadedEpisodeCount(self.anime_progress_widget, len(anime_details.predicted_episodes_to_download), self.tray_icon, 
+                                                          anime_details.anime.title, self.download_complete_icon, anime_details.anime_folder_path)
         FolderButton(self.anime_progress_widget, cast(str, anime_details.anime_folder_path), 80, 80, 500, 80).show()
         self.current_download = DownloadManagerThread(self, anime_details, anime_progress_bar, downloaded_episode_count)
         PauseAllButton(self.anime_progress_widget).pause_callback = self.current_download.pause_or_resume
@@ -832,9 +860,14 @@ class DownloadManagerThread(QThread):
     # It is applied to Pahe too just in case
     def gogo_check_if_valid_link (self, link: str) -> requests.Response | None:
         response = cast(requests.Response, network_monad(lambda: requests.get(link, stream=True)))
-        if response.status_code == 302: 
+        if response.status_code in [301, 302, 307, 308]: 
             possible_valid_redirect_link = response.headers.get("location", "")
             return self.gogo_check_if_valid_link(possible_valid_redirect_link) if possible_valid_redirect_link != "" else None
+        try:
+            response.headers['content-length']
+        except KeyError:
+            response = None
+
         return response
     
     def get_exact_episode_size(self, link: str) -> int:
@@ -1085,27 +1118,35 @@ class DownloadButton(QPushButton):
                 background-color: green;
             }
             QPushButton:hover {
-                background-color: yellow;
+                background-color: #20d941;
             }
             QPushButton:pressed {
-                background-color: orange;
+                background-color: #5be673;
             }
             """)
     
     def handle_download_button_clicked(self):
+        invalid_input = False
+        episode_count = self.anime_details.episode_count
+        haved_end = int(self.anime_details.haved_end) if self.anime_details.haved_end else 0
         start_episode = self.chosen_anime_window.start_episode_input.text()
         end_episode = self.chosen_anime_window.end_episode_input.text()
-        
-        invalid_input = False
-        # Ordering and chaining of each condition is really important, take note
-        if (end_episode) == "0"  or (end_episode != "" and start_episode  != "" and ((int(end_episode) < int(start_episode)) or (int(end_episode) > self.chosen_anime_window.anime_details.episode_count))):
+        if start_episode == "0" or end_episode == "0": invalid_input = True
+        if start_episode == "": start_episode = 1
+        if end_episode == "": end_episode = episode_count
+        start_episode = int(start_episode)
+        end_episode = int(end_episode)
+
+        if haved_end >= episode_count: invalid_input = True
+
+        if ((end_episode < start_episode) or (end_episode > episode_count)):
             end_episode = ""
-            self.chosen_anime_window.end_episode_input.setText("")
+            self.chosen_anime_window.end_episode_input.setText(end_episode)
             invalid_input = True
 
-        if (start_episode == "0" or start_episode == "" or int(start_episode) > self.chosen_anime_window.anime_details.episode_count):
-            start_episode = ""
-            self.chosen_anime_window.start_episode_input.setText("")
+        if (start_episode > episode_count):
+            start_episode = str(haved_end) if haved_end > 0 else "1"
+            self.chosen_anime_window.start_episode_input.setText(start_episode)
             invalid_input = True
 
         if invalid_input:
@@ -1125,7 +1166,7 @@ class DownloadButton(QPushButton):
         # start_episode = 1
         # end_episode = 4
         start_episode = int(start_episode)
-        end_episode = int(end_episode) if end_episode != "" else int(self.chosen_anime_window.anime_details.episode_count)
+        end_episode = int(end_episode) if end_episode != "" else int(episode_count)
         self.anime_details.start_download_episode = start_episode
         self.anime_details.end_download_episode = end_episode
         self.main_window.switch_to_download_window()
@@ -1437,17 +1478,19 @@ class SearchButton(QPushButton):
         self.clicked.connect(lambda: window.search_anime(window.search_bar_text(), site))
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.installEventFilter(self)
-        bckg_color = ''
-        hover_color = ''
+        bckg_color = ""
+        hover_color = ""
+        pressed_color = ""
         if site == pahe_name:
             self.setText("Animepahe")
             bckg_color = "#FFC300"
             hover_color = "#FFD700"
+            pressed_color = "#FFE900"
         elif site == gogo_name:
             self.setText("Gogoanime")
             hover_color = "#00FF7F"
             bckg_color = "#00FF00"
-        pressed_color = "#F5DEB3"
+            pressed_color = "#7aea8e"
         self.setStyleSheet(f"""
             QPushButton {{
                 color: black;
@@ -1475,7 +1518,8 @@ class SearchButton(QPushButton):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-
+    app.setApplicationName("Senpwai")
+    app.setWindowIcon(QIcon(senpwai_icon_path))
     # Set the purple theme
     palette = app.palette()
     palette.setColor(QPalette.ColorRole.Window, QColor("#FFA500"))
