@@ -6,7 +6,6 @@ import os
 import re
 from typing import Callable, cast, Any
 from math import pow
-from time import sleep
 from intersection import network_monad, parser, test_downloading, match_quality
 
 pahe_home_url = 'https://animepahe.ru'

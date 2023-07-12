@@ -11,6 +11,7 @@ ibytes_to_mbs_divisor = 1024*1024
 qualities = ['144p', '240p', '360p', '480p',
              '540p', '720p', '800p', '1080p']
 quality_pattern = re.compile(r'\b(\d{3,4}p)\b')
+network_retry_wait_time = 5
 
 
 class QualityAndIndices:
@@ -55,6 +56,7 @@ def match_quality(potential_qualities: list[str], chosen_quality: str) -> int:
 def sanitise_title(title: str):
     # Santises folder name to only allow names that windows can create a folder with
     valid_chars = set(printable) - set('\\/:*?"<>|')
+    title = title.replace(':', ' -')
     sanitised = ''.join(filter(lambda c: c in valid_chars, title))
     return sanitised[:255].rstrip()
 

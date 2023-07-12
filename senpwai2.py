@@ -1,7 +1,6 @@
 import sys
-from PyQt6.QtGui import QColor, QPalette, QPixmap, QGuiApplication, QPen, QPainterPath, QPainter
-from PyQt6.QtGui import QMovie, QKeyEvent, QIcon
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QProgressBar
+from PyQt6.QtGui import QColor, QPalette, QPixmap, QGuiApplication, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon, QAction
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QProgressBar, QSystemTrayIcon, QMenu 
 from PyQt6.QtCore import QObject, Qt, QSize, QThread, pyqtSignal, QEvent, QPoint, pyqtSlot, QMutex
 import os
 import pahe
@@ -10,9 +9,10 @@ from pathlib import Path
 from random import randint  
 import requests
 from typing import Callable, cast
-from intersection import ibytes_to_mbs_divisor, sanitise_title, Download
+from intersection import ibytes_to_mbs_divisor, sanitise_title, Download, network_monad
 from time import time
 import re
+import anitopy
 
 pahe_name = "pahe"
 gogo_name = "gogo"
@@ -26,6 +26,7 @@ q_480 = "480p"
 q_360 = "360p"
 default_quality = q_360
 default_download_folder_path = os.path.abspath(r'C:\\Users\\PC\\Downloads\\Anime')
+default_download_folder_path = os.path.abspath(r'D:\Series')
 default_site = pahe_name
 max_simutaneous_downloads = 4 
 
@@ -292,7 +293,7 @@ class DownloadProgressBar(ProgressBar):
                 }
 
                 QProgressBar::chunk {
-                    background-color: #AFB82F;
+                    background-color: #FFA756;
                     border-radius: 10px;
                 }
             """
@@ -368,8 +369,20 @@ class AnimeDetails():
         self.predicted_episodes_to_download: list[int] = []
 
     def get_anime_folder_path(self) -> str | None:
-        path = os.path.join(default_download_folder_path, self.sanitised_title)
-        return path if os.path.isdir(path) else None
+        def try_path(title: str)->str | None:
+            potential = os.path.join(default_download_folder_path, title)
+            upper = potential.upper()
+            lower = potential.lower()
+            if os.path.isdir(potential): return potential
+            if os.path.isdir(upper): return upper
+            if os.path.isdir(lower): return lower
+            return None
+        
+        path = try_path(self.sanitised_title)
+        if path: return path
+        sanitised_title2 = sanitise_title(self.anime.title.replace(":", ""))
+        path = try_path(sanitised_title2)
+        return path
 
     def get_potentially_haved_episodes(self) -> list[Path] | None:
         if not self.anime_folder_path: return None
@@ -377,13 +390,15 @@ class AnimeDetails():
         return episodes    
 
     def get_start_end_and_count_of_haved_episodes(self) -> tuple[int, int, int] | tuple[None, None, None]:
-        pattern = fr"{self.sanitised_title} Episode (\d+)\."
         if self.potentially_haved_episodes:
             for episode in self.potentially_haved_episodes:
-                match = re.search(pattern, episode.name)
-                if match:
-                    episode_number = int(match.group(1))
-                    if episode_number > 0: self.haved_episodes.append(episode_number)
+                parsed = anitopy.parse(episode.name)
+                if not parsed: continue
+                try:
+                    episode_number = int(parsed['episode_number'])
+                except KeyError:
+                    continue
+                if episode_number > 0: self.haved_episodes.append(episode_number)
             self.haved_episodes.sort()
         return (self.haved_episodes[0], self.haved_episodes[-1], len(self.haved_episodes)) if len(self.haved_episodes) > 0 else (None, None, None)
     
@@ -401,10 +416,10 @@ class AnimeDetails():
         episode_count: int = 0
         if self.site == pahe_name:
             poster_url, summary, episode_count = pahe.extract_poster_summary_and_episode_count(cast(str, self.anime.id))
-            poster_image = requests.get(poster_url).content
+            poster_image = network_monad(lambda: requests.get(poster_url).content)
         elif self.site == gogo_name:
             poster_url, summary, episode_count = gogo.extract_poster_summary_and_episode_count(self.anime.page_link)
-            poster_image = requests.get(poster_url).content
+            poster_image = network_monad(lambda: requests.get(poster_url).content)
         return (poster_image, summary, episode_count)
 
 
@@ -419,13 +434,15 @@ class MainWindow(QMainWindow):
         window_position = QPoint(center_point.x() - self.rect().center().x(), center_point.y() - self.rect().center().y())
         self.move(window_position)
         # For testing purposes switch order to revert
+        self.download_window = DownloadWindow(self)
         self.search_window = SearchWindow(self)
         self.switch_to_search_window()
-        self.download_window = DownloadWindow(self)
         self.setup_chosen_anime_window_thread = None
+        self.tray_icon = QSystemTrayIcon(QIcon("Senpwai_ico"))
        
         # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
-        self.setup_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=44c117c4-5e63-49a4-212a-eefabe8685f9", "44c117c4-5e63-49a4-212a-eefabe8685f9"), pahe_name)
+        # self.setup_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=44c117c4-5e63-49a4-212a-eefabe8685f9", "44c117c4-5e63-49a4-212a-eefabe8685f9"), pahe_name)
+        # self.setup_chosen_anime_window(Anime("Senyuu", "https://gogoanime.hu/category/senyuu-", None), gogo_name)
 
     def center_window(self) -> None:
         screen_geometry = QGuiApplication.primaryScreen().geometry()
@@ -449,7 +466,7 @@ class MainWindow(QMainWindow):
         self.setup_chosen_anime_window_thread = None
 
         # For testing purposes
-        self.chosen_anime_window.download_button.click()
+        # self.chosen_anime_window.download_button.click()
 
     def switch_to_search_window(self):
         self.setCentralWidget(self.search_window)
@@ -653,7 +670,7 @@ class PauseAllButton(QPushButton):
                 background-color: #FFA41B;
             }
             QPushButton:hover {
-                background-color: #AFB82F;
+                background-color: #FFA756;
             }
             QPushButton:pressed {
                 background-color: #F86F03;
@@ -668,7 +685,7 @@ class PauseAllButton(QPushButton):
                 font-family: Berlin Sans FB Demi;
                 padding: 10px;
                 border-radius: 5px;
-                background-color: #AFB82F;
+                background-color: #FFA756;
             }
             QPushButton:hover {
                 background-color: #FFA41B;
@@ -811,15 +828,24 @@ class DownloadManagerThread(QThread):
         else:
             self.downloaded_episode_count.total_episodes-=1
             self.downloaded_episode_count.update(0)
-        
+    # Gogo's direct download link sometimes doesn't work, it returns a 302 status code meaning the resource has been moved, this attempts to redirect to that link
+    # It is applied to Pahe too just in case
+    def gogo_check_if_valid_link (self, link: str) -> requests.Response | None:
+        response = cast(requests.Response, network_monad(lambda: requests.get(link, stream=True)))
+        if response.status_code == 302: 
+            possible_valid_redirect_link = response.headers.get("location", "")
+            return self.gogo_check_if_valid_link(possible_valid_redirect_link) if possible_valid_redirect_link != "" else None
+        return response
+    
     def get_exact_episode_size(self, link: str) -> int:
-        response = requests.get(link, stream=True)
-        return int(response.headers['content-length'])
+        response = self.gogo_check_if_valid_link(link)
+        return int(response.headers['content-length']) if response else 0
 
     def run(self):
         for idx, link in enumerate(self.anime_details.direct_download_links):
             while len(self.progress_bars) == max_simutaneous_downloads: continue
             download_size = self.get_exact_episode_size(link)
+            if download_size == 0: continue
             while self.paused: continue
             if self.cancelled: break
             episode_title = f"{self.anime_details.sanitised_title} Episode {self.anime_details.predicted_episodes_to_download[idx]}"
@@ -1097,6 +1123,7 @@ class DownloadButton(QPushButton):
             return
         # For testing purposes
         # start_episode = 1
+        # end_episode = 4
         start_episode = int(start_episode)
         end_episode = int(end_episode) if end_episode != "" else int(self.chosen_anime_window.anime_details.episode_count)
         self.anime_details.start_download_episode = start_episode

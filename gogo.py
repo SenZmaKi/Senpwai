@@ -1,20 +1,17 @@
 import requests
-import threading
 from bs4 import BeautifulSoup, ResultSet, Tag
-import time
+from time import sleep
 from tqdm import tqdm
-import os
-import keyboard
-from pygetwindow import getActiveWindowTitle
 import webbrowser
 
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver import ChromeOptions
 from selenium.webdriver import Chrome
 from subprocess import CREATE_NO_WINDOW
-from typing import Callable, cast, NoReturn
-from intersection import parser, Download, network_monad, test_downloading, match_quality, ibytes_to_mbs_divisor
+from typing import Callable, cast
+from intersection import parser, network_monad, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time
 
 gogo_home_url = 'https://gogoanime.hu'
 dub_extension = ' (Dub)'
@@ -68,14 +65,22 @@ def set_up_headless_browser() -> Chrome:
     chrome_driver = Chrome(service=service_chrome, options=chrome_options)
     return chrome_driver
 
+
 def get_links_and_quality_info(download_page_link: str, driver: Chrome, max_load_wait_time: int, load_wait_time=1) -> tuple[list[str], list[str]]:
-    driver.get(download_page_link)
-    time.sleep(load_wait_time)
+    def network_error_retry():
+        while True:
+            try:
+                return driver.get(download_page_link)
+            except WebDriverException:
+                sleep(network_retry_wait_time)
+    network_error_retry()
+    sleep(load_wait_time)
     soup = BeautifulSoup(driver.page_source, parser)
     links_and_infos = soup.find_all('a')
     links = [link_and_info['href']
-                         for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
-    quality_infos = [link_and_info.text.replace('P', 'p') for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
+             for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
+    quality_infos = [link_and_info.text.replace(
+        'P', 'p') for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
     if (len(links) == 0):
         if load_wait_time >= max_load_wait_time:
             raise TimeoutError
