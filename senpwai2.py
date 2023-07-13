@@ -1,7 +1,8 @@
 import sys
+from PyQt6 import QtCore
 from PyQt6.QtGui import QColor, QPalette, QPixmap, QGuiApplication, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon, QAction
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QProgressBar, QSystemTrayIcon, QMenu 
-from PyQt6.QtCore import QObject, Qt, QSize, QThread, pyqtSignal, QEvent, QPoint, pyqtSlot, QMutex
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QProgressBar, QSystemTrayIcon, QStackedWidget
+from PyQt6.QtCore import QObject, Qt, QSize, QThread, pyqtSignal, QEvent, QPoint, pyqtSlot, QMutex, QMetaObject, Q_ARG
 import os
 import pahe
 import gogo
@@ -11,8 +12,9 @@ import requests
 from typing import Callable, cast
 from intersection import ibytes_to_mbs_divisor, sanitise_title, Download, network_monad
 from time import time
-import re
 import anitopy
+from selenium.common.exceptions import WebDriverException
+import webbrowser
 
 pahe_name = "pahe"
 gogo_name = "gogo"
@@ -28,6 +30,7 @@ default_quality = q_360
 default_download_folder_path = [os.path.abspath(r'C:\\Users\\PC\\Downloads\\Anime'), os.path.abspath(r'D:\Series')]
 default_site = pahe_name
 max_simutaneous_downloads = 4 
+default_gogo_browser = gogo.chrome
 
 root_path = os.path.abspath(r'.\\')
 assets_path = os.path.join(root_path, "assets")
@@ -37,13 +40,14 @@ bckg_images_path = os.path.join(assets_path, "background-images")
 bckg_images = list(Path(bckg_images_path).glob("*"))
 bckg_image_path = str(bckg_images[randint(0, len(bckg_images)-1)])
 loading_animation_path = os.path.join(assets_path, "loading.gif")
-crying_animation_path = os.path.join(assets_path, "sadge-piece.gif")
+sadge_piece_path = os.path.join(assets_path, "sadge-piece.gif")
 folder_icon_path = os.path.join(assets_path, "folder.png")
 pause_icon_path = os.path.join(assets_path, "pause.png")
 resume_icon_path = os.path.join(assets_path, "resume.png")
 cancel_icon_path = os.path.join(assets_path, "cancel.png")
 download_complete_icon_path = os.path.join(assets_path, "download-complete.png")
-
+chopper_crying_path = os.path.join(assets_path, "chopper-crying.png")
+zero_two_peeping_path = os.path.join(assets_path, "zero-two-peeping.png")
 
 class Anime():
     def __init__(self, title: str, page_link: str, anime_id: str|None) -> None:
@@ -52,9 +56,9 @@ class Anime():
         self.id = anime_id
 
 class BckgImg(QLabel):
-    def __init__(self, parent) -> None:
+    def __init__(self, parent, image_path) -> None:
         super().__init__(parent)
-        pixmap = QPixmap(bckg_image_path)
+        pixmap = QPixmap(image_path)
         self.setPixmap(pixmap)
         self.setScaledContents(True)
         self.setFixedSize(parent.size())
@@ -436,21 +440,28 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Senpwai")
         self.setFixedSize(1000, 650)
         self.move(0, 0)
+        
         # Places window at the center of the screen
         center_point = QGuiApplication.primaryScreen().availableGeometry().center()
         window_position = QPoint(center_point.x() - self.rect().center().x(), center_point.y() - self.rect().center().y())
         self.move(window_position)
-        # For testing purposes switch order to revert
         self.tray_icon = QSystemTrayIcon(QIcon(senpwai_icon_path), self)
         self.tray_icon.show()
         self.download_window = DownloadWindow(self)
         self.search_window = SearchWindow(self)
-        self.switch_to_search_window()
+        self.stacked_windows = QStackedWidget(self)
+        self.stacked_windows.addWidget(self.search_window)
+        self.stacked_windows.addWidget(self.download_window)
+        self.stacked_windows.setCurrentWidget(self.search_window)
+        self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
+        # FOr testing purposes
+        #self.create_and_switch_to_captcha_block_window("Naruto", ["https://ligma.com", "https://deeznuts.com"])
+        # self.create_and_switch_to_no_supported_browser_window("Senyuu")
 
         # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
-        # self.setup_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=44c117c4-5e63-49a4-212a-eefabe8685f9", "44c117c4-5e63-49a4-212a-eefabe8685f9"), pahe_name)
-        # self.setup_chosen_anime_window(Anime("Senyuu", "https://gogoanime.hu/category/senyuu-", None), gogo_name)
+        # self.setup_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=471abb96-a428-6172-b066-d89f7f9f276c", "471abb96-a428-6172-b066-d89f7f9f276c"), pahe_name)
+        #self.setup_chosen_anime_window(Anime("Senyuu", "https://gogoanime.hu/category/senyuu-", None), gogo_name)
 
     def restore_window(self):
         self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
@@ -473,42 +484,93 @@ class MainWindow(QMainWindow):
     def handle_finished_drawing_window_widgets(self, anime_details: AnimeDetails):
         self.setup_chosen_anime_window_thread = None
         self.search_window.loading.stop()
-        self.chosen_anime_window = ChosenAnimeWindow(self, anime_details)
-        self.setCentralWidget(self.chosen_anime_window)
+        chosen_anime_window = ChosenAnimeWindow(self, anime_details)
+        self.stacked_windows.addWidget(chosen_anime_window)
+        self.stacked_windows.setCurrentWidget(chosen_anime_window)
         self.setup_chosen_anime_window_thread = None
 
-        # For testing purposes
-        # self.chosen_anime_window.download_button.click()
 
-    def switch_to_search_window(self):
-        self.setCentralWidget(self.search_window)
+    def switch_to_pahe(self, anime_title: str, initiator: QWidget):
+        self.stacked_windows.setCurrentWidget(self.search_window)
+        self.stacked_windows.removeWidget(initiator)
+        self.stacked_windows.removeWidget(initiator)
+        self.search_window.search_bar.setText(anime_title)
+        self.search_window.pahe_search_button.click()
+    
+    def create_and_switch_to_captcha_block_window(self, anime_title: str, download_page_links: list[str]) -> None:
+        captcha_block_window = CaptchBlockWindow(self, anime_title, download_page_links)
+        self.stacked_windows.addWidget(captcha_block_window)
+        self.stacked_windows.setCurrentWidget(captcha_block_window)
 
-    def switch_to_download_window(self):
-        self.setCentralWidget(self.download_window)
+    def create_and_switch_to_no_supported_browser_window(self, anime_title: str):
+        no_supported_browser_window = NoSupportedBrowserWindow(self, anime_title)
+        self.stacked_windows.addWidget(no_supported_browser_window)
+        self.stacked_windows.setCurrentWidget(no_supported_browser_window)
+        
 
+class CaptchBlockWindow(QWidget):
+    def __init__(self, main_window: MainWindow, anime_title: str, download_page_links: list[str]) -> None:
+        super().__init__(main_window)
+        self.setFixedSize(main_window.size())
+        BckgImg(self, chopper_crying_path)
+        main_widget = QWidget(self)
+        main_widget.setFixedSize(self.size())
+        info_label = StyledLabel(main_widget, 30)
+        info_label.move(50, 50)
+        info_label.setText("\nCaptcha block detected, this only ever happens with Gogoanime\n")
+        open_browser_with_links_button = StyledButton(main_widget, 25, "black", "#00FF00", "#00FF7F", "#7aea8e", 260, 100, 150, 300, 10)
+        open_browser_with_links_button.setText("Download in browser")
+        open_browser_with_links_button.clicked.connect(lambda: list(map(webbrowser.open_new_tab, download_page_links))) # type: ignore
+        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", "#FFC300", "#FFD700", "#FFE900", 280, 100, 620, 300, 10)
+        switch_to_anime_pahe_button.setText("Switch to animepahe")
+        switch_to_anime_pahe_button.clicked.connect(lambda: main_window.switch_to_pahe(anime_title, self))
+
+class NoSupportedBrowserWindow(QWidget):
+    def __init__(self, main_window: MainWindow, anime_title: str):
+        super().__init__(main_window)
+        self.setFixedSize(main_window.size())
+        BckgImg(self, chopper_crying_path)
+        main_widget = QWidget(self)
+        main_widget.setFixedSize(self.size()) 
+        info_label = StyledLabel(main_widget, 30)
+        info_label.move(150, 50)
+        info_label.setText("\nUnfortunately downloaading from Gogoanime requires\n you have either Chrome, Edge or Firefox installed\n") 
+        download_chrome_button = StyledButton(main_widget, 25, "black", "#00FF00", "#00FF7F", "#7aea8e", 230, 100, 150, 300, 10)
+        download_chrome_button.setText("Download Chrome")
+        download_chrome_button.clicked.connect(lambda: webbrowser.open_new_tab("https://www.google.com/chrome")) # type: ignore
+        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", "#FFC300", "#FFD700", "#FFE900", 280, 100, 620, 300, 10)
+        switch_to_anime_pahe_button.setText("Switch to animepahe")
+        switch_to_anime_pahe_button.clicked.connect(lambda: main_window.switch_to_pahe(anime_title, self))
+        
 class SearchWindow(QWidget):
     def __init__(self, main_window: MainWindow):
         super().__init__(main_window)
         self.setFixedSize(main_window.size())
-        self.bckg_img = BckgImg(self)
+        self.bckg_img = BckgImg(self, bckg_image_path)
 
         self.search_widget = QWidget(self)
         self.search_widget.setFixedSize(1000, 150)
         self.search_widget.move(30, 50)
 
+        zero_two_peeping = QLabel(self)
+        zero_two_peeping.setPixmap(QPixmap(zero_two_peeping_path))
+        zero_two_peeping.move(480, 0)
+        zero_two_peeping.setFixedSize(65, 50)
+        zero_two_peeping.setScaledContents(True)
+        
         self.search_bar = SearchBar(self.search_widget, self)
         self.search_bar_text = lambda: self.search_bar.text()
         self.search_bar.setFocus()
         self.main_window = main_window
-        pahe_search_button = SearchButton(self.search_widget, self, pahe_name, )
-        gogo_search_button = SearchButton(self.search_widget, self, gogo_name)
-        pahe_search_button.move(self.search_bar.x()+200, self.search_bar.y()+80)
-        gogo_search_button.move(self.search_bar.x()+500, self.search_bar.y()+80)
+        self.pahe_search_button = SearchButton(self.search_widget, self, pahe_name, )
+        self.gogo_search_button = SearchButton(self.search_widget, self, gogo_name)
+        self.pahe_search_button.move(self.search_bar.x()+200, self.search_bar.y()+80)
+        self.gogo_search_button.move(self.search_bar.x()+500, self.search_bar.y()+80)
 
         self.results_layout = QVBoxLayout()
         ScrollableSection(self, self.results_layout, 950, 440, 20, 200)
 
-        self.anime_not_found = AnimationAndText(self, crying_animation_path, 450, 300, 290, 180, "Couldn't find that anime", 0, 165, 40)
+        self.anime_not_found = AnimationAndText(self, sadge_piece_path, 450, 300, 290, 180, "Couldn't find that anime", 0, 165, 40)
         spacing = "              " # Easy fix to  positioning issues lol
         self.loading = AnimationAndText(self, loading_animation_path, 450, 300, 290, 180, f"{spacing}Loading.. .", 0, 165, 40)
         self.search_thread = None
@@ -574,6 +636,7 @@ class ScrollableSection(QScrollArea):
                         background-color: transparent;
                         border: None;
                         }""")
+
 class SearchBar(QLineEdit):
     def __init__(self, parent: QWidget, window: SearchWindow):
         super().__init__(parent)
@@ -639,7 +702,7 @@ class DownloadedEpisodeCount(QLabel):
     def update(self, added_episode_count: int):
         self.current_episodes+=added_episode_count
         self.setText(f"{self.current_episodes}/{self.total_episodes} eps")
-        if self.current_episodes == self.total_episodes:
+        if self.current_episodes == self.total_episodes and self.total_episodes > 0:
             self.download_complete_notification()
 
 class CancelAllButton(QPushButton):
@@ -741,7 +804,7 @@ class DownloadWindow(QWidget):
         super().__init__(main_window)
         self.main_window = main_window
         self.setFixedSize(main_window.size())
-        BckgImg(self)
+        BckgImg(self, bckg_image_path)
         self.download_complete_icon = QIcon(download_complete_icon_path)
         self.tray_icon = main_window.tray_icon
         self.downloads_layout = QVBoxLayout(self)
@@ -763,7 +826,7 @@ class DownloadWindow(QWidget):
         if anime_details.site ==  gogo_name and anime_details.sub_or_dub == dub and anime_details.dub_available: anime_details.anime.page_link = gogo.get_dub_anime_page_link(anime_details.anime.title) 
         GetEpisodePageLinksThread(self, anime_details, anime_details.start_download_episode, anime_details.end_download_episode, 
                                   lambda eps_links : self.get_download_page_links(eps_links, anime_details), lambda x: None).start() 
-        
+
     def get_download_page_links(self, episode_page_links: list[str], anime_details: AnimeDetails):
         self.dynamic_episodes_predictor_initialiser_pro_turboencapsulator(anime_details)
         episode_page_links = [episode_page_links[eps-anime_details.start_download_episode] for eps in anime_details.predicted_episodes_to_download]
@@ -771,11 +834,18 @@ class DownloadWindow(QWidget):
         self.downloads_layout.insertWidget(0, download_page_progress_bar)
         GetDownloadPageThread(self, anime_details.site, episode_page_links, lambda down_pge_lnk, down_info: self.get_direct_download_links(down_pge_lnk, down_info, anime_details)
                               , download_page_progress_bar.update).start()
-        
+
     def get_direct_download_links(self, download_page_links: list[str], download_info: list[list[str]], anime_details: AnimeDetails):
         direct_download_links_progress_bar =  ProgressBar(self, "Retrieving direct download links", "", 400, 33, len(download_page_links), "eps") 
         self.downloads_layout.insertWidget(0, direct_download_links_progress_bar)
-        GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda: self.calculate_download_size(anime_details), direct_download_links_progress_bar.update).start()
+        GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda status: self.check_link_status(status, anime_details, download_page_links), 
+                                     direct_download_links_progress_bar.update).start()
+
+    def check_link_status(self, status: int, anime_details: AnimeDetails, download_page_links: list[str]):
+        print(status)
+        if status == 1: self.calculate_download_size(anime_details)
+        elif status == 2: self.main_window.create_and_switch_to_no_supported_browser_window(anime_details.anime.title)
+        elif status == 3: self.main_window.create_and_switch_to_captcha_block_window(anime_details.anime.title, download_page_links)
 
     def calculate_download_size(self, anime_details: AnimeDetails):
         if anime_details.site == gogo_name:
@@ -800,13 +870,13 @@ class DownloadWindow(QWidget):
         self.current_download = DownloadManagerThread(self, anime_details, anime_progress_bar, downloaded_episode_count)
         PauseAllButton(self.anime_progress_widget).pause_callback = self.current_download.pause_or_resume
         CancelAllButton(self.anime_progress_widget).cancel_callback = self.current_download.cancel
-        
         self.current_download.start()
 
-    @pyqtSlot(str, int, dict)   
+    @pyqtSlot(str, int, dict)
     def receive_download_progress_bar_details(self, episode_title: str, episode_size: int, progress_bars: dict[str, DownloadProgressBar]):
-        progress_bars[episode_title] = DownloadProgressBar(self, "Downloading", episode_title, 400, 33, episode_size, "MB", ibytes_to_mbs_divisor)
-        self.downloads_layout.insertWidget(0, progress_bars[episode_title])
+        bar = DownloadProgressBar(None, "Downloading", episode_title, 400, 33, episode_size, "MB", ibytes_to_mbs_divisor)
+        progress_bars[episode_title] = bar 
+        self.downloads_layout.insertWidget(0, bar)
 
 class DownloadManagerThread(QThread):
     send_progress_bar_details = pyqtSignal(str, int, dict)
@@ -883,7 +953,9 @@ class DownloadManagerThread(QThread):
             if self.cancelled: break
             episode_title = f"{self.anime_details.sanitised_title} Episode {self.anime_details.predicted_episodes_to_download[idx]}"
             displayed_episode_title = episode_title if len(self.anime_details.sanitised_title) <= 10 else f"{self.anime_details.sanitised_title[:10]}... Episode {self.anime_details.predicted_episodes_to_download[idx]}"
+            self.mutex.lock()
             self.send_progress_bar_details.emit(displayed_episode_title, download_size, self.progress_bars)
+            self.mutex.unlock()
             while displayed_episode_title not in self.progress_bars: continue  
             DownloadThread(self, link, episode_title, download_size, self.anime_details.site, cast(str, self.anime_details.anime_folder_path), 
                            self.progress_bars[displayed_episode_title], displayed_episode_title, self.pop_from_progress_bars, 
@@ -971,10 +1043,12 @@ class GetDownloadPageThread(QThread):
             self.finished.emit(download_page_links, [])
 
 class GetDirectDownloadLinksThread(QThread):
-    finished =  pyqtSignal()
+    finished =  pyqtSignal(int)
     update_bar = pyqtSignal(int)
-    def __init__(self, parent: QObject, download_page_links: list[str] | list[list[str]], download_info: list[list[str]], anime_details: AnimeDetails, finished_callback: Callable, progress_update_callback: Callable):
-        super().__init__(parent)
+    def __init__(self, download_window: DownloadWindow, download_page_links: list[str] | list[list[str]], download_info: list[list[str]], anime_details: AnimeDetails, 
+                 finished_callback: Callable, progress_update_callback: Callable):
+        super().__init__(download_window)
+        self.download_window = download_window
         self.download_page_links = download_page_links
         self.download_info = download_info
         self.anime_details = anime_details
@@ -987,11 +1061,16 @@ class GetDirectDownloadLinksThread(QThread):
             bound_links, bound_info = pahe.bind_quality_to_link_info(self.anime_details.quality, bound_links, bound_info )
             self.anime_details.download_info = bound_info
             self.anime_details.direct_download_links = pahe.get_direct_download_links(bound_links, lambda x: self.update_bar.emit(x))
-            self.finished.emit()
+            self.finished.emit(1)
         if self.anime_details.site ==  gogo_name:
-            self.anime_details.direct_download_links = gogo.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality, 
-                                                                                        gogo.set_up_headless_browser(), lambda x: self.update_bar.emit(x))
-            self.finished.emit()
+            try: 
+                self.anime_details.direct_download_links = gogo.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality, 
+                                                                                        gogo.setup_headless_browser(default_gogo_browser), lambda x: self.update_bar.emit(x))
+                self.finished.emit(1)
+            except Exception as exception:
+                if isinstance(exception, WebDriverException): self.finished.emit(2)
+                elif isinstance(exception, TimeoutError): self.finished.emit(3)
+
                                                                                                     
 class CalculateDownloadSizes(QThread):
     finished = pyqtSignal()
@@ -1018,7 +1097,7 @@ class ChosenAnimeWindow(QWidget):
         self.anime_details = anime_details
         self.anime = anime_details.anime
 
-        BckgImg(self)
+        BckgImg(self, bckg_image_path)
         Poster(self, self.anime_details.poster)
         Title(self, self.anime_details.anime.title)
         LineUnderTitle(self)
@@ -1162,15 +1241,15 @@ class DownloadButton(QPushButton):
                     }
                     """)
             return
-        # For testing purposes
-        # start_episode = 1
-        # end_episode = 4
         start_episode = int(start_episode)
-        end_episode = int(end_episode) if end_episode != "" else int(episode_count)
+        # For testing purposes
+        # end_episode = start_episode
+        end_episode = int(end_episode)
         self.anime_details.start_download_episode = start_episode
         self.anime_details.end_download_episode = end_episode
-        self.main_window.switch_to_download_window()
+        self.main_window.stacked_windows.setCurrentWidget(self.main_window.download_window)
         self.download_window.get_episode_page_links(self.anime_details)
+        self.main_window.stacked_windows.removeWidget(self.chosen_anime_window)
 
 
 
@@ -1245,9 +1324,23 @@ class LineUnderTitle(QFrame):
                             }
                             """)
 
-class SummaryLabel(QLabel):
-    def __init__(self, parent, summary: str):
+class StyledLabel(QLabel):
+    def __init__(self, parent, font_size: int):
         super().__init__(parent)
+        self.setStyleSheet(f"""
+                    QLabel {{
+                        color: white;
+                        font-size: {font_size}px;
+                        font-family: "Berlin Sans FB Demi";
+                        background-color: rgba(0, 0, 0, 200);
+                        border-radius: 10px;
+                        padding: 5px;
+                    }}
+                            """)
+
+class SummaryLabel(StyledLabel):
+    def __init__(self, parent, summary: str):
+        super().__init__(parent, 20)
         self.move(430, 100)
         words = summary.split(" ")
         formated_summary = []
@@ -1266,16 +1359,6 @@ class SummaryLabel(QLabel):
         
         words = ' '.join(formated_summary)
         self.setText(words)
-        self.setStyleSheet("""
-                    QLabel {
-                        color: white;
-                        font-size: 20px;
-                        font-family: "Berlin Sans FB Demi";
-                        background-color: rgba(0, 0, 0, 200);
-                        border-radius: 10px;
-                        padding: 5px;
-                            }
-                            """)
 
 class HavedEpisodes(QLabel):
     def __init__(self, parent, start: int | None, end: int | None, count: int |None):
@@ -1471,6 +1554,33 @@ class ResultButton(OutlinedButton):
                         """)                 
         return super().eventFilter(obj, event)
 
+class StyledButton(QPushButton):
+    def __init__(self, parent, font_size: int, font_color: str, normal_color: str, hover_color: str, pressed_color: str, size_x=0, size_y=0, pos_x=0, pos_y=0, border_radius=5):
+        super().__init__(parent)
+        if size_x != 0 and size_y != 0: self.resize(size_x, size_y)
+        if pos_x != 0 and pos_y != 0: self.move(pos_x, pos_y)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet(f"""
+            QPushButton {{
+                color: {font_color};
+                background-color: {normal_color};
+                border-radius: 20px;
+                padding: 5px;
+                font-size: {font_size}px;
+                font-family: "Berlin Sans FB Demi";
+                padding: 10px;
+                border-radius: {border_radius}px;
+            }}
+            QPushButton:hover {{
+                background-color: {hover_color};
+            }}
+            QPushButton:pressed {{  
+                background-color: {pressed_color};
+            }}
+        """)        
+
+
+
 class SearchButton(QPushButton):
     def __init__(self, parent: QWidget, window: SearchWindow, site: str) :
         super().__init__(parent)
@@ -1493,7 +1603,7 @@ class SearchButton(QPushButton):
             pressed_color = "#7aea8e"
         self.setStyleSheet(f"""
             QPushButton {{
-                color: black;
+                color: white;
                 background-color: {bckg_color};
                 border-radius: 20px;
                 padding: 5px;

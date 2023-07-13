@@ -5,16 +5,24 @@ from tqdm import tqdm
 import webbrowser
 
 from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
+from webdriver_manager.firefox import GeckoDriverManager
+
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver import ChromeOptions
-from selenium.webdriver import Chrome
+from selenium.webdriver.edge.service import Service as EdgeService
+from selenium.webdriver.firefox.service import Service as FirefoxService
+from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions, FirefoxOptions
+
 from subprocess import CREATE_NO_WINDOW
 from typing import Callable, cast
 from intersection import parser, network_monad, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time
 
 gogo_home_url = 'https://gogoanime.hu'
 dub_extension = ' (Dub)'
+edge = 'edge'
+chrome = 'chrome'
+firefox = 'firefox'
 
 
 def search(keyword: str) -> list[BeautifulSoup]:
@@ -43,30 +51,68 @@ def generate_episode_page_links(start_episode: int, end_episode: int, anime_page
     return episode_page_links
 
 
-def set_up_headless_browser() -> Chrome:
-    # Configuring the settings for the headless browser
-    chrome_options = ChromeOptions()
-    # chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument('--disable-extensions')
-    chrome_options.add_argument('--disable-infobars')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument(f"referer={gogo_home_url}")
+def setup_headless_browser(default_browser: str = edge) -> Chrome | Edge | Firefox:
+    def setup_options(options: ChromeOptions | EdgeOptions | FirefoxOptions) -> ChromeOptions | EdgeOptions | FirefoxOptions:
+        # For testing purposes
+        # options.add_argument("--headless=new")
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-infobars')
+        options.add_argument('--no-sandbox')
+        return options
 
-    chrome_options.add_experimental_option("prefs", {
-        "download.prompt_for_download": False,
-        "download.directory_upgrade": True,
-        "safebrowsing_for_trusted_sources_enabled": False,
-        "safebrowsing.enabled": False
-    })
+    def setup_edge_driver():
+        service_edge = EdgeService(
+            executable_path=EdgeChromiumDriverManager().install())
+        service_edge.creation_flags = CREATE_NO_WINDOW
+        options = cast(EdgeOptions, setup_options(EdgeOptions()))
+        return Edge(service=service_edge, options=options)
 
-    service_chrome = ChromeService(
-        executable_path=ChromeDriverManager().install())
-    service_chrome.creation_flags = CREATE_NO_WINDOW
-    chrome_driver = Chrome(service=service_chrome, options=chrome_options)
-    return chrome_driver
+    def setup_chrome_driver():
+        service_chrome = ChromeService(
+            executable_path=ChromeDriverManager().install())
+        service_chrome.creation_flags = CREATE_NO_WINDOW
+        options = cast(ChromeOptions, setup_options(ChromeOptions()))
+        return Chrome(service=service_chrome, options=options)
+
+    def setup_firefox_driver():
+        firefox_service = FirefoxService(
+            executable_path=GeckoDriverManager().install())
+        firefox_service.creation_flags = CREATE_NO_WINDOW
+        options = cast(FirefoxOptions, setup_options(FirefoxOptions()))
+        return Firefox(service=firefox_service, options=options)
+
+    if default_browser == edge:
+        try:
+            return setup_edge_driver()
+        except WebDriverException:
+            pass
+    elif default_browser == chrome:
+        try:
+            return setup_chrome_driver()
+        except WebDriverException:
+            pass
+    elif default_browser == firefox:
+        try:
+            return setup_firefox_driver()
+        except WebDriverException:
+            pass
+
+    try:
+        # For testing purposes
+        #raise WebDriverException
+        return setup_edge_driver()
+    except WebDriverException:
+        try:
+            # For testing purposes
+            # raise WebDriverException
+            return setup_chrome_driver()
+        except WebDriverException:
+            # For testing purposes
+            # raise WebDriverException
+            return setup_firefox_driver()
 
 
-def get_links_and_quality_info(download_page_link: str, driver: Chrome, max_load_wait_time: int, load_wait_time=1) -> tuple[list[str], list[str]]:
+def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | Firefox, max_load_wait_time: int, load_wait_time=1) -> tuple[list[str], list[str]]:
     def network_error_retry():
         while True:
             try:
@@ -81,6 +127,7 @@ def get_links_and_quality_info(download_page_link: str, driver: Chrome, max_load
              for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
     quality_infos = [link_and_info.text.replace(
         'P', 'p') for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
+    # For testing purposes, remueve the 'True or'
     if (len(links) == 0):
         if load_wait_time >= max_load_wait_time:
             raise TimeoutError
@@ -89,7 +136,8 @@ def get_links_and_quality_info(download_page_link: str, driver: Chrome, max_load
     return (links, quality_infos)
 
 
-def get_direct_download_link_as_per_quality(download_page_links: list[str], quality: str, driver: Chrome, progress_update_call_back: Callable = lambda update: None, max_load_wait_time=25, console_app=False) -> list[str]:
+def get_direct_download_link_as_per_quality(download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda update: None,
+                                            max_load_wait_time=6, console_app=False) -> list[str]:
     download_links: list[str] = []
     progress_bar = None if not console_app else tqdm(
         total=len(download_page_links), desc=' Fetching download links', unit='eps')
@@ -199,11 +247,11 @@ def test_getting_direct_download_links(query_anime_title: str, start_episode: in
         start_episode, end_episode, anime_page_link)
     download_page_links = get_download_page_links(
         episode_page_links, console_app=True)
-    chrome_driver = set_up_headless_browser()
+    driver = setup_headless_browser()
     direct_download_links = get_direct_download_link_as_per_quality(
-        download_page_links, quality, chrome_driver, max_load_wait_time=50, console_app=True)
+        download_page_links, quality, driver, max_load_wait_time=50, console_app=True)
     calculate_download_total_size(direct_download_links, console_app=True)
-    chrome_driver.close()
+    driver.quit()
     list(map(print, direct_download_links))
     return direct_download_links
 
