@@ -10,7 +10,7 @@ from pathlib import Path
 from random import randint  
 import requests
 from typing import Callable, cast
-from intersection import ibytes_to_mbs_divisor, sanitise_title, Download, network_monad
+from intersection import ibytes_to_mbs_divisor, sanitise_title, Download, network_monad, dynamic_episodes_predictor_initialiser_pro_turboencapsulator
 from time import time
 import anitopy
 from selenium.common.exceptions import WebDriverException
@@ -49,6 +49,14 @@ download_complete_icon_path = os.path.join(assets_path, "download-complete.png")
 chopper_crying_path = os.path.join(assets_path, "chopper-crying.png")
 zero_two_peeping_path = os.path.join(assets_path, "zero-two-peeping.png")
 
+pahe_normal_color = "#FFC300"
+pahe_hover_color = "#FFD700"
+pahe_pressed_color = "#FFE900"
+
+gogo_normal_color = "#00FF00"
+gogo_hover_color = "#60FF00"
+gogo_pressed_color = "#99FF00"
+
 class Anime():
     def __init__(self, title: str, page_link: str, anime_id: str|None) -> None:
         self.title = title
@@ -70,6 +78,46 @@ class Animation(QLabel):
         self.move(pos_x, pos_y)
         self.animation = QMovie(animation_path)
         self.animation.setScaledSize(self.size())
+
+class StyledLabel(QLabel):
+    def __init__(self, parent, font_size: int=20, bckg_color: str="rgba(0, 0, 0, 220)", border_radius=10):
+        super().__init__(parent)
+        self.setStyleSheet(f"""
+                    QLabel {{
+                        color: white;
+                        font-size: {font_size}px;
+                        font-family: "Berlin Sans FB Demi";
+                        background-color: {bckg_color};
+                        border-radius: {border_radius}px;
+                        border: 1px solid black;
+                        padding: 5px;
+                    }}
+                            """)
+
+class StyledButton(QPushButton):
+    def __init__(self, parent, font_size: int, font_color: str, normal_color: str, hover_color: str, pressed_color: str, border_radius=5):
+        super().__init__()
+        self.setParent(parent)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet(f"""
+            QPushButton {{
+                color: {font_color};
+                background-color: {normal_color};
+                border-radius: 20px;
+                border: 1px solid black;
+                padding: 5px;
+                font-size: {font_size}px;
+                font-family: "Berlin Sans FB Demi";
+                padding: 10px;
+                border-radius: {border_radius}px;
+            }}
+            QPushButton:hover {{
+                background-color: {hover_color};
+            }}
+            QPushButton:pressed {{  
+                background-color: {pressed_color};
+            }}
+        """)        
 
 class IconButton(QPushButton):
     def __init__(self, parent, size_x: int, size_y: int, icon_path: str, size_factor: int | float):
@@ -141,11 +189,12 @@ class OutlinedLabel(QLabel):
         # Call the parent class's paintEvent to draw the button background and other properties
         return super().paintEvent(event)
 
-class OutlinedButton(QPushButton):
-    def __init__(self, paint_x, paint_y):
+class OutlinedButton(StyledButton):
+    def __init__(self, paint_x, paint_y, parent: QObject | None, font_size: int, font_color: str, normal_color: str, 
+                 hover_color: str, pressed_color: str, border_radius=5):
         self.paint_x = paint_x
         self.paint_y = paint_y
-        super().__init__()
+        super().__init__(parent, font_size, font_color, normal_color, hover_color, pressed_color, border_radius)
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -403,6 +452,7 @@ class AnimeDetails():
     def get_start_end_and_count_of_haved_episodes(self) -> tuple[int, int, int] | tuple[None, None, None]:
         if self.potentially_haved_episodes:
             for episode in self.potentially_haved_episodes:
+                if "[Downloading]" in episode.name: continue
                 parsed = anitopy.parse(episode.name)
                 if not parsed: continue
                 try:
@@ -518,10 +568,14 @@ class CaptchBlockWindow(QWidget):
         info_label = StyledLabel(main_widget, 30)
         info_label.move(50, 50)
         info_label.setText("\nCaptcha block detected, this only ever happens with Gogoanime\n")
-        open_browser_with_links_button = StyledButton(main_widget, 25, "black", "#00FF00", "#00FF7F", "#7aea8e", 260, 100, 150, 300, 10)
+        open_browser_with_links_button = StyledButton(main_widget, 25, "black", "#00FF00", "#00FF7F", "#7aea8e", 10)
+        open_browser_with_links_button.setFixedSize(260, 100)
+        open_browser_with_links_button.move(150, 300)
         open_browser_with_links_button.setText("Download in browser")
         open_browser_with_links_button.clicked.connect(lambda: list(map(webbrowser.open_new_tab, download_page_links))) # type: ignore
-        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", "#FFC300", "#FFD700", "#FFE900", 280, 100, 620, 300, 10)
+        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", "#FFC300", "#FFD700", "#FFE900", 10)
+        switch_to_anime_pahe_button.setFixedSize(200, 100)
+        switch_to_anime_pahe_button.move(620, 300)
         switch_to_anime_pahe_button.setText("Switch to animepahe")
         switch_to_anime_pahe_button.clicked.connect(lambda: main_window.switch_to_pahe(anime_title, self))
 
@@ -535,10 +589,14 @@ class NoSupportedBrowserWindow(QWidget):
         info_label = StyledLabel(main_widget, 30)
         info_label.move(150, 50)
         info_label.setText("\nUnfortunately downloaading from Gogoanime requires\n you have either Chrome, Edge or Firefox installed\n") 
-        download_chrome_button = StyledButton(main_widget, 25, "black", "#00FF00", "#00FF7F", "#7aea8e", 230, 100, 150, 300, 10)
+        download_chrome_button = StyledButton(main_widget, 25, "black", "#00FF00", "#00FF7F", "#7aea8e", 10)
+        download_chrome_button.setFixedSize(230, 100)
+        download_chrome_button.move(150, 300)
         download_chrome_button.setText("Download Chrome")
         download_chrome_button.clicked.connect(lambda: webbrowser.open_new_tab("https://www.google.com/chrome")) # type: ignore
-        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", "#FFC300", "#FFD700", "#FFE900", 280, 100, 620, 300, 10)
+        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", "#FFC300", "#FFD700", "#FFE900", 10)
+        switch_to_anime_pahe_button.setFixedSize(280, 100)
+        switch_to_anime_pahe_button.move(620, 300)
         switch_to_anime_pahe_button.setText("Switch to animepahe")
         switch_to_anime_pahe_button.clicked.connect(lambda: main_window.switch_to_pahe(anime_title, self))
         
@@ -562,7 +620,7 @@ class SearchWindow(QWidget):
         self.search_bar_text = lambda: self.search_bar.text()
         self.search_bar.setFocus()
         self.main_window = main_window
-        self.pahe_search_button = SearchButton(self.search_widget, self, pahe_name, )
+        self.pahe_search_button = SearchButton(self.search_widget, self, pahe_name)
         self.gogo_search_button = SearchButton(self.search_widget, self, gogo_name)
         self.pahe_search_button.move(self.search_bar.x()+200, self.search_bar.y()+80)
         self.gogo_search_button.move(self.search_bar.x()+500, self.search_bar.y()+80)
@@ -670,10 +728,10 @@ class SearchBar(QLineEdit):
         return super().eventFilter(obj, event)
 
 
-class DownloadedEpisodeCount(QLabel):
+class DownloadedEpisodeCount(StyledLabel):
     def __init__(self, parent, total_episodes: int, tray_icon: QSystemTrayIcon, anime_title: str, 
                  download_complete_icon: QIcon, anime_folder_path: str):
-        super().__init__(parent)
+        super().__init__(parent, 20)
         self.total_episodes = total_episodes
         self.current_episodes = 0
         self.tray_icon = tray_icon
@@ -683,16 +741,6 @@ class DownloadedEpisodeCount(QLabel):
         self.resize(100, 50)
         self.move(200, 100)
         self.setText(f"{0}/{total_episodes} eps")
-        self.setStyleSheet("""
-            QLabel {
-                color: white;
-                font-size: 20px;
-                font-family: "Berlin Sans FB Demi";
-                background-color: rgba(0, 0, 0, 200);
-                border-radius: 10px;
-                padding: 5px;
-                    }
-                    """)
         self.show()
 
     def download_complete_notification(self):
@@ -705,73 +753,29 @@ class DownloadedEpisodeCount(QLabel):
         if self.current_episodes == self.total_episodes and self.total_episodes > 0:
             self.download_complete_notification()
 
-class CancelAllButton(QPushButton):
+class CancelAllButton(StyledButton):
     def __init__(self, parent):
-        super().__init__(parent)
+        super().__init__(parent, 18, "white", "red", "#ED2B2A", "#990000")
         self.setFixedSize(90, 40)
         self.move(410, 103)
         self.setText("CANCEL")
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.cancel_callback: Callable = lambda: None
-        self.setStyleSheet("""
-                QPushButton {
-                text-align: left;
-                color: white;
-                padding: 5px;
-                font-size: 18px;
-                font-family: Berlin Sans FB Demi;
-                padding: 10px;
-                border-radius: 5px;
-                background-color: red;
-            }
-            QPushButton:hover {
-                background-color: #ED2B2A;
-            }
-            QPushButton:pressed {
-                background-color: #990000;
-            }
-            """)
         self.clicked.connect(self.cancel) 
         self.show()
 
     def cancel(self):
         self.cancel_callback()
 
-class PauseAllButton(QPushButton):
+class PauseAllButton(StyledButton):
     def __init__(self, parent):
-        super().__init__(parent)
+        super().__init__(parent, 18, "white", "#FFA41B", "#FFA756", "#F86F03")
         self.setFixedSize(90, 40)
         self.setText("PAUSE")
         self.move(310, 103)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.pause_callback: Callable = lambda: None
-        self.not_paused_style_sheet = """
+        self.not_paused_style_sheet = self.styleSheet()
+        styles_to_overwride = """
                 QPushButton {
-                text-align: left;
-                color: white;
-                padding: 5px;
-                font-size: 18px;
-                font-family: Berlin Sans FB Demi;
-                padding: 10px;
-                border-radius: 5px;
-                background-color: #FFA41B;
-            }
-            QPushButton:hover {
-                background-color: #FFA756;
-            }
-            QPushButton:pressed {
-                background-color: #F86F03;
-            }
-            """
-        self.paused_style_sheet = """
-                QPushButton {
-                text-align: left;
-                color: white;
-                padding: 5px;
-                font-size: 18px;
-                font-family: Berlin Sans FB Demi;
-                padding: 10px;
-                border-radius: 5px;
                 background-color: #FFA756;
             }
             QPushButton:hover {
@@ -781,6 +785,7 @@ class PauseAllButton(QPushButton):
                 background-color: #F86F03;
             }
             """
+        self.paused_style_sheet = self.not_paused_style_sheet + styles_to_overwride
         self.setStyleSheet(self.not_paused_style_sheet)
         self.paused = False
         self.clicked.connect(self.pause_or_resume)
@@ -813,9 +818,6 @@ class DownloadWindow(QWidget):
         self.anime_progress_widget.resize(1000, 210)
         self.anime_progress_widget.move(0, 0)
 
-    def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(self, anime_details: AnimeDetails):
-        for episode in range(anime_details.start_download_episode, anime_details.end_download_episode+1):
-            if episode not in anime_details.haved_episodes: anime_details.predicted_episodes_to_download.append(episode)
 
     def get_episode_page_links(self, anime_details: AnimeDetails):
         if anime_details.site == pahe_name: 
@@ -828,7 +830,6 @@ class DownloadWindow(QWidget):
                                   lambda eps_links : self.get_download_page_links(eps_links, anime_details), lambda x: None).start() 
 
     def get_download_page_links(self, episode_page_links: list[str], anime_details: AnimeDetails):
-        self.dynamic_episodes_predictor_initialiser_pro_turboencapsulator(anime_details)
         episode_page_links = [episode_page_links[eps-anime_details.start_download_episode] for eps in anime_details.predicted_episodes_to_download]
         download_page_progress_bar = ProgressBar(self, "Fetching download page links", "", 400, 33, len(episode_page_links), "eps")
         self.downloads_layout.insertWidget(0, download_page_progress_bar)
@@ -842,7 +843,6 @@ class DownloadWindow(QWidget):
                                      direct_download_links_progress_bar.update).start()
 
     def check_link_status(self, status: int, anime_details: AnimeDetails, download_page_links: list[str]):
-        print(status)
         if status == 1: self.calculate_download_size(anime_details)
         elif status == 2: self.main_window.create_and_switch_to_no_supported_browser_window(anime_details.anime.title)
         elif status == 3: self.main_window.create_and_switch_to_captcha_block_window(anime_details.anime.title, download_page_links)
@@ -1066,6 +1066,9 @@ class GetDirectDownloadLinksThread(QThread):
             try: 
                 self.anime_details.direct_download_links = gogo.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality, 
                                                                                         gogo.setup_headless_browser(default_gogo_browser), lambda x: self.update_bar.emit(x))
+                # For testing purposes
+                #raise WebDriverException
+                #raise TimeoutError
                 self.finished.emit(1)
             except Exception as exception:
                 if isinstance(exception, WebDriverException): self.finished.emit(2)
@@ -1082,8 +1085,8 @@ class CalculateDownloadSizes(QThread):
         self.finished.connect(finished_callback)
         self.update_bar.connect(progress_update_callback)
     def run(self):
-        if self.anime_details.site == gogo_name:                # With gogoanime we dont have to store the download sizes for each episode since we dont use a headless browser to actually download just to get the links
-            self.anime_details.total_download_size = gogo.calculate_download_total_size(self.anime_details.direct_download_links, lambda x: self.update_bar.emit(x))
+        if self.anime_details.site == gogo_name:                
+            self.anime_details.total_download_size = gogo.calculate_download_total_size(self.anime_details.direct_download_links, lambda x: self.update_bar.emit(x), True)
         elif self.anime_details.site == pahe_name:
             self.anime_details.total_download_size = pahe.calculate_total_download_size(self.anime_details.download_info)
         self.finished.emit()
@@ -1104,8 +1107,8 @@ class ChosenAnimeWindow(QWidget):
         SummaryLabel(self, self.anime_details.summary)
 
         if self.anime_details.dub_available:
-            self.dub_button = SubDubButton(self, 425, 400, dub)
-            self.sub_button = SubDubButton(self, 490, 400, sub)
+            self.dub_button = SubDubButton(self, 425, 405, dub)
+            self.sub_button = SubDubButton(self, 490, 405, sub)
 
             if sub_or_dub == dub: self.dub_button.click()
             elif sub_or_dub == sub:
@@ -1114,20 +1117,19 @@ class ChosenAnimeWindow(QWidget):
             self.dub_button.clicked.connect(lambda: self.co_update_sub_dub_buttons(dub))
             self.sub_button.clicked.connect(lambda: self.co_update_sub_dub_buttons(sub))
         else:
-            self.sub_button = SubDubButton(self, 490, 400, sub)
+            self.sub_button = SubDubButton(self, 490, 405, sub)
             self.sub_button.click()
         
-        self.button_1080 = QualityButton(self, 565, 400, q_1080) 
+        self.button_1080 = QualityButton(self, 565, 405, q_1080) 
         self.button_1080.setFixedSize(69, 40)
-        self.button_720 = QualityButton(self, 639, 400, q_720) 
-        self.button_480 = QualityButton(self, 704, 400, q_480) 
-        self.button_360 = QualityButton(self, 769, 400, q_360) 
+        self.button_720 = QualityButton(self, 639, 405, q_720) 
+        self.button_480 = QualityButton(self, 704, 405, q_480) 
+        self.button_360 = QualityButton(self, 769, 405, q_360) 
         self.setup_quality_buttons_color_clicked_status()
         self.quality_buttons_list = [self.button_1080, self.button_720, self.button_480, self.button_360]
 
         for button in self.quality_buttons_list: 
-                                    # x holds a boolean value that connect passes to the callback for some reason
-            button.clicked.connect(lambda x, updater=button.quality: self.co_update_quality_buttons(updater))
+            button.clicked.connect(lambda updater=button.quality: self.co_update_quality_buttons(updater))
 
         start_episode = str((self.anime_details.haved_end)+1) if (self.anime_details.haved_end and self.anime_details.haved_end < self.anime_details.episode_count) else "1"
         self.start_episode_input = EpisodeInput(self, 420, 460, "START")
@@ -1144,23 +1146,23 @@ class ChosenAnimeWindow(QWidget):
     def co_update_quality_buttons(self, updater: str):
         for button in self.quality_buttons_list:
             if button.quality != updater:
-                button.change_style_sheet(button.bckg_color, button.hover_color)
+                button.change_style_sheet(False)
 
     def setup_quality_buttons_color_clicked_status(self):
         if default_quality == q_1080:
-            self.button_1080.change_style_sheet(self.button_1080.pressed_color, self.button_1080.pressed_color)
+            self.button_1080.change_style_sheet(True)
         elif default_quality == q_720:
-            self.button_720.change_style_sheet(self.button_720.pressed_color, self.button_720.pressed_color)
+            self.button_720.change_style_sheet(True)
         elif default_quality == q_480:
-            self.button_480.change_style_sheet(self.button_480.pressed_color, self.button_480.pressed_color)
+            self.button_480.change_style_sheet(True)
         elif default_quality == q_360:
-            self.button_360.change_style_sheet(self.button_360.pressed_color, self.button_360.pressed_color)
+            self.button_360.change_style_sheet(True)
 
     def co_update_sub_dub_buttons(self, updater: str):
         if updater == dub:
-            self.sub_button.change_style_sheet(self.sub_button.bckg_color, self.sub_button.hover_color)
+            self.sub_button.change_style_sheet(False)
         elif updater == sub:
-            self.dub_button.change_style_sheet(self.dub_button.bckg_color, self.dub_button.hover_color)
+            self.dub_button.change_style_sheet(False)
 
 
 class SetupChosenAnimeWindowThread(QThread):
@@ -1173,36 +1175,17 @@ class SetupChosenAnimeWindowThread(QThread):
     def run(self):
         self.finished.emit(AnimeDetails(self.anime, self.site))
 
-class DownloadButton(QPushButton):
-    def __init__(self, chosen_anime_window: ChosenAnimeWindow, download_window: DownloadWindow, anime_details: AnimeDetails, ):
-        super().__init__(chosen_anime_window)
+class DownloadButton(StyledButton):
+    def __init__(self, chosen_anime_window: ChosenAnimeWindow, download_window: DownloadWindow, anime_details: AnimeDetails):
+        super().__init__(chosen_anime_window, 18, "white", "green", gogo_normal_color, gogo_hover_color)
+        self.move(570, 450)
+        self.setFixedSize(125, 50)
         self.chosen_anime_window = chosen_anime_window
         self.download_window = download_window
         self.main_window = chosen_anime_window.main_window
         self.anime_details =  anime_details
         self.clicked.connect(self.handle_download_button_clicked)
-        self.move(570, 450)
-        self.setFixedSize(125, 50)
         self.setText("DOWNLOAD")
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet("""
-                QPushButton {
-                text-align: left;
-                color: white;
-                padding: 5px;
-                font-size: 18px;
-                font-family: Berlin Sans FB Demi;
-                padding: 10px;
-                border-radius: 5px;
-                background-color: green;
-            }
-            QPushButton:hover {
-                background-color: #20d941;
-            }
-            QPushButton:pressed {
-                background-color: #5be673;
-            }
-            """)
     
     def handle_download_button_clicked(self):
         invalid_input = False
@@ -1216,35 +1199,26 @@ class DownloadButton(QPushButton):
         start_episode = int(start_episode)
         end_episode = int(end_episode)
 
-        if haved_end >= episode_count: invalid_input = True
+        if haved_end >= episode_count and start_episode >= haved_end: invalid_input = True
 
         if ((end_episode < start_episode) or (end_episode > episode_count)):
-            end_episode = ""
-            self.chosen_anime_window.end_episode_input.setText(end_episode)
+            end_episode = episode_count
+            self.chosen_anime_window.end_episode_input.setText("")
             invalid_input = True
 
         if (start_episode > episode_count):
-            start_episode = str(haved_end) if haved_end > 0 else "1"
-            self.chosen_anime_window.start_episode_input.setText(start_episode)
+            start_episode = haved_end if haved_end > 0 else 1
+            self.chosen_anime_window.start_episode_input.setText(str(start_episode))
             invalid_input = True
 
-        if invalid_input:
-            self.chosen_anime_window.episode_count.setStyleSheet("""
-            QLabel {
-                color: white;
-                font-size: 20px;
-                font-family: "Berlin Sans FB Demi";
-                background-color: rgba(255, 0, 0, 255);
-                border-radius: 10px;
-                padding: 5px;
-                border: 1px solid black;
-                    }
-                    """)
-            return
-        start_episode = int(start_episode)
         # For testing purposes
         # end_episode = start_episode
-        end_episode = int(end_episode)
+
+        self.anime_details.predicted_episodes_to_download = dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode, end_episode, self.anime_details.haved_episodes)
+        if len(self.anime_details.predicted_episodes_to_download) == 0: invalid_input = True
+        if invalid_input:
+            self.chosen_anime_window.episode_count.setStyleSheet(self.chosen_anime_window.episode_count.invalid_input_style_sheet)
+            return
         self.anime_details.start_download_episode = start_episode
         self.anime_details.end_download_episode = end_episode
         self.main_window.stacked_windows.setCurrentWidget(self.main_window.download_window)
@@ -1260,22 +1234,18 @@ class FolderButton(IconButton):
         if pos_x != 0 and pos_y != 0: self.move(pos_x, pos_y)
         self.clicked.connect(lambda: os.startfile(self.folder_path))
     
-class EpisodeCount(QLabel):
+class EpisodeCount(StyledLabel):
     def __init__(self, parent, count: str):
-        super().__init__(parent)
-        self.setText(f"{count} episodes")
+        super().__init__(parent, 20, "rgba(255, 50, 0, 255)")
         self.move(420, 515)
-        self.setStyleSheet("""
+        self.setText(f"{count} episodes")
+        self.normal_style_sheet = self.styleSheet()
+        self.invalid_input_style_sheet = self.normal_style_sheet+"""
             QLabel {
-                color: white;
-                font-size: 20px;
-                font-family: "Berlin Sans FB Demi";
-                background-color: rgba(255, 50, 0, 180);
-                border-radius: 10px;
-                padding: 5px;
+                background-color: rgba(255, 0, 0, 255);
+                border: 1px solid black;
                     }
-                    """)
-
+                    """
 
 class Poster(QLabel):
         def __init__(self, parent, image: bytes):
@@ -1291,9 +1261,10 @@ class Poster(QLabel):
             self.setFixedSize(x, y)
             self.setStyleSheet("""
                         QLabel {
-                        background-color: rgba(255, 140, 0, 200);
+                        background-color: rgba(255, 160, 0, 255);
                         border-radius: 10px;
                         padding: 5px;
+                        border: 2px solid black;
                         }
                         """)
 
@@ -1324,24 +1295,11 @@ class LineUnderTitle(QFrame):
                             }
                             """)
 
-class StyledLabel(QLabel):
-    def __init__(self, parent, font_size: int):
-        super().__init__(parent)
-        self.setStyleSheet(f"""
-                    QLabel {{
-                        color: white;
-                        font-size: {font_size}px;
-                        font-family: "Berlin Sans FB Demi";
-                        background-color: rgba(0, 0, 0, 200);
-                        border-radius: 10px;
-                        padding: 5px;
-                    }}
-                            """)
 
 class SummaryLabel(StyledLabel):
     def __init__(self, parent, summary: str):
-        super().__init__(parent, 20)
-        self.move(430, 100)
+        super().__init__(parent)
+        self.move(439, 100)
         words = summary.split(" ")
         formated_summary = []
         letter_count = 0
@@ -1360,23 +1318,13 @@ class SummaryLabel(StyledLabel):
         words = ' '.join(formated_summary)
         self.setText(words)
 
-class HavedEpisodes(QLabel):
+class HavedEpisodes(StyledLabel):
     def __init__(self, parent, start: int | None, end: int | None, count: int |None):
         super().__init__(parent)
         self.start = start
         self.end = end
         self.count = count
         self.move(570, 515)
-        self.setStyleSheet("""
-                    QLabel {
-                        color: white;
-                        font-size: 20px;
-                        font-family: "Berlin Sans FB Demi";
-                        background-color: rgba(0, 0, 0, 200);
-                        border-radius: 10px;
-                        padding: 5px;
-                            }
-                            """)
         if not count: self.setText("You have No episodes of this anime")
         else: self.setText(f"You have {count} episodes from {start} to {end}") if count != 1 else self.setText(f"You have {count} episode from {start} to {end}")
 
@@ -1411,107 +1359,92 @@ class EpisodeInput(QLineEdit):
 
         
 
-class QualityButton(QPushButton):
-    def __init__(self, parent: ChosenAnimeWindow, x: int, y: int, quality: str):
-        super().__init__(parent)
-        self.my_parent = parent
-        self.bckg_color = "rgba(128, 128, 128, 220)"
-        self.hover_color = "rgba(255, 255, 0, 220)"
-        self.pressed_color = "rgba(255, 165, 0, 220)"
+class QualityButton(StyledButton):
+    def __init__(self, chosen_anime_window: ChosenAnimeWindow, x: int, y: int, quality: str):
+        self.chosen_anime_window = chosen_anime_window
+        normal_color = "rgba(128, 128, 128, 255)"
+        hover_color = "rgba(255, 255, 0, 255)"
+        pressed_color = "rgba(255, 165, 0, 255)"
+        super().__init__(chosen_anime_window, 17, "white",  normal_color, hover_color, pressed_color)
         self.move(x, y)
         self.setFixedSize(60, 40)
+        self.not_picked_style_sheet = self.styleSheet()
+        styles_to_overwride = f"""
+            QPushButton {{
+            border-radius: 5px;
+            background-color: {pressed_color};
+        }}
+        QPushButton:hover {{
+            background-color: {pressed_color};
+        }}
+    """
+        self.picked_style_sheet = self.not_picked_style_sheet+styles_to_overwride
         self.quality = quality
         self.setText(self.quality)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.change_style_sheet(self.bckg_color, self.hover_color)
-        self.clicked.connect(lambda: self.change_style_sheet(self.pressed_color, self.pressed_color))
+        self.clicked.connect(lambda: self.change_style_sheet(True))
         self.clicked.connect(lambda: self.update_quality())
 
     def update_quality(self):
-        self.my_parent.anime_details.quality = self.quality
-    def change_style_sheet(self, bckg_color: str, hover_color: str): 
-        self.setStyleSheet(f"""
-            QPushButton {{
-            text-align: left;
-            color: white;
-            padding: 5px;
-            font-size: 18px;
-            font-family: Berlin Sans FB Demi;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: {bckg_color};
-        }}
-        QPushButton:hover {{
-            background-color: {hover_color};
-        }}
-    """)
+        self.chosen_anime_window.anime_details.quality = self.quality
+    def change_style_sheet(self, picked: bool): 
+        if picked: self.setStyleSheet(self.picked_style_sheet)
+        else: self.setStyleSheet(self.not_picked_style_sheet)
 
-class SubDubButton(QPushButton):
-    def __init__(self, parent: ChosenAnimeWindow, x: int, y: int, sub_dub: str):
-        super().__init__(parent)      
-        self.my_parent =  parent
-        self.bckg_color = "rgba(128, 128, 128, 220)"
-        self.hover_color = "rgba(255, 255, 0, 220)"
-        self.pressed_color = "rgba(255, 165, 0, 220)"
+class SubDubButton(StyledButton):
+    def __init__(self, chosen_anime_window: ChosenAnimeWindow, x: int, y: int, sub_dub: str):
+        self.chosen_anime_window =  chosen_anime_window
+        normal_color = "rgba(128, 128, 128, 255)"
+        hover_color = "rgba(255, 255, 0, 255)"
+        pressed_color = "rgba(255, 165, 0, 255)"
+        super().__init__(chosen_anime_window, 20, "white", normal_color, hover_color, pressed_color)      
         self.sub_or_dub = sub_dub
         self.move(x, y)
         self.setFixedSize(60, 40)
         self.setText(self.sub_or_dub.upper())
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.change_style_sheet(self.bckg_color, self.hover_color)
-        self.clicked.connect(lambda: self.change_style_sheet(self.pressed_color, self.pressed_color))
-        self.clicked.connect(self.update_sub_or_dub)
-
-    def update_sub_or_dub(self):
-        self.my_parent.anime_details.sub_or_dub = self.sub_or_dub
-    def change_style_sheet(self, bckg_color: str, hover_color: str): 
-        self.setStyleSheet(f"""
+        self.not_picked_style_sheet = self.styleSheet()
+        styles_to_overwride = f"""
             QPushButton {{
-            text-align: left;
-            color: white;
-            padding: 5px;
-            font-size: 20px;
-            font-family: Berlin Sans FB Demi;
-            padding: 10px;
             border-radius: 5px;
-            background-color: {bckg_color}
+            background-color: {pressed_color};
         }}
         QPushButton:hover {{
-            background-color: {hover_color};
+            background-color: {pressed_color};
         }}
-    """)
+    """
+        self.picked_style_sheet = self.not_picked_style_sheet+styles_to_overwride
+        self.setText(self.sub_or_dub.upper())
+        self.clicked.connect(lambda: self.change_style_sheet(True))
+        self.clicked.connect(lambda: self.update_sub_or_dub())
+
+    def update_sub_or_dub(self):
+        self.chosen_anime_window.anime_details.sub_or_dub = self.sub_or_dub
+    def change_style_sheet(self, picked: bool): 
+        if picked: self.setStyleSheet(self.picked_style_sheet)
+        else: self.setStyleSheet(self.not_picked_style_sheet)
 
 class ResultButton(OutlinedButton):
     def __init__(self, anime: Anime,  main_window: MainWindow, site: str, paint_x: int, paint_y: int):
-        super().__init__(paint_x, paint_y)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(900, 60)
+        if site == pahe_name:
+            hover_color = pahe_normal_color
+            pressed_color = pahe_hover_color
+        else:
+            hover_color = gogo_normal_color
+            pressed_color = gogo_hover_color
+        super().__init__(paint_x, paint_y, main_window, 30, "white", "transparent", hover_color, pressed_color)
+        self.move(900, 60)
         self.setText(anime.title)
+        self.setStyleSheet(self.styleSheet()+"""
+                           QPushButton{
+                           text-align: left;
+                           border: none;
+                           }""")
+        self.style_sheet_buffer = self.styleSheet() 
+        self.focused_sheet = self.style_sheet_buffer+f"""
+                    QPushButton{{
+                        background-color: {hover_color};
+        }}"""
         self.clicked.connect(lambda: main_window.setup_chosen_anime_window(anime, site))
         self.installEventFilter(self)
-        if site == pahe_name:
-            self.hover_color = "#FFC300"
-            self.pressed_color = "#FFD700"
-        elif site == gogo_name:
-            self.hover_color = "#00FF00"
-            self.pressed_color = "#00FF7F"
-        self.setStyleSheet(f"""
-            QPushButton {{
-                text-align: left;
-                color: white;
-                padding: 5px;
-                font-size: 30px;
-                font-family: Berlin Sans FB Demi;
-                padding: 10px;
-                border-radius: 5px;
-            }}
-            QPushButton:hover {{
-                background-color: {self.hover_color};
-            }}
-            QPushButton:pressed {{  
-                background-color:  {self.pressed_color};
-            }}
-        """)
     
     def eventFilter(self, obj, event: QEvent):
         if obj == self:
@@ -1519,112 +1452,24 @@ class ResultButton(OutlinedButton):
                 if event.type() == event.Type.KeyPress and (event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return):
                     self.click()
             elif event.type() == QEvent.Type.FocusIn:
-                        self.setStyleSheet(f"""
-                            QPushButton {{
-                                text-align: left;
-                                color: white;
-                                padding: 5px;
-                                font-size: 30px;
-                                font-family: Berlin Sans FB Demi;
-                                padding: 10px;
-                                border-radius: 5px;
-                                background-color: {self.hover_color};
-                            }}
-                            QPushButton:pressed {{  
-                                background-color:  {self.pressed_color};
-                                }}
-                        """)
+                self.setStyleSheet(self.focused_sheet)
             elif event.type() == QEvent.Type.FocusOut:
-                        self.setStyleSheet(f"""
-                            QPushButton {{
-                                text-align: left;
-                                color: white;
-                                padding: 5px;
-                                font-size: 30px;
-                                font-family: Berlin Sans FB Demi;
-                                padding: 10px;
-                                border-radius: 5px;
-                            }}
-                            QPushButton:hover {{
-                                background-color: {self.hover_color};
-                            }}
-                            QPushButton:pressed {{  
-                                background-color:  {self.pressed_color};
-                            }}
-                        """)                 
+                self.setStyleSheet(self.style_sheet_buffer)
         return super().eventFilter(obj, event)
 
-class StyledButton(QPushButton):
-    def __init__(self, parent, font_size: int, font_color: str, normal_color: str, hover_color: str, pressed_color: str, size_x=0, size_y=0, pos_x=0, pos_y=0, border_radius=5):
-        super().__init__(parent)
-        if size_x != 0 and size_y != 0: self.resize(size_x, size_y)
-        if pos_x != 0 and pos_y != 0: self.move(pos_x, pos_y)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet(f"""
-            QPushButton {{
-                color: {font_color};
-                background-color: {normal_color};
-                border-radius: 20px;
-                padding: 5px;
-                font-size: {font_size}px;
-                font-family: "Berlin Sans FB Demi";
-                padding: 10px;
-                border-radius: {border_radius}px;
-            }}
-            QPushButton:hover {{
-                background-color: {hover_color};
-            }}
-            QPushButton:pressed {{  
-                background-color: {pressed_color};
-            }}
-        """)        
 
 
 
-class SearchButton(QPushButton):
+class SearchButton(StyledButton):
     def __init__(self, parent: QWidget, window: SearchWindow, site: str) :
-        super().__init__(parent)
+        if site == pahe_name:
+            super().__init__(parent, 22, "white", pahe_normal_color, pahe_hover_color, pahe_pressed_color)
+            self.setText("Animepahe")
+        else:
+            super().__init__(parent, 22, "white", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
+            self.setText("Gogoanime")
         self.setFixedSize(200, 50)
         self.clicked.connect(lambda: window.search_anime(window.search_bar_text(), site))
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.installEventFilter(self)
-        bckg_color = ""
-        hover_color = ""
-        pressed_color = ""
-        if site == pahe_name:
-            self.setText("Animepahe")
-            bckg_color = "#FFC300"
-            hover_color = "#FFD700"
-            pressed_color = "#FFE900"
-        elif site == gogo_name:
-            self.setText("Gogoanime")
-            hover_color = "#00FF7F"
-            bckg_color = "#00FF00"
-            pressed_color = "#7aea8e"
-        self.setStyleSheet(f"""
-            QPushButton {{
-                color: white;
-                background-color: {bckg_color};
-                border-radius: 20px;
-                padding: 5px;
-                font-size: 14px;
-                font-family: "Berlin Sans FB Demi";
-                padding: 10px;
-                border-radius: 5px;
-
-
-            }}
-            QPushButton:hover {{
-                background-color: {hover_color};
-            }}
-            
-            QPushButton:pressed {{  
-                background-color: {pressed_color};
-            }}
-            
-           
-        """)        
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

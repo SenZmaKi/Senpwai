@@ -74,6 +74,12 @@ def test_downloading(anime_title: str, direct_download_links: list[str]):
         Download(link, f'{anime_title} Episode {idx+1}',
                  os.path.abspath("test-downloads"), console_app=True).start_download()
 
+def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: int, end_episode: int, haved_episodes: list[int]) -> list[int]:
+        predicted_episodes_to_download: list[int] = []
+        for episode in range(start_episode, end_episode+1):
+            if episode not in haved_episodes: predicted_episodes_to_download.append(episode)
+        return predicted_episodes_to_download
+
 
 class Download():
     def __init__(self, link: str, episode_title: str, download_folder: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', console_app=False) -> None:

@@ -176,7 +176,7 @@ def get_download_page_links(episode_page_links: list[str], progress_update_callb
     return download_page_links
 
 
-def calculate_download_total_size(download_links: list[str], progress_update_callback: Callable = lambda update: None, console_app=False) -> int:
+def calculate_download_total_size(download_links: list[str], progress_update_callback: Callable = lambda update: None, in_megabytes=False, console_app=False) -> int:
     progress_bar = None if not console_app else tqdm(
         total=len(download_links), desc=' Calculating total download size', unit='eps')
     total_size = 0
@@ -184,14 +184,14 @@ def calculate_download_total_size(download_links: list[str], progress_update_cal
         response = network_monad(
             lambda link=link: requests.get(link, stream=True))
         size = response.headers.get('content-length', 0)
-        total_size += int(size)
+        if in_megabytes: total_size += round(int(size) / ibytes_to_mbs_divisor)
+        else: total_size += int(size)
         progress_update_callback(1)
         if progress_bar:
             progress_bar.update(idx+1 - progress_bar.n)
     if progress_bar:
         progress_bar.set_description(' Done')
         progress_bar.close()
-    total_size = round(total_size/ibytes_to_mbs_divisor)
     return total_size
 
 
