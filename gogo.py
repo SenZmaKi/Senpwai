@@ -138,6 +138,8 @@ def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | 
 
 def get_direct_download_link_as_per_quality(download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda update: None,
                                             max_load_wait_time=6, console_app=False) -> list[str]:
+    # For testing purposes
+    # raise TimeoutError
     download_links: list[str] = []
     progress_bar = None if not console_app else tqdm(
         total=len(download_page_links), desc=' Fetching download links', unit='eps')

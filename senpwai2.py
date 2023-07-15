@@ -15,22 +15,31 @@ from time import time
 import anitopy
 from selenium.common.exceptions import WebDriverException
 import webbrowser
+from appdirs import user_config_dir
+import json
 
+app_name = "Senpwai"
 pahe_name = "pahe"
 gogo_name = "gogo"
 
 dub = "dub"
 sub = "sub"
-sub_or_dub = sub
+default_sub_or_dub = sub
 q_1080 = "1080p"
 q_720 = "720p"
 q_480 = "480p"
 q_360 = "360p"
-default_quality = q_360
-default_download_folder_path = [os.path.abspath(r'C:\\Users\\PC\\Downloads\\Anime'), os.path.abspath(r'D:\Series')]
-default_site = pahe_name
-max_simutaneous_downloads = 4 
-default_gogo_browser = gogo.chrome
+default_quality = q_720
+# default_download_folder_paths = [os.path.abspath(r'C:\\Users\\PC\\Downloads\\Anime'), os.path.abspath(r'D:\Series')]
+folder = os.path.join(Path.home(), "Downloads")
+if not os.path.isdir(folder): os.mkdir(folder)
+folder = os.path.join(folder, "Anime")
+if not os.path.isdir(folder): os.mkdir(folder)
+default_download_folder_paths = [folder]
+
+default_max_simutaneous_downloads = 2
+default_gogo_browser = gogo.edge
+default_make_download_complete_notification = True
 
 root_path = os.path.abspath(r'.\\')
 assets_path = os.path.join(root_path, "assets")
@@ -56,6 +65,86 @@ pahe_pressed_color = "#FFE900"
 gogo_normal_color = "#00FF00"
 gogo_hover_color = "#60FF00"
 gogo_pressed_color = "#99FF00"
+
+key_sub_or_dub = "sub_or_dub"
+key_quality = "quality"
+key_download_folder_paths = "download_folder_paths"
+key_max_simulataneous_downloads = "max_simultaneous_downloads"
+key_gogo_default_browser = "gogo_default_browser"
+key_make_download_complete_notification = "make_download_complete_notification"
+
+def requires_admin_access(folder_path):
+    try:
+        temp_file = os.path.join(folder_path, 'temp.txt')
+        open(temp_file, 'w').close()
+        os.remove(temp_file)
+        return False
+    except PermissionError:
+        return True
+
+
+def validate_settings_json(settings_json: dict) -> dict:
+    clean_settings = {}
+    try:
+        sub_or_dub = settings_json[key_sub_or_dub]
+        if sub_or_dub not in (sub, dub): raise KeyError
+        clean_settings[key_sub_or_dub] = sub_or_dub
+    except KeyError:
+        clean_settings[key_sub_or_dub] = default_sub_or_dub
+    try:
+        quality = settings_json[key_quality]
+        if quality not in (q_1080, q_720, q_480, q_360): raise KeyError
+        clean_settings[key_quality] = quality
+    except KeyError:
+        clean_settings[key_quality] = default_quality
+    valid_folder_paths: list[str] = default_download_folder_paths
+    try:
+        download_folder_paths = settings_json[key_download_folder_paths]
+        valid_folder_paths = [path for path in download_folder_paths if os.path.isdir(path) and not requires_admin_access(path)]
+        if len(valid_folder_paths) == 0: 
+            valid_folder_paths = default_download_folder_paths
+        raise KeyError
+    except KeyError:
+        clean_settings[key_download_folder_paths] = valid_folder_paths
+    try:
+        max_simultaneous_downloads = settings_json[key_max_simulataneous_downloads]
+        if not isinstance(max_simultaneous_downloads, int): raise KeyError
+        clean_settings[key_max_simulataneous_downloads] = max_simultaneous_downloads
+    except KeyError:
+        clean_settings[key_max_simulataneous_downloads] = default_max_simutaneous_downloads
+    try:
+        gogo_default_browser = settings_json[key_gogo_default_browser]
+        if gogo_default_browser not in (gogo.chrome, gogo.edge, gogo.firefox): raise KeyError
+        clean_settings[key_gogo_default_browser] = gogo_default_browser
+    except KeyError:
+        clean_settings[key_gogo_default_browser] = default_gogo_browser
+    try:
+        make_download_complete_notification = settings_json[key_make_download_complete_notification] 
+        if not isinstance(make_download_complete_notification, bool): raise KeyError
+        clean_settings[key_make_download_complete_notification] = make_download_complete_notification
+    except KeyError:
+        clean_settings[key_make_download_complete_notification] = default_make_download_complete_notification
+    
+    return clean_settings
+
+def configure_settings() -> dict:
+    settings_folder_path = os.path.join(user_config_dir(), app_name)
+    if not os.path.isdir(settings_folder_path):
+        os.mkdir(settings_folder_path)
+    settings_file_path = os.path.join(settings_folder_path, "settings.json")
+    settings = {}
+    if os.path.exists(settings_file_path):
+        with open(settings_file_path, "r") as f:
+            try:
+                settings = cast(dict, json.load(f))
+            except json.decoder.JSONDecodeError:
+                pass
+    with open(settings_file_path, "w") as f:
+        validated_settings = validate_settings_json(settings)
+        json.dump(validated_settings, f, indent=4)
+        return validated_settings
+
+settings = configure_settings()
 
 class Anime():
     def __init__(self, title: str, page_link: str, anime_id: str|None) -> None:
@@ -416,7 +505,7 @@ class AnimeDetails():
         self.start_download_episode = 0
         self.end_download_episode = 0
         self.quality = default_quality
-        self.sub_or_dub = sub_or_dub 
+        self.sub_or_dub = default_sub_or_dub 
         self.direct_download_links: list[str] = []
         self.download_info: list[str] = []
         self.total_download_size: int = 0
@@ -425,7 +514,7 @@ class AnimeDetails():
     def get_anime_folder_path(self) -> str | None:
         def try_path(title: str)->str | None:
             detected = None
-            for path in default_download_folder_path:
+            for path in default_download_folder_paths:
                 potential = os.path.join(path, title)
                 upper = potential.upper()
                 lower = potential.lower()
@@ -435,7 +524,7 @@ class AnimeDetails():
                 if detected:
                     self.chosen_default_download_path = path
                     return detected
-            self.chosen_default_download_path = default_download_folder_path[0]
+            self.chosen_default_download_path = default_download_folder_paths[0]
             return None
         
         path = try_path(self.sanitised_title)
@@ -487,7 +576,6 @@ class AnimeDetails():
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Senpwai")
         self.setFixedSize(1000, 650)
         self.move(0, 0)
         
@@ -496,6 +584,7 @@ class MainWindow(QMainWindow):
         window_position = QPoint(center_point.x() - self.rect().center().x(), center_point.y() - self.rect().center().y())
         self.move(window_position)
         self.tray_icon = QSystemTrayIcon(QIcon(senpwai_icon_path), self)
+        app.aboutToQuit.connect(self.tray_icon.hide)
         self.tray_icon.show()
         self.download_window = DownloadWindow(self)
         self.search_window = SearchWindow(self)
@@ -512,10 +601,6 @@ class MainWindow(QMainWindow):
         # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
         # self.setup_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=471abb96-a428-6172-b066-d89f7f9f276c", "471abb96-a428-6172-b066-d89f7f9f276c"), pahe_name)
         #self.setup_chosen_anime_window(Anime("Senyuu", "https://gogoanime.hu/category/senyuu-", None), gogo_name)
-
-    def restore_window(self):
-        self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
-        self.activateWindow()
 
     def center_window(self) -> None:
         screen_geometry = QGuiApplication.primaryScreen().geometry()
@@ -557,6 +642,10 @@ class MainWindow(QMainWindow):
         self.stacked_windows.addWidget(no_supported_browser_window)
         self.stacked_windows.setCurrentWidget(no_supported_browser_window)
         
+class SettingsWindow(QWidget):
+    def __init__(self, main_window: MainWindow) -> None:
+        super().__init__(main_window)
+        self.setFixedSize(main_window.size())
 
 class CaptchBlockWindow(QWidget):
     def __init__(self, main_window: MainWindow, anime_title: str, download_page_links: list[str]) -> None:
@@ -568,13 +657,13 @@ class CaptchBlockWindow(QWidget):
         info_label = StyledLabel(main_widget, 30)
         info_label.move(50, 50)
         info_label.setText("\nCaptcha block detected, this only ever happens with Gogoanime\n")
-        open_browser_with_links_button = StyledButton(main_widget, 25, "black", "#00FF00", "#00FF7F", "#7aea8e", 10)
-        open_browser_with_links_button.setFixedSize(260, 100)
+        open_browser_with_links_button = StyledButton(main_widget, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
+        open_browser_with_links_button.setFixedSize(265, 100)
         open_browser_with_links_button.move(150, 300)
         open_browser_with_links_button.setText("Download in browser")
         open_browser_with_links_button.clicked.connect(lambda: list(map(webbrowser.open_new_tab, download_page_links))) # type: ignore
-        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", "#FFC300", "#FFD700", "#FFE900", 10)
-        switch_to_anime_pahe_button.setFixedSize(200, 100)
+        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
+        switch_to_anime_pahe_button.setFixedSize(265, 100)
         switch_to_anime_pahe_button.move(620, 300)
         switch_to_anime_pahe_button.setText("Switch to animepahe")
         switch_to_anime_pahe_button.clicked.connect(lambda: main_window.switch_to_pahe(anime_title, self))
@@ -589,12 +678,12 @@ class NoSupportedBrowserWindow(QWidget):
         info_label = StyledLabel(main_widget, 30)
         info_label.move(150, 50)
         info_label.setText("\nUnfortunately downloaading from Gogoanime requires\n you have either Chrome, Edge or Firefox installed\n") 
-        download_chrome_button = StyledButton(main_widget, 25, "black", "#00FF00", "#00FF7F", "#7aea8e", 10)
-        download_chrome_button.setFixedSize(230, 100)
+        download_chrome_button = StyledButton(main_widget, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
+        download_chrome_button.setFixedSize(235, 100)
         download_chrome_button.move(150, 300)
         download_chrome_button.setText("Download Chrome")
         download_chrome_button.clicked.connect(lambda: webbrowser.open_new_tab("https://www.google.com/chrome")) # type: ignore
-        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", "#FFC300", "#FFD700", "#FFE900", 10)
+        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
         switch_to_anime_pahe_button.setFixedSize(280, 100)
         switch_to_anime_pahe_button.move(620, 300)
         switch_to_anime_pahe_button.setText("Switch to animepahe")
@@ -696,21 +785,20 @@ class ScrollableSection(QScrollArea):
                         }""")
 
 class SearchBar(QLineEdit):
-    def __init__(self, parent: QWidget, window: SearchWindow):
+    def __init__(self, parent: QWidget, search_window: SearchWindow):
         super().__init__(parent)
         self.setFixedSize(900, 50)
         self.move(30, 0)
-        self.my_window = window
+        self.search_window = search_window
         self.setPlaceholderText("Enter anime title")
-    # self.returnPressed.connect(lambda: search_window.search_anime(self.text(), default_site))
         self.installEventFilter(self)
         self.setStyleSheet("""
             QLineEdit{
-                border: 1px solid white;
+                border: 1px solid black;
                 border-radius: 15px;
                 padding: 5px;
                 color: black;
-                font-size: 14px;
+                font-size: 21px;
                 font-family: "Berlin Sans FB Demi";
             }
         """)
@@ -719,11 +807,11 @@ class SearchBar(QLineEdit):
         if isinstance(event, QKeyEvent):
             if obj == self and event.type() == event.Type.KeyPress:
                 if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
-                    self.my_window.search_anime(self.text(), default_site)
+                    self.search_window.search_anime(self.text(), pahe_name)
                 elif event.key() == Qt.Key.Key_Tab:
-                    if first_button := self.my_window.results_layout.itemAt(0): first_button.widget().setFocus()
+                    if first_button := self.search_window.results_layout.itemAt(0): first_button.widget().setFocus()
                     else:
-                        self.my_window.search_anime(self.text(), gogo_name) if default_site == pahe_name else self.my_window.search_anime(self.text(), pahe_name)
+                        self.search_window.search_anime(self.text(), gogo_name)
                     return True
         return super().eventFilter(obj, event)
 
@@ -735,7 +823,8 @@ class DownloadedEpisodeCount(StyledLabel):
         self.total_episodes = total_episodes
         self.current_episodes = 0
         self.tray_icon = tray_icon
-        self.tray_icon.messageClicked.connect(lambda : os.startfile(anime_folder_path))
+        if default_make_download_complete_notification:
+            self.tray_icon.messageClicked.connect(lambda : os.startfile(anime_folder_path))
         self.anime_title = anime_title
         self.download_complete_icon = download_complete_icon
         self.resize(100, 50)
@@ -946,7 +1035,7 @@ class DownloadManagerThread(QThread):
 
     def run(self):
         for idx, link in enumerate(self.anime_details.direct_download_links):
-            while len(self.progress_bars) == max_simutaneous_downloads: continue
+            while len(self.progress_bars) == default_max_simutaneous_downloads: continue
             download_size = self.get_exact_episode_size(link)
             if download_size == 0: continue
             while self.paused: continue
@@ -1067,8 +1156,8 @@ class GetDirectDownloadLinksThread(QThread):
                 self.anime_details.direct_download_links = gogo.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality, 
                                                                                         gogo.setup_headless_browser(default_gogo_browser), lambda x: self.update_bar.emit(x))
                 # For testing purposes
-                #raise WebDriverException
-                #raise TimeoutError
+                # raise WebDriverException
+                # raise TimeoutError
                 self.finished.emit(1)
             except Exception as exception:
                 if isinstance(exception, WebDriverException): self.finished.emit(2)
@@ -1110,8 +1199,8 @@ class ChosenAnimeWindow(QWidget):
             self.dub_button = SubDubButton(self, 425, 405, dub)
             self.sub_button = SubDubButton(self, 490, 405, sub)
 
-            if sub_or_dub == dub: self.dub_button.click()
-            elif sub_or_dub == sub:
+            if default_sub_or_dub == dub: self.dub_button.click()
+            elif default_sub_or_dub == sub:
                 self.sub_button.click()
             
             self.dub_button.clicked.connect(lambda: self.co_update_sub_dub_buttons(dub))
@@ -1299,7 +1388,7 @@ class LineUnderTitle(QFrame):
 class SummaryLabel(StyledLabel):
     def __init__(self, parent, summary: str):
         super().__init__(parent)
-        self.move(439, 100)
+        self.move(410, 100)
         words = summary.split(" ")
         formated_summary = []
         letter_count = 0
@@ -1473,15 +1562,14 @@ class SearchButton(StyledButton):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setApplicationName("Senpwai")
+    app.setApplicationName(app_name)
     app.setWindowIcon(QIcon(senpwai_icon_path))
     # Set the purple theme
     palette = app.palette()
-    palette.setColor(QPalette.ColorRole.Window, QColor("#FFA500"))
+    palette.setColor(QPalette.ColorRole.Window, QColor(pahe_normal_color))
     palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
     app.setPalette(palette)
 
     window = MainWindow()
     window.show()
-
-    sys.exit(app.exec())
+#    sys.exit(app.exec())
