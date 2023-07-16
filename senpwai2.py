@@ -1,7 +1,7 @@
 import sys
 from PyQt6 import QtCore
 from PyQt6.QtGui import QColor, QPalette, QPixmap, QGuiApplication, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon, QAction
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QProgressBar, QSystemTrayIcon, QStackedWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QProgressBar, QSystemTrayIcon, QStackedWidget, QLayout
 from PyQt6.QtCore import QObject, Qt, QSize, QThread, pyqtSignal, QEvent, QPoint, pyqtSlot, QMutex
 import os
 import pahe
@@ -165,13 +165,17 @@ class BckgImg(QLabel):
         self.setScaledContents(True)
 
 class Animation(QLabel):
-    def __init__(self, parent, animation_path: str, size_x: int, size_y: int, pos_x: int, pos_y: int):
+    def __init__(self, parent, animation_path: str, animation_size_x: int, animation_size_y: int):
         super().__init__(parent)
-        self.setFixedSize(size_x, size_y)
-        self.move(pos_x, pos_y)
         self.animation = QMovie(animation_path)
-        self.animation.setScaledSize(self.size())
+        self.animation.setScaledSize(QSize(animation_size_x, animation_size_y))
+        self.setMovie(self.animation)
 
+    def start(self):
+        return self.animation.start()
+
+    def stop(self):
+        return self.animation.stop()
 class StyledLabel(QLabel):
     def __init__(self, parent=None, font_size: int=20, bckg_color: str="rgba(0, 0, 0, 220)", border_radius=10):
         super().__init__(parent)
@@ -229,14 +233,12 @@ class IconButton(QPushButton):
                 background-color: transparent;
             }""")
 
-class AnimationAndText(Animation):
-    def __init__(self, parent, animation_path: str, size_x: int, size_y: int, pos_x: int, pos_y: int, text: str, paint_x: int, paint_y: int, font_size: int):
-        super().__init__(parent, animation_path, size_x, size_y, pos_x, pos_y)
-        self.setMovie(self.animation)
+class AnimationAndText(QWidget):
+    def __init__(self, parent, animation_path: str, animation_size_x: int, animation_size_y: int, text: str, paint_x: int, paint_y: int, font_size: int):
+        super().__init__(parent)
+        self.animation = Animation(parent, animation_path, animation_size_x, animation_size_y)
         self.animation_path = animation_path
         self.text_label = OutlinedLabel(parent, paint_x, paint_y)
-        self.text_label.setFixedSize(size_x, size_y)
-        self.text_label.move(pos_x, pos_y)
         self.text_label.setText(text)
         self.text_label.setStyleSheet(f"""
                     OutlinedLabel {{
@@ -245,20 +247,18 @@ class AnimationAndText(Animation):
                         font-family: "Berlin Sans FB Demi";
                         }}
                         """)
-        self.hide()
-        self.text_label.hide()
-
-
+        self.main_layout = QVBoxLayout()
+        self.main_layout.addWidget(self.animation)
+        self.main_layout.addWidget(self.text_label)
+        self.main_layout.setAlignment(self.animation, Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.setAlignment(self.text_label, Qt.AlignmentFlag.AlignCenter)
+        self.setLayout(self.main_layout)
 
     def start(self):
-        self.animation.start()
-        self.show()
-        self.text_label.show()
+        return self.animation.start()
     
     def stop(self):
-        self.hide()
-        self.text_label.hide()
-        self.animation.stop()
+        return self.animation.stop()
 
 
 class OutlinedLabel(QLabel):
@@ -271,7 +271,7 @@ class OutlinedLabel(QLabel):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Draw the outline around the text
-        pen = QPen(QColor("black"))
+        pen = QPen(QColor("black")) # type: ignore
         pen.setWidth(5)
         painter.setPen(pen)
 
@@ -652,7 +652,7 @@ class SettingsWindow(QWidget):
         super().__init__()
         self.main_widget = BckgImg(None, bckg_image_path)
         self.main_layout = QVBoxLayout()
-        self.main_scrollable = ScrollableSection(self, self.main_layout, self.width(), self.height(), self.x(), self.y())
+        self.main_scrollable = ScrollableSection(self, self.main_layout)
         self.sub_dub_setting = SubDubSetting(self)
         self.quality_setting = QualitySetting(self)
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(self)
@@ -774,61 +774,77 @@ class NoSupportedBrowserWindow(QWidget):
         switch_to_anime_pahe_button.move(620, 300)
         switch_to_anime_pahe_button.setText("Switch to animepahe")
         switch_to_anime_pahe_button.clicked.connect(lambda: main_window.switch_to_pahe(anime_title, self))
-        
+
 class SearchWindow(QWidget):
     def __init__(self, main_window: MainWindow):
-        super().__init__(main_window)
-        self.setFixedSize(main_window.size())
-        self.bckg_img = BckgImg(None, bckg_image_path)
-
+        super().__init__()
+        self.main_layout = QVBoxLayout()
         self.search_widget = QWidget(self)
-        self.search_widget.setFixedSize(1000, 150)
-        self.search_widget.move(30, 50)
 
         zero_two_peeping = QLabel(self)
         zero_two_peeping.setPixmap(QPixmap(zero_two_peeping_path))
-        zero_two_peeping.move(480, 0)
-        zero_two_peeping.setFixedSize(65, 50)
+        zero_two_peeping.setFixedSize(130, 100)
         zero_two_peeping.setScaledContents(True)
+        self.main_layout.addWidget(zero_two_peeping)
+        self.main_layout.setAlignment(zero_two_peeping, Qt.AlignmentFlag.AlignHCenter)
         
-        self.search_bar = SearchBar(self.search_widget, self)
+        self.search_bar = SearchBar(None, self)
         self.search_bar_text = lambda: self.search_bar.text()
-        self.search_bar.setFocus()
+        self.search_bar.setMinimumHeight(50)
+        self.main_layout.addWidget(self.search_bar)
         self.main_window = main_window
+        self.search_buttons_widget = QWidget()
+        self.search_buttons_layout = QHBoxLayout()
         self.pahe_search_button = SearchButton(self.search_widget, self, pahe_name)
+        # self.pahe_search_button.setFixedSize(220, 60)
         self.gogo_search_button = SearchButton(self.search_widget, self, gogo_name)
-        self.pahe_search_button.move(self.search_bar.x()+200, self.search_bar.y()+80)
-        self.gogo_search_button.move(self.search_bar.x()+500, self.search_bar.y()+80)
+        # self.gogo_search_button.setFixedSize(220, 60)
+        self.search_buttons_layout.addWidget(self.pahe_search_button)
+        self.search_buttons_layout.addWidget(self.gogo_search_button)
+        self.search_buttons_widget.setLayout(self.search_buttons_layout)
+        self.main_layout.addWidget(self.search_buttons_widget)
+        self.bottom_section_stacked_widgets = QStackedWidget()
 
         self.results_layout = QVBoxLayout()
-        ScrollableSection(self, self.results_layout, 950, 440, 20, 200)
+        self.results_widget = ScrollableSection(self, self.results_layout)
 
-        self.anime_not_found = AnimationAndText(self, sadge_piece_path, 450, 300, 290, 180, "Couldn't find that anime", 0, 165, 40)
-        spacing = "              " # Easy fix to  positioning issues lol
-        self.loading = AnimationAndText(self, loading_animation_path, 450, 300, 290, 180, f"{spacing}Loading.. .", 0, 165, 40)
+        self.loading = AnimationAndText(self, loading_animation_path, 600, 300, "Loading.. .", 1, 48, 50)
+        self.anime_not_found = AnimationAndText(self, sadge_piece_path, 400, 300, ":( couldn't find that anime ", 1, 48, 50)
+        self.bottom_section_stacked_widgets.addWidget(self.loading)
+        self.bottom_section_stacked_widgets.addWidget(self.anime_not_found)
+        self.bottom_section_stacked_widgets.addWidget(self.results_widget)
+        self.bottom_section_stacked_widgets.setCurrentWidget(self.results_widget)
+        self.main_layout.addWidget(self.bottom_section_stacked_widgets)
+
+
+        self.setLayout(self.main_layout)
         self.search_thread = None
+        self.search_bar.setFocus()
 
 
     def search_anime(self, anime_title: str, site: str) -> None:
         # Check setup_chosen_anime_window and MainWindow for why the if statement
         # I might remove this cause the behavior experienced in setup_chosen_anime_window is absent here for some reason, but for safety I'll just keep it
         if not self.search_thread:
+            if self.bottom_section_stacked_widgets.currentWidget() == self.anime_not_found: self.anime_not_found.stop()
+            self.bottom_section_stacked_widgets.setCurrentWidget(self.loading)
+            self.loading.start()
             for idx in reversed(range(self.results_layout.count())):
                 self.results_layout.itemAt(idx).widget().deleteLater()
-            self.anime_not_found.stop()
-            self.loading.start()
             self.search_thread = SearchThread(self, anime_title, site)
             self.search_thread.finished.connect(lambda results: self.handle_finished_search(site, results))
             self.search_thread.start()
 
     def handle_finished_search(self, site: str, results: list[Anime]): 
-        self.loading.stop()   
+        self.loading.stop() 
         if len(results) == 0:
+            self.bottom_section_stacked_widgets.setCurrentWidget(self.anime_not_found)
             self.anime_not_found.start()
-
-        for result in results:
-            button = ResultButton(result, self.main_window, site, 9, 43)
-            self.results_layout.addWidget(button)
+        else:
+            self.bottom_section_stacked_widgets.setCurrentWidget(self.results_widget)  
+            for result in results:
+                button = ResultButton(result, self.main_window, site, 9, 43)
+                self.results_layout.addWidget(button)
         self.search_thread = None
 
 
@@ -856,10 +872,8 @@ class SearchThread(QThread):
         self.finished.emit(extracted_results)
 
 class ScrollableSection(QScrollArea):
-    def __init__(self, parent: QWidget, layout: QVBoxLayout, size_x: int, size_y: int, pos_x: int, pos_y: int):
+    def __init__(self, parent: QWidget | None, layout: QVBoxLayout):
         super().__init__(parent)
-        self.resize(size_x, size_y)
-        self.move(pos_x, pos_y)
         self.setWidgetResizable(True)
         self.widget_section = QWidget()
         self.widget_section.setLayout(layout)
@@ -871,10 +885,8 @@ class ScrollableSection(QScrollArea):
                         }""")
 
 class SearchBar(QLineEdit):
-    def __init__(self, parent: QWidget, search_window: SearchWindow):
+    def __init__(self, parent: QWidget | None, search_window: SearchWindow):
         super().__init__(parent)
-        self.setFixedSize(900, 50)
-        self.move(30, 0)
         self.search_window = search_window
         self.setPlaceholderText("Enter anime title")
         self.installEventFilter(self)
@@ -988,7 +1000,7 @@ class DownloadWindow(QWidget):
         self.download_complete_icon = QIcon(download_complete_icon_path)
         self.tray_icon = main_window.tray_icon
         self.downloads_layout = QVBoxLayout(self)
-        ScrollableSection(self, self.downloads_layout, 1000, 440, 5, 200)
+        ScrollableSection(self, self.downloads_layout)
         self.anime_progress_widget = QWidget(self)
         self.anime_progress_widget.resize(1000, 210)
         self.anime_progress_widget.move(0, 0)
@@ -1628,12 +1640,11 @@ class ResultButton(OutlinedButton):
 class SearchButton(StyledButton):
     def __init__(self, parent: QWidget, window: SearchWindow, site: str) :
         if site == pahe_name:
-            super().__init__(parent, 22, "white", pahe_normal_color, pahe_hover_color, pahe_pressed_color)
+            super().__init__(parent, 25, "white", pahe_normal_color, pahe_hover_color, pahe_pressed_color)
             self.setText("Animepahe")
         else:
-            super().__init__(parent, 22, "white", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
+            super().__init__(parent, 25, "white", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
             self.setText("Gogoanime")
-        self.setFixedSize(200, 50)
         self.clicked.connect(lambda: window.search_anime(window.search_bar_text(), site))
 
 if __name__ == "__main__":
@@ -1647,5 +1658,5 @@ if __name__ == "__main__":
     app.setPalette(palette)
 
     window = MainWindow()
-    window.show()
+    window.showMaximized()
     sys.exit(app.exec())
