@@ -1,7 +1,7 @@
 import sys
 from PyQt6 import QtCore
 from PyQt6.QtGui import QColor, QPalette, QPixmap, QGuiApplication, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon, QAction
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QProgressBar, QSystemTrayIcon, QStackedWidget, QLayout
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QProgressBar, QSystemTrayIcon, QStackedWidget, QLayout, QSizePolicy
 from PyQt6.QtCore import QObject, Qt, QSize, QThread, pyqtSignal, QEvent, QPoint, pyqtSlot, QMutex
 import os
 import pahe
@@ -151,6 +151,10 @@ def configure_settings() -> dict:
 
 settings = configure_settings()
 
+def set_minimum_size_policy(object):
+    object.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+    object.setFixedSize(object.sizeHint())
+
 class Anime():
     def __init__(self, title: str, page_link: str, anime_id: str|None) -> None:
         self.title = title
@@ -165,7 +169,7 @@ class BckgImg(QLabel):
         self.setScaledContents(True)
 
 class Animation(QLabel):
-    def __init__(self, parent, animation_path: str, animation_size_x: int, animation_size_y: int):
+    def __init__(self, animation_path: str, animation_size_x: int, animation_size_y: int, parent: QWidget | None=None):
         super().__init__(parent)
         self.animation = QMovie(animation_path)
         self.animation.setScaledSize(QSize(animation_size_x, animation_size_y))
@@ -192,9 +196,10 @@ class StyledLabel(QLabel):
                             """)
 
 class StyledButton(QPushButton):
-    def __init__(self, parent, font_size: int, font_color: str, normal_color: str, hover_color: str, pressed_color: str, border_radius=5):
+    def __init__(self, parent: QWidget | None, font_size: int, font_color: str, normal_color: str, hover_color: str, pressed_color: str, border_radius=5):
         super().__init__()
-        self.setParent(parent)
+        if parent: 
+            self.setParent(parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(f"""
             QPushButton {{
@@ -217,7 +222,7 @@ class StyledButton(QPushButton):
         """)        
 
 class IconButton(QPushButton):
-    def __init__(self, parent, size_x: int, size_y: int, icon_path: str, size_factor: int | float):
+    def __init__(self, size_x: int, size_y: int, icon_path: str, size_factor: int | float, parent: QWidget | None = None):
         super().__init__(parent)
         self.setFixedSize(size_x, size_y)
         self.icon_pixmap = QPixmap(icon_path)
@@ -234,9 +239,9 @@ class IconButton(QPushButton):
             }""")
 
 class AnimationAndText(QWidget):
-    def __init__(self, parent, animation_path: str, animation_size_x: int, animation_size_y: int, text: str, paint_x: int, paint_y: int, font_size: int):
+    def __init__(self, animation_path: str, animation_size_x: int, animation_size_y: int, text: str, paint_x: int, paint_y: int, font_size: int, parent: QWidget | None = None):
         super().__init__(parent)
-        self.animation = Animation(parent, animation_path, animation_size_x, animation_size_y)
+        self.animation = Animation(animation_path, animation_size_x, animation_size_y, parent)
         self.animation_path = animation_path
         self.text_label = OutlinedLabel(parent, paint_x, paint_y)
         self.text_label.setText(text)
@@ -262,28 +267,31 @@ class AnimationAndText(QWidget):
 
 
 class OutlinedLabel(QLabel):
-    def __init__(self, parent, paint_x, paint_y):
+    def __init__(self, parent: QWidget | None, paint_x: int, paint_y: int):
         self.paint_x = paint_x
         self.paint_y = paint_y
         super().__init__(parent)
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Draw the outline around the text
-        pen = QPen(QColor("black")) # type: ignore
+        pen = QPen()
         pen.setWidth(5)
         painter.setPen(pen)
 
         path = QPainterPath()
-        path.addText(self.paint_x,self.paint_y, self.font(), self.text())
+        path.addText(self.paint_x, self.paint_y, self.font(), self.text())
         painter.drawPath(path)
-        painter.end()
+
         # Call the parent class's paintEvent to draw the button background and other properties
+        painter.end()
         return super().paintEvent(event)
 
+        
 class OutlinedButton(StyledButton):
-    def __init__(self, paint_x, paint_y, parent: QObject | None, font_size: int, font_color: str, normal_color: str, 
+    def __init__(self, paint_x, paint_y, parent: QWidget | None, font_size: int, font_color: str, normal_color: str, 
                  hover_color: str, pressed_color: str, border_radius=5):
         self.paint_x = paint_x
         self.paint_y = paint_y
@@ -602,8 +610,8 @@ class MainWindow(QMainWindow):
         # self.create_and_switch_to_no_supported_browser_window("Senyuu")
 
         # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
-        # self.setup_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=471abb96-a428-6172-b066-d89f7f9f276c", "471abb96-a428-6172-b066-d89f7f9f276c"), pahe_name)
-        #self.setup_chosen_anime_window(Anime("Senyuu", "https://gogoanime.hu/category/senyuu-", None), gogo_name)
+        self.setup_and_switch_to_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=a8aa3a2e-e5da-2619-fce4-e829b65fef29", "a8aa3a2e-e5da-2619-fce4-e829b65fef29"), pahe_name)
+        # self.setup_and_switch_to_chosen_anime_window(Anime("Blue Lock", "https://gogoanime.hu/category/blue-lock", None), gogo_name)
 
     def center_window(self) -> None:
         screen_geometry = QGuiApplication.primaryScreen().geometry()
@@ -611,10 +619,11 @@ class MainWindow(QMainWindow):
         y = (screen_geometry.height() - self.height()) // 2
         self.move(x, y)
 
-    def setup_chosen_anime_window(self, anime: Anime, site: str):
+    def setup_and_switch_to_chosen_anime_window(self, anime: Anime, site: str):
         # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned when a set a user clicks more than one ResultButton causing the original thread to be reassigned hence get destroyed
         if not self.setup_chosen_anime_window_thread:
             self.search_window.loading.start()
+            self.search_window.bottom_section_stacked_widgets.setCurrentWidget(self.search_window.loading)
             self.setup_chosen_anime_window_thread = SetupChosenAnimeWindowThread(self, anime, site)                  
             self.setup_chosen_anime_window_thread.finished.connect(lambda anime_details: self.handle_finished_drawing_window_widgets(anime_details))
             self.setup_chosen_anime_window_thread.start()
@@ -622,6 +631,7 @@ class MainWindow(QMainWindow):
     def handle_finished_drawing_window_widgets(self, anime_details: AnimeDetails):
         self.setup_chosen_anime_window_thread = None
         self.search_window.loading.stop()
+        self.search_window.bottom_section_stacked_widgets.setCurrentWidget(self.search_window.results_widget)
         chosen_anime_window = ChosenAnimeWindow(self, anime_details)
         self.stacked_windows.addWidget(chosen_anime_window)
         self.stacked_windows.setCurrentWidget(chosen_anime_window)
@@ -652,7 +662,7 @@ class SettingsWindow(QWidget):
         super().__init__()
         self.main_widget = BckgImg(None, bckg_image_path)
         self.main_layout = QVBoxLayout()
-        self.main_scrollable = ScrollableSection(self, self.main_layout)
+        self.main_scrollable = ScrollableSection(self.main_layout)
         self.sub_dub_setting = SubDubSetting(self)
         self.quality_setting = QualitySetting(self)
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(self)
@@ -778,46 +788,47 @@ class NoSupportedBrowserWindow(QWidget):
 class SearchWindow(QWidget):
     def __init__(self, main_window: MainWindow):
         super().__init__()
-        self.main_layout = QVBoxLayout()
-        self.search_widget = QWidget(self)
+        self.main_window = main_window
+        main_layout = QVBoxLayout()
 
-        zero_two_peeping = QLabel(self)
+        zero_two_peeping = QLabel()
         zero_two_peeping.setPixmap(QPixmap(zero_two_peeping_path))
         zero_two_peeping.setFixedSize(130, 100)
         zero_two_peeping.setScaledContents(True)
-        self.main_layout.addWidget(zero_two_peeping)
-        self.main_layout.setAlignment(zero_two_peeping, Qt.AlignmentFlag.AlignHCenter)
+        main_layout.addWidget(zero_two_peeping)
+        main_layout.setAlignment(zero_two_peeping, Qt.AlignmentFlag.AlignHCenter)
         
-        self.search_bar = SearchBar(None, self)
-        self.search_bar_text = lambda: self.search_bar.text()
-        self.search_bar.setMinimumHeight(50)
-        self.main_layout.addWidget(self.search_bar)
-        self.main_window = main_window
-        self.search_buttons_widget = QWidget()
-        self.search_buttons_layout = QHBoxLayout()
-        self.pahe_search_button = SearchButton(self.search_widget, self, pahe_name)
+        self.search_bar = SearchBar(self)
+        self.get_search_bar_text = lambda: self.search_bar.text()
+        self.search_bar.setMinimumHeight(60)
+        main_layout.addWidget(self.search_bar)
+        search_buttons_widget = QWidget()
+        search_buttons_layout = QHBoxLayout()
+        self.pahe_search_button = SearchButton(self, pahe_name)
+        set_minimum_size_policy(self.pahe_search_button)
         # self.pahe_search_button.setFixedSize(220, 60)
-        self.gogo_search_button = SearchButton(self.search_widget, self, gogo_name)
+        self.gogo_search_button = SearchButton(self, gogo_name)
+        set_minimum_size_policy(self.gogo_search_button)
         # self.gogo_search_button.setFixedSize(220, 60)
-        self.search_buttons_layout.addWidget(self.pahe_search_button)
-        self.search_buttons_layout.addWidget(self.gogo_search_button)
-        self.search_buttons_widget.setLayout(self.search_buttons_layout)
-        self.main_layout.addWidget(self.search_buttons_widget)
+        search_buttons_layout.addWidget(self.pahe_search_button)
+        search_buttons_layout.addWidget(self.gogo_search_button)
+        search_buttons_widget.setLayout(search_buttons_layout)
+        main_layout.addWidget(search_buttons_widget)
         self.bottom_section_stacked_widgets = QStackedWidget()
 
         self.results_layout = QVBoxLayout()
-        self.results_widget = ScrollableSection(self, self.results_layout)
+        self.results_widget = ScrollableSection(self.results_layout)
 
-        self.loading = AnimationAndText(self, loading_animation_path, 600, 300, "Loading.. .", 1, 48, 50)
-        self.anime_not_found = AnimationAndText(self, sadge_piece_path, 400, 300, ":( couldn't find that anime ", 1, 48, 50)
+        self.loading = AnimationAndText(loading_animation_path, 600, 300, "Loading.. .", 1, 48, 50)
+        self.anime_not_found = AnimationAndText(sadge_piece_path, 400, 300, ":( couldn't find that anime ", 1, 48, 50)
         self.bottom_section_stacked_widgets.addWidget(self.loading)
         self.bottom_section_stacked_widgets.addWidget(self.anime_not_found)
         self.bottom_section_stacked_widgets.addWidget(self.results_widget)
         self.bottom_section_stacked_widgets.setCurrentWidget(self.results_widget)
-        self.main_layout.addWidget(self.bottom_section_stacked_widgets)
+        main_layout.addWidget(self.bottom_section_stacked_widgets)
 
 
-        self.setLayout(self.main_layout)
+        self.setLayout(main_layout)
         self.search_thread = None
         self.search_bar.setFocus()
 
@@ -843,7 +854,7 @@ class SearchWindow(QWidget):
         else:
             self.bottom_section_stacked_widgets.setCurrentWidget(self.results_widget)  
             for result in results:
-                button = ResultButton(result, self.main_window, site, 9, 43)
+                button = ResultButton(result, self.main_window, site, 9, 48)
                 self.results_layout.addWidget(button)
         self.search_thread = None
 
@@ -872,8 +883,8 @@ class SearchThread(QThread):
         self.finished.emit(extracted_results)
 
 class ScrollableSection(QScrollArea):
-    def __init__(self, parent: QWidget | None, layout: QVBoxLayout):
-        super().__init__(parent)
+    def __init__(self, layout: QVBoxLayout):
+        super().__init__()
         self.setWidgetResizable(True)
         self.widget_section = QWidget()
         self.widget_section.setLayout(layout)
@@ -885,8 +896,8 @@ class ScrollableSection(QScrollArea):
                         }""")
 
 class SearchBar(QLineEdit):
-    def __init__(self, parent: QWidget | None, search_window: SearchWindow):
-        super().__init__(parent)
+    def __init__(self, search_window: SearchWindow):
+        super().__init__()
         self.search_window = search_window
         self.setPlaceholderText("Enter anime title")
         self.installEventFilter(self)
@@ -896,7 +907,7 @@ class SearchBar(QLineEdit):
                 border-radius: 15px;
                 padding: 5px;
                 color: black;
-                font-size: 21px;
+                font-size: 30px;
                 font-family: "Berlin Sans FB Demi";
             }
         """)
@@ -905,11 +916,11 @@ class SearchBar(QLineEdit):
         if isinstance(event, QKeyEvent):
             if obj == self and event.type() == event.Type.KeyPress:
                 if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
-                    self.search_window.search_anime(self.text(), pahe_name)
+                    self.search_window.pahe_search_button.animateClick()
                 elif event.key() == Qt.Key.Key_Tab:
                     if first_button := self.search_window.results_layout.itemAt(0): first_button.widget().setFocus()
                     else:
-                        self.search_window.search_anime(self.text(), gogo_name)
+                        self.search_window.gogo_search_button.animateClick()
                     return True
         return super().eventFilter(obj, event)
 
@@ -995,21 +1006,18 @@ class DownloadWindow(QWidget):
     def __init__(self, main_window: MainWindow):
         super().__init__(main_window)
         self.main_window = main_window
-        self.setFixedSize(main_window.size())
-        BckgImg(self, bckg_image_path)
         self.download_complete_icon = QIcon(download_complete_icon_path)
         self.tray_icon = main_window.tray_icon
-        self.downloads_layout = QVBoxLayout(self)
-        ScrollableSection(self, self.downloads_layout)
-        self.anime_progress_widget = QWidget(self)
-        self.anime_progress_widget.resize(1000, 210)
-        self.anime_progress_widget.move(0, 0)
-
+        self.progress_bars_layout = QVBoxLayout()
+        ScrollableSection(self.progress_bars_layout)
+        full_anime_progress_widget = QWidget()
+        self.full_anime_progress_layout = QVBoxLayout()
+        self.full_anime_progress_widget.setLayout(full_anime_progress_layout)
 
     def get_episode_page_links(self, anime_details: AnimeDetails):
         if anime_details.site == pahe_name: 
             episode_page_progress_bar = ProgressBar(self, "Getting episode page links", "", 400, 33, pahe.get_total_episode_page_count(anime_details.anime.page_link), "pgs")
-            self.downloads_layout.insertWidget(0, episode_page_progress_bar)
+            self.progress_bars_layout.insertWidget(0, episode_page_progress_bar)
             return GetEpisodePageLinksThread(self, anime_details, anime_details.start_download_episode, anime_details.end_download_episode, 
                                   lambda eps_links: self.get_download_page_links(eps_links, anime_details), episode_page_progress_bar.update).start()    
         if anime_details.site ==  gogo_name and anime_details.sub_or_dub == dub and anime_details.dub_available: anime_details.anime.page_link = gogo.get_dub_anime_page_link(anime_details.anime.title) 
@@ -1019,13 +1027,13 @@ class DownloadWindow(QWidget):
     def get_download_page_links(self, episode_page_links: list[str], anime_details: AnimeDetails):
         episode_page_links = [episode_page_links[eps-anime_details.start_download_episode] for eps in anime_details.predicted_episodes_to_download]
         download_page_progress_bar = ProgressBar(self, "Fetching download page links", "", 400, 33, len(episode_page_links), "eps")
-        self.downloads_layout.insertWidget(0, download_page_progress_bar)
+        self.progress_bars_layout.insertWidget(0, download_page_progress_bar)
         GetDownloadPageThread(self, anime_details.site, episode_page_links, lambda down_pge_lnk, down_info: self.get_direct_download_links(down_pge_lnk, down_info, anime_details)
                               , download_page_progress_bar.update).start()
 
     def get_direct_download_links(self, download_page_links: list[str], download_info: list[list[str]], anime_details: AnimeDetails):
         direct_download_links_progress_bar =  ProgressBar(self, "Retrieving direct download links", "", 400, 33, len(download_page_links), "eps") 
-        self.downloads_layout.insertWidget(0, direct_download_links_progress_bar)
+        self.progress_bars_layout.insertWidget(0, direct_download_links_progress_bar)
         GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda status: self.check_link_status(status, anime_details, download_page_links), 
                                      direct_download_links_progress_bar.update).start()
 
@@ -1037,7 +1045,7 @@ class DownloadWindow(QWidget):
     def calculate_download_size(self, anime_details: AnimeDetails):
         if anime_details.site == gogo_name:
             calculating_download_size_progress_bar = ProgressBar(self, "Calcutlating total download size", "", 400, 33, len(anime_details.direct_download_links), "eps")
-            self.downloads_layout.insertWidget(0, calculating_download_size_progress_bar)
+            self.progress_bars_layout.insertWidget(0, calculating_download_size_progress_bar)
             CalculateDownloadSizes(self, anime_details, lambda : self.start_download(anime_details), calculating_download_size_progress_bar.update).start()
         elif anime_details.site == pahe_name:
             CalculateDownloadSizes(self, anime_details, lambda : self.start_download(anime_details), lambda x: None).start()
@@ -1047,23 +1055,23 @@ class DownloadWindow(QWidget):
             anime_details.anime_folder_path = os.path.join(anime_details.chosen_default_download_path, anime_details.sanitised_title)
             os.mkdir(anime_details.anime_folder_path)                          
         displayed_title = anime_details.sanitised_title if len(anime_details.sanitised_title)<=24 else f"{anime_details.sanitised_title[:24]}.. ."
-        anime_progress_bar = DownloadProgressBar(self.anime_progress_widget, "Downloading", displayed_title, 425, 50, anime_details.total_download_size, "MB", 1, False)
+        anime_progress_bar = DownloadProgressBar(self.full_anime_progress_widget, "Downloading", displayed_title, 425, 50, anime_details.total_download_size, "MB", 1, False)
         anime_progress_bar.resize(980, 60)
         anime_progress_bar.move(10, 10)
         anime_progress_bar.show()
-        downloaded_episode_count = DownloadedEpisodeCount(self.anime_progress_widget, len(anime_details.predicted_episodes_to_download), self.tray_icon, 
+        downloaded_episode_count = DownloadedEpisodeCount(self.full_anime_progress_widget, len(anime_details.predicted_episodes_to_download), self.tray_icon, 
                                                           anime_details.anime.title, self.download_complete_icon, anime_details.anime_folder_path)
-        FolderButton(self.anime_progress_widget, cast(str, anime_details.anime_folder_path), 80, 80, 500, 80).show()
+        FolderButton(self.full_anime_progress_widget, cast(str, anime_details.anime_folder_path), 80, 80, 500, 80).show()
         self.current_download = DownloadManagerThread(self, anime_details, anime_progress_bar, downloaded_episode_count)
-        PauseAllButton(self.anime_progress_widget).pause_callback = self.current_download.pause_or_resume
-        CancelAllButton(self.anime_progress_widget).cancel_callback = self.current_download.cancel
+        PauseAllButton(self.full_anime_progress_widget).pause_callback = self.current_download.pause_or_resume
+        CancelAllButton(self.full_anime_progress_widget).cancel_callback = self.current_download.cancel
         self.current_download.start()
 
     @pyqtSlot(str, int, dict)
     def receive_download_progress_bar_details(self, episode_title: str, episode_size: int, progress_bars: dict[str, DownloadProgressBar]):
         bar = DownloadProgressBar(None, "Downloading", episode_title, 400, 33, episode_size, "MB", ibytes_to_mbs_divisor)
         progress_bars[episode_title] = bar 
-        self.downloads_layout.insertWidget(0, bar)
+        self.progress_bars_layout.insertWidget(0, bar)
 
 class DownloadManagerThread(QThread):
     send_progress_bar_details = pyqtSignal(str, int, dict)
@@ -1278,71 +1286,112 @@ class CalculateDownloadSizes(QThread):
             self.anime_details.total_download_size = pahe.calculate_total_download_size(self.anime_details.download_info)
         self.finished.emit()
         
-        
 class ChosenAnimeWindow(QWidget):
-    def __init__(self, parent: MainWindow, anime_details: AnimeDetails):
-        super().__init__(parent)
-        self.main_window = parent
-        self.setFixedSize(parent.size())
+    def __init__(self, main_window: MainWindow, anime_details: AnimeDetails):
+        super().__init__(main_window)
+        self.main_window = main_window
         self.anime_details = anime_details
-        self.anime = anime_details.anime
 
-        BckgImg(self, bckg_image_path)
-        Poster(self, self.anime_details.poster)
-        Title(self, self.anime_details.anime.title)
-        LineUnderTitle(self)
-        SummaryLabel(self, self.anime_details.summary)
+        main_layout = QHBoxLayout()
+        poster = Poster(self.anime_details.poster)
+        main_layout.addWidget(poster)
+        right_widgets_widget = QWidget()
+        right_widgets_layout = QVBoxLayout()
+        title = Title(self.anime_details.anime.title)
+        right_widgets_layout.addWidget(title)
+        line_under_title = HorizontalLine()
+        line_under_title.setFixedHeight(10)
+        right_widgets_layout.addWidget(line_under_title)
+        summary = SummaryLabel(self.anime_details.summary)
+        right_widgets_layout.addWidget(summary)
 
-        self.sub_button = SubDubButton(self, sub, 20)
-        self.sub_button.move(490, 405)
-        self.sub_button.setFixedSize(60, 40)
+        self.sub_button = SubDubButton(self, sub, 25)
+        set_minimum_size_policy(self.sub_button)
+        # self.sub_button.setFixedSize(buttons_default_size)
         self.dub_button = None
         self.sub_button.clicked.connect(lambda: self.update_sub_or_dub(sub))
-        if settings[key_sub_or_dub] == sub: self.sub_button.click()
+        if settings[key_sub_or_dub] == sub: self.sub_button.animateClick()
         if self.anime_details.dub_available:
-            self.dub_button = SubDubButton(self, dub, 20)
-            self.dub_button.move(425, 405)
-            self.dub_button.setFixedSize(60, 40)
+            self.dub_button = SubDubButton(self, dub, 25)
+            # self.dub_button.setFixedSize(buttons_default_size)
+            set_minimum_size_policy(self.dub_button)
             self.dub_button.clicked.connect(lambda: self.update_sub_or_dub(dub))
             if settings[key_sub_or_dub] == dub: self.dub_button.click()
             self.dub_button.clicked.connect(lambda: self.sub_button.change_style_sheet(False))
             self.sub_button.clicked.connect(lambda: self.dub_button.change_style_sheet(False))# type: ignore
+        else: 
+            self.sub_button.click()
+            self.anime_details.sub_or_dub = sub
 
-        self.button_1080 = QualityButton(self, q_1080, 17) 
-        self.button_1080.move(565, 405)
-        self.button_720 = QualityButton(self, q_720, 17) 
-        self.button_720.move(639, 405)
-        self.button_480 = QualityButton(self, q_480, 17) 
-        self.button_480.move(704, 405)
-        self.button_360 = QualityButton(self, q_360, 17) 
-        self.button_360.move(769, 405)
+        first_row_of_buttons_widget = QWidget()
+        first_row_of_buttons_layout = QHBoxLayout()
+        first_row_of_buttons_layout.addWidget(self.sub_button)
+        if self.dub_button: first_row_of_buttons_layout.addWidget(self.dub_button)
+
+        self.button_1080 = QualityButton(self, q_1080, 21) 
+        self.button_720 = QualityButton(self, q_720, 21) 
+        self.button_480 = QualityButton(self, q_480, 21) 
+        self.button_360 = QualityButton(self, q_360, 21) 
         self.quality_buttons_list = [self.button_1080, self.button_720, self.button_480, self.button_360]
-        self.button_1080.setFixedSize(69, 40)
 
         for button in self.quality_buttons_list:
+            set_minimum_size_policy(button)
+            first_row_of_buttons_layout.addWidget(button)
             quality = button.quality
             button.clicked.connect(lambda garbage_bool, quality=quality: self.update_quality(quality))
             if quality == settings[key_quality]:
                 button.change_style_sheet(True)
-            if quality == q_1080: continue
-            button.setFixedSize(60, 40)
+        first_row_of_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        first_row_of_buttons_widget.setLayout(first_row_of_buttons_layout)
+        right_widgets_layout.addWidget(first_row_of_buttons_widget)
+
+        second_row_of_buttons_widget = QWidget()
+        second_row_of_buttons_layout = QHBoxLayout()
 
         start_episode = str((self.anime_details.haved_end)+1) if (self.anime_details.haved_end and self.anime_details.haved_end < self.anime_details.episode_count) else "1"
-        self.start_episode_input = NumberInput(self)
-        self.start_episode_input.setFixedSize(60, 30)
-        self.start_episode_input.move(420, 460)
+        input_size = QSize(80, 40)
+        self.start_episode_input = NumberInput(21)
+        self.start_episode_input.setFixedSize(input_size)
         self.start_episode_input.setPlaceholderText("START")
         self.start_episode_input.setText(str(start_episode))
-        self.end_episode_input = NumberInput(self)
-        self.end_episode_input.setFixedSize(60, 30)
-        self.end_episode_input.move(500, 460)
+        self.end_episode_input = NumberInput(21)
         self.end_episode_input.setPlaceholderText("END")
+        self.end_episode_input.setFixedSize(input_size)
         self.download_button = DownloadButton(self, self.main_window.download_window, self.anime_details)
-        self.download_button.setFocus()
+        set_minimum_size_policy(self.download_button)
+        # self.download_button.setFixedSize(180, buttons_default_size.height()+20)
 
-        HavedEpisodes(self, self.anime_details.haved_start, self.anime_details.haved_end, self.anime_details.haved_count)
-        self.episode_count = EpisodeCount(self, str(self.anime_details.episode_count))
-        if self.anime_details.anime_folder_path: FolderButton(self, self.anime_details.anime_folder_path, 60, 60, 710, 445)
+        second_row_of_buttons_layout.addWidget(self.start_episode_input)
+        second_row_of_buttons_layout.addWidget(self.end_episode_input)
+        second_row_of_buttons_layout.addWidget(self.download_button)
+        second_row_of_buttons_widget.setLayout(second_row_of_buttons_layout)
+        second_row_of_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        # second_row_of_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        right_widgets_layout.addWidget(second_row_of_buttons_widget)
+
+        third_row_of_labels_widget = QWidget()
+        third_row_of_labels_layout = QHBoxLayout()
+
+        haved_episodes = HavedEpisodes(self.anime_details.haved_start, self.anime_details.haved_end, self.anime_details.haved_count)
+        # haved_episodes.setFixedSize(420, buttons_default_size.height())
+        set_minimum_size_policy(haved_episodes)
+        self.episode_count = EpisodeCount(str(self.anime_details.episode_count))
+        # self.episode_count.setFixedSize(150, buttons_default_size.height())
+        set_minimum_size_policy(self.episode_count)
+        third_row_of_labels_layout.addWidget(self.episode_count)
+        third_row_of_labels_layout.addWidget(haved_episodes)
+        if self.anime_details.anime_folder_path: 
+            folder_button = FolderButton(self.anime_details.anime_folder_path, 120, 120)
+            third_row_of_labels_layout.addWidget(folder_button)
+        third_row_of_labels_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        third_row_of_labels_widget.setLayout(third_row_of_labels_layout)
+        right_widgets_layout.addWidget(third_row_of_labels_widget)
+        right_widgets_widget.setLayout(right_widgets_layout)
+        main_layout.addWidget(right_widgets_widget)
+        self.setLayout(main_layout)
+
+        # For testing purposes
+        self.download_button.animateClick()
 
     def update_quality(self, quality: str):
         self.anime_details.quality = quality
@@ -1367,9 +1416,7 @@ class SetupChosenAnimeWindowThread(QThread):
 
 class DownloadButton(StyledButton):
     def __init__(self, chosen_anime_window: ChosenAnimeWindow, download_window: DownloadWindow, anime_details: AnimeDetails):
-        super().__init__(chosen_anime_window, 18, "white", "green", gogo_normal_color, gogo_hover_color)
-        self.move(570, 450)
-        self.setFixedSize(125, 50)
+        super().__init__(chosen_anime_window, 26, "white", "green", gogo_normal_color, gogo_hover_color)
         self.chosen_anime_window = chosen_anime_window
         self.download_window = download_window
         self.main_window = chosen_anime_window.main_window
@@ -1402,7 +1449,7 @@ class DownloadButton(StyledButton):
             invalid_input = True
 
         # For testing purposes
-        # end_episode = start_episode
+        end_episode = start_episode
 
         self.anime_details.predicted_episodes_to_download = dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode, end_episode, self.anime_details.haved_episodes)
         if len(self.anime_details.predicted_episodes_to_download) == 0: invalid_input = True
@@ -1418,16 +1465,14 @@ class DownloadButton(StyledButton):
 
 
 class FolderButton(IconButton):
-    def __init__(self, parent, path: str, size_x: int, size_y: int, pos_x: int=0, pos_y: int=0 ):
-        super().__init__(parent, size_x, size_y, folder_icon_path, 1.3)
+    def __init__(self, path: str, size_x: int, size_y: int, parent: QWidget | None = None ):
+        super().__init__(size_x, size_y, folder_icon_path, 1.3, parent)
         self.folder_path = path
-        if pos_x != 0 and pos_y != 0: self.move(pos_x, pos_y)
         self.clicked.connect(lambda: os.startfile(self.folder_path))
     
 class EpisodeCount(StyledLabel):
-    def __init__(self, parent, count: str):
-        super().__init__(parent, 20, "rgba(255, 50, 0, 255)")
-        self.move(420, 515)
+    def __init__(self, count: str):
+        super().__init__(None, 24, "rgba(255, 50, 0, 230)")
         self.setText(f"{count} episodes")
         self.normal_style_sheet = self.styleSheet()
         self.invalid_input_style_sheet = self.normal_style_sheet+"""
@@ -1438,17 +1483,17 @@ class EpisodeCount(StyledLabel):
                     """
 
 class Poster(QLabel):
-        def __init__(self, parent, image: bytes):
-            super().__init__(parent)
-            x = 350
-            y = 500
+        def __init__(self, image: bytes):
+            super().__init__()
+            size_x = 350
+            size_y = 500
             pixmap = QPixmap()
             pixmap.loadFromData(image) # type: ignore Type checking is ass on this one honestly
-            pixmap = pixmap.scaled(x, y, Qt.AspectRatioMode.IgnoreAspectRatio)
+            pixmap = pixmap.scaled(size_x, size_y, Qt.AspectRatioMode.IgnoreAspectRatio)
 
-            self.move(50, 50)
+            self.move(50, 60)
             self.setPixmap(pixmap)
-            self.setFixedSize(x, y)
+            self.setFixedSize(size_x, size_y)
             self.setStyleSheet("""
                         QLabel {
                         background-color: rgba(255, 160, 0, 255);
@@ -1459,68 +1504,47 @@ class Poster(QLabel):
                         """)
 
 class Title(OutlinedLabel):
-    def __init__(self, parent, title: str):
-        super().__init__(parent, 0, 28)
-        self.move(450, 50)
-        title = title.upper()
-        if len(title) > 27: title = f"{title[:27]}.. ."
-        self.setText(title)
+    def __init__(self, title: str):
+        super().__init__(None, 0, 69)
+        self.setText(title.upper())
+        self.setWordWrap(True)
         self.setStyleSheet("""
                     OutlinedLabel {
                         color: orange;
-                        font-size: 30px;
+                        font-size: 60px;
                         font-family: "Berlin Sans FB Demi";
                             }
                             """)
 
-class LineUnderTitle(QFrame):
-        def __init__(self, parent):
+class HorizontalLine(QFrame):
+        def __init__(self, color: str = "black", parent: QWidget | None = None):
             super().__init__(parent)
             self.setFrameShape(QFrame.Shape.HLine)
-            self.setFixedSize(550, 7)
-            self.move(430, 85)
-            self.setStyleSheet("""
-                        QFrame { 
-                            background-color: black; 
-                            }
+            self.setStyleSheet(f"""
+                        QFrame {{ 
+                            background-color: {color}; 
+                            }}
                             """)
 
 
 class SummaryLabel(StyledLabel):
-    def __init__(self, parent, summary: str):
-        super().__init__(parent)
-        self.move(410, 100)
-        words = summary.split(" ")
-        formated_summary = []
-        letter_count = 0
-        for idx, word in enumerate(words):
-            if idx == 100:
-                formated_summary.append(".. .")
-                break
-            word = word.replace("\r", " ")
-            word = word.replace("\n", " ")
-            letter_count+=len(word)
-            if letter_count >= 41:
-                letter_count = 0
-                formated_summary.append("\n")
-            formated_summary.append(word)
-        
-        words = ' '.join(formated_summary)
-        self.setText(words)
+    def __init__(self, summary: str):
+        super().__init__(font_size=20)
+        self.setText(summary)
+        self.setWordWrap(True)
 
 class HavedEpisodes(StyledLabel):
-    def __init__(self, parent, start: int | None, end: int | None, count: int |None):
-        super().__init__(parent)
+    def __init__(self, start: int | None, end: int | None, count: int |None):
+        super().__init__(font_size=23)
         self.start = start
         self.end = end
         self.count = count
-        self.move(570, 515)
         if not count: self.setText("You have No episodes of this anime")
         else: self.setText(f"You have {count} episodes from {start} to {end}") if count != 1 else self.setText(f"You have {count} episode from {start} to {end}")
 
 
 class NumberInput(QLineEdit):
-    def __init__(self, parent=None, font_size: int=14):
+    def __init__(self, font_size: int=14, parent: QWidget | None = None ):
         super().__init__(parent)
         self.installEventFilter(self)
         self.setStyleSheet(f"""
@@ -1607,8 +1631,7 @@ class ResultButton(OutlinedButton):
         else:
             hover_color = gogo_normal_color
             pressed_color = gogo_hover_color
-        super().__init__(paint_x, paint_y, main_window, 30, "white", "transparent", hover_color, pressed_color)
-        self.move(900, 60)
+        super().__init__(paint_x, paint_y, None, 40, "white", "transparent", hover_color, pressed_color)
         self.setText(anime.title)
         self.setStyleSheet(self.styleSheet()+"""
                            QPushButton{
@@ -1620,14 +1643,14 @@ class ResultButton(OutlinedButton):
                     QPushButton{{
                         background-color: {hover_color};
         }}"""
-        self.clicked.connect(lambda: main_window.setup_chosen_anime_window(anime, site))
+        self.clicked.connect(lambda: main_window.setup_and_switch_to_chosen_anime_window(anime, site))
         self.installEventFilter(self)
     
     def eventFilter(self, obj, event: QEvent):
         if obj == self:
             if isinstance(event, QKeyEvent):
                 if event.type() == event.Type.KeyPress and (event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return):
-                    self.click()
+                    self.animateClick()
             elif event.type() == QEvent.Type.FocusIn:
                 self.setStyleSheet(self.focused_sheet)
             elif event.type() == QEvent.Type.FocusOut:
@@ -1638,14 +1661,14 @@ class ResultButton(OutlinedButton):
 
 
 class SearchButton(StyledButton):
-    def __init__(self, parent: QWidget, window: SearchWindow, site: str) :
+    def __init__(self, window: SearchWindow, site: str) :
         if site == pahe_name:
-            super().__init__(parent, 25, "white", pahe_normal_color, pahe_hover_color, pahe_pressed_color)
+            super().__init__(window, 40, "white", pahe_normal_color, pahe_hover_color, pahe_pressed_color)
             self.setText("Animepahe")
         else:
-            super().__init__(parent, 25, "white", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
+            super().__init__(window, 40, "white", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
             self.setText("Gogoanime")
-        self.clicked.connect(lambda: window.search_anime(window.search_bar_text(), site))
+        self.clicked.connect(lambda: window.search_anime(window.get_search_bar_text(), site))
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
