@@ -314,7 +314,7 @@ class OutlinedButton(StyledButton):
         return super().paintEvent(event)
 
 class ProgressBar(QWidget):
-    def __init__(self, parent, task_title: str, item_task_is_applied_on: str, size_x: int, size_y: int, total_value: int, units: str, units_divisor: int = 1):
+    def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int, units: str, units_divisor: int = 1):
         super().__init__(parent)
         self.item_task_is_applied_on = item_task_is_applied_on
         self.total_value = total_value
@@ -325,7 +325,6 @@ class ProgressBar(QWidget):
         self.setLayout(self.items_layout)
 
         self.bar = QProgressBar(self)
-        self.bar.setFixedSize(size_x, size_y)
         self.bar.setValue(0)
         self.bar.setMaximum(total_value)
         self.bar.setFormat(f"{task_title} {item_task_is_applied_on}")
@@ -337,7 +336,7 @@ class ProgressBar(QWidget):
                  text-align: center;
                  border-radius: 10px;
                  background-color: rgba(255, 255, 255, 150);
-                 font-size: 20px;
+                 font-size: 22px;
                  font-family: "Berlin Sans FB Demi";
              }
 
@@ -346,23 +345,12 @@ class ProgressBar(QWidget):
                  border-radius: 10px;
              }
          """)
-        self.completed_stylesheet = """
-             QProgressBar {
-                 border: 1px solid black;
-                 color: black;
-                 text-align: center;
-                 border-radius: 10px;
+        style_to_overwride = """
+                QProgressBar {
                  background-color: rgba(255, 255, 255, 150);
-                 font-size: 20px;
-                 font-family: "Berlin Sans FB Demi";
-             }
-
-             QProgressBar::chunk {
-                 background-color: #00FF00;
-                 border-radius: 10px;
-             }
-         """
-        style_sheet = """
+                }"""
+        self.completed_stylesheet = self.bar.styleSheet()+style_to_overwride
+        text_style_sheet = """
                         OutlinedLabel {
                         color: white;
                         font-size: 26px;
@@ -373,22 +361,22 @@ class ProgressBar(QWidget):
         self.percentage = OutlinedLabel(self, 1, 35)
         self.percentage.setText("0 %")
         self.percentage.setFixedHeight(height)
-        self.percentage.setStyleSheet(style_sheet)
+        self.percentage.setStyleSheet(text_style_sheet)
 
         self.rate = OutlinedLabel(self, 1, 40)
         self.rate.setText(f" 0 {units}/s")
         self.rate.setFixedHeight(height)
-        self.rate.setStyleSheet(style_sheet)
+        self.rate.setStyleSheet(text_style_sheet)
         
         self.eta = OutlinedLabel(self, 1, 40)
         self.eta.setText("∞ secs left")
         self.eta.setFixedHeight(height)
-        self.eta.setStyleSheet(style_sheet)
+        self.eta.setStyleSheet(text_style_sheet)
         
         self.current_against_max_values = OutlinedLabel(self, 1, 40)
         self.current_against_max_values.setText(f"0/{round(total_value/units_divisor)} {units}")
         self.current_against_max_values.setFixedHeight(height)
-        self.current_against_max_values.setStyleSheet(style_sheet)
+        self.current_against_max_values.setStyleSheet(text_style_sheet)
 
         self.items_layout.addWidget(self.percentage)
         self.items_layout.addWidget(self.bar)
@@ -426,8 +414,8 @@ class ProgressBar(QWidget):
 
 
 class DownloadProgressBar(ProgressBar):
-    def __init__(self, parent, task_title: str, item_task_is_applied_on: str, size_x: int, size_y: int, total_value: int, units: str, units_divisor: int, has_icon_buttons: bool = True):
-        super().__init__(parent, task_title, item_task_is_applied_on, size_x, size_y, total_value, units, units_divisor)
+    def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int, units: str, units_divisor: int, has_icon_buttons: bool = True):
+        super().__init__(parent, task_title, item_task_is_applied_on, total_value, units, units_divisor)
         self.has_icon_buttons = has_icon_buttons
         self.task_title = task_title
         self.paused = False
@@ -452,12 +440,12 @@ class DownloadProgressBar(ProgressBar):
                 }
             """
         if has_icon_buttons:
-            self.pause_button = IconButton(self, 40, 40, pause_icon_path, 1.3)
+            self.pause_button = IconButton(40, 40, pause_icon_path, 1.3)
             self.pause_icon = self.pause_button.icon()
             resume_icon_pixmap = QPixmap(resume_icon_path)
             resume_icon_pixmap.scaled(40, 40, Qt.AspectRatioMode.IgnoreAspectRatio)
             self.resume_icon = QIcon(resume_icon_pixmap) 
-            self.cancel_button: IconButton = IconButton(self, 35, 35, cancel_icon_path, 1.3)
+            self.cancel_button: IconButton = IconButton(35, 35, cancel_icon_path, 1.3)
             self.pause_button.clicked.connect(self.pause_or_resume)
             self.cancel_button.clicked.connect(self.cancel)
 
@@ -610,7 +598,7 @@ class MainWindow(QMainWindow):
         # self.create_and_switch_to_no_supported_browser_window("Senyuu")
 
         # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
-        self.setup_and_switch_to_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=a8aa3a2e-e5da-2619-fce4-e829b65fef29", "a8aa3a2e-e5da-2619-fce4-e829b65fef29"), pahe_name)
+        # self.setup_and_switch_to_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=a8aa3a2e-e5da-2619-fce4-e829b65fef29", "a8aa3a2e-e5da-2619-fce4-e829b65fef29"), pahe_name)
         # self.setup_and_switch_to_chosen_anime_window(Anime("Blue Lock", "https://gogoanime.hu/category/blue-lock", None), gogo_name)
 
     def center_window(self) -> None:
@@ -646,7 +634,7 @@ class MainWindow(QMainWindow):
         self.search_window.pahe_search_button.click()
     
     def create_and_switch_to_captcha_block_window(self, anime_title: str, download_page_links: list[str]) -> None:
-        captcha_block_window = CaptchBlockWindow(self, anime_title, download_page_links)
+        captcha_block_window = CaptchaBlockWindow(self, anime_title, download_page_links)
         self.stacked_windows.addWidget(captcha_block_window)
         self.stacked_windows.setCurrentWidget(captcha_block_window)
 
@@ -747,7 +735,7 @@ class SubDubSetting(QWidget):
         self.main_layout.addWidget(self.sub_button)
         self.main_layout.addWidget(self.dub_button)
         self.setLayout(self.main_layout)
-class CaptchBlockWindow(QWidget):
+class CaptchaBlockWindow(QWidget):
     def __init__(self, main_window: MainWindow, anime_title: str, download_page_links: list[str]) -> None:
         super().__init__(main_window)
         self.setFixedSize(main_window.size())
@@ -886,9 +874,10 @@ class ScrollableSection(QScrollArea):
     def __init__(self, layout: QVBoxLayout):
         super().__init__()
         self.setWidgetResizable(True)
-        self.widget_section = QWidget()
-        self.widget_section.setLayout(layout)
-        self.setWidget(self.widget_section)
+        self.main_widget = QWidget()
+        self.main_widget.setLayout(layout)
+        self.main_layout = self.layout()
+        self.setWidget(self.main_widget)
         self.setStyleSheet("""
                     QWidget {
                         background-color: transparent;
@@ -928,7 +917,7 @@ class SearchBar(QLineEdit):
 class DownloadedEpisodeCount(StyledLabel):
     def __init__(self, parent, total_episodes: int, tray_icon: QSystemTrayIcon, anime_title: str, 
                  download_complete_icon: QIcon, anime_folder_path: str):
-        super().__init__(parent, 20)
+        super().__init__(parent, 30)
         self.total_episodes = total_episodes
         self.current_episodes = 0
         self.tray_icon = tray_icon
@@ -936,26 +925,30 @@ class DownloadedEpisodeCount(StyledLabel):
             self.tray_icon.messageClicked.connect(lambda : os.startfile(anime_folder_path))
         self.anime_title = anime_title
         self.download_complete_icon = download_complete_icon
-        self.resize(100, 50)
-        self.move(200, 100)
         self.setText(f"{0}/{total_episodes} eps")
         self.show()
 
     def download_complete_notification(self):
         self.tray_icon.showMessage("Download Complete", self.anime_title, self.download_complete_icon)
 
+    def is_complete(self) -> bool:
+        return self.current_episodes >= self.total_episodes
+
+    def is_cancelled(self) -> bool:
+        return self.total_episodes <= 0
 
     def update(self, added_episode_count: int):
         self.current_episodes+=added_episode_count
         self.setText(f"{self.current_episodes}/{self.total_episodes} eps")
-        if self.current_episodes == self.total_episodes and self.total_episodes > 0:
+        if  self.is_complete and not self.is_cancelled:
             self.download_complete_notification()
+        super().update()
+        set_minimum_size_policy(self)
+
 
 class CancelAllButton(StyledButton):
-    def __init__(self, parent):
-        super().__init__(parent, 18, "white", "red", "#ED2B2A", "#990000")
-        self.setFixedSize(90, 40)
-        self.move(410, 103)
+    def __init__(self, parent: QWidget | None=None):
+        super().__init__(parent, 25, "white", "red", "#ED2B2A", "#990000")
         self.setText("CANCEL")
         self.cancel_callback: Callable = lambda: None
         self.clicked.connect(self.cancel) 
@@ -965,12 +958,11 @@ class CancelAllButton(StyledButton):
         self.cancel_callback()
 
 class PauseAllButton(StyledButton):
-    def __init__(self, parent):
-        super().__init__(parent, 18, "white", "#FFA41B", "#FFA756", "#F86F03")
-        self.setFixedSize(90, 40)
+    def __init__(self, download_is_active: Callable, parent: QWidget | None=None):
+        super().__init__(parent, 25, "white", "#FFA41B", "#FFA756", "#F86F03")
         self.setText("PAUSE")
-        self.move(310, 103)
         self.pause_callback: Callable = lambda: None
+        self.download_is_active = download_is_active
         self.not_paused_style_sheet = self.styleSheet()
         styles_to_overwride = """
                 QPushButton {
@@ -990,15 +982,18 @@ class PauseAllButton(StyledButton):
         self.show()
 
     def pause_or_resume(self):
-        self.paused = not self.paused
-        self.pause_callback()
-        if self.paused: 
-            self.setText("RESUME")
-            self.setStyleSheet(self.paused_style_sheet)
+        if self.download_is_active():
+            self.paused = not self.paused
+            self.pause_callback()
+            if self.paused: 
+                self.setText("RESUME")
+                self.setStyleSheet(self.paused_style_sheet)
 
-        elif not self.paused:
-            self.setText("PAUSE")
-            self.setStyleSheet(self.not_paused_style_sheet)
+            elif not self.paused:
+                self.setText("PAUSE")
+                self.setStyleSheet(self.not_paused_style_sheet)
+            self.update()
+            set_minimum_size_policy(self)
 
 
 
@@ -1008,15 +1003,36 @@ class DownloadWindow(QWidget):
         self.main_window = main_window
         self.download_complete_icon = QIcon(download_complete_icon_path)
         self.tray_icon = main_window.tray_icon
+        main_layout = QVBoxLayout()
+        progress_bars_widget = QWidget()
         self.progress_bars_layout = QVBoxLayout()
-        ScrollableSection(self.progress_bars_layout)
-        full_anime_progress_widget = QWidget()
-        self.full_anime_progress_layout = QVBoxLayout()
-        self.full_anime_progress_widget.setLayout(full_anime_progress_layout)
+        """
+            Careful now DONT CHANGE THE ORDERING BELOW
+            Without maintaining a reference to ScrollabeSection by assigning it to a variable, the garbage COllector deletes it and since the last known father
+            to self.progress_bars_layout is ScrollableSection self.progress_bars_layout gets deleted resulting to RuntimeError. The same behaviour is experienced if we assign
+            it to a variable but make the assignment after we call progress_bars_widget.setLayout(self.progress_bars_layout), since the last known father is scrollable_section
+            but it gets out of scope when we leave the __init__ hence a garbage collected and a crash
+        """ 
+        _ = ScrollableSection(self.progress_bars_layout)
+        progress_bars_widget.setLayout(self.progress_bars_layout)
+        top_section_widget = QWidget()
+        top_section_layout = QVBoxLayout()
+        top_section_widget.setLayout(top_section_layout)
+        first_row_of_progress_bar_widget = QWidget()
+        self.first_row_of_progress_bar_layout = QHBoxLayout()
+        first_row_of_progress_bar_widget.setLayout(self.first_row_of_progress_bar_layout)
+        second_row_of_buttons_widget = QWidget()
+        self.second_row_of_buttons_layout = QHBoxLayout()
+        second_row_of_buttons_widget.setLayout(self.second_row_of_buttons_layout)
+        top_section_layout.addWidget(first_row_of_progress_bar_widget)
+        top_section_layout.addWidget(second_row_of_buttons_widget)
+        main_layout.addWidget(top_section_widget)
+        main_layout.addWidget(progress_bars_widget)
+        self.setLayout(main_layout)
 
     def get_episode_page_links(self, anime_details: AnimeDetails):
         if anime_details.site == pahe_name: 
-            episode_page_progress_bar = ProgressBar(self, "Getting episode page links", "", 400, 33, pahe.get_total_episode_page_count(anime_details.anime.page_link), "pgs")
+            episode_page_progress_bar = ProgressBar(None, "Getting episode page links", "", pahe.get_total_episode_page_count(anime_details.anime.page_link), "pgs")
             self.progress_bars_layout.insertWidget(0, episode_page_progress_bar)
             return GetEpisodePageLinksThread(self, anime_details, anime_details.start_download_episode, anime_details.end_download_episode, 
                                   lambda eps_links: self.get_download_page_links(eps_links, anime_details), episode_page_progress_bar.update).start()    
@@ -1026,13 +1042,13 @@ class DownloadWindow(QWidget):
 
     def get_download_page_links(self, episode_page_links: list[str], anime_details: AnimeDetails):
         episode_page_links = [episode_page_links[eps-anime_details.start_download_episode] for eps in anime_details.predicted_episodes_to_download]
-        download_page_progress_bar = ProgressBar(self, "Fetching download page links", "", 400, 33, len(episode_page_links), "eps")
+        download_page_progress_bar = ProgressBar(self, "Fetching download page links", "", len(episode_page_links), "eps")
         self.progress_bars_layout.insertWidget(0, download_page_progress_bar)
         GetDownloadPageThread(self, anime_details.site, episode_page_links, lambda down_pge_lnk, down_info: self.get_direct_download_links(down_pge_lnk, down_info, anime_details)
                               , download_page_progress_bar.update).start()
 
     def get_direct_download_links(self, download_page_links: list[str], download_info: list[list[str]], anime_details: AnimeDetails):
-        direct_download_links_progress_bar =  ProgressBar(self, "Retrieving direct download links", "", 400, 33, len(download_page_links), "eps") 
+        direct_download_links_progress_bar =  ProgressBar(self, "Retrieving direct download links", "", len(download_page_links), "eps") 
         self.progress_bars_layout.insertWidget(0, direct_download_links_progress_bar)
         GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda status: self.check_link_status(status, anime_details, download_page_links), 
                                      direct_download_links_progress_bar.update).start()
@@ -1044,7 +1060,7 @@ class DownloadWindow(QWidget):
 
     def calculate_download_size(self, anime_details: AnimeDetails):
         if anime_details.site == gogo_name:
-            calculating_download_size_progress_bar = ProgressBar(self, "Calcutlating total download size", "", 400, 33, len(anime_details.direct_download_links), "eps")
+            calculating_download_size_progress_bar = ProgressBar(self, "Calcutlating total download size", "", len(anime_details.direct_download_links), "eps")
             self.progress_bars_layout.insertWidget(0, calculating_download_size_progress_bar)
             CalculateDownloadSizes(self, anime_details, lambda : self.start_download(anime_details), calculating_download_size_progress_bar.update).start()
         elif anime_details.site == pahe_name:
@@ -1054,22 +1070,31 @@ class DownloadWindow(QWidget):
         if not anime_details.anime_folder_path:
             anime_details.anime_folder_path = os.path.join(anime_details.chosen_default_download_path, anime_details.sanitised_title)
             os.mkdir(anime_details.anime_folder_path)                          
-        displayed_title = anime_details.sanitised_title if len(anime_details.sanitised_title)<=24 else f"{anime_details.sanitised_title[:24]}.. ."
-        anime_progress_bar = DownloadProgressBar(self.full_anime_progress_widget, "Downloading", displayed_title, 425, 50, anime_details.total_download_size, "MB", 1, False)
-        anime_progress_bar.resize(980, 60)
-        anime_progress_bar.move(10, 10)
-        anime_progress_bar.show()
-        downloaded_episode_count = DownloadedEpisodeCount(self.full_anime_progress_widget, len(anime_details.predicted_episodes_to_download), self.tray_icon, 
+        anime_progress_bar = DownloadProgressBar(None, "Downloading", anime_details.anime.title, anime_details.total_download_size, "MB", 1, False)
+        anime_progress_bar.bar.setMinimumHeight(50)
+        self.first_row_of_progress_bar_layout.addWidget(anime_progress_bar)
+        downloaded_episode_count = DownloadedEpisodeCount(None, len(anime_details.predicted_episodes_to_download), self.tray_icon, 
                                                           anime_details.anime.title, self.download_complete_icon, anime_details.anime_folder_path)
-        FolderButton(self.full_anime_progress_widget, cast(str, anime_details.anime_folder_path), 80, 80, 500, 80).show()
+        download_is_active = lambda: not downloaded_episode_count.is_complete() or not downloaded_episode_count.is_cancelled()
+        set_minimum_size_policy(downloaded_episode_count)
+        folder_button = FolderButton(cast(str, anime_details.anime_folder_path), 120, 120, None)
         self.current_download = DownloadManagerThread(self, anime_details, anime_progress_bar, downloaded_episode_count)
-        PauseAllButton(self.full_anime_progress_widget).pause_callback = self.current_download.pause_or_resume
-        CancelAllButton(self.full_anime_progress_widget).cancel_callback = self.current_download.cancel
+        pause_button = PauseAllButton(download_is_active)
+        pause_button.pause_callback = self.current_download.pause_or_resume
+        pause_button.download_is_active = download_is_active  
+        set_minimum_size_policy(pause_button)
+        cancel_button = CancelAllButton()
+        cancel_button.cancel_callback = self.current_download.cancel
+        set_minimum_size_policy(cancel_button)
+        self.second_row_of_buttons_layout.addWidget(downloaded_episode_count)
+        self.second_row_of_buttons_layout.addWidget(pause_button)
+        self.second_row_of_buttons_layout.addWidget(cancel_button)
+        self.second_row_of_buttons_layout.addWidget(folder_button)
         self.current_download.start()
 
     @pyqtSlot(str, int, dict)
     def receive_download_progress_bar_details(self, episode_title: str, episode_size: int, progress_bars: dict[str, DownloadProgressBar]):
-        bar = DownloadProgressBar(None, "Downloading", episode_title, 400, 33, episode_size, "MB", ibytes_to_mbs_divisor)
+        bar = DownloadProgressBar(None, "Downloading", episode_title, episode_size, "MB", ibytes_to_mbs_divisor)
         progress_bars[episode_title] = bar 
         self.progress_bars_layout.insertWidget(0, bar)
 
@@ -1098,7 +1123,7 @@ class DownloadManagerThread(QThread):
             self.anime_progress_bar.pause_or_resume()
 
     def cancel(self):
-        if not self.paused:
+        if not self.paused and not self.cancelled:
             self.cancelled = True
             for key in self.progress_bars.keys():
                 self.progress_bars[key].cancel_button.click()
@@ -1147,13 +1172,12 @@ class DownloadManagerThread(QThread):
             while self.paused: continue
             if self.cancelled: break
             episode_title = f"{self.anime_details.sanitised_title} Episode {self.anime_details.predicted_episodes_to_download[idx]}"
-            displayed_episode_title = episode_title if len(self.anime_details.sanitised_title) <= 10 else f"{self.anime_details.sanitised_title[:10]}... Episode {self.anime_details.predicted_episodes_to_download[idx]}"
             self.mutex.lock()
-            self.send_progress_bar_details.emit(displayed_episode_title, download_size, self.progress_bars)
+            self.send_progress_bar_details.emit(episode_title, download_size, self.progress_bars)
             self.mutex.unlock()
-            while displayed_episode_title not in self.progress_bars: continue  
+            while episode_title not in self.progress_bars: continue  
             DownloadThread(self, link, episode_title, download_size, self.anime_details.site, cast(str, self.anime_details.anime_folder_path), 
-                           self.progress_bars[displayed_episode_title], displayed_episode_title, self.pop_from_progress_bars, 
+                           self.progress_bars[episode_title], episode_title, self.pop_from_progress_bars, 
                            self.anime_progress_bar, self.handle_updating_anime_progress_bar, self.update_downloaded_episode_count, self.mutex).start()
 
 class DownloadThread(QThread):
@@ -1184,7 +1208,9 @@ class DownloadThread(QThread):
     def cancel(self):
         if self.download:
             self.download.cancel()
-            self.anime_progress_bar.bar.setMaximum(self.anime_progress_bar.bar.maximum() - round(self.size / ibytes_to_mbs_divisor))
+            new_maximum = self.anime_progress_bar.bar.maximum() - round(self.size / ibytes_to_mbs_divisor)
+            if new_maximum > 0:
+                self.anime_progress_bar.bar.setMaximum(new_maximum)
             new_value = round(self.anime_progress_bar.bar.value() - round(self.progress_bar.bar.value() / ibytes_to_mbs_divisor))
             if new_value < 0: new_value = 0
             self.anime_progress_bar.bar.setValue(new_value )
@@ -1391,7 +1417,7 @@ class ChosenAnimeWindow(QWidget):
         self.setLayout(main_layout)
 
         # For testing purposes
-        self.download_button.animateClick()
+        #self.download_button.animateClick()
 
     def update_quality(self, quality: str):
         self.anime_details.quality = quality
@@ -1505,7 +1531,7 @@ class Poster(QLabel):
 
 class Title(OutlinedLabel):
     def __init__(self, title: str):
-        super().__init__(None, 0, 69)
+        super().__init__(None, 0, 71)
         self.setText(title.upper())
         self.setWordWrap(True)
         self.setStyleSheet("""
