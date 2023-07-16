@@ -2,7 +2,7 @@ import sys
 from PyQt6 import QtCore
 from PyQt6.QtGui import QColor, QPalette, QPixmap, QGuiApplication, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon, QAction
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QFrame, QScrollArea, QProgressBar, QSystemTrayIcon, QStackedWidget
-from PyQt6.QtCore import QObject, Qt, QSize, QThread, pyqtSignal, QEvent, QPoint, pyqtSlot, QMutex, QMetaObject, Q_ARG
+from PyQt6.QtCore import QObject, Qt, QSize, QThread, pyqtSignal, QEvent, QPoint, pyqtSlot, QMutex
 import os
 import pahe
 import gogo
@@ -18,6 +18,11 @@ import webbrowser
 from appdirs import user_config_dir
 import json
 
+if getattr(sys, 'frozen', False):
+    base_directory = os.path.dirname(sys.executable)
+else:
+    base_directory = os.path.dirname(__file__)
+
 app_name = "Senpwai"
 pahe_name = "pahe"
 gogo_name = "gogo"
@@ -30,7 +35,7 @@ q_720 = "720p"
 q_480 = "480p"
 q_360 = "360p"
 default_quality = q_720
-# default_download_folder_paths = [os.path.abspath(r'C:\\Users\\PC\\Downloads\\Anime'), os.path.abspath(r'D:\Series')]
+
 folder = os.path.join(Path.home(), "Downloads")
 if not os.path.isdir(folder): os.mkdir(folder)
 folder = os.path.join(folder, "Anime")
@@ -41,13 +46,12 @@ default_max_simutaneous_downloads = 2
 default_gogo_browser = gogo.edge
 default_make_download_complete_notification = True
 
-root_path = os.path.abspath(r'.\\')
-assets_path = os.path.join(root_path, "assets")
+assets_path = os.path.join(base_directory, "assets")
 
 senpwai_icon_path = os.path.abspath("Senpwai_icon.ico")
 bckg_images_path = os.path.join(assets_path, "background-images")
 bckg_images = list(Path(bckg_images_path).glob("*"))
-bckg_image_path = str(bckg_images[randint(0, len(bckg_images)-1)])
+bckg_image_path = (str(bckg_images[randint(0, len(bckg_images)-1)])).replace("\\", "/")
 loading_animation_path = os.path.join(assets_path, "loading.gif")
 sadge_piece_path = os.path.join(assets_path, "sadge-piece.gif")
 folder_icon_path = os.path.join(assets_path, "folder.png")
@@ -72,6 +76,11 @@ key_download_folder_paths = "download_folder_paths"
 key_max_simulataneous_downloads = "max_simultaneous_downloads"
 key_gogo_default_browser = "gogo_default_browser"
 key_make_download_complete_notification = "make_download_complete_notification"
+
+config_and_settings_folder_path = os.path.join(user_config_dir(), app_name)
+if not os.path.isdir(config_and_settings_folder_path):
+    os.mkdir(config_and_settings_folder_path)
+settings_file_path = os.path.join(config_and_settings_folder_path, "settings.json")
 
 def requires_admin_access(folder_path):
     try:
@@ -128,10 +137,6 @@ def validate_settings_json(settings_json: dict) -> dict:
     return clean_settings
 
 def configure_settings() -> dict:
-    settings_folder_path = os.path.join(user_config_dir(), app_name)
-    if not os.path.isdir(settings_folder_path):
-        os.mkdir(settings_folder_path)
-    settings_file_path = os.path.join(settings_folder_path, "settings.json")
     settings = {}
     if os.path.exists(settings_file_path):
         with open(settings_file_path, "r") as f:
@@ -158,7 +163,6 @@ class BckgImg(QLabel):
         pixmap = QPixmap(image_path)
         self.setPixmap(pixmap)
         self.setScaledContents(True)
-        self.setFixedSize(parent.size())
 
 class Animation(QLabel):
     def __init__(self, parent, animation_path: str, size_x: int, size_y: int, pos_x: int, pos_y: int):
@@ -169,7 +173,7 @@ class Animation(QLabel):
         self.animation.setScaledSize(self.size())
 
 class StyledLabel(QLabel):
-    def __init__(self, parent, font_size: int=20, bckg_color: str="rgba(0, 0, 0, 220)", border_radius=10):
+    def __init__(self, parent=None, font_size: int=20, bckg_color: str="rgba(0, 0, 0, 220)", border_radius=10):
         super().__init__(parent)
         self.setStyleSheet(f"""
                     QLabel {{
@@ -504,8 +508,8 @@ class AnimeDetails():
         self.poster, self.summary, self.episode_count = self.get_poster_image_summary_and_episode_count()
         self.start_download_episode = 0
         self.end_download_episode = 0
-        self.quality = default_quality
-        self.sub_or_dub = default_sub_or_dub 
+        self.quality = settings[key_quality]
+        self.sub_or_dub = settings[key_sub_or_dub] 
         self.direct_download_links: list[str] = []
         self.download_info: list[str] = []
         self.total_download_size: int = 0
@@ -576,21 +580,20 @@ class AnimeDetails():
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setFixedSize(1000, 650)
-        self.move(0, 0)
-        
+        self.setStyleSheet(f"MainWindow{{border-image: url({bckg_image_path}) 0 0 0 0 stretch stretch;}}")
         # Places window at the center of the screen
         center_point = QGuiApplication.primaryScreen().availableGeometry().center()
         window_position = QPoint(center_point.x() - self.rect().center().x(), center_point.y() - self.rect().center().y())
         self.move(window_position)
         self.tray_icon = QSystemTrayIcon(QIcon(senpwai_icon_path), self)
-        app.aboutToQuit.connect(self.tray_icon.hide)
         self.tray_icon.show()
         self.download_window = DownloadWindow(self)
         self.search_window = SearchWindow(self)
+        self.settings_window = SettingsWindow(self)
         self.stacked_windows = QStackedWidget(self)
         self.stacked_windows.addWidget(self.search_window)
         self.stacked_windows.addWidget(self.download_window)
+        self.stacked_windows.addWidget(self.settings_window)
         self.stacked_windows.setCurrentWidget(self.search_window)
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
@@ -641,28 +644,113 @@ class MainWindow(QMainWindow):
         no_supported_browser_window = NoSupportedBrowserWindow(self, anime_title)
         self.stacked_windows.addWidget(no_supported_browser_window)
         self.stacked_windows.setCurrentWidget(no_supported_browser_window)
-        
+
+AllowedSettingsTypes = (str | int | bool | list[str])
+
 class SettingsWindow(QWidget):
     def __init__(self, main_window: MainWindow) -> None:
-        super().__init__(main_window)
-        self.setFixedSize(main_window.size())
+        super().__init__()
+        self.main_widget = BckgImg(None, bckg_image_path)
+        self.main_layout = QVBoxLayout()
+        self.main_scrollable = ScrollableSection(self, self.main_layout, self.width(), self.height(), self.x(), self.y())
+        self.sub_dub_setting = SubDubSetting(self)
+        self.quality_setting = QualitySetting(self)
+        self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(self)
+        self.main_layout.addWidget(self.sub_dub_setting)
+        self.main_layout.addWidget(self.quality_setting)
+        self.main_layout.addWidget(self.max_simultaneous_downloads_setting)
+        self.setLayout(self.main_layout)
+    
+    def update_settings_json(self, key: str, new_value: AllowedSettingsTypes):
+        settings[key] = new_value
+        with open(settings_file_path, "w") as f:
+            json.dump(settings, f, indent=4)
+class MaxSimultaneousDownloadsSetting(QWidget):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__()
+        self.setFixedSize(500, 80)
+        self.setting_label = StyledLabel(font_size=25)
+        self.setting_label.setText("Max simultaneous downloads")
+        self.setting_label.setFixedSize(400, 60)
+        self.main_layout = QHBoxLayout()
+        self.number_input = NumberInput(font_size=25)
+        self.number_input.setFixedSize(60, 50)
+        self.number_input.setText(str(settings[key_max_simulataneous_downloads]))
+        self.number_input.textChanged.connect(lambda value: settings_window.update_settings_json(key_max_simulataneous_downloads, value))
+        self.main_layout.addWidget(self.setting_label)
+        self.main_layout.addWidget(self.number_input)
+        self.setLayout(self.main_layout)
 
+
+
+class QualitySetting(QWidget):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__()
+        self.setFixedSize(800, 80)
+        self.settings_window = settings_window
+        self.setting_label = StyledLabel(font_size=25)
+        self.setting_label.setText("Download quality")
+        self.setting_label.setFixedSize(230, 60)
+        self.main_layout = QHBoxLayout()
+        self.button_1080 = QualityButton(settings_window, q_1080, 25)
+        self.button_720 = QualityButton(settings_window, q_720, 25)
+        self.button_480 = QualityButton(settings_window, q_480, 25)
+        self.button_360 = QualityButton(settings_window, q_360, 25)
+        self.quality_buttons_list = [self.button_1080, self.button_720, self.button_480, self.button_360]
+        self.button_1080.setFixedSize(89, 50)
+        for button in self.quality_buttons_list:
+            quality = button.quality
+            button.clicked.connect(lambda garbage_bool, quality=quality: self.update_quality(quality))
+            if button.quality == settings[key_quality]:
+                button.change_style_sheet(True)
+            if button.quality == q_1080: continue
+            button.setFixedSize(80, 50)
+        self.main_layout.addWidget(self.setting_label)
+        list(map(self.main_layout.addWidget, self.quality_buttons_list))
+        self.setLayout(self.main_layout)
+
+    def update_quality(self, quality: str):
+        self.settings_window.update_settings_json(key_quality, quality)
+        for button in self.quality_buttons_list:
+            if button.quality != quality: button.change_style_sheet(False)
+
+
+class SubDubSetting(QWidget):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__()
+        self.setFixedSize(500, 80)
+        self.setting_label = StyledLabel(font_size=25)
+        self.setting_label.setText("Sub or Dub")
+        self.setting_label.setFixedSize(140, 60)
+        self.main_layout = QHBoxLayout()
+        self.sub_button = SubDubButton(settings_window, sub, 25) 
+        self.dub_button = SubDubButton(settings_window, dub, 25)
+        self.sub_button.setFixedSize(80, 50)
+        self.dub_button.setFixedSize(80, 50)
+        if settings[key_sub_or_dub] == sub: self.sub_button.click()
+        else: self.dub_button.click()
+        self.sub_button.clicked.connect(lambda: self.dub_button.change_style_sheet(False))
+        self.dub_button.clicked.connect(lambda: self.sub_button.change_style_sheet(False))
+        self.sub_button.clicked.connect(lambda: settings_window.update_settings_json(key_sub_or_dub, sub))
+        self.dub_button.clicked.connect(lambda: settings_window.update_settings_json(key_sub_or_dub, dub))
+        self.main_layout.addWidget(self.setting_label)
+        self.main_layout.addWidget(self.sub_button)
+        self.main_layout.addWidget(self.dub_button)
+        self.setLayout(self.main_layout)
 class CaptchBlockWindow(QWidget):
     def __init__(self, main_window: MainWindow, anime_title: str, download_page_links: list[str]) -> None:
         super().__init__(main_window)
         self.setFixedSize(main_window.size())
         BckgImg(self, chopper_crying_path)
-        main_widget = QWidget(self)
-        main_widget.setFixedSize(self.size())
-        info_label = StyledLabel(main_widget, 30)
+        info_label = StyledLabel(self, 30)
         info_label.move(50, 50)
         info_label.setText("\nCaptcha block detected, this only ever happens with Gogoanime\n")
-        open_browser_with_links_button = StyledButton(main_widget, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
+        open_browser_with_links_button = StyledButton(self, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
         open_browser_with_links_button.setFixedSize(265, 100)
         open_browser_with_links_button.move(150, 300)
         open_browser_with_links_button.setText("Download in browser")
         open_browser_with_links_button.clicked.connect(lambda: list(map(webbrowser.open_new_tab, download_page_links))) # type: ignore
-        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
+        switch_to_anime_pahe_button = StyledButton(self, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
         switch_to_anime_pahe_button.setFixedSize(265, 100)
         switch_to_anime_pahe_button.move(620, 300)
         switch_to_anime_pahe_button.setText("Switch to animepahe")
@@ -673,17 +761,15 @@ class NoSupportedBrowserWindow(QWidget):
         super().__init__(main_window)
         self.setFixedSize(main_window.size())
         BckgImg(self, chopper_crying_path)
-        main_widget = QWidget(self)
-        main_widget.setFixedSize(self.size()) 
-        info_label = StyledLabel(main_widget, 30)
+        info_label = StyledLabel(self, 30)
         info_label.move(150, 50)
         info_label.setText("\nUnfortunately downloaading from Gogoanime requires\n you have either Chrome, Edge or Firefox installed\n") 
-        download_chrome_button = StyledButton(main_widget, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
+        download_chrome_button = StyledButton(self, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
         download_chrome_button.setFixedSize(235, 100)
         download_chrome_button.move(150, 300)
         download_chrome_button.setText("Download Chrome")
         download_chrome_button.clicked.connect(lambda: webbrowser.open_new_tab("https://www.google.com/chrome")) # type: ignore
-        switch_to_anime_pahe_button = StyledButton(main_widget, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
+        switch_to_anime_pahe_button = StyledButton(self, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
         switch_to_anime_pahe_button.setFixedSize(280, 100)
         switch_to_anime_pahe_button.move(620, 300)
         switch_to_anime_pahe_button.setText("Switch to animepahe")
@@ -693,7 +779,7 @@ class SearchWindow(QWidget):
     def __init__(self, main_window: MainWindow):
         super().__init__(main_window)
         self.setFixedSize(main_window.size())
-        self.bckg_img = BckgImg(self, bckg_image_path)
+        self.bckg_img = BckgImg(None, bckg_image_path)
 
         self.search_widget = QWidget(self)
         self.search_widget.setFixedSize(1000, 150)
@@ -1195,63 +1281,66 @@ class ChosenAnimeWindow(QWidget):
         LineUnderTitle(self)
         SummaryLabel(self, self.anime_details.summary)
 
+        self.sub_button = SubDubButton(self, sub, 20)
+        self.sub_button.move(490, 405)
+        self.sub_button.setFixedSize(60, 40)
+        self.dub_button = None
+        self.sub_button.clicked.connect(lambda: self.update_sub_or_dub(sub))
+        if settings[key_sub_or_dub] == sub: self.sub_button.click()
         if self.anime_details.dub_available:
-            self.dub_button = SubDubButton(self, 425, 405, dub)
-            self.sub_button = SubDubButton(self, 490, 405, sub)
+            self.dub_button = SubDubButton(self, dub, 20)
+            self.dub_button.move(425, 405)
+            self.dub_button.setFixedSize(60, 40)
+            self.dub_button.clicked.connect(lambda: self.update_sub_or_dub(dub))
+            if settings[key_sub_or_dub] == dub: self.dub_button.click()
+            self.dub_button.clicked.connect(lambda: self.sub_button.change_style_sheet(False))
+            self.sub_button.clicked.connect(lambda: self.dub_button.change_style_sheet(False))# type: ignore
 
-            if default_sub_or_dub == dub: self.dub_button.click()
-            elif default_sub_or_dub == sub:
-                self.sub_button.click()
-            
-            self.dub_button.clicked.connect(lambda: self.co_update_sub_dub_buttons(dub))
-            self.sub_button.clicked.connect(lambda: self.co_update_sub_dub_buttons(sub))
-        else:
-            self.sub_button = SubDubButton(self, 490, 405, sub)
-            self.sub_button.click()
-        
-        self.button_1080 = QualityButton(self, 565, 405, q_1080) 
-        self.button_1080.setFixedSize(69, 40)
-        self.button_720 = QualityButton(self, 639, 405, q_720) 
-        self.button_480 = QualityButton(self, 704, 405, q_480) 
-        self.button_360 = QualityButton(self, 769, 405, q_360) 
-        self.setup_quality_buttons_color_clicked_status()
+        self.button_1080 = QualityButton(self, q_1080, 17) 
+        self.button_1080.move(565, 405)
+        self.button_720 = QualityButton(self, q_720, 17) 
+        self.button_720.move(639, 405)
+        self.button_480 = QualityButton(self, q_480, 17) 
+        self.button_480.move(704, 405)
+        self.button_360 = QualityButton(self, q_360, 17) 
+        self.button_360.move(769, 405)
         self.quality_buttons_list = [self.button_1080, self.button_720, self.button_480, self.button_360]
+        self.button_1080.setFixedSize(69, 40)
 
-        for button in self.quality_buttons_list: 
-            button.clicked.connect(lambda updater=button.quality: self.co_update_quality_buttons(updater))
+        for button in self.quality_buttons_list:
+            quality = button.quality
+            button.clicked.connect(lambda garbage_bool, quality=quality: self.update_quality(quality))
+            if quality == settings[key_quality]:
+                button.change_style_sheet(True)
+            if quality == q_1080: continue
+            button.setFixedSize(60, 40)
 
         start_episode = str((self.anime_details.haved_end)+1) if (self.anime_details.haved_end and self.anime_details.haved_end < self.anime_details.episode_count) else "1"
-        self.start_episode_input = EpisodeInput(self, 420, 460, "START")
+        self.start_episode_input = NumberInput(self)
+        self.start_episode_input.setFixedSize(60, 30)
+        self.start_episode_input.move(420, 460)
+        self.start_episode_input.setPlaceholderText("START")
         self.start_episode_input.setText(str(start_episode))
-        self.end_episode_input = EpisodeInput(self, 500, 460, "END")
+        self.end_episode_input = NumberInput(self)
+        self.end_episode_input.setFixedSize(60, 30)
+        self.end_episode_input.move(500, 460)
+        self.end_episode_input.setPlaceholderText("END")
         self.download_button = DownloadButton(self, self.main_window.download_window, self.anime_details)
         self.download_button.setFocus()
 
         HavedEpisodes(self, self.anime_details.haved_start, self.anime_details.haved_end, self.anime_details.haved_count)
         self.episode_count = EpisodeCount(self, str(self.anime_details.episode_count))
         if self.anime_details.anime_folder_path: FolderButton(self, self.anime_details.anime_folder_path, 60, 60, 710, 445)
-    
-    
-    def co_update_quality_buttons(self, updater: str):
+
+    def update_quality(self, quality: str):
+        self.anime_details.quality = quality
         for button in self.quality_buttons_list:
-            if button.quality != updater:
-                button.change_style_sheet(False)
+            if button.quality != quality: button.change_style_sheet(False)
 
-    def setup_quality_buttons_color_clicked_status(self):
-        if default_quality == q_1080:
-            self.button_1080.change_style_sheet(True)
-        elif default_quality == q_720:
-            self.button_720.change_style_sheet(True)
-        elif default_quality == q_480:
-            self.button_480.change_style_sheet(True)
-        elif default_quality == q_360:
-            self.button_360.change_style_sheet(True)
-
-    def co_update_sub_dub_buttons(self, updater: str):
-        if updater == dub:
-            self.sub_button.change_style_sheet(False)
-        elif updater == sub:
-            self.dub_button.change_style_sheet(False)
+    def update_sub_or_dub(self, sub_or_dub: str):
+        self.anime_details.sub_or_dub = sub_or_dub
+        if sub_or_dub == dub: self.sub_button.change_style_sheet(False)
+        elif self.dub_button != None: self.dub_button.change_style_sheet(False)
 
 
 class SetupChosenAnimeWindowThread(QThread):
@@ -1418,22 +1507,20 @@ class HavedEpisodes(StyledLabel):
         else: self.setText(f"You have {count} episodes from {start} to {end}") if count != 1 else self.setText(f"You have {count} episode from {start} to {end}")
 
 
-class EpisodeInput(QLineEdit):
-    def __init__(self, parent, x: int, y: int, start_or_end):
+class NumberInput(QLineEdit):
+    def __init__(self, parent=None, font_size: int=14):
         super().__init__(parent)
         self.installEventFilter(self)
-        self.move(x, y)
-        self.setFixedSize(60, 30)
-        self.setPlaceholderText(start_or_end)
-        self.setStyleSheet("""
-            QLineEdit{
+        self.setStyleSheet(f"""
+            QLineEdit{{
                 border: 2px solid black;
                 border-radius: 5px;
                 padding: 5px;
                 color: black;
-                font-size: 14px;
+                font-size: {font_size}px;
                 font-family: "Berlin Sans FB Demi";
-            }
+                background-color: white;
+            }}
         """)
 
     def eventFilter(self, obj, event):
@@ -1446,17 +1533,14 @@ class EpisodeInput(QLineEdit):
                 return True
         return super().eventFilter(obj, event)
 
-        
 
 class QualityButton(StyledButton):
-    def __init__(self, chosen_anime_window: ChosenAnimeWindow, x: int, y: int, quality: str):
-        self.chosen_anime_window = chosen_anime_window
+    def __init__(self, window: ChosenAnimeWindow | SettingsWindow, quality: str, font_size: int):
+        self.chosen_anime_window = window
         normal_color = "rgba(128, 128, 128, 255)"
         hover_color = "rgba(255, 255, 0, 255)"
         pressed_color = "rgba(255, 165, 0, 255)"
-        super().__init__(chosen_anime_window, 17, "white",  normal_color, hover_color, pressed_color)
-        self.move(x, y)
-        self.setFixedSize(60, 40)
+        super().__init__(window, font_size, "white",  normal_color, hover_color, pressed_color)
         self.not_picked_style_sheet = self.styleSheet()
         styles_to_overwride = f"""
             QPushButton {{
@@ -1471,24 +1555,19 @@ class QualityButton(StyledButton):
         self.quality = quality
         self.setText(self.quality)
         self.clicked.connect(lambda: self.change_style_sheet(True))
-        self.clicked.connect(lambda: self.update_quality())
 
-    def update_quality(self):
-        self.chosen_anime_window.anime_details.quality = self.quality
     def change_style_sheet(self, picked: bool): 
         if picked: self.setStyleSheet(self.picked_style_sheet)
         else: self.setStyleSheet(self.not_picked_style_sheet)
 
 class SubDubButton(StyledButton):
-    def __init__(self, chosen_anime_window: ChosenAnimeWindow, x: int, y: int, sub_dub: str):
-        self.chosen_anime_window =  chosen_anime_window
+    def __init__(self, window: ChosenAnimeWindow | SettingsWindow, sub_dub: str, font_size: int):
+        self.chosen_anime_window =  window
         normal_color = "rgba(128, 128, 128, 255)"
         hover_color = "rgba(255, 255, 0, 255)"
         pressed_color = "rgba(255, 165, 0, 255)"
-        super().__init__(chosen_anime_window, 20, "white", normal_color, hover_color, pressed_color)      
+        super().__init__(window, font_size, "white", normal_color, hover_color, pressed_color)      
         self.sub_or_dub = sub_dub
-        self.move(x, y)
-        self.setFixedSize(60, 40)
         self.setText(self.sub_or_dub.upper())
         self.not_picked_style_sheet = self.styleSheet()
         styles_to_overwride = f"""
@@ -1503,10 +1582,7 @@ class SubDubButton(StyledButton):
         self.picked_style_sheet = self.not_picked_style_sheet+styles_to_overwride
         self.setText(self.sub_or_dub.upper())
         self.clicked.connect(lambda: self.change_style_sheet(True))
-        self.clicked.connect(lambda: self.update_sub_or_dub())
 
-    def update_sub_or_dub(self):
-        self.chosen_anime_window.anime_details.sub_or_dub = self.sub_or_dub
     def change_style_sheet(self, picked: bool): 
         if picked: self.setStyleSheet(self.picked_style_sheet)
         else: self.setStyleSheet(self.not_picked_style_sheet)
@@ -1572,4 +1648,4 @@ if __name__ == "__main__":
 
     window = MainWindow()
     window.show()
-#    sys.exit(app.exec())
+    sys.exit(app.exec())
