@@ -59,7 +59,7 @@ pause_icon_path = os.path.join(assets_path, "pause.png")
 resume_icon_path = os.path.join(assets_path, "resume.png")
 cancel_icon_path = os.path.join(assets_path, "cancel.png")
 download_complete_icon_path = os.path.join(assets_path, "download-complete.png")
-chopper_crying_path = os.path.join(assets_path, "chopper-crying.png")
+chopper_crying_path = os.path.join(assets_path, "chopper-crying.png").replace("\\", "/")
 zero_two_peeping_path = os.path.join(assets_path, "zero-two-peeping.png")
 
 pahe_normal_color = "#FFC300"
@@ -576,7 +576,9 @@ class AnimeDetails():
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setStyleSheet(f"MainWindow{{border-image: url({bckg_image_path}) 0 0 0 0 stretch stretch;}}")
+        self.set_bckg_img = lambda img_path: self.setStyleSheet(f"MainWindow{{border-image: url({img_path}) 0 0 0 0 stretch stretch;}}")
+        self.set_default_bck_img = lambda: self.set_bckg_img(bckg_image_path)
+        self.set_default_bck_img()
         # Places window at the center of the screen
         center_point = QGuiApplication.primaryScreen().availableGeometry().center()
         window_position = QPoint(center_point.x() - self.rect().center().x(), center_point.y() - self.rect().center().y())
@@ -631,7 +633,7 @@ class MainWindow(QMainWindow):
         self.stacked_windows.removeWidget(initiator)
         self.stacked_windows.removeWidget(initiator)
         self.search_window.search_bar.setText(anime_title)
-        self.search_window.pahe_search_button.click()
+        self.search_window.pahe_search_button.animateClick()
     
     def create_and_switch_to_captcha_block_window(self, anime_title: str, download_page_links: list[str]) -> None:
         captcha_block_window = CaptchaBlockWindow(self, anime_title, download_page_links)
@@ -738,40 +740,55 @@ class SubDubSetting(QWidget):
 class CaptchaBlockWindow(QWidget):
     def __init__(self, main_window: MainWindow, anime_title: str, download_page_links: list[str]) -> None:
         super().__init__(main_window)
-        self.setFixedSize(main_window.size())
-        BckgImg(self, chopper_crying_path)
-        info_label = StyledLabel(self, 30)
-        info_label.move(50, 50)
+        main_window.set_bckg_img(chopper_crying_path)
+        info_label = StyledLabel(font_size=30)
         info_label.setText("\nCaptcha block detected, this only ever happens with Gogoanime\n")
-        open_browser_with_links_button = StyledButton(self, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
-        open_browser_with_links_button.setFixedSize(265, 100)
-        open_browser_with_links_button.move(150, 300)
+        set_minimum_size_policy(info_label)
+        main_layout = QVBoxLayout()
+        buttons_layout = QHBoxLayout()
+        buttons_widget = QWidget()
+        open_browser_with_links_button = StyledButton(None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
         open_browser_with_links_button.setText("Download in browser")
+        set_minimum_size_policy(open_browser_with_links_button)
+        buttons_layout.addWidget(open_browser_with_links_button)
         open_browser_with_links_button.clicked.connect(lambda: list(map(webbrowser.open_new_tab, download_page_links))) # type: ignore
-        switch_to_anime_pahe_button = StyledButton(self, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
-        switch_to_anime_pahe_button.setFixedSize(265, 100)
-        switch_to_anime_pahe_button.move(620, 300)
+        switch_to_anime_pahe_button = StyledButton(None, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
         switch_to_anime_pahe_button.setText("Switch to animepahe")
+        set_minimum_size_policy(switch_to_anime_pahe_button)
+        buttons_layout.addWidget(switch_to_anime_pahe_button)
         switch_to_anime_pahe_button.clicked.connect(lambda: main_window.switch_to_pahe(anime_title, self))
+        switch_to_anime_pahe_button.clicked.connect(main_window.set_default_bck_img)
+        buttons_widget.setLayout(buttons_layout)
+        main_layout.addWidget(info_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(info_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(buttons_widget)
+        self.setLayout(main_layout)
 
 class NoSupportedBrowserWindow(QWidget):
     def __init__(self, main_window: MainWindow, anime_title: str):
         super().__init__(main_window)
-        self.setFixedSize(main_window.size())
-        BckgImg(self, chopper_crying_path)
-        info_label = StyledLabel(self, 30)
-        info_label.move(150, 50)
+        main_window.set_bckg_img(chopper_crying_path)
+        info_label = StyledLabel(font_size=30)
         info_label.setText("\nUnfortunately downloaading from Gogoanime requires\n you have either Chrome, Edge or Firefox installed\n") 
-        download_chrome_button = StyledButton(self, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
-        download_chrome_button.setFixedSize(235, 100)
-        download_chrome_button.move(150, 300)
+        set_minimum_size_policy(info_label)
+        main_layout = QVBoxLayout()
+        buttons_layout = QHBoxLayout()
+        buttons_widget = QWidget()
+        download_chrome_button = StyledButton(None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
         download_chrome_button.setText("Download Chrome")
+        set_minimum_size_policy(download_chrome_button)
         download_chrome_button.clicked.connect(lambda: webbrowser.open_new_tab("https://www.google.com/chrome")) # type: ignore
-        switch_to_anime_pahe_button = StyledButton(self, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
-        switch_to_anime_pahe_button.setFixedSize(280, 100)
-        switch_to_anime_pahe_button.move(620, 300)
+        switch_to_anime_pahe_button = StyledButton(None, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
         switch_to_anime_pahe_button.setText("Switch to animepahe")
+        set_minimum_size_policy(switch_to_anime_pahe_button)
         switch_to_anime_pahe_button.clicked.connect(lambda: main_window.switch_to_pahe(anime_title, self))
+        switch_to_anime_pahe_button.clicked.connect(main_window.set_default_bck_img)
+        buttons_layout.addWidget(download_chrome_button)
+        buttons_layout.addWidget(switch_to_anime_pahe_button)
+        buttons_widget.setLayout(buttons_layout)
+        main_layout.addWidget(info_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(buttons_widget)
+        self.setLayout(main_layout)
 
 class SearchWindow(QWidget):
     def __init__(self, main_window: MainWindow):
@@ -1285,11 +1302,11 @@ class GetDirectDownloadLinksThread(QThread):
             self.finished.emit(1)
         if self.anime_details.site ==  gogo_name:
             try: 
-                self.anime_details.direct_download_links = gogo.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality, 
-                                                                                        gogo.setup_headless_browser(default_gogo_browser), lambda x: self.update_bar.emit(x))
                 # For testing purposes
                 # raise WebDriverException
                 # raise TimeoutError
+                self.anime_details.direct_download_links = gogo.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality, 
+                                                                                        gogo.setup_headless_browser(default_gogo_browser), lambda x: self.update_bar.emit(x))
                 self.finished.emit(1)
             except Exception as exception:
                 if isinstance(exception, WebDriverException): self.finished.emit(2)
