@@ -82,35 +82,11 @@ def setup_headless_browser(default_browser: str = edge) -> Chrome | Edge | Firef
         return Firefox(service=firefox_service, options=options)
 
     if default_browser == edge:
-        try:
-            return setup_edge_driver()
-        except WebDriverException:
-            pass
-    elif default_browser == chrome:
-        try:
-            return setup_chrome_driver()
-        except WebDriverException:
-            pass
-    elif default_browser == firefox:
-        try:
-            return setup_firefox_driver()
-        except WebDriverException:
-            pass
-
-    try:
-        # For testing purposes
-        #raise WebDriverException
         return setup_edge_driver()
-    except WebDriverException:
-        try:
-            # For testing purposes
-            # raise WebDriverException
-            return setup_chrome_driver()
-        except WebDriverException:
-            # For testing purposes
-            # raise WebDriverException
-            return setup_firefox_driver()
-
+    elif default_browser == chrome:
+        return setup_chrome_driver()
+    else:
+        return setup_firefox_driver()
 
 def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | Firefox, max_load_wait_time: int, load_wait_time=1) -> tuple[list[str], list[str]]:
     def network_error_retry():

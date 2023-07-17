@@ -196,7 +196,7 @@ class StyledLabel(QLabel):
                             """)
 
 class StyledButton(QPushButton):
-    def __init__(self, parent: QWidget | None, font_size: int, font_color: str, normal_color: str, hover_color: str, pressed_color: str, border_radius=5):
+    def __init__(self, parent: QWidget | None, font_size: int, font_color: str, normal_color: str, hover_color: str, pressed_color: str, border_radius=12):
         super().__init__()
         if parent: 
             self.setParent(parent)
@@ -205,7 +205,6 @@ class StyledButton(QPushButton):
             QPushButton {{
                 color: {font_color};
                 background-color: {normal_color};
-                border-radius: 20px;
                 border: 1px solid black;
                 padding: 5px;
                 font-size: {font_size}px;
@@ -292,7 +291,7 @@ class OutlinedLabel(QLabel):
         
 class OutlinedButton(StyledButton):
     def __init__(self, paint_x, paint_y, parent: QWidget | None, font_size: int, font_color: str, normal_color: str, 
-                 hover_color: str, pressed_color: str, border_radius=5):
+                 hover_color: str, pressed_color: str, border_radius=12):
         self.paint_x = paint_x
         self.paint_y = paint_y
         super().__init__(parent, font_size, font_color, normal_color, hover_color, pressed_color, border_radius)
@@ -346,8 +345,8 @@ class ProgressBar(QWidget):
              }
          """)
         style_to_overwride = """
-                QProgressBar {
-                 background-color: rgba(255, 255, 255, 150);
+                QProgressBar::chunk {
+                 background-color: green;
                 }"""
         self.completed_stylesheet = self.bar.styleSheet()+style_to_overwride
         text_style_sheet = """
@@ -641,7 +640,7 @@ class MainWindow(QMainWindow):
         self.stacked_windows.setCurrentWidget(captcha_block_window)
 
     def create_and_switch_to_no_supported_browser_window(self, anime_title: str):
-        no_supported_browser_window = NoSupportedBrowserWindow(self, anime_title)
+        no_supported_browser_window = NoDefaultBrowserWindow(self, anime_title)
         self.stacked_windows.addWidget(no_supported_browser_window)
         self.stacked_windows.setCurrentWidget(no_supported_browser_window)
 
@@ -737,58 +736,61 @@ class SubDubSetting(QWidget):
         self.main_layout.addWidget(self.sub_button)
         self.main_layout.addWidget(self.dub_button)
         self.setLayout(self.main_layout)
-class CaptchaBlockWindow(QWidget):
-    def __init__(self, main_window: MainWindow, anime_title: str, download_page_links: list[str]) -> None:
+class FailedGettingDirectDownloadLinksWindow(QWidget):
+    def __init__(self, main_window: MainWindow, anime_title: str, info_text: str, buttons_unique_to_window: list[QPushButton]) -> None:
         super().__init__(main_window)
         main_window.set_bckg_img(chopper_crying_path)
         info_label = StyledLabel(font_size=30)
-        info_label.setText("\nCaptcha block detected, this only ever happens with Gogoanime\n")
+        info_label.setText(info_text)
         set_minimum_size_policy(info_label)
         main_layout = QVBoxLayout()
         buttons_layout = QHBoxLayout()
         buttons_widget = QWidget()
-        open_browser_with_links_button = StyledButton(None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
-        open_browser_with_links_button.setText("Download in browser")
-        set_minimum_size_policy(open_browser_with_links_button)
-        buttons_layout.addWidget(open_browser_with_links_button)
-        open_browser_with_links_button.clicked.connect(lambda: list(map(webbrowser.open_new_tab, download_page_links))) # type: ignore
-        switch_to_anime_pahe_button = StyledButton(None, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
+        switch_to_anime_pahe_button = StyledButton(None, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color)
         switch_to_anime_pahe_button.setText("Switch to animepahe")
         set_minimum_size_policy(switch_to_anime_pahe_button)
-        buttons_layout.addWidget(switch_to_anime_pahe_button)
         switch_to_anime_pahe_button.clicked.connect(lambda: main_window.switch_to_pahe(anime_title, self))
         switch_to_anime_pahe_button.clicked.connect(main_window.set_default_bck_img)
+        change_default_browser_button = StyledButton(None, 25, "black", "#E80000", "#FF0202", "#FF1C1C")
+        change_default_browser_button.setText("Change gogo default browser")
+        change_default_browser_button.clicked.connect(lambda: main_window.stacked_windows.setCurrentWidget(main_window.settings_window))
+        change_default_browser_button.clicked.connect(main_window.set_default_bck_img)
+        set_minimum_size_policy(change_default_browser_button)
+        buttons_layout.addWidget(switch_to_anime_pahe_button)
+        buttons_layout.addWidget(change_default_browser_button)
+        list(map(buttons_layout.addWidget, buttons_unique_to_window)) 
         buttons_widget.setLayout(buttons_layout)
-        main_layout.addWidget(info_label, alignment=Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(info_label, alignment=Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(buttons_widget)
         self.setLayout(main_layout)
 
-class NoSupportedBrowserWindow(QWidget):
-    def __init__(self, main_window: MainWindow, anime_title: str):
-        super().__init__(main_window)
+
+class CaptchaBlockWindow(FailedGettingDirectDownloadLinksWindow):
+    def __init__(self, main_window: MainWindow, anime_title: str, download_page_links: list[str]) -> None:
         main_window.set_bckg_img(chopper_crying_path)
-        info_label = StyledLabel(font_size=30)
-        info_label.setText("\nUnfortunately downloaading from Gogoanime requires\n you have either Chrome, Edge or Firefox installed\n") 
-        set_minimum_size_policy(info_label)
-        main_layout = QVBoxLayout()
-        buttons_layout = QHBoxLayout()
-        buttons_widget = QWidget()
-        download_chrome_button = StyledButton(None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color, 10)
-        download_chrome_button.setText("Download Chrome")
-        set_minimum_size_policy(download_chrome_button)
-        download_chrome_button.clicked.connect(lambda: webbrowser.open_new_tab("https://www.google.com/chrome")) # type: ignore
-        switch_to_anime_pahe_button = StyledButton(None, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color, 10)
-        switch_to_anime_pahe_button.setText("Switch to animepahe")
-        set_minimum_size_policy(switch_to_anime_pahe_button)
-        switch_to_anime_pahe_button.clicked.connect(lambda: main_window.switch_to_pahe(anime_title, self))
-        switch_to_anime_pahe_button.clicked.connect(main_window.set_default_bck_img)
-        buttons_layout.addWidget(download_chrome_button)
-        buttons_layout.addWidget(switch_to_anime_pahe_button)
-        buttons_widget.setLayout(buttons_layout)
-        main_layout.addWidget(info_label, alignment=Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(buttons_widget)
-        self.setLayout(main_layout)
+        info_text = (f"Captcha block detected, this only ever happens with Gogoanime\nChanging your Gogo default browser setting to something else may help\nYour current Gogo default browser is {settings[key_gogo_default_browser].capitalize()}")
+        open_browser_with_links_button = StyledButton(None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
+        open_browser_with_links_button.setText("Download in browser")
+        open_browser_with_links_button.clicked.connect(lambda: list(map(webbrowser.open_new_tab, download_page_links)))# type: ignore
+        set_minimum_size_policy(open_browser_with_links_button)
+        super().__init__(main_window, anime_title, info_text, [open_browser_with_links_button])
+
+class NoDefaultBrowserWindow(FailedGettingDirectDownloadLinksWindow):
+    def __init__(self, main_window: MainWindow, anime_title: str):
+        gogo_default_browser = cast(str, settings[key_gogo_default_browser])
+        info_text = f"Unfortunately downloaading from Gogoanime requires you have either: \n\t\tChrome, Edge or Firefox installed\nIf you've already installed then change your Gogo default browser setting\nYour current Gogo default browser is {gogo_default_browser.capitalize()}"
+        download_browser_button = StyledButton(None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
+        if gogo_default_browser == gogo.chrome:
+            download_browser_button.setText("Download Chrome")
+            download_browser_button.clicked.connect(lambda: webbrowser.open_new_tab("https://www.google.com/chrome")) # type: ignore
+        elif gogo_default_browser == gogo.edge:
+            download_browser_button.setText("Download Edge")
+            download_browser_button.clicked.connect(lambda: webbrowser.open_new_tab("https://www.microsoft.com/edge/download")) # type: ignore
+        else:
+            download_browser_button.setText("Download Firefox")
+            download_browser_button.clicked.connect(lambda: webbrowser.open_new_tab("https://www.mozilla.org/firefox")) # type: ignore
+        set_minimum_size_policy(download_browser_button)
+        super().__init__(main_window, anime_title, info_text, [download_browser_button])
 
 class SearchWindow(QWidget):
     def __init__(self, main_window: MainWindow):
@@ -1303,8 +1305,8 @@ class GetDirectDownloadLinksThread(QThread):
         if self.anime_details.site ==  gogo_name:
             try: 
                 # For testing purposes
-                # raise WebDriverException
-                # raise TimeoutError
+                #raise WebDriverException
+                raise TimeoutError
                 self.anime_details.direct_download_links = gogo.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality, 
                                                                                         gogo.setup_headless_browser(default_gogo_browser), lambda x: self.update_bar.emit(x))
                 self.finished.emit(1)
@@ -1593,7 +1595,7 @@ class NumberInput(QLineEdit):
         self.setStyleSheet(f"""
             QLineEdit{{
                 border: 2px solid black;
-                border-radius: 5px;
+                border-radius: 12px;
                 padding: 5px;
                 color: black;
                 font-size: {font_size}px;
@@ -1623,7 +1625,7 @@ class QualityButton(StyledButton):
         self.not_picked_style_sheet = self.styleSheet()
         styles_to_overwride = f"""
             QPushButton {{
-            border-radius: 5px;
+            border-radius: 7px;
             background-color: {pressed_color};
         }}
         QPushButton:hover {{
@@ -1651,7 +1653,7 @@ class SubDubButton(StyledButton):
         self.not_picked_style_sheet = self.styleSheet()
         styles_to_overwride = f"""
             QPushButton {{
-            border-radius: 5px;
+            border-radius: 7px;
             background-color: {pressed_color};
         }}
         QPushButton:hover {{
@@ -1674,7 +1676,7 @@ class ResultButton(OutlinedButton):
         else:
             hover_color = gogo_normal_color
             pressed_color = gogo_hover_color
-        super().__init__(paint_x, paint_y, None, 40, "white", "transparent", hover_color, pressed_color)
+        super().__init__(paint_x, paint_y, None, 40, "white", "transparent", hover_color, pressed_color, 21)
         self.setText(anime.title)
         self.setStyleSheet(self.styleSheet()+"""
                            QPushButton{
