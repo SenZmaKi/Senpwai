@@ -6,7 +6,7 @@ import os
 import re
 from typing import Callable, cast, Any
 from math import pow
-from intersection import network_monad, parser, test_downloading, match_quality
+from shared.app_and_scraper_shared import network_monad, parser, test_downloading, match_quality
 
 pahe_home_url = 'https://animepahe.ru'
 api_url_extension = '/api?m='
@@ -139,7 +139,7 @@ def bind_quality_to_link_info(quality: str, pahewin_download_page_links: list[li
     for idx_out, episode_info in enumerate(download_info):
         idx_in = match_quality(episode_info, quality)
         bound_links.append(pahewin_download_page_links[idx_out][idx_in])
-        bound_info.append(episode_info[idx_in]) 
+        bound_info.append(episode_info[idx_in])
     return (bound_links, bound_info)
 
 
@@ -241,9 +241,9 @@ def extract_poster_summary_and_episode_count(anime_id: str) -> tuple[str, str, i
 
 def test_getting_direct_download_links(query_anime_title: str, start_episode: int, end_episode: int, quality: str, sub_or_dub='sub') -> list[str]:
     result = search(query_anime_title)[0]
-    anime_id, anime_title, anime_page_link = extract_anime_id_title_and_page_link(
+    anime_id, _, anime_page_link = extract_anime_id_title_and_page_link(
         result)
-    _, _, episode_count = extract_poster_summary_and_episode_count(anime_id)
+    _, _, _ = extract_poster_summary_and_episode_count(anime_id)
     episode_page_links = get_episode_page_links(
         start_episode, end_episode, anime_page_link, anime_id)
     download_page_links, download_info = get_pahewin_download_page_links_and_info(
@@ -263,7 +263,7 @@ def main():
     start_episode = 1
     end_episode = 4
 
-    direct_download_links = test_getting_direct_download_links(
+    _ = test_getting_direct_download_links(
         query, start_episode, end_episode, quality, sub_or_dub)
     # test_downloading(query, direct_download_links)
 

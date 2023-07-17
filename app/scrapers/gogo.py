@@ -16,13 +16,13 @@ from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions
 
 from subprocess import CREATE_NO_WINDOW
 from typing import Callable, cast
-from intersection import parser, network_monad, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time
+from shared.app_and_scraper_shared import parser, network_monad, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time
 
 gogo_home_url = 'https://gogoanime.hu'
 dub_extension = ' (Dub)'
-edge = 'edge'
-chrome = 'chrome'
-firefox = 'firefox'
+edge_name = 'edge'
+chrome_name = 'chrome'
+firefox_name = 'firefox'
 
 
 def search(keyword: str) -> list[BeautifulSoup]:
@@ -51,7 +51,7 @@ def generate_episode_page_links(start_episode: int, end_episode: int, anime_page
     return episode_page_links
 
 
-def setup_headless_browser(default_browser: str = edge) -> Chrome | Edge | Firefox:
+def setup_headless_browser(default_browser: str = edge_name) -> Chrome | Edge | Firefox:
     def setup_options(options: ChromeOptions | EdgeOptions | FirefoxOptions) -> ChromeOptions | EdgeOptions | FirefoxOptions:
         # For testing purposes
         # options.add_argument("--headless=new")
@@ -81,12 +81,13 @@ def setup_headless_browser(default_browser: str = edge) -> Chrome | Edge | Firef
         options = cast(FirefoxOptions, setup_options(FirefoxOptions()))
         return Firefox(service=firefox_service, options=options)
 
-    if default_browser == edge:
+    if default_browser == edge_name:
         return setup_edge_driver()
-    elif default_browser == chrome:
+    elif default_browser == chrome_name:
         return setup_chrome_driver()
     else:
         return setup_firefox_driver()
+
 
 def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | Firefox, max_load_wait_time: int, load_wait_time=1) -> tuple[list[str], list[str]]:
     def network_error_retry():
@@ -162,8 +163,10 @@ def calculate_download_total_size(download_links: list[str], progress_update_cal
         response = network_monad(
             lambda link=link: requests.get(link, stream=True))
         size = response.headers.get('content-length', 0)
-        if in_megabytes: total_size += round(int(size) / ibytes_to_mbs_divisor)
-        else: total_size += int(size)
+        if in_megabytes:
+            total_size += round(int(size) / ibytes_to_mbs_divisor)
+        else:
+            total_size += int(size)
         progress_update_callback(1)
         if progress_bar:
             progress_bar.update(idx+1 - progress_bar.n)

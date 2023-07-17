@@ -74,11 +74,13 @@ def test_downloading(anime_title: str, direct_download_links: list[str]):
         Download(link, f'{anime_title} Episode {idx+1}',
                  os.path.abspath("test-downloads"), console_app=True).start_download()
 
+
 def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: int, end_episode: int, haved_episodes: list[int]) -> list[int]:
-        predicted_episodes_to_download: list[int] = []
-        for episode in range(start_episode, end_episode+1):
-            if episode not in haved_episodes: predicted_episodes_to_download.append(episode)
-        return predicted_episodes_to_download
+    predicted_episodes_to_download: list[int] = []
+    for episode in range(start_episode, end_episode+1):
+        if episode not in haved_episodes:
+            predicted_episodes_to_download.append(episode)
+    return predicted_episodes_to_download
 
 
 class Download():
@@ -113,9 +115,9 @@ class Download():
         self.file_path = temp_file_path
         download_completed_file_path = os.path.join(self.path, file_title)
         progress_bar = None if not self.console_app else tqdm(
-            desc=f' Downloading {self.title}: ', total=total, unit='iB', unit_scale=True, unit_divisor=ibytes_to_mbs_divisor)
+            desc=f' Downloading {self.title}: ', total=total, unit='iB', unit_scale=True, unit_divisor=float(ibytes_to_mbs_divisor))
 
-        def handle_download(start_byte: int = 0)->bool:
+        def handle_download(start_byte: int = 0) -> bool:
             mode = 'wb' if start_byte == 0 else 'ab'
             with open(temp_file_path, mode) as file:
                 iter_content = response.iter_content(chunk_size=ibytes_to_mbs_divisor) if start_byte == 0 else network_monad(
@@ -141,7 +143,7 @@ class Download():
 
             file_size = os.path.getsize(temp_file_path)
             return True if file_size >= total else handle_download(file_size)
-        if not handle_download(): 
+        if not handle_download():
             os.unlink(temp_file_path)
             return
         os.rename(temp_file_path, download_completed_file_path)
