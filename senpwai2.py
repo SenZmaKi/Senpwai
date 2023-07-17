@@ -87,6 +87,7 @@ if not os.path.isdir(config_and_settings_folder_path):
 settings_file_path = os.path.join(config_and_settings_folder_path, "settings.json")
 
 amogus_easter_egg = "ඞ"
+AllowedSettingsTypes = (str | int | bool | list[str])
 
 def requires_admin_access(folder_path):
     try:
@@ -123,7 +124,7 @@ def validate_settings_json(settings_json: dict) -> dict:
         clean_settings[key_download_folder_paths] = valid_folder_paths
     try:
         max_simultaneous_downloads = settings_json[key_max_simulataneous_downloads]
-        if not isinstance(max_simultaneous_downloads, int): raise KeyError
+        if not isinstance(max_simultaneous_downloads, int) or  max_simultaneous_downloads<=0: raise KeyError
         clean_settings[key_max_simulataneous_downloads] = max_simultaneous_downloads
     except KeyError:
         clean_settings[key_max_simulataneous_downloads] = default_max_simutaneous_downloads
@@ -225,6 +226,28 @@ class StyledButton(QPushButton):
                 background-color: {pressed_color};
             }}
         """)        
+class OptionButton(StyledButton):
+    def __init__(self, parent: QWidget | None, option: AllowedSettingsTypes, option_displayed: str, font_size: int, chosen_color: str, not_chosen_color: str, font_color="white"):
+        super().__init__(parent, font_size, font_color, "rgba(128, 128, 128, 255)", chosen_color, not_chosen_color) 
+        self.not_picked_style_sheet = self.styleSheet()
+        styles_to_overwride = f"""
+            QPushButton {{
+            border-radius: 7px;
+            background-color: {chosen_color};
+        }}
+        QPushButton:hover {{
+            background-color: {chosen_color};
+        }}
+    """
+        self.picked_style_sheet = self.not_picked_style_sheet+styles_to_overwride
+        self.option = option
+        self.setText(option_displayed)
+        self.clicked.connect(lambda: self.change_style_sheet(True))
+
+    def change_style_sheet(self, picked: bool): 
+        if picked: self.setStyleSheet(self.picked_style_sheet)
+        else: self.setStyleSheet(self.not_picked_style_sheet)
+
 
 class IconButton(QPushButton):
     def __init__(self, size_x: int, size_y: int, icon_path: str, size_factor: int | float, parent: QWidget | None = None):
@@ -598,7 +621,7 @@ class MainWindow(QMainWindow):
         self.stacked_windows.addWidget(self.search_window)
         self.stacked_windows.addWidget(self.download_window)
         self.stacked_windows.addWidget(self.settings_window)
-        self.stacked_windows.setCurrentWidget(self.search_window)
+        self.stacked_windows.setCurrentWidget(self.settings_window)
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
 
@@ -648,7 +671,6 @@ class MainWindow(QMainWindow):
         self.stacked_windows.addWidget(no_supported_browser_window)
         self.stacked_windows.setCurrentWidget(no_supported_browser_window)
 
-AllowedSettingsTypes = (str | int | bool | list[str])
 
 class SettingsWindow(QWidget):
     def __init__(self, main_window: MainWindow) -> None:
@@ -659,69 +681,81 @@ class SettingsWindow(QWidget):
         self.sub_dub_setting = SubDubSetting(self)
         self.quality_setting = QualitySetting(self)
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(self)
+        self.gogo_default_browser_setting = GogoDefaultBrowserSetting(self)
         self.main_layout.addWidget(self.sub_dub_setting)
         self.main_layout.addWidget(self.quality_setting)
         self.main_layout.addWidget(self.max_simultaneous_downloads_setting)
+        self.main_layout.addWidget(self.gogo_default_browser_setting)
         self.setLayout(self.main_layout)
     
     def update_settings_json(self, key: str, new_value: AllowedSettingsTypes):
         settings[key] = new_value
+        validated = validate_settings_json(settings)
         with open(settings_file_path, "w") as f:
-            json.dump(settings, f, indent=4)
+            json.dump(validated, f, indent=4)
 
-class GogoDefaultBrowserSetting(QWidget):
-    def __init__(self, settings_window: SettingsWindow):
+
+class OnOrOff(OptionButton):
+    def __init__(self, on_or_off: bool, font_size):
+        super().__init__(None, on_or_off, "ON" if on_or_off else "OFF", font_size, gogo_normal_color, gogo_pressed_color, )
+class SettingWidget(QWidget):
+    def __init__(self, settings_window: SettingsWindow, setting_info: str, buttons: list):
         super().__init__()
-        font_size = settings_window.font_size
-        self.setting_label = StyledLabel(font_size=font_size+5)
-        self.setting_label.setText("Gogo default browser")
-        set_minimum_size_policy(self.setting_label)
-        self.main_layout  = QHBoxLayout()
-        
+        setting_label = StyledLabel(font_size=settings_window.font_size+5)
+        setting_label.setText(setting_info)
+        set_minimum_size_policy(setting_label)
+        main_layout = QHBoxLayout()
+        main_layout.addWidget(setting_label)
+        for button in buttons: main_layout.addWidget(button)
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.setLayout(main_layout)
 
-
-class MaxSimultaneousDownloadsSetting(QWidget):
+class GogoDefaultBrowserSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__()
-        font_size = settings_window.font_size
-        self.setting_label = StyledLabel(font_size=font_size+5)
-        self.setting_label.setText("Max simultaneous downloads")
-        set_minimum_size_policy(self.setting_label)
-        self.main_layout = QHBoxLayout()
-        self.number_input = NumberInput(font_size=font_size)
-        self.number_input.setFixedWidth(60)
-        self.number_input.setPlaceholderText(amogus_easter_egg)
-        self.number_input.setText(str(settings[key_max_simulataneous_downloads]))
-        self.number_input.textChanged.connect(lambda value: settings_window.update_settings_json(key_max_simulataneous_downloads, value))
-        self.main_layout.addWidget(self.setting_label)
-        self.main_layout.addWidget(self.number_input)
-        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.setLayout(self.main_layout)
-
-class QualitySetting(QWidget):
-    def __init__(self, settings_window: SettingsWindow):
-        super().__init__()
         font_size = settings_window.font_size
         self.settings_window = settings_window
-        self.setting_label = StyledLabel(font_size=font_size+5)
-        self.setting_label.setText("Download quality")
-        set_minimum_size_policy(self.setting_label)
-        self.main_layout = QHBoxLayout()
-        self.button_1080 = QualityButton(settings_window, q_1080, font_size)
-        self.button_720 = QualityButton(settings_window, q_720, font_size)
-        self.button_480 = QualityButton(settings_window, q_480, font_size)
-        self.button_360 = QualityButton(settings_window, q_360, font_size)
-        self.quality_buttons_list = [self.button_1080, self.button_720, self.button_480, self.button_360]
+        button_chrome = GogoBrowserButton(settings_window, gogo.chrome, font_size)
+        button_edge = GogoBrowserButton(settings_window, gogo.edge, font_size)
+        button_firefox = GogoBrowserButton(settings_window, gogo.firefox, font_size)
+        self.browser_buttons_list = [button_chrome, button_edge, button_firefox]
+        for button in self.browser_buttons_list:
+            set_minimum_size_policy(button)
+            browser = button.browser
+            button.clicked.connect(lambda garbage_bool, browser=browser: self.update_browser(browser))
+            if button.browser == settings[key_gogo_default_browser]:
+                button.change_style_sheet(True)
+        super().__init__(settings_window, "Gogo default browser", self.browser_buttons_list)
+    
+    def update_browser(self, browser: str):
+        self.settings_window.update_settings_json(key_gogo_default_browser, browser)
+        for button in self.browser_buttons_list:
+            if button.browser != browser: button.change_style_sheet(False)
+
+class MaxSimultaneousDownloadsSetting(SettingWidget):
+    def __init__(self, settings_window: SettingsWindow):
+        number_input = NumberInput(font_size=settings_window.font_size)
+        number_input.setFixedWidth(60)
+        number_input.setPlaceholderText(amogus_easter_egg)
+        number_input.setText(str(settings[key_max_simulataneous_downloads]))
+        number_input.textChanged.connect(lambda value: settings_window.update_settings_json(key_max_simulataneous_downloads, int(value)) if value.isdigit() else None)
+        super().__init__(settings_window, "Max simultaneous downloads", [number_input])
+
+class QualitySetting(SettingWidget):
+    def __init__(self, settings_window: SettingsWindow):
+        font_size = settings_window.font_size
+        self.settings_window = settings_window
+        button_1080 = QualityButton(settings_window, q_1080, font_size)
+        button_720 = QualityButton(settings_window, q_720, font_size)
+        button_480 = QualityButton(settings_window, q_480, font_size)
+        button_360 = QualityButton(settings_window, q_360, font_size)
+        self.quality_buttons_list = [button_1080, button_720, button_480, button_360]
         for button in self.quality_buttons_list:
             set_minimum_size_policy(button)
             quality = button.quality
             button.clicked.connect(lambda garbage_bool, quality=quality: self.update_quality(quality))
             if button.quality == settings[key_quality]:
                 button.change_style_sheet(True)
-        self.main_layout.addWidget(self.setting_label)
-        list(map(self.main_layout.addWidget, self.quality_buttons_list))
-        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.setLayout(self.main_layout)
+        super().__init__(settings_window, "Download quality", self.quality_buttons_list)
 
     def update_quality(self, quality: str):
         self.settings_window.update_settings_json(key_quality, quality)
@@ -729,29 +763,19 @@ class QualitySetting(QWidget):
             if button.quality != quality: button.change_style_sheet(False)
 
 
-class SubDubSetting(QWidget):
+class SubDubSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__()
-        font_size = settings_window.font_size
-        self.setting_label = StyledLabel(font_size=font_size+5)
-        self.setting_label.setText("Sub or Dub")
-        set_minimum_size_policy(self.setting_label)
-        self.main_layout = QHBoxLayout()
-        self.sub_button = SubDubButton(settings_window, sub, font_size) 
-        set_minimum_size_policy(self.sub_button)
-        self.dub_button = SubDubButton(settings_window, dub, font_size)
-        set_minimum_size_policy(self.dub_button)
-        if settings[key_sub_or_dub] == sub: self.sub_button.click()
-        else: self.dub_button.click()
-        self.sub_button.clicked.connect(lambda: self.dub_button.change_style_sheet(False))
-        self.dub_button.clicked.connect(lambda: self.sub_button.change_style_sheet(False))
-        self.sub_button.clicked.connect(lambda: settings_window.update_settings_json(key_sub_or_dub, sub))
-        self.dub_button.clicked.connect(lambda: settings_window.update_settings_json(key_sub_or_dub, dub))
-        self.main_layout.addWidget(self.setting_label)
-        self.main_layout.addWidget(self.sub_button)
-        self.main_layout.addWidget(self.dub_button)
-        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.setLayout(self.main_layout)
+        sub_button = SubDubButton(settings_window, sub, settings_window.font_size) 
+        set_minimum_size_policy(sub_button)
+        dub_button = SubDubButton(settings_window, dub, settings_window.font_size)
+        set_minimum_size_policy(dub_button)
+        if settings[key_sub_or_dub] == sub: sub_button.click()
+        else: dub_button.click()
+        sub_button.clicked.connect(lambda: dub_button.change_style_sheet(False))
+        dub_button.clicked.connect(lambda: sub_button.change_style_sheet(False))
+        sub_button.clicked.connect(lambda: settings_window.update_settings_json(key_sub_or_dub, sub))
+        dub_button.clicked.connect(lambda: settings_window.update_settings_json(key_sub_or_dub, dub))
+        super().__init__(settings_window, "Sub or Dub?", [sub_button, dub_button])
 
 class FailedGettingDirectDownloadLinksWindow(QWidget):
     def __init__(self, main_window: MainWindow, anime_title: str, info_text: str, buttons_unique_to_window: list[QPushButton]) -> None:
@@ -1646,29 +1670,6 @@ class NumberInput(QLineEdit):
             else:
                 return True
         return super().eventFilter(obj, event)
-
-class OptionButton(StyledButton):
-    def __init__(self, parent: QWidget | None, option: str, option_displayed: str, font_size: int, chosen_color: str, not_chosen_color: str, font_color="white"):
-        super().__init__(parent, font_size, font_color, "rgba(128, 128, 128, 255)", chosen_color, not_chosen_color) 
-        self.not_picked_style_sheet = self.styleSheet()
-        styles_to_overwride = f"""
-            QPushButton {{
-            border-radius: 7px;
-            background-color: {chosen_color};
-        }}
-        QPushButton:hover {{
-            background-color: {chosen_color};
-        }}
-    """
-        self.picked_style_sheet = self.not_picked_style_sheet+styles_to_overwride
-        self.option = option
-        self.setText(option_displayed)
-        self.clicked.connect(lambda: self.change_style_sheet(True))
-
-    def change_style_sheet(self, picked: bool): 
-        if picked: self.setStyleSheet(self.picked_style_sheet)
-        else: self.setStyleSheet(self.not_picked_style_sheet)
-
 class GogoBrowserButton(OptionButton):
     def __init__(self, window: ChosenAnimeWindow | SettingsWindow, browser: str, font_size: int):
         super().__init__(window, browser, browser.upper(), font_size, third_normal_color, third_pressed_color)
