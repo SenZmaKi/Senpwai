@@ -227,8 +227,8 @@ class StyledButton(QPushButton):
             }}
         """)        
 class OptionButton(StyledButton):
-    def __init__(self, parent: QWidget | None, option: AllowedSettingsTypes, option_displayed: str, font_size: int, chosen_color: str, not_chosen_color: str, font_color="white"):
-        super().__init__(parent, font_size, font_color, "rgba(128, 128, 128, 255)", chosen_color, not_chosen_color) 
+    def __init__(self, parent: QWidget | None, option: AllowedSettingsTypes, option_displayed: str, font_size: int, chosen_color: str, hover_color: str, font_color="white"):
+        super().__init__(parent, font_size, font_color, "rgba(128, 128, 128, 255)", chosen_color, hover_color) 
         self.not_picked_style_sheet = self.styleSheet()
         styles_to_overwride = f"""
             QPushButton {{
@@ -242,9 +242,9 @@ class OptionButton(StyledButton):
         self.picked_style_sheet = self.not_picked_style_sheet+styles_to_overwride
         self.option = option
         self.setText(option_displayed)
-        self.clicked.connect(lambda: self.change_style_sheet(True))
+        self.clicked.connect(lambda: self.picked_status(True))
 
-    def change_style_sheet(self, picked: bool): 
+    def picked_status(self, picked: bool): 
         if picked: self.setStyleSheet(self.picked_style_sheet)
         else: self.setStyleSheet(self.not_picked_style_sheet)
 
@@ -682,10 +682,12 @@ class SettingsWindow(QWidget):
         self.quality_setting = QualitySetting(self)
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(self)
         self.gogo_default_browser_setting = GogoDefaultBrowserSetting(self)
+        self.make_download_complete_notification_setting = MakeDownloadCompleteNotificationSetting(self)
         self.main_layout.addWidget(self.sub_dub_setting)
         self.main_layout.addWidget(self.quality_setting)
         self.main_layout.addWidget(self.max_simultaneous_downloads_setting)
         self.main_layout.addWidget(self.gogo_default_browser_setting)
+        self.main_layout.addWidget(self.make_download_complete_notification_setting)
         self.setLayout(self.main_layout)
     
     def update_settings_json(self, key: str, new_value: AllowedSettingsTypes):
@@ -695,9 +697,9 @@ class SettingsWindow(QWidget):
             json.dump(validated, f, indent=4)
 
 
-class OnOrOff(OptionButton):
+class YesOrNo(OptionButton):
     def __init__(self, on_or_off: bool, font_size):
-        super().__init__(None, on_or_off, "ON" if on_or_off else "OFF", font_size, gogo_normal_color, gogo_pressed_color, )
+        super().__init__(None, on_or_off, "YES" if on_or_off else "NO", font_size, pahe_normal_color, pahe_pressed_color)
 class SettingWidget(QWidget):
     def __init__(self, settings_window: SettingsWindow, setting_info: str, buttons: list):
         super().__init__()
@@ -709,6 +711,19 @@ class SettingWidget(QWidget):
         for button in buttons: main_layout.addWidget(button)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.setLayout(main_layout)
+
+class MakeDownloadCompleteNotificationSetting(SettingWidget):
+    def __init__(self, settings_window: SettingsWindow):
+        yes_button = YesOrNo(True, settings_window.font_size)
+        no_button = YesOrNo(False, settings_window.font_size)
+        yes_button.clicked.connect(lambda: no_button.picked_status(False) )
+        no_button.clicked.connect(lambda: yes_button.picked_status(False) )
+        yes_button.clicked.connect(lambda: settings_window.update_settings_json(key_make_download_complete_notification, True))
+        no_button.clicked.connect(lambda: settings_window.update_settings_json(key_make_download_complete_notification, False))
+        settings[key_make_download_complete_notification] if yes_button.picked_status(True) else no_button.picked_status(False)
+        set_minimum_size_policy(yes_button)
+        set_minimum_size_policy(no_button)
+        super().__init__(settings_window, "Notify you when download completes?", [yes_button, no_button]) 
 
 class GogoDefaultBrowserSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
@@ -723,13 +738,13 @@ class GogoDefaultBrowserSetting(SettingWidget):
             browser = button.browser
             button.clicked.connect(lambda garbage_bool, browser=browser: self.update_browser(browser))
             if button.browser == settings[key_gogo_default_browser]:
-                button.change_style_sheet(True)
-        super().__init__(settings_window, "Gogo default browser", self.browser_buttons_list)
+                button.picked_status(True)
+        super().__init__(settings_window, "Gogo default scraping browser", self.browser_buttons_list)
     
     def update_browser(self, browser: str):
         self.settings_window.update_settings_json(key_gogo_default_browser, browser)
         for button in self.browser_buttons_list:
-            if button.browser != browser: button.change_style_sheet(False)
+            if button.browser != browser: button.picked_status(False)
 
 class MaxSimultaneousDownloadsSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
@@ -754,13 +769,13 @@ class QualitySetting(SettingWidget):
             quality = button.quality
             button.clicked.connect(lambda garbage_bool, quality=quality: self.update_quality(quality))
             if button.quality == settings[key_quality]:
-                button.change_style_sheet(True)
+                button.picked_status(True)
         super().__init__(settings_window, "Download quality", self.quality_buttons_list)
 
     def update_quality(self, quality: str):
         self.settings_window.update_settings_json(key_quality, quality)
         for button in self.quality_buttons_list:
-            if button.quality != quality: button.change_style_sheet(False)
+            if button.quality != quality: button.picked_status(False)
 
 
 class SubDubSetting(SettingWidget):
@@ -771,8 +786,8 @@ class SubDubSetting(SettingWidget):
         set_minimum_size_policy(dub_button)
         if settings[key_sub_or_dub] == sub: sub_button.click()
         else: dub_button.click()
-        sub_button.clicked.connect(lambda: dub_button.change_style_sheet(False))
-        dub_button.clicked.connect(lambda: sub_button.change_style_sheet(False))
+        sub_button.clicked.connect(lambda: dub_button.picked_status(False))
+        dub_button.clicked.connect(lambda: sub_button.picked_status(False))
         sub_button.clicked.connect(lambda: settings_window.update_settings_json(key_sub_or_dub, sub))
         dub_button.clicked.connect(lambda: settings_window.update_settings_json(key_sub_or_dub, dub))
         super().__init__(settings_window, "Sub or Dub?", [sub_button, dub_button])
@@ -1346,7 +1361,7 @@ class GetDirectDownloadLinksThread(QThread):
         if self.anime_details.site ==  gogo_name:
             try: 
                 # For testing purposes
-                raise WebDriverException
+                # raise WebDriverException
                 #raise TimeoutError
                 self.anime_details.direct_download_links = gogo.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality, 
                                                                                         gogo.setup_headless_browser(self.anime_details.browser), lambda x: self.update_bar.emit(x))
@@ -1403,8 +1418,8 @@ class ChosenAnimeWindow(QWidget):
             set_minimum_size_policy(self.dub_button)
             self.dub_button.clicked.connect(lambda: self.update_sub_or_dub(dub))
             if settings[key_sub_or_dub] == dub: self.dub_button.click()
-            self.dub_button.clicked.connect(lambda: self.sub_button.change_style_sheet(False))
-            self.sub_button.clicked.connect(lambda: self.dub_button.change_style_sheet(False))# type: ignore
+            self.dub_button.clicked.connect(lambda: self.sub_button.picked_status(False))
+            self.sub_button.clicked.connect(lambda: self.dub_button.picked_status(False))# type: ignore
         else: 
             self.sub_button.click()
             self.anime_details.sub_or_dub = sub
@@ -1426,7 +1441,7 @@ class ChosenAnimeWindow(QWidget):
             quality = button.quality
             button.clicked.connect(lambda garbage_bool, quality=quality: self.update_quality(quality))
             if quality == settings[key_quality]:
-                button.change_style_sheet(True)
+                button.picked_status(True)
         first_row_of_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         first_row_of_buttons_widget.setLayout(first_row_of_buttons_layout)
         right_widgets_layout.addWidget(first_row_of_buttons_widget)
@@ -1460,7 +1475,7 @@ class ChosenAnimeWindow(QWidget):
                 second_row_of_buttons_layout.addWidget(button)
                 browser = button.browser
                 button.clicked.connect(lambda garbage_bool, browser=browser: self.update_browser(browser))
-                if browser == settings[key_gogo_default_browser]: button.change_style_sheet(True)
+                if browser == settings[key_gogo_default_browser]: button.picked_status(True)
         second_row_of_buttons_widget.setLayout(second_row_of_buttons_layout)
         second_row_of_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         # second_row_of_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -1493,17 +1508,17 @@ class ChosenAnimeWindow(QWidget):
     def update_browser(self, browser: str):
         self.anime_details.browser = browser
         for button in self.browser_buttons:
-            if button.browser != browser: button.change_style_sheet(False)
+            if button.browser != browser: button.picked_status(False)
 
     def update_quality(self, quality: str):
         self.anime_details.quality = quality
         for button in self.quality_buttons_list:
-            if button.quality != quality: button.change_style_sheet(False)
+            if button.quality != quality: button.picked_status(False)
 
     def update_sub_or_dub(self, sub_or_dub: str):
         self.anime_details.sub_or_dub = sub_or_dub
-        if sub_or_dub == dub: self.sub_button.change_style_sheet(False)
-        elif self.dub_button != None: self.dub_button.change_style_sheet(False)
+        if sub_or_dub == dub: self.sub_button.picked_status(False)
+        elif self.dub_button != None: self.dub_button.picked_status(False)
 
 
 class SetupChosenAnimeWindowThread(QThread):
@@ -1738,7 +1753,7 @@ if __name__ == "__main__":
     app.setWindowIcon(QIcon(senpwai_icon_path))
     # Set the purple theme
     palette = app.palette()
-    palette.setColor(QPalette.ColorRole.Window, QColor(pahe_normal_color))
+    palette.setColor(QPalette.ColorRole.Window, QColor(pahe_normal_color)) # type: ignore
     palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
     app.setPalette(palette)
 
