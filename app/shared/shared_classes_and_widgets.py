@@ -1,10 +1,10 @@
 from PyQt6.QtGui import QPixmap, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar
-from PyQt6.QtCore import Qt, QSize, QMutex, pyqtSlot
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame
+from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, pyqtSlot
 from shared.global_vars_and_funcs import AllowedSettingsTypes, pahe_name, gogo_name
 from time import time
 from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, key_gogo_default_browser, key_quality, key_sub_or_dub, default_download_folder_paths
-from shared.global_vars_and_funcs import folder_icon_path, third_normal_color, third_pressed_color, pahe_normal_color, pahe_pressed_color, gogo_normal_color
+from shared.global_vars_and_funcs import folder_icon_path, red_normal_color, red_pressed_color, pahe_normal_color, pahe_pressed_color, gogo_normal_color
 from shared.app_and_scraper_shared import sanitise_title, network_monad
 from pathlib import Path
 from typing import cast
@@ -45,11 +45,11 @@ class Animation(QLabel):
 
 
 class StyledLabel(QLabel):
-    def __init__(self, parent=None, font_size: int = 20, bckg_color: str = "rgba(0, 0, 0, 220)", border_radius=10):
+    def __init__(self, parent=None, font_size: int = 20, bckg_color: str = "rgba(0, 0, 0, 220)", border_radius=10, font_color="white"):
         super().__init__(parent)
         self.setStyleSheet(f"""
                     QLabel {{
-                        color: white;
+                        color: {font_color};
                         font-size: {font_size}px;
                         font-family: "Berlin Sans FB Demi";
                         background-color: {bckg_color};
@@ -211,6 +211,15 @@ class OutlinedButton(StyledButton):
         # Call the parent class's paintEvent to draw the button background and other properties
         painter.end()
         return super().paintEvent(event)
+
+class ErrorLabel(StyledLabel):
+    def __init__(self, font_size: int, shown_duration_in_secs: int=3, parent: QWidget | None = None):
+        super().__init__(parent, font_size, font_color="red")
+        self.shown_duration_in_secs = shown_duration_in_secs
+
+    def show(self):
+        QTimer().singleShot(self.shown_duration_in_secs * 1000, self.hide)
+        return super().show()
 
 
 class ProgressBar(QWidget):
@@ -552,7 +561,7 @@ class NumberInput(QLineEdit):
 class GogoBrowserButton(OptionButton):
     def __init__(self, window: QWidget, browser: str, font_size: int):
         super().__init__(window, browser, browser.upper(),
-                         font_size, third_normal_color, third_pressed_color)
+                         font_size, red_normal_color, red_pressed_color)
         self.browser = browser
 
 
@@ -568,3 +577,15 @@ class SubDubButton(OptionButton):
         super().__init__(window, sub_or_dub, sub_or_dub.upper(),
                          font_size,  pahe_normal_color, pahe_pressed_color)
         self.sub_or_dub = sub_or_dub
+
+class HorizontalLine(QFrame):
+    def __init__(self, color: str = "black", parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setFrameShape(QFrame.Shape.HLine)
+        self.setStyleSheet(f"""
+                        QFrame {{ 
+                            background-color: {color}; 
+                            }}
+                            """)
+
+

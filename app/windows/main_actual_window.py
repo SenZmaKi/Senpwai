@@ -27,7 +27,7 @@ class MainWindow(QMainWindow):
         self.stacked_windows.addWidget(self.search_window)
         self.stacked_windows.addWidget(self.download_window)
         self.stacked_windows.addWidget(self.settings_window)
-        self.stacked_windows.setCurrentWidget(self.search_window)
+        self.stacked_windows.setCurrentWidget(self.settings_window)
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
 

@@ -69,7 +69,9 @@ class SearchWindow(QWidget):
             if prev_top_was_anime_not_found:
                 self.anime_not_found.stop()
             for idx in reversed(range(self.results_layout.count())):
-                self.results_layout.itemAt(idx).widget().deleteLater()
+                item = self.results_layout.itemAt(idx)
+                item.widget().deleteLater()
+                self.results_layout.removeItem(item)
             self.search_thread = SearchThread(self, anime_title, site)
             self.search_thread.finished.connect(
                 lambda results: self.handle_finished_search(site, results))

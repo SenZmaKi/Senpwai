@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal
-from shared.shared_classes_and_widgets import StyledLabel, StyledButton, OutlinedLabel, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, FolderButton, Anime
+from shared.shared_classes_and_widgets import StyledLabel, StyledButton, OutlinedLabel, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, FolderButton, Anime, HorizontalLine
 from shared.global_vars_and_funcs import gogo_normal_color, gogo_hover_color, settings, key_sub_or_dub, q_1080, q_720, q_480, q_360
 from shared.global_vars_and_funcs import sub, dub, set_minimum_size_policy, key_gogo_default_browser, key_quality, gogo_name, chrome_name, edge_name, firefox_name
 from windows.download_window import DownloadWindow
@@ -300,17 +300,6 @@ class Title(OutlinedLabel):
                         font-size: 60px;
                         font-family: "Berlin Sans FB Demi";
                             }
-                            """)
-
-
-class HorizontalLine(QFrame):
-    def __init__(self, color: str = "black", parent: QWidget | None = None):
-        super().__init__(parent)
-        self.setFrameShape(QFrame.Shape.HLine)
-        self.setStyleSheet(f"""
-                        QFrame {{ 
-                            background-color: {color}; 
-                            }}
                             """)
 
 

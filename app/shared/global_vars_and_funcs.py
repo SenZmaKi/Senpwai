@@ -37,6 +37,7 @@ default_download_folder_paths = [folder]
 default_max_simutaneous_downloads = 2
 default_gogo_browser = edge_name
 default_make_download_complete_notification = True
+default_start_in_fullscreen = True
 
 assets_path = os.path.join(base_directory, "assets")
 
@@ -65,9 +66,9 @@ gogo_normal_color = "#00FF00"
 gogo_hover_color = "#60FF00"
 gogo_pressed_color = "#99FF00"
 
-third_normal_color = "#E80000"
-third_hover_color = "#FF0202"
-third_pressed_color = "#FF1C1C"
+red_normal_color = "#E80000"
+red_hover_color = "#FF0202"
+red_pressed_color = "#FF1C1C"
 
 key_sub_or_dub = "sub_or_dub"
 key_quality = "quality"
@@ -75,6 +76,7 @@ key_download_folder_paths = "download_folder_paths"
 key_max_simulataneous_downloads = "max_simultaneous_downloads"
 key_gogo_default_browser = "gogo_default_browser"
 key_make_download_complete_notification = "make_download_complete_notification"
+key_start_in_fullscreen = "start_in_fullscreen"
 
 config_and_settings_folder_path = os.path.join(user_config_dir(), app_name)
 if not os.path.isdir(config_and_settings_folder_path):
@@ -122,7 +124,7 @@ def validate_settings_json(settings_json: dict) -> dict:
     try:
         download_folder_paths = settings_json[key_download_folder_paths]
         valid_folder_paths = [path for path in download_folder_paths if os.path.isdir(
-            path) and not requires_admin_access(path)]
+            path) and not requires_admin_access(path) and path not in valid_folder_paths]
         if len(valid_folder_paths) == 0:
             valid_folder_paths = default_download_folder_paths
         raise KeyError
@@ -149,6 +151,13 @@ def validate_settings_json(settings_json: dict) -> dict:
         clean_settings[key_make_download_complete_notification] = make_download_complete_notification
     except KeyError:
         clean_settings[key_make_download_complete_notification] = default_make_download_complete_notification
+    try:
+        start_in_fullscreen = settings_json[key_start_in_fullscreen]
+        if not isinstance(start_in_fullscreen, bool):
+            raise KeyError
+        clean_settings[key_start_in_fullscreen] = start_in_fullscreen
+    except KeyError:
+        clean_settings[key_start_in_fullscreen] = default_start_in_fullscreen
 
     return clean_settings
 

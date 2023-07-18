@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtCore import Qt
 from shared.global_vars_and_funcs import chopper_crying_path, pahe_normal_color, pahe_hover_color, pahe_pressed_color
-from shared.global_vars_and_funcs import third_normal_color, third_hover_color, third_pressed_color, set_minimum_size_policy
+from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy
 from shared.global_vars_and_funcs import gogo_normal_color, gogo_hover_color, gogo_pressed_color
 from shared.shared_classes_and_widgets import StyledButton, StyledLabel
 from shared.global_vars_and_funcs import settings, key_gogo_default_browser, chrome_name, edge_name
@@ -29,7 +29,7 @@ class FailedGettingDirectDownloadLinksWindow(QWidget):
         switch_to_anime_pahe_button.clicked.connect(
             main_window.set_default_bck_img)
         change_default_browser_button = StyledButton(
-            None, 25, "black", third_normal_color, third_hover_color, third_pressed_color)
+            None, 25, "black", red_normal_color, red_hover_color, red_pressed_color)
         change_default_browser_button.setText("Change gogo default browser")
         change_default_browser_button.clicked.connect(
             lambda: main_window.stacked_windows.setCurrentWidget(main_window.settings_window))
