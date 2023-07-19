@@ -1,32 +1,38 @@
 from PyQt6.QtGui import QPixmap, QKeyEvent
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QLineEdit
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QEvent
-from shared.global_vars_and_funcs import zero_two_peeping_path, gogo_name, pahe_name, loading_animation_path, sadge_piece_path, set_minimum_size_policy
-from shared.global_vars_and_funcs import pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color
+from shared.global_vars_and_funcs import mascot_icon_path, gogo_name, pahe_name, loading_animation_path, sadge_piece_path, set_minimum_size_policy
+from shared.global_vars_and_funcs import pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, search_window_bckg_image_path
 from shared.shared_classes_and_widgets import Anime, StyledButton, OutlinedButton, ScrollableSection, AnimationAndText
-from windows.main_actual_window import MainWindow
+from windows.main_actual_window import MainWindow, Window
 from scrapers import pahe
 from scrapers import gogo
 
 
-class SearchWindow(QWidget):
+class SearchWindow(Window):
     def __init__(self, main_window: MainWindow):
-        super().__init__()
+        super().__init__(main_window, search_window_bckg_image_path)
         self.main_window = main_window
+        main_widget = QWidget()
         main_layout = QVBoxLayout()
 
-        zero_two_peeping = QLabel()
-        zero_two_peeping.setPixmap(QPixmap(zero_two_peeping_path))
-        zero_two_peeping.setFixedSize(130, 100)
-        zero_two_peeping.setScaledContents(True)
-        main_layout.addWidget(zero_two_peeping)
-        main_layout.setAlignment(
-            zero_two_peeping, Qt.AlignmentFlag.AlignHCenter)
+        mascot_label = QLabel()
+        mascot_label.setPixmap(QPixmap(mascot_icon_path))
+        mascot_label.setFixedSize(130, 100)
+        mascot_label.setScaledContents(True)
 
         self.search_bar = SearchBar(self)
         self.get_search_bar_text = lambda: self.search_bar.text()
         self.search_bar.setMinimumHeight(60)
-        main_layout.addWidget(self.search_bar)
+
+        search_bar_and_mascot_widget = QWidget()
+        search_bar_and_mascot_layout = QVBoxLayout()
+        search_bar_and_mascot_layout.addWidget(mascot_label, alignment=Qt.AlignmentFlag.AlignHCenter)
+        search_bar_and_mascot_layout.addWidget(self.search_bar)
+        search_bar_and_mascot_layout.setSpacing(0)
+        search_bar_and_mascot_widget.setLayout(search_bar_and_mascot_layout)
+        main_layout.addWidget(search_bar_and_mascot_widget)
+
         search_buttons_widget = QWidget()
         search_buttons_layout = QHBoxLayout()
         self.pahe_search_button = SearchButton(self, pahe_name)
@@ -54,9 +60,11 @@ class SearchWindow(QWidget):
         self.bottom_section_stacked_widgets.setCurrentWidget(
             self.results_widget)
         main_layout.addWidget(self.bottom_section_stacked_widgets)
-        self.setLayout(main_layout)
         self.search_thread = None
         self.search_bar.setFocus()
+        main_widget.setLayout(main_layout)
+        self.full_layout.addWidget(main_widget)
+        self.setLayout(self.full_layout)
 
     def search_anime(self, anime_title: str, site: str) -> None:
         # Check setup_chosen_anime_window and MainWindow for why the if statement

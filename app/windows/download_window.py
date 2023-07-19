@@ -3,9 +3,9 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSystemTrayIcon
 from PyQt6.QtCore import QObject, QThread, QMutex, pyqtSignal, pyqtSlot
 from shared.global_vars_and_funcs import settings, key_make_download_complete_notification, key_max_simulataneous_downloads
 from shared.global_vars_and_funcs import set_minimum_size_policy, download_complete_icon_path
-from shared.global_vars_and_funcs import pahe_name, gogo_name, dub
+from shared.global_vars_and_funcs import pahe_name, gogo_name, dub, downlaod_window_bckg_image_path
 from shared.app_and_scraper_shared import Download, ibytes_to_mbs_divisor, network_monad
-from windows.main_actual_window import MainWindow
+from windows.main_actual_window import MainWindow, Window
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, ScrollableSection, DownloadProgressBar, ProgressBar, AnimeDetails, FolderButton
 from typing import Callable, cast
 from selenium.common.exceptions import WebDriverException
@@ -100,9 +100,9 @@ class PauseAllButton(StyledButton):
             set_minimum_size_policy(self)
 
 
-class DownloadWindow(QWidget):
+class DownloadWindow(Window):
     def __init__(self, main_window: MainWindow):
-        super().__init__(main_window)
+        super().__init__(main_window, downlaod_window_bckg_image_path)
         self.main_window = main_window
         self.download_complete_icon = QIcon(download_complete_icon_path)
         self.tray_icon = main_window.tray_icon
@@ -133,7 +133,10 @@ class DownloadWindow(QWidget):
         top_section_layout.addWidget(second_row_of_buttons_widget)
         main_layout.addWidget(top_section_widget)
         main_layout.addWidget(progress_bars_widget)
-        self.setLayout(main_layout)
+        main_widget = QWidget()
+        main_widget.setLayout(main_layout)
+        self.full_layout.addWidget(main_widget)
+        self.setLayout(self.full_layout)
 
     def get_episode_page_links(self, anime_details: AnimeDetails):
         if anime_details.site == pahe_name:

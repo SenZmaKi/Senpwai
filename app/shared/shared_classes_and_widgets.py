@@ -71,7 +71,6 @@ class StyledButton(QPushButton):
                 color: {font_color};
                 background-color: {normal_color};
                 border: 1px solid black;
-                padding: 5px;
                 font-size: {font_size}px;
                 font-family: "Berlin Sans FB Demi";
                 padding: 10px;
@@ -587,5 +586,3 @@ class HorizontalLine(QFrame):
                             background-color: {color}; 
                             }}
                             """)
-
-

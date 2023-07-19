@@ -43,9 +43,11 @@ assets_path = os.path.join(base_directory, "assets")
 
 senpwai_icon_path = os.path.abspath("Senpwai_icon.ico")
 bckg_images_path = os.path.join(assets_path, "background-images")
-bckg_images = list(Path(bckg_images_path).glob("*"))
-bckg_image_path = (
-    str(bckg_images[randint(0, len(bckg_images)-1)])).replace("\\", "/")
+search_window_bckg_image_path = os.path.join(bckg_images_path, "search.jpg")
+chosen_anime_window_bckg_image_path = os.path.join(bckg_images_path, "chosen-anime.jpg")
+settings_window_bckg_image_path = os.path.join(bckg_images_path, "settings.jpg")
+downlaod_window_bckg_image_path = os.path.join(bckg_images_path, "downloads.png")
+about_bckg_image_path = os.path.join(bckg_images_path, "about.jpg")
 loading_animation_path = os.path.join(assets_path, "loading.gif")
 sadge_piece_path = os.path.join(assets_path, "sadge-piece.gif")
 folder_icon_path = os.path.join(assets_path, "folder.png")
@@ -56,7 +58,16 @@ download_complete_icon_path = os.path.join(
     assets_path, "download-complete.png")
 chopper_crying_path = os.path.join(
     assets_path, "chopper-crying.png").replace("\\", "/")
-zero_two_peeping_path = os.path.join(assets_path, "zero-two-peeping.png")
+folder = os.path.join(assets_path, "mascots")
+files = list(Path(folder).glob("*"))
+mascot_icon_path = str(files[randint(0, len(files)-1)])
+navigation_bar_icons_folder_path = os.path.join(assets_path, "navigation-bar-icons")
+search_icon_path = os.path.join(navigation_bar_icons_folder_path, "search.png")
+downloads_icon_path = os.path.join(navigation_bar_icons_folder_path, "downloads.png")
+settings_icon_path = os.path.join(navigation_bar_icons_folder_path, "settings.png")
+donate_icon_path = os.path.join(navigation_bar_icons_folder_path, "donate.png")
+about_icon_path = os.path.join(navigation_bar_icons_folder_path, "about.png")
+
 
 pahe_normal_color = "#FFC300"
 pahe_hover_color = "#FFD700"

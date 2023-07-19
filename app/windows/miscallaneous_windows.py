@@ -4,15 +4,15 @@ from shared.global_vars_and_funcs import chopper_crying_path, pahe_normal_color,
 from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy
 from shared.global_vars_and_funcs import gogo_normal_color, gogo_hover_color, gogo_pressed_color
 from shared.shared_classes_and_widgets import StyledButton, StyledLabel
-from shared.global_vars_and_funcs import settings, key_gogo_default_browser, chrome_name, edge_name
-from windows.main_actual_window import MainWindow
+from shared.global_vars_and_funcs import settings, key_gogo_default_browser, chrome_name, edge_name, chopper_crying_path
+from windows.main_actual_window import MainWindow, Window
 from typing import cast
 from webbrowser import open_new_tab
 
 
-class FailedGettingDirectDownloadLinksWindow(QWidget):
+class FailedGettingDirectDownloadLinksWindow(Window):
     def __init__(self, main_window: MainWindow, anime_title: str, info_text: str, buttons_unique_to_window: list[QPushButton]) -> None:
-        super().__init__(main_window)
+        super().__init__(main_window, chopper_crying_path)
         main_window.set_bckg_img(chopper_crying_path)
         info_label = StyledLabel(font_size=30)
         info_label.setText(info_text)
@@ -27,14 +27,14 @@ class FailedGettingDirectDownloadLinksWindow(QWidget):
         switch_to_anime_pahe_button.clicked.connect(
             lambda: main_window.switch_to_pahe(anime_title, self))
         switch_to_anime_pahe_button.clicked.connect(
-            main_window.set_default_bck_img)
+            main_window.set_bckg_img)
         change_default_browser_button = StyledButton(
             None, 25, "black", red_normal_color, red_hover_color, red_pressed_color)
         change_default_browser_button.setText("Change gogo default browser")
         change_default_browser_button.clicked.connect(
             lambda: main_window.stacked_windows.setCurrentWidget(main_window.settings_window))
         change_default_browser_button.clicked.connect(
-            main_window.set_default_bck_img)
+            main_window.set_bckg_img)
         set_minimum_size_policy(change_default_browser_button)
         buttons_layout.addWidget(switch_to_anime_pahe_button)
         buttons_layout.addWidget(change_default_browser_button)
@@ -43,7 +43,10 @@ class FailedGettingDirectDownloadLinksWindow(QWidget):
         main_layout.addWidget(
             info_label, alignment=Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(buttons_widget)
-        self.setLayout(main_layout)
+        main_widget = QWidget()
+        main_widget.setLayout(main_layout)
+        self.full_layout.addWidget(main_widget)
+        self.setLayout(self.full_layout)
 
 
 class CaptchaBlockWindow(FailedGettingDirectDownloadLinksWindow):

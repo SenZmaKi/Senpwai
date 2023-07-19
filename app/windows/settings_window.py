@@ -1,22 +1,22 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtCore import Qt
-from shared.global_vars_and_funcs import AllowedSettingsTypes, validate_settings_json, settings_file_path, set_minimum_size_policy, amogus_easter_egg, requires_admin_access
+from shared.global_vars_and_funcs import AllowedSettingsTypes, validate_settings_json, settings_file_path, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path
 from shared.global_vars_and_funcs import settings, key_gogo_default_browser, key_make_download_complete_notification, key_quality, key_max_simulataneous_downloads, key_sub_or_dub, key_download_folder_paths, key_start_in_fullscreen, gogo_normal_color, gogo_hover_color, gogo_pressed_color
 from shared.global_vars_and_funcs import pahe_normal_color, pahe_pressed_color, pahe_hover_color, red_normal_color, red_hover_color, red_pressed_color, sub, dub, chrome_name, edge_name, firefox_name, q_1080, q_720, q_480, q_360
 from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
-from windows.main_actual_window import MainWindow
+from windows.main_actual_window import MainWindow, Window
 import json
 import os
 from typing import cast
 
 
-class SettingsWindow(QWidget):
+class SettingsWindow(Window):
     def __init__(self, main_window: MainWindow) -> None:
-        super().__init__(main_window)
+        super().__init__(main_window, settings_window_bckg_image_path)
         self.font_size = 25
-        self.main_layout = QVBoxLayout()
-        self.main_widget = ScrollableSection(self.main_layout)
+        main_layout = QVBoxLayout()
+        self.main_widget = ScrollableSection(main_layout)
         self.sub_dub_setting = SubDubSetting(self)
         self.quality_setting = QualitySetting(self)
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(
@@ -29,15 +29,18 @@ class SettingsWindow(QWidget):
         )
         self.download_folder_setting = DownloadFoldersSetting(
             self, main_window)
-        self.main_layout.addWidget(self.sub_dub_setting)
-        self.main_layout.addWidget(self.quality_setting)
-        self.main_layout.addWidget(self.max_simultaneous_downloads_setting)
-        self.main_layout.addWidget(self.gogo_default_browser_setting)
-        self.main_layout.addWidget(
+        main_layout.addWidget(self.sub_dub_setting)
+        main_layout.addWidget(self.quality_setting)
+        main_layout.addWidget(self.max_simultaneous_downloads_setting)
+        main_layout.addWidget(self.gogo_default_browser_setting)
+        main_layout.addWidget(
             self.make_download_complete_notification_setting)
-        self.main_layout.addWidget(self.start_in_fullscreen)
-        self.main_layout.addWidget(self.download_folder_setting)
-        self.setLayout(self.main_layout)
+        main_layout.addWidget(self.start_in_fullscreen)
+        main_layout.addWidget(self.download_folder_setting)
+        main_widget = QWidget()
+        main_widget.setLayout(main_layout)
+        self.full_layout.addWidget(main_widget)
+        self.setLayout(self.full_layout)
 
     def update_settings_json(self, key: str, new_value: AllowedSettingsTypes):
         settings[key] = new_value
@@ -86,8 +89,8 @@ class DownloadFoldersSetting(QWidget):
         self.main_layout.addWidget(folder_widgets_widget)
         self.setLayout(self.main_layout)
 
-    def error(self, text: str):
-        self.error_label.setText(text)
+    def error(self, error_message: str):
+        self.error_label.setText(error_message)
         self.error_label.update()
         set_minimum_size_policy(self.error_label)
         self.error_label.show()
