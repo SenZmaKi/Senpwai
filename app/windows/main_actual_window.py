@@ -10,7 +10,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.set_bckg_img = lambda img_path: self.setStyleSheet(
-            f"QMainWindow{{background-image: {img_path};}}")
+            f"QMainWindow{{border-image: url({img_path}) 0 0 0 0 stretch stretch;}}")
         center_point = QGuiApplication.primaryScreen().availableGeometry().center()
         window_position = QPoint(center_point.x(
         ) - self.rect().center().x(), center_point.y() - self.rect().center().y())
@@ -26,6 +26,7 @@ class MainWindow(QMainWindow):
         self.set_bckg_img(self.search_window.bckg_img_path)
         self.stacked_windows.addWidget(self.download_window)
         self.stacked_windows.addWidget(self.settings_window)
+        self.stacked_windows.setCurrentWidget(self.search_window)
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
 
@@ -58,6 +59,7 @@ class MainWindow(QMainWindow):
             self.search_window.results_widget)
         chosen_anime_window = ChosenAnimeWindow(self, anime_details)
         self.stacked_windows.addWidget(chosen_anime_window)
+        self.set_bckg_img(chosen_anime_window.bckg_img_path)
         self.stacked_windows.setCurrentWidget(chosen_anime_window)
         self.setup_chosen_anime_window_thread = None
 
@@ -71,13 +73,11 @@ class MainWindow(QMainWindow):
         target_window = cast(Window, target_window)
         if self.stacked_windows.currentWidget() != target_window:
             self.set_bckg_img(target_window.bckg_img_path)
-            print(target_window.bckg_img_path)
-            print(self.styleSheet())
-            print(self.styleSheet())
             self.stacked_windows.setCurrentWidget(target_window)
 
     def switch_to_search_window(self):
         self.switch_to_window(self.search_window)
+        self.search_window.search_bar.setFocus()
 
     def switch_to_settings_window(self):
         self.switch_to_window(self.settings_window)
@@ -110,9 +110,9 @@ class Window(QWidget):
     def __init__(self, main_window: MainWindow, bckg_img_path: str):
         super().__init__(main_window)
         self.bckg_img_path = bckg_img_path
-        self.full_layout = QVBoxLayout()
+        self.full_layout = QHBoxLayout()
         nav_bar_widget = QWidget()
-        self.nav_bar_layout = QHBoxLayout()
+        self.nav_bar_layout = QVBoxLayout()
         search_window_button = NavBarButton(search_icon_path, main_window.switch_to_search_window)
         download_window_button = NavBarButton(downloads_icon_path, main_window.switch_to_downloads_window)
         settings_window_button = NavBarButton(settings_icon_path, main_window.switch_to_settings_window)
@@ -121,7 +121,7 @@ class Window(QWidget):
         nav_bar_buttons = [search_window_button, download_window_button, settings_window_button, about_window_button, donate_button]
         for button in nav_bar_buttons:
             self.nav_bar_layout.addWidget(button)
-        self.nav_bar_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.nav_bar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         nav_bar_widget.setLayout(self.nav_bar_layout)
         self.full_layout.addWidget(nav_bar_widget)
 

@@ -1,6 +1,6 @@
 from PyQt6.QtGui import QPixmap, QKeyEvent
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QLineEdit
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QEvent
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QEvent, QTimer
 from shared.global_vars_and_funcs import mascot_icon_path, gogo_name, pahe_name, loading_animation_path, sadge_piece_path, set_minimum_size_policy
 from shared.global_vars_and_funcs import pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, search_window_bckg_image_path
 from shared.shared_classes_and_widgets import Anime, StyledButton, OutlinedButton, ScrollableSection, AnimationAndText
@@ -54,17 +54,19 @@ class SearchWindow(Window):
             loading_animation_path, 600, 300, "Loading.. .", 1, 48, 50)
         self.anime_not_found = AnimationAndText(
             sadge_piece_path, 400, 300, ":( couldn't find that anime ", 1, 48, 50)
+        self.bottom_section_stacked_widgets.addWidget(self.results_widget)
         self.bottom_section_stacked_widgets.addWidget(self.loading)
         self.bottom_section_stacked_widgets.addWidget(self.anime_not_found)
-        self.bottom_section_stacked_widgets.addWidget(self.results_widget)
         self.bottom_section_stacked_widgets.setCurrentWidget(
             self.results_widget)
         main_layout.addWidget(self.bottom_section_stacked_widgets)
         self.search_thread = None
-        self.search_bar.setFocus()
         main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
+        # We use a timer instead of calling setFocus raw cause apparently Qt wont setFocus if the widget isn't shown on screen, so we gotta wait a but first or sth StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
+        QTimer.singleShot(0, self.search_bar.setFocus)
+
 
     def search_anime(self, anime_title: str, site: str) -> None:
         # Check setup_chosen_anime_window and MainWindow for why the if statement

@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit
 from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, pyqtSlot
 from shared.global_vars_and_funcs import AllowedSettingsTypes, pahe_name, gogo_name
 from time import time
-from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, key_gogo_default_browser, key_quality, key_sub_or_dub, default_download_folder_paths
+from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, key_gogo_default_browser, key_quality, key_sub_or_dub, key_download_folder_paths, default_download_folder_paths
 from shared.global_vars_and_funcs import folder_icon_path, red_normal_color, red_pressed_color, pahe_normal_color, pahe_pressed_color, gogo_normal_color
 from shared.app_and_scraper_shared import sanitise_title, network_monad
 from pathlib import Path
@@ -436,7 +436,7 @@ class AnimeDetails():
     def get_anime_folder_path(self) -> str | None:
         def try_path(title: str) -> str | None:
             detected = None
-            for path in default_download_folder_paths:
+            for path in settings[key_download_folder_paths]:
                 potential = os.path.join(path, title)
                 upper = potential.upper()
                 lower = potential.lower()

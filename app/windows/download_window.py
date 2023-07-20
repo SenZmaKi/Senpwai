@@ -22,9 +22,8 @@ class DownloadedEpisodeCount(StyledLabel):
         self.total_episodes = total_episodes
         self.current_episodes = 0
         self.tray_icon = tray_icon
-        if settings[key_make_download_complete_notification]:
-            self.tray_icon.messageClicked.connect(
-                lambda: os.startfile(anime_folder_path))
+        self.tray_icon.messageClicked.connect(
+            lambda: os.startfile(anime_folder_path))
         self.anime_title = anime_title
         self.download_complete_icon = download_complete_icon
         self.setText(f"{0}/{total_episodes} eps")
@@ -43,7 +42,8 @@ class DownloadedEpisodeCount(StyledLabel):
     def update(self, added_episode_count: int):
         self.current_episodes += added_episode_count
         self.setText(f"{self.current_episodes}/{self.total_episodes} eps")
-        if self.is_complete and not self.is_cancelled:
+        if self.is_complete() and not self.is_cancelled() and settings[key_make_download_complete_notification]:
+            print("kigma")
             self.download_complete_notification()
         super().update()
         set_minimum_size_policy(self)
@@ -107,17 +107,8 @@ class DownloadWindow(Window):
         self.download_complete_icon = QIcon(download_complete_icon_path)
         self.tray_icon = main_window.tray_icon
         main_layout = QVBoxLayout()
-        progress_bars_widget = QWidget()
         self.progress_bars_layout = QVBoxLayout()
-        """
-            Careful now DONT CHANGE THE ORDERING BELOW
-            Without maintaining a reference to ScrollableSection by assigning it to a variable, the garbage COllector deletes it and since it's the last known father
-            to self.progress_bars_layout, self.progress_bars_layout also gets deleted resulting to a RuntimeError. 
-            The same behaviour is experienced if we assign ScrollableSection to a variable but make the assignment after we call progress_bars_widget.setLayout(self.progress_bars_layout), 
-            since the last known father is the what the variable but it gets out of scope when we leave the __init__ hence the same crash just that it happens later on when we try to reference self.progress_bars_layout
-        """
-        _ = ScrollableSection(self.progress_bars_layout)
-        progress_bars_widget.setLayout(self.progress_bars_layout)
+        progress_bars_scrollable = ScrollableSection(self.progress_bars_layout)
         top_section_widget = QWidget()
         top_section_layout = QVBoxLayout()
         top_section_widget.setLayout(top_section_layout)
@@ -132,7 +123,7 @@ class DownloadWindow(Window):
         top_section_layout.addWidget(first_row_of_progress_bar_widget)
         top_section_layout.addWidget(second_row_of_buttons_widget)
         main_layout.addWidget(top_section_widget)
-        main_layout.addWidget(progress_bars_widget)
+        main_layout.addWidget(progress_bars_scrollable)
         main_widget = QWidget()
         main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)

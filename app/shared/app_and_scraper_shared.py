@@ -48,11 +48,6 @@ def match_quality(potential_qualities: list[str], chosen_quality: str) -> int:
 
     return closest.index
 
-
-# potential_qualities = ['Download (1080p - mp4)', 'Download (720 - mp4)', 'Download (4 - mp4)', 'Download (360p - mp4)', 'Download (144p - mp4)']
-# print(potential_qualities[(match_quality(potential_qualities, '480p'))])
-
-
 def sanitise_title(title: str):
     # Santises folder name to only allow names that windows can create a folder with
     valid_chars = set(printable) - set('\\/:*?"<>|')

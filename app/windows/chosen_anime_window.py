@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal
-from shared.shared_classes_and_widgets import StyledLabel, StyledButton, OutlinedLabel, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, FolderButton, Anime, HorizontalLine, ErrorLabel
+from shared.shared_classes_and_widgets import StyledLabel, StyledButton, OutlinedLabel, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection
 from shared.global_vars_and_funcs import gogo_normal_color, gogo_hover_color, settings, key_sub_or_dub, q_1080, q_720, q_480, q_360, chosen_anime_window_bckg_image_path
 from shared.global_vars_and_funcs import sub, dub, set_minimum_size_policy, key_gogo_default_browser, key_quality, gogo_name, chrome_name, edge_name, firefox_name
 from windows.download_window import DownloadWindow
@@ -17,16 +17,19 @@ class SummaryLabel(StyledLabel):
 
 
 class HavedEpisodes(StyledLabel):
-    def __init__(self, start: int | None, end: int | None, count: int | None):
+    def __init__(self, start: int | None, end: int | None, haved_count: int | None, total_episode_count: int):
         super().__init__(font_size=23)
         self.start = start
         self.end = end
-        self.count = count
-        if not count:
-            self.setText("You have No episodes of this anime")
+        self.count = haved_count
+        if not haved_count:
+            self.setText("You have No episodes of this anime.")
+        elif haved_count >= total_episode_count:
+            self.setText("Whoop!! Whoop!! You have all the current episodes of this anime, what a cringe weeb.") 
         else:
-            self.setText(f"You have {count} episodes from {start} to {end}") if count != 1 else self.setText(
-                f"You have {count} episode from {start} to {end}")
+            self.setText(f"You have {haved_count} episodes from {start} to {end}.") if haved_count != 1 else self.setText(
+                f"You have {haved_count} episode from {start} to {end}.")
+        self.setWordWrap(True)
 
 
 class SetupChosenAnimeWindowThread(QThread):
@@ -44,6 +47,8 @@ class SetupChosenAnimeWindowThread(QThread):
 class ChosenAnimeWindow(Window):
     def __init__(self, main_window: MainWindow, anime_details: AnimeDetails):
         super().__init__(main_window, chosen_anime_window_bckg_image_path)
+        print(chosen_anime_window_bckg_image_path)
+        print(main_window.styleSheet())
         self.main_window = main_window
         self.anime_details = anime_details
 
@@ -57,8 +62,11 @@ class ChosenAnimeWindow(Window):
         line_under_title = HorizontalLine()
         line_under_title.setFixedHeight(10)
         right_widgets_layout.addWidget(line_under_title)
-        summary = SummaryLabel(self.anime_details.summary)
-        right_widgets_layout.addWidget(summary)
+        summary_label = SummaryLabel(self.anime_details.summary)
+        summary_layout = QVBoxLayout()
+        summary_layout.addWidget(summary_label)
+        summary_widget = ScrollableSection(summary_layout)
+        right_widgets_layout.addWidget(summary_widget)
 
         self.sub_button = SubDubButton(self, sub, 25)
         set_minimum_size_policy(self.sub_button)
@@ -159,7 +167,7 @@ class ChosenAnimeWindow(Window):
         third_row_of_labels_layout = QHBoxLayout()
 
         haved_episodes = HavedEpisodes(
-            self.anime_details.haved_start, self.anime_details.haved_end, self.anime_details.haved_count)
+            self.anime_details.haved_start, self.anime_details.haved_end, self.anime_details.haved_count, self.anime_details.episode_count)
         # haved_episodes.setFixedSize(420, buttons_default_size.height())
         set_minimum_size_policy(haved_episodes)
         self.episode_count = EpisodeCount(
@@ -262,7 +270,7 @@ class DownloadButton(StyledButton):
                 invalid_input = True
 
         # For testing purposes
-        end_episode = start_episode
+        # end_episode = start_episode
 
         self.anime_details.predicted_episodes_to_download = dynamic_episodes_predictor_initialiser_pro_turboencapsulator(
             start_episode, end_episode, self.anime_details.haved_episodes)
@@ -287,6 +295,7 @@ class EpisodeCount(StyledLabel):
         super().__init__(None, 24, "rgba(255, 50, 0, 230)")
         self.setText(f"{count} episodes")
         self.normal_style_sheet = self.styleSheet()
+        self.setWordWrap(True)
         self.invalid_input_style_sheet = self.normal_style_sheet+"""
             QLabel {
                 background-color: rgba(255, 0, 0, 255);

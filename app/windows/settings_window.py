@@ -61,7 +61,7 @@ class DownloadFoldersSetting(QWidget):
         settings_label.setToolTip(
             "Senpwai will search these folders in the order shown looking for episodes of an anime that is about to be downloaded.")
         set_minimum_size_policy(settings_label)
-        self.error_label = ErrorLabel(self.font_size, 6)
+        self.error_label = ErrorLabel(18, 6)
         self.error_label.hide()
         add_button = StyledButton(self, self.font_size, "White",
                                   gogo_normal_color, gogo_hover_color, gogo_pressed_color)
@@ -101,7 +101,7 @@ class DownloadFoldersSetting(QWidget):
                 "The folder you chose requires admin access so i've ignored it")
             return False
         elif not os.path.isdir(new_folder_path):
-            self.error("Please choose a valid folder")
+            self.error("Choose a valid folder, onegaishimasu")
             return False
         elif new_folder_path in settings[key_download_folder_paths]:
             self.error("Baka!!! that folder is already in the settings")
@@ -240,7 +240,7 @@ class MakeDownloadCompleteNotificationSetting(SettingWidget):
         set_minimum_size_policy(yes_button)
         set_minimum_size_policy(no_button)
         super().__init__(settings_window,
-                         "Notify you when download completes?", [yes_button, no_button])
+                         "Notify you when download completes uWu?", [yes_button, no_button])
 
 
 class GogoDefaultBrowserSetting(SettingWidget):
@@ -276,16 +276,37 @@ class GogoDefaultBrowserSetting(SettingWidget):
 
 class MaxSimultaneousDownloadsSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
+        self.settings_window = settings_window
         number_input = NumberInput(font_size=settings_window.font_size)
         number_input.setFixedWidth(60)
         number_input.setPlaceholderText(amogus_easter_egg)
         number_input.setText(str(settings[key_max_simulataneous_downloads]))
-        number_input.textChanged.connect(lambda value: settings_window.update_settings_json(
-            key_max_simulataneous_downloads, int(value)) if value.isdigit() else None)
+        number_input.textChanged.connect(self.text_changed)
+        zero_error = ErrorLabel(18, 4)
+        zero_error.setText("Bruh, max simulataneous downloads can't be zero.")
+        set_minimum_size_policy(zero_error)
+        zero_error.hide()
+        self.zero_error = zero_error.show
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(zero_error)
+        main_layout.addWidget(number_input)
+        main_widget = QWidget()
+        main_widget.setLayout(main_layout)
         super().__init__(settings_window,
-                         "Max simultaneous downloads", [number_input])
+                         "Max simultaneous downloads", [main_widget])
         self.setting_label.setToolTip(
             "The maximum number of downloads allowed to occur at the same time.")
+
+    def text_changed(self, text: str):
+        if not text.isdigit(): return
+        new_setting = int(text)
+        if new_setting == 0 : 
+            self.zero_error()
+            return
+        self.settings_window.update_settings_json(key_max_simulataneous_downloads, new_setting)
+
+
+
 
 
 class QualitySetting(SettingWidget):
