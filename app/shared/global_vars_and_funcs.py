@@ -14,6 +14,7 @@ else:
     base_directory = os.path.dirname(os.path.realpath('__file__'))
 
 app_name = "Senpwai"
+github_repo_url = "https://github.com/SenZmaKi/Senpwai"
 pahe_name = "pahe"
 gogo_name = "gogo"
 
@@ -73,6 +74,19 @@ folder = join_from_assets("mascots")
 files = list(Path(folder).glob("*"))
 mascot_icon_path = str(files[randint(0, len(files)-1)])
 navigation_bar_icons_folder_path = join_from_assets("navigation-bar-icons")
+reviewer_profile_pics_folder_path = join_from_assets("reviewer-profile-pics")
+github_sponsors_icon_path = join_from_assets("github-sponsors.svg")
+github_icon_path = join_from_assets("github.png")
+patreon_icon_path = join_from_assets("patreon.png")
+reddit_icon_path = join_from_assets("reddit.png")
+discord_icon_path = join_from_assets("discord.png")
+
+def join_from_reviewer(icon_path): return os.path.join(
+            reviewer_profile_pics_folder_path, icon_path
+)
+sen_icon_path =  join_from_reviewer("sen.png")
+morbius_is_peak_icon_path = join_from_reviewer("morbius-is-peak.png")
+hentai_addict_icon_path = join_from_reviewer("hentai-addict.png")
 
 
 def join_from_navbar(icon_path): return os.path.join(
@@ -82,7 +96,6 @@ def join_from_navbar(icon_path): return os.path.join(
 search_icon_path = join_from_navbar("search.png")
 downloads_icon_path = join_from_navbar("downloads.png")
 settings_icon_path = join_from_navbar("settings.png")
-donate_icon_path = join_from_navbar("donate.png")
 about_icon_path = join_from_navbar("about.png")
 
 

@@ -1,11 +1,7 @@
-from windows.download_window import DownloadWindow
-from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow
-from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread
-from windows.settings_window import SettingsWindow
 from PyQt6.QtGui import QGuiApplication, QIcon
 from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout, QLabel, QLayout
 from PyQt6.QtCore import QPoint, Qt
-from shared.global_vars_and_funcs import senpwai_icon_path, search_icon_path, downloads_icon_path, settings_icon_path, donate_icon_path, about_icon_path
+from shared.global_vars_and_funcs import senpwai_icon_path, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton
 from typing import Callable, cast
 
@@ -25,11 +21,13 @@ class MainWindow(QMainWindow):
         from windows.search_window import SearchWindow
         self.search_window = SearchWindow(self)
         self.settings_window = SettingsWindow(self)
+        self.about_window = AboutWindow(self)
         self.stacked_windows = QStackedWidget(self)
         self.stacked_windows.addWidget(self.search_window)
         self.set_bckg_img(self.search_window.bckg_img_path)
         self.stacked_windows.addWidget(self.download_window)
         self.stacked_windows.addWidget(self.settings_window)
+        self.stacked_windows.addWidget(self.about_window)
         self.stacked_windows.setCurrentWidget(self.search_window)
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
@@ -88,6 +86,9 @@ class MainWindow(QMainWindow):
 
     def switch_to_downloads_window(self):
         self.switch_to_window(self.download_window)
+    
+    def switch_to_about_window(self):
+        self.switch_to_window(self.about_window)
 
     def create_and_switch_to_captcha_block_window(self, anime_title: str, download_page_links: list[str]) -> None:
         captcha_block_window = CaptchaBlockWindow(
@@ -125,10 +126,9 @@ class Window(QWidget):
             downloads_icon_path, main_window.switch_to_downloads_window)
         settings_window_button = NavBarButton(
             settings_icon_path, main_window.switch_to_settings_window)
-        about_window_button = NavBarButton(about_icon_path, lambda: None)
-        donate_button = NavBarButton(donate_icon_path, lambda: None)
+        about_window_button = NavBarButton(about_icon_path, main_window.switch_to_about_window)
         nav_bar_buttons = [search_window_button, download_window_button,
-                           settings_window_button, about_window_button, donate_button]
+                           settings_window_button, about_window_button]
         for button in nav_bar_buttons:
             self.nav_bar_layout.addWidget(button)
         self.nav_bar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -137,3 +137,8 @@ class Window(QWidget):
 
 
 # Note these modules be placed here otherwise an ImportError is experienced cause they  import MainWindow resulting to a circular import, so we have to define MainWindow first before importing them
+from windows.download_window import DownloadWindow
+from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow
+from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread
+from windows.settings_window import SettingsWindow
+from windows.about_window import AboutWindow

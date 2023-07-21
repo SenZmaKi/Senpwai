@@ -137,11 +137,12 @@ class SearchBar(QLineEdit):
 class SearchButton(StyledButton):
     def __init__(self, window: SearchWindow, site: str):
         if site == pahe_name:
-            super().__init__(window, 40, "white", pahe_normal_color,
+            super().__init__(window, 40, "black", pahe_normal_color,
                              pahe_hover_color, pahe_pressed_color)
             self.setText("Animepahe")
+            self.setToolTip("Recommended")
         else:
-            super().__init__(window, 40, "white", gogo_normal_color,
+            super().__init__(window, 40, "black", gogo_normal_color,
                              gogo_hover_color, gogo_pressed_color)
             self.setText("Gogoanime")
         self.clicked.connect(lambda: window.search_anime(
