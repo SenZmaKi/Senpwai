@@ -41,10 +41,18 @@ default_start_in_fullscreen = True
 
 assets_path = os.path.join(base_directory, "assets")
 
-join_from_assets = lambda file: os.path.join(assets_path, file)
+
+def join_from_assets(file): return os.path.join(assets_path, file)
+
+
 senpwai_icon_path = join_from_assets("senpwai-icon.ico")
 bckg_images_path = join_from_assets("background-images")
-generate_img_url = lambda img_title: os.path.join(bckg_images_path, img_title).replace("\\", "/")
+
+
+def generate_img_url(img_title): return os.path.join(
+    bckg_images_path, img_title).replace("\\", "/")
+
+
 search_window_bckg_image_path = generate_img_url("search.jpg")
 chosen_anime_window_bckg_image_path = generate_img_url("chosen-anime.jpg")
 settings_window_bckg_image_path = generate_img_url("settings.jpg")
@@ -56,13 +64,21 @@ folder_icon_path = join_from_assets("folder.png")
 pause_icon_path = join_from_assets("pause.png")
 resume_icon_path = join_from_assets("resume.png")
 cancel_icon_path = join_from_assets("cancel.png")
+remove_from_queue_icon_path = join_from_assets("trash.png")
+move_up_queue_icon_path = join_from_assets("up.png")
+move_down_queue_icon_path = join_from_assets("down.png")
 download_complete_icon_path = join_from_assets("download-complete.png")
 chopper_crying_path = join_from_assets("chopper-crying.png").replace("\\", "/")
 folder = join_from_assets("mascots")
 files = list(Path(folder).glob("*"))
 mascot_icon_path = str(files[randint(0, len(files)-1)])
 navigation_bar_icons_folder_path = join_from_assets("navigation-bar-icons")
-join_from_navbar = lambda icon_path: os.path.join(navigation_bar_icons_folder_path, icon_path)
+
+
+def join_from_navbar(icon_path): return os.path.join(
+    navigation_bar_icons_folder_path, icon_path)
+
+
 search_icon_path = join_from_navbar("search.png")
 downloads_icon_path = join_from_navbar("downloads.png")
 settings_icon_path = join_from_navbar("settings.png")

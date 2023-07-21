@@ -104,7 +104,6 @@ def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | 
              for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
     quality_infos = [link_and_info.text.replace(
         'P', 'p') for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
-    # For testing purposes, remueve the 'True or'
     if (len(links) == 0):
         if load_wait_time >= max_load_wait_time:
             raise TimeoutError

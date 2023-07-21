@@ -1,12 +1,12 @@
 from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSystemTrayIcon
-from PyQt6.QtCore import QObject, QThread, QMutex, pyqtSignal, pyqtSlot
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSystemTrayIcon, QSpacerItem
+from PyQt6.QtCore import Qt, QObject, QThread, QMutex, pyqtSignal, pyqtSlot
 from shared.global_vars_and_funcs import settings, key_make_download_complete_notification, key_max_simulataneous_downloads
-from shared.global_vars_and_funcs import set_minimum_size_policy, download_complete_icon_path
+from shared.global_vars_and_funcs import set_minimum_size_policy, download_complete_icon_path, remove_from_queue_icon_path, move_up_queue_icon_path, move_down_queue_icon_path
 from shared.global_vars_and_funcs import pahe_name, gogo_name, dub, downlaod_window_bckg_image_path
 from shared.app_and_scraper_shared import Download, ibytes_to_mbs_divisor, network_monad
 from windows.main_actual_window import MainWindow, Window
-from shared.shared_classes_and_widgets import StyledLabel, StyledButton, ScrollableSection, DownloadProgressBar, ProgressBar, AnimeDetails, FolderButton
+from shared.shared_classes_and_widgets import StyledLabel, StyledButton, ScrollableSection, DownloadProgressBar, ProgressBar, AnimeDetails, FolderButton, OutlinedLabel, IconButton, HorizontalLine
 from typing import Callable, cast
 from selenium.common.exceptions import WebDriverException
 import os
@@ -17,17 +17,28 @@ from scrapers import pahe
 
 class DownloadedEpisodeCount(StyledLabel):
     def __init__(self, parent, total_episodes: int, tray_icon: QSystemTrayIcon, anime_title: str,
-                 download_complete_icon: QIcon, anime_folder_path: str):
+                 download_complete_icon: QIcon, anime_folder_path: str, download_window):
         super().__init__(parent, 30)
+        self.download_window = cast(DownloadWindow, download_window)
+        self.download_window = download_window
         self.total_episodes = total_episodes
         self.current_episodes = 0
         self.tray_icon = tray_icon
+        self.anime_folder_path = anime_folder_path
         self.tray_icon.messageClicked.connect(
-            lambda: os.startfile(anime_folder_path))
+            lambda: os.startfile(self.anime_folder_path))
         self.anime_title = anime_title
         self.download_complete_icon = download_complete_icon
-        self.setText(f"{0}/{total_episodes} eps")
         self.show()
+
+    def reinitialise(self, new_total: int, new_anime_title: str, new_anime_folder_path: str):
+        self.current_episodes = 0
+        self.total_episodes = new_total
+        self.anime_folder_path = new_anime_folder_path
+        self.anime_title = new_anime_title
+        self.setText(f"{0}/{self.total_episodes} eps")
+        set_minimum_size_policy(self)
+        super().update()
 
     def download_complete_notification(self):
         self.tray_icon.showMessage(
@@ -43,10 +54,18 @@ class DownloadedEpisodeCount(StyledLabel):
         self.current_episodes += added_episode_count
         self.setText(f"{self.current_episodes}/{self.total_episodes} eps")
         if self.is_complete() and not self.is_cancelled() and settings[key_make_download_complete_notification]:
-            print("kigma")
             self.download_complete_notification()
         super().update()
         set_minimum_size_policy(self)
+        if self.is_complete() or self.is_cancelled():
+            self.start_next_download()
+
+    def start_next_download(self):
+        if len(self.download_window.download_queue.get_queued_downloads()) > 1:
+            self.download_window.start_download()
+        else:
+            self.download_window.download_queue.get_or_pop_first_queued_download(
+                pop=True)
 
 
 class CancelAllButton(StyledButton):
@@ -100,6 +119,101 @@ class PauseAllButton(StyledButton):
             set_minimum_size_policy(self)
 
 
+class QueuedDownload(QWidget):
+    def __init__(self, anime_details: AnimeDetails, progress_bar: DownloadProgressBar, download_queue):
+        super().__init__()
+        label = StyledLabel(font_size=20)
+        self.anime_details = anime_details
+        self.progress_bar = progress_bar
+        label.setText(anime_details.anime.title)
+        set_minimum_size_policy(label)
+        download_queue = cast(DownloadQueue, download_queue)
+        self.main_layout = QHBoxLayout()
+        icon_sizes = 35
+        self.up_button = IconButton(
+            icon_sizes, icon_sizes, move_up_queue_icon_path, 1.1)
+        self.up_button.clicked.connect(
+            lambda: download_queue.move_queued_download(self, "up"))
+        self.down_button = IconButton(
+            icon_sizes, icon_sizes, move_down_queue_icon_path, 1.1)
+        self.down_button.clicked.connect(
+            lambda: download_queue.move_queued_download(self, "down"))
+        self.remove_button = IconButton(
+            icon_sizes, icon_sizes, remove_from_queue_icon_path, 1.1)
+        self.remove_button.clicked.connect(
+            lambda: download_queue.remove_queued_download(self))
+        self.main_layout.addWidget(label)
+        self.main_layout.addWidget(self.up_button)
+        self.main_layout.addWidget(self.down_button)
+        self.main_layout.addWidget(self.remove_button)
+        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.setLayout(self.main_layout)
+
+
+class DownloadQueue(QWidget):
+    def __init__(self):
+        super().__init__()
+        label = OutlinedLabel(None, 1, 25)
+        label.setStyleSheet("""
+            OutlinedLabel {
+                color: #4169e1;
+                font-size: 25px;
+                font-family: "Berlin Sans FB Demi";
+                    }
+                    """)
+        label.setText("Download queue")
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(label)
+        self.queued_downloads_layout = QVBoxLayout()
+        self.queued_downloads_scrollable = ScrollableSection(
+            self.queued_downloads_layout)
+        line = HorizontalLine()
+        line.setFixedHeight(6)
+        main_layout.addWidget(line)
+        main_layout.addWidget(self.queued_downloads_scrollable)
+        self.setLayout(main_layout)
+
+    def remove_buttons_from_queued_download(self, queued_download: QueuedDownload):
+        queued_download.main_layout.removeWidget(queued_download.up_button)
+        queued_download.main_layout.removeWidget(queued_download.down_button)
+        queued_download.main_layout.removeWidget(queued_download.remove_button)
+        queued_download.up_button.deleteLater()
+        queued_download.down_button.deleteLater()
+        queued_download.remove_button.deleteLater()
+
+    def add_queued_download(self, anime_details: AnimeDetails, progress_bar: DownloadProgressBar):
+        self.queued_downloads_layout.addWidget(
+            QueuedDownload(anime_details, progress_bar, self))
+
+    def move_queued_download(self, to_move: QueuedDownload, up_or_down="up"):
+        queued_downloads = self.get_queued_downloads()
+        for idx, queued in enumerate(queued_downloads):
+            if queued == to_move:
+                if up_or_down == "up" and idx-1 > 0:
+                    self.queued_downloads_layout.removeWidget(to_move)
+                    self.queued_downloads_layout.insertWidget(idx-1, to_move)
+                elif up_or_down == "down" and idx+1 < len(queued_downloads):
+                    self.queued_downloads_layout.removeWidget(to_move)
+                    self.queued_downloads_layout.insertWidget(idx+1, to_move)
+
+    def remove_queued_download(self, queued_download: QueuedDownload):
+        for widget in self.get_queued_downloads():
+            if widget == queued_download:
+                self.queued_downloads_layout.removeWidget(widget)
+                widget.deleteLater()
+
+    def get_or_pop_first_queued_download(self, pop=False) -> QueuedDownload:
+        first_queued_download = cast(
+            QueuedDownload, self.queued_downloads_layout.itemAt(0).widget())
+        if pop:
+            self.queued_downloads_layout.removeWidget(first_queued_download)
+        return first_queued_download
+
+    def get_queued_downloads(self) -> list[QueuedDownload]:
+        count = self.queued_downloads_layout.count()
+        return [cast(QueuedDownload, self.queued_downloads_layout.itemAt(index).widget()) for index in range(count)]
+
+
 class DownloadWindow(Window):
     def __init__(self, main_window: MainWindow):
         super().__init__(main_window, downlaod_window_bckg_image_path)
@@ -128,6 +242,23 @@ class DownloadWindow(Window):
         main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
+        self.download_queue = DownloadQueue()
+        self.first_download_since_app_start = True
+        self.current_anime_progress_bar: DownloadProgressBar | None = None
+
+        # For testing purposes
+        # from shared.shared_classes_and_widgets import Anime
+        # from shared.global_vars_and_funcs import key_download_folder_paths
+        # anime_details = AnimeDetails(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=37d42404-faa1-9362-64e2-975d2d8aa797",
+        #                                     "37d42404-faa1-9362-64e2-975d2d8aa797"), pahe_name)
+        # anime_details.anime_folder_path = settings[key_download_folder_paths][0] + "\\Senyuu."
+        # anime_details.direct_download_links = ["https://eu-11.files.nextcdn.org/get/11/04/ab6a4a7cc486a31252b930e5391312e9782f4b928d6fb181c80d0a5aeba93fe7?file=AnimePahe_Senyuu._-_01_BD_360p_Final8.mp4&token=o_zmo_Pppl7eTIar9gZVFg&expires=1689874721"]
+        # anime_details.predicted_episodes_to_download = [1]
+        # anime_details.total_download_size = 5
+        # self.queue_download(anime_details)
+
+    def initiate_download_pipeline(self, anime_details: AnimeDetails):
+        self.get_episode_page_links(anime_details)
 
     def get_episode_page_links(self, anime_details: AnimeDetails):
         if anime_details.site == pahe_name:
@@ -154,7 +285,7 @@ class DownloadWindow(Window):
 
     def get_direct_download_links(self, download_page_links: list[str], download_info: list[list[str]], anime_details: AnimeDetails):
         direct_download_links_progress_bar = ProgressBar(
-            self, "Retrieving direct download links", "", len(download_page_links), "eps")
+            self, "Retrieving direct download links, this may take a while", "", len(download_page_links), "eps")
         self.progress_bars_layout.insertWidget(
             0, direct_download_links_progress_bar)
         GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda status: self.check_link_status(status, anime_details, download_page_links),
@@ -176,43 +307,78 @@ class DownloadWindow(Window):
                 self, "Calcutlating total download size", "", len(anime_details.direct_download_links), "eps")
             self.progress_bars_layout.insertWidget(
                 0, calculating_download_size_progress_bar)
-            CalculateDownloadSizes(self, anime_details, lambda: self.start_download(
+            CalculateDownloadSizes(self, anime_details, lambda: self.queue_download(
                 anime_details), calculating_download_size_progress_bar.update).start()
         elif anime_details.site == pahe_name:
-            CalculateDownloadSizes(self, anime_details, lambda: self.start_download(
+            CalculateDownloadSizes(self, anime_details, lambda: self.queue_download(
                 anime_details), lambda x: None).start()
 
-    def start_download(self, anime_details: AnimeDetails):
+    def queue_download(self, anime_details: AnimeDetails):
         if not anime_details.anime_folder_path:
             anime_details.anime_folder_path = os.path.join(
                 anime_details.chosen_default_download_path, anime_details.sanitised_title)
             os.mkdir(anime_details.anime_folder_path)
         anime_progress_bar = DownloadProgressBar(
-            None, "Downloading", anime_details.anime.title, anime_details.total_download_size, "MB", 1, False)
+            self, "Downloading", anime_details.anime.title, anime_details.total_download_size, "MB", 1, False)
         anime_progress_bar.bar.setMinimumHeight(50)
-        self.first_row_of_progress_bar_layout.addWidget(anime_progress_bar)
-        downloaded_episode_count = DownloadedEpisodeCount(None, len(anime_details.predicted_episodes_to_download), self.tray_icon,
-                                                          anime_details.anime.title, self.download_complete_icon, anime_details.anime_folder_path)
 
-        def download_is_active(): return not downloaded_episode_count.is_complete(
-        ) or not downloaded_episode_count.is_cancelled()
-        set_minimum_size_policy(downloaded_episode_count)
-        folder_button = FolderButton(
-            cast(str, anime_details.anime_folder_path), 120, 120, None)
-        self.current_download = DownloadManagerThread(
-            self, anime_details, anime_progress_bar, downloaded_episode_count)
-        pause_button = PauseAllButton(download_is_active)
-        pause_button.pause_callback = self.current_download.pause_or_resume
-        pause_button.download_is_active = download_is_active
-        set_minimum_size_policy(pause_button)
-        cancel_button = CancelAllButton()
-        cancel_button.cancel_callback = self.current_download.cancel
-        set_minimum_size_policy(cancel_button)
-        self.second_row_of_buttons_layout.addWidget(downloaded_episode_count)
-        self.second_row_of_buttons_layout.addWidget(pause_button)
-        self.second_row_of_buttons_layout.addWidget(cancel_button)
-        self.second_row_of_buttons_layout.addWidget(folder_button)
-        self.current_download.start()
+        self.download_queue.add_queued_download(
+            anime_details, anime_progress_bar)
+        if self.first_download_since_app_start:
+            self.downloaded_episode_count = DownloadedEpisodeCount(
+                None, 0, self.tray_icon, anime_details.anime.title, self.download_complete_icon, anime_details.anime_folder_path, self)
+
+            def download_is_active(): return not self.downloaded_episode_count.is_complete(
+            ) or not self.downloaded_episode_count.is_cancelled()
+            set_minimum_size_policy(self.downloaded_episode_count)
+            self.folder_button = FolderButton(
+                cast(str, ''), 120, 120, None)
+            self.pause_button = PauseAllButton(download_is_active)
+            self.cancel_button = CancelAllButton()
+            set_minimum_size_policy(self.pause_button)
+            set_minimum_size_policy(self.cancel_button)
+            space = QSpacerItem(50, 0)
+            self.second_row_of_buttons_layout.addWidget(
+                self.downloaded_episode_count)
+            self.second_row_of_buttons_layout.addSpacerItem(space)
+            self.second_row_of_buttons_layout.addWidget(self.pause_button)
+            self.second_row_of_buttons_layout.addWidget(self.cancel_button)
+            self.second_row_of_buttons_layout.addSpacerItem(space)
+            # I know we do this later but to calm my anxiety just in case
+            self.folder_button.folder_path = anime_details.anime_folder_path
+            self.second_row_of_buttons_layout.addWidget(self.folder_button)
+            self.second_row_of_buttons_layout.addSpacerItem(space)
+            self.second_row_of_buttons_layout.addWidget(self.download_queue)
+            self.first_download_since_app_start = False
+        if len(self.download_queue.get_queued_downloads()) <= 1:
+            self.start_download()
+
+    def remove_previous_progress_bar(self):
+        if self.current_anime_progress_bar:
+            self.current_anime_progress_bar.deleteLater()
+            self.first_row_of_progress_bar_layout.removeWidget(
+                self.current_anime_progress_bar)
+
+    def start_download(self):
+        self.remove_previous_progress_bar()
+        if len(self.download_queue.get_queued_downloads()) > 1:
+            self.download_queue.get_or_pop_first_queued_download(pop=True)
+
+        current_queued = self.download_queue.get_or_pop_first_queued_download()
+        self.download_queue.remove_buttons_from_queued_download(current_queued)
+        anime_details = current_queued.anime_details
+        self.current_anime_progress_bar = current_queued.progress_bar
+        self.downloaded_episode_count.reinitialise(len(
+            anime_details.direct_download_links), anime_details.anime.title, cast(str, anime_details.anime_folder_path))
+        self.first_row_of_progress_bar_layout.addWidget(
+            self.current_anime_progress_bar)
+        current_download_manager_thread = DownloadManagerThread(
+            self, anime_details, self.current_anime_progress_bar, self.downloaded_episode_count)
+        self.pause_button.pause_callback = current_download_manager_thread.pause_or_resume
+        self.cancel_button.cancel_callback = current_download_manager_thread.cancel
+        self.folder_button.folder_path = cast(
+            str, anime_details.anime_folder_path)
+        current_download_manager_thread.start()
 
     @pyqtSlot(str, int, dict)
     def receive_download_progress_bar_details(self, episode_title: str, episode_size: int, progress_bars: dict[str, DownloadProgressBar]):
@@ -360,8 +526,10 @@ class DownloadThread(QThread):
             self.link, self.title, self.download_folder, lambda x: self.update_bar.emit(x))
         self.progress_bar.pause_callback = self.download.pause_or_resume
         self.progress_bar.cancel_callback = self.cancel
-        self.download.start_download()
-
+        try:
+            self.download.start_download()
+        except FileExistsError:
+            pass
         self.mutex.lock()
         self.finished.emit(self.displayed_episode_title)
         self.update_downloaded_episode_count.emit(self.is_cancelled)

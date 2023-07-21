@@ -27,7 +27,8 @@ class SearchWindow(Window):
 
         search_bar_and_mascot_widget = QWidget()
         search_bar_and_mascot_layout = QVBoxLayout()
-        search_bar_and_mascot_layout.addWidget(mascot_label, alignment=Qt.AlignmentFlag.AlignHCenter)
+        search_bar_and_mascot_layout.addWidget(
+            mascot_label, alignment=Qt.AlignmentFlag.AlignHCenter)
         search_bar_and_mascot_layout.addWidget(self.search_bar)
         search_bar_and_mascot_layout.setSpacing(0)
         search_bar_and_mascot_widget.setLayout(search_bar_and_mascot_layout)
@@ -67,25 +68,25 @@ class SearchWindow(Window):
         # We use a timer instead of calling setFocus raw cause apparently Qt wont setFocus if the widget isn't shown on screen, so we gotta wait a but first or sth StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
         QTimer.singleShot(0, self.search_bar.setFocus)
 
-
     def search_anime(self, anime_title: str, site: str) -> None:
         # Check setup_chosen_anime_window and MainWindow for why the if statement
         # I might remove this cause the behavior experienced in setup_chosen_anime_window is absent here for some reason, but for safety I'll just keep it
-        if not self.search_thread:
-            prev_top_was_anime_not_found = self.bottom_section_stacked_widgets.currentWidget(
-            ) == self.anime_not_found
-            self.loading.start()
-            self.bottom_section_stacked_widgets.setCurrentWidget(self.loading)
-            if prev_top_was_anime_not_found:
-                self.anime_not_found.stop()
-            for idx in reversed(range(self.results_layout.count())):
-                item = self.results_layout.itemAt(idx)
-                item.widget().deleteLater()
-                self.results_layout.removeItem(item)
-            self.search_thread = SearchThread(self, anime_title, site)
-            self.search_thread.finished.connect(
-                lambda results: self.handle_finished_search(site, results))
-            self.search_thread.start()
+        if self.search_thread:
+            self.search_thread.quit()
+        prev_top_was_anime_not_found = self.bottom_section_stacked_widgets.currentWidget(
+        ) == self.anime_not_found
+        self.loading.start()
+        self.bottom_section_stacked_widgets.setCurrentWidget(self.loading)
+        if prev_top_was_anime_not_found:
+            self.anime_not_found.stop()
+        for idx in reversed(range(self.results_layout.count())):
+            item = self.results_layout.itemAt(idx)
+            item.widget().deleteLater()
+            self.results_layout.removeItem(item)
+        self.search_thread = SearchThread(self, anime_title, site)
+        self.search_thread.finished.connect(
+            lambda results: self.handle_finished_search(site, results))
+        self.search_thread.start()
 
     def handle_finished_search(self, site: str, results: list[Anime]):
         if len(results) == 0:

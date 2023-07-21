@@ -25,7 +25,7 @@ class HavedEpisodes(StyledLabel):
         if not haved_count:
             self.setText("You have No episodes of this anime.")
         elif haved_count >= total_episode_count:
-            self.setText("Whoop!! Whoop!! You have all the current episodes of this anime, what a cringe weeb.") 
+            self.setText("You have all the current episodes of this anime, weeeeb.") 
         else:
             self.setText(f"You have {haved_count} episodes from {start} to {end}.") if haved_count != 1 else self.setText(
                 f"You have {haved_count} episode from {start} to {end}.")
@@ -47,8 +47,6 @@ class SetupChosenAnimeWindowThread(QThread):
 class ChosenAnimeWindow(Window):
     def __init__(self, main_window: MainWindow, anime_details: AnimeDetails):
         super().__init__(main_window, chosen_anime_window_bckg_image_path)
-        print(chosen_anime_window_bckg_image_path)
-        print(main_window.styleSheet())
         self.main_window = main_window
         self.anime_details = anime_details
 
@@ -286,8 +284,9 @@ class DownloadButton(StyledButton):
         self.anime_details.end_download_episode = end_episode
         self.main_window.stacked_windows.setCurrentWidget(
             self.main_window.download_window)
-        self.download_window.get_episode_page_links(self.anime_details)
+        self.download_window.initiate_download_pipeline(self.anime_details)
         self.main_window.stacked_windows.removeWidget(self.chosen_anime_window)
+        self.deleteLater()
 
 
 class EpisodeCount(StyledLabel):
@@ -327,17 +326,9 @@ class Poster(QLabel):
                         """)
 
 
-class Title(OutlinedLabel):
+class Title(StyledLabel):
     def __init__(self, title: str):
-        super().__init__(None, 0, 71)
+        super().__init__(None, 50, "orange", 30, "black")
         self.setText(title.upper())
         self.setWordWrap(True)
-        self.setStyleSheet("""
-                    OutlinedLabel {
-                        color: orange;
-                        font-size: 60px;
-                        font-family: "Berlin Sans FB Demi";
-                            }
-                            """)
-
 

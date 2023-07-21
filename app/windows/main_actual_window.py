@@ -1,3 +1,7 @@
+from windows.download_window import DownloadWindow
+from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow
+from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread
+from windows.settings_window import SettingsWindow
 from PyQt6.QtGui import QGuiApplication, QIcon
 from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout, QLabel, QLayout
 from PyQt6.QtCore import QPoint, Qt
@@ -31,7 +35,7 @@ class MainWindow(QMainWindow):
         self.setup_chosen_anime_window_thread = None
 
         # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
-        # self.setup_and_switch_to_chosen_anime_window(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=a8aa3a2e-e5da-2619-fce4-e829b65fef29", "a8aa3a2e-e5da-2619-fce4-e829b65fef29"), pahe_name)
+        # self.setup_and_switch_to_chosen_anime_wi  ndow(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=37d42404-faa1-9362-64e2-975d2d8aa797", "37d42404-faa1-9362-64e2-975d2d8aa797"), "pahe")
         # self.setup_and_switch_to_chosen_anime_window(Anime("Blue Lock", "https://gogoanime.hu/category/blue-lock", None), gogo_name)
 
     def center_window(self) -> None:
@@ -54,9 +58,9 @@ class MainWindow(QMainWindow):
 
     def handle_finished_drawing_window_widgets(self, anime_details: AnimeDetails):
         self.setup_chosen_anime_window_thread = None
-        self.search_window.loading.stop()
         self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
             self.search_window.results_widget)
+        self.search_window.loading.stop()
         chosen_anime_window = ChosenAnimeWindow(self, anime_details)
         self.stacked_windows.addWidget(chosen_anime_window)
         self.set_bckg_img(chosen_anime_window.bckg_img_path)
@@ -68,7 +72,7 @@ class MainWindow(QMainWindow):
         self.search_window.pahe_search_button.animateClick()
         self.switch_to_search_window()
         self.stacked_windows.removeWidget(initiator)
-    
+
     def switch_to_window(self, target_window: QWidget):
         target_window = cast(Window, target_window)
         if self.stacked_windows.currentWidget() != target_window:
@@ -81,7 +85,7 @@ class MainWindow(QMainWindow):
 
     def switch_to_settings_window(self):
         self.switch_to_window(self.settings_window)
-    
+
     def switch_to_downloads_window(self):
         self.switch_to_window(self.download_window)
 
@@ -96,6 +100,7 @@ class MainWindow(QMainWindow):
         self.stacked_windows.addWidget(no_supported_browser_window)
         self.stacked_windows.setCurrentWidget(no_supported_browser_window)
 
+
 class NavBarButton(IconButton):
     def __init__(self, icon_path: str, switch_to_window_callable: Callable):
         super().__init__(50, 50, icon_path, 1.15)
@@ -106,6 +111,7 @@ class NavBarButton(IconButton):
                                     background-color: black;
                               }""")
 
+
 class Window(QWidget):
     def __init__(self, main_window: MainWindow, bckg_img_path: str):
         super().__init__(main_window)
@@ -113,20 +119,21 @@ class Window(QWidget):
         self.full_layout = QHBoxLayout()
         nav_bar_widget = QWidget()
         self.nav_bar_layout = QVBoxLayout()
-        search_window_button = NavBarButton(search_icon_path, main_window.switch_to_search_window)
-        download_window_button = NavBarButton(downloads_icon_path, main_window.switch_to_downloads_window)
-        settings_window_button = NavBarButton(settings_icon_path, main_window.switch_to_settings_window)
-        about_window_button = NavBarButton(about_icon_path,lambda: None)
+        search_window_button = NavBarButton(
+            search_icon_path, main_window.switch_to_search_window)
+        download_window_button = NavBarButton(
+            downloads_icon_path, main_window.switch_to_downloads_window)
+        settings_window_button = NavBarButton(
+            settings_icon_path, main_window.switch_to_settings_window)
+        about_window_button = NavBarButton(about_icon_path, lambda: None)
         donate_button = NavBarButton(donate_icon_path, lambda: None)
-        nav_bar_buttons = [search_window_button, download_window_button, settings_window_button, about_window_button, donate_button]
+        nav_bar_buttons = [search_window_button, download_window_button,
+                           settings_window_button, about_window_button, donate_button]
         for button in nav_bar_buttons:
             self.nav_bar_layout.addWidget(button)
         self.nav_bar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         nav_bar_widget.setLayout(self.nav_bar_layout)
         self.full_layout.addWidget(nav_bar_widget)
 
+
 # Note these modules be placed here otherwise an ImportError is experienced cause they  import MainWindow resulting to a circular import, so we have to define MainWindow first before importing them
-from windows.settings_window import SettingsWindow
-from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread
-from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow
-from windows.download_window import DownloadWindow

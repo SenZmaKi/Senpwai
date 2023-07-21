@@ -211,8 +211,9 @@ class OutlinedButton(StyledButton):
         painter.end()
         return super().paintEvent(event)
 
+
 class ErrorLabel(StyledLabel):
-    def __init__(self, font_size: int, shown_duration_in_secs: int=3, parent: QWidget | None = None):
+    def __init__(self, font_size: int, shown_duration_in_secs: int = 3, parent: QWidget | None = None):
         super().__init__(parent, font_size, font_color="red")
         self.shown_duration_in_secs = shown_duration_in_secs
 
@@ -449,7 +450,7 @@ class AnimeDetails():
                 if detected:
                     self.chosen_default_download_path = path
                     return detected
-            self.chosen_default_download_path = default_download_folder_paths[0]
+            self.chosen_default_download_path = settings[key_download_folder_paths][0]
             return None
 
         path = try_path(self.sanitised_title)
@@ -576,6 +577,7 @@ class SubDubButton(OptionButton):
         super().__init__(window, sub_or_dub, sub_or_dub.upper(),
                          font_size,  pahe_normal_color, pahe_pressed_color)
         self.sub_or_dub = sub_or_dub
+
 
 class HorizontalLine(QFrame):
     def __init__(self, color: str = "black", parent: QWidget | None = None):

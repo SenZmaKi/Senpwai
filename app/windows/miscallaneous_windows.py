@@ -27,14 +27,18 @@ class FailedGettingDirectDownloadLinksWindow(Window):
         switch_to_anime_pahe_button.clicked.connect(
             lambda: main_window.switch_to_pahe(anime_title, self))
         switch_to_anime_pahe_button.clicked.connect(
-            main_window.set_bckg_img)
+            lambda: main_window.stacked_windows.removeWidget(self)
+        )
+        switch_to_anime_pahe_button.clicked.connect(self.deleteLater)
         change_default_browser_button = StyledButton(
             None, 25, "black", red_normal_color, red_hover_color, red_pressed_color)
         change_default_browser_button.setText("Change gogo default browser")
         change_default_browser_button.clicked.connect(
-            lambda: main_window.stacked_windows.setCurrentWidget(main_window.settings_window))
+            main_window.switch_to_settings_window)
         change_default_browser_button.clicked.connect(
-            main_window.set_bckg_img)
+            lambda: main_window.stacked_windows.removeWidget(self)
+        )
+        change_default_browser_button.clicked.connect(self.deleteLater)
         set_minimum_size_policy(change_default_browser_button)
         buttons_layout.addWidget(switch_to_anime_pahe_button)
         buttons_layout.addWidget(change_default_browser_button)
@@ -45,7 +49,7 @@ class FailedGettingDirectDownloadLinksWindow(Window):
         main_layout.addWidget(buttons_widget)
         main_widget = QWidget()
         main_widget.setLayout(main_layout)
-        self.full_layout.addWidget(main_widget)
+        self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignHCenter)
         self.setLayout(self.full_layout)
 
 
@@ -53,12 +57,12 @@ class CaptchaBlockWindow(FailedGettingDirectDownloadLinksWindow):
     def __init__(self, main_window: MainWindow, anime_title: str, download_page_links: list[str]) -> None:
         main_window.set_bckg_img(chopper_crying_path)
         info_text = (
-            f"Captcha block detected, this only ever happens with Gogoanime\nChanging your Gogo default browser setting to something else may help\nYour current Gogo default browser is {settings[key_gogo_default_browser].capitalize()}")
+            f"Captcha block detected, this only ever happens with Gogoanime\nChanging your Gogo default browser setting may help\nYour current Gogo default browser is {settings[key_gogo_default_browser].capitalize()}")
         open_browser_with_links_button = StyledButton(
             None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
         open_browser_with_links_button.setText("Download in browser")
         open_browser_with_links_button.clicked.connect(lambda: list(
-            map(webbrowser.open_new_tab, download_page_links)))  # type: ignore
+            map(open_new_tab, download_page_links)))  # type: ignore
         set_minimum_size_policy(open_browser_with_links_button)
         super().__init__(main_window, anime_title,
                          info_text, [open_browser_with_links_button])
@@ -67,14 +71,14 @@ class CaptchaBlockWindow(FailedGettingDirectDownloadLinksWindow):
 class NoDefaultBrowserWindow(FailedGettingDirectDownloadLinksWindow):
     def __init__(self, main_window: MainWindow, anime_title: str):
         gogo_default_browser = cast(str, settings[key_gogo_default_browser])
-        info_text = f"Unfortunately downloaading from Gogoanime requires you have either: \n\t\tChrome, Edge or Firefox installed\nIf you've already installed then change your Gogo default browser setting\nYour current Gogo default browser is {gogo_default_browser.capitalize()}"
+        info_text = f"Sumimasen, downloaading from Gogoanime requires you have either: \n\t\tChrome, Edge or Firefox installed\nYour current Gogo default browser is {gogo_default_browser.capitalize()} but I couldn't find it installed"
         download_browser_button = StyledButton(
             None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
-        if gogo_default_browser == edge_name:
+        if gogo_default_browser == chrome_name:
             download_browser_button.setText("Download Chrome")
             download_browser_button.clicked.connect(lambda: open_new_tab(
                 "https://www.google.com/chrome"))  # type: ignore
-        elif gogo_default_browser == chrome_name:
+        elif gogo_default_browser == edge_name:
             download_browser_button.setText("Download Edge")
             download_browser_button.clicked.connect(lambda: open_new_tab(
                 "https://www.microsoft.com/edge/download"))  # type: ignore
