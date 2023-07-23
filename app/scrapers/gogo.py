@@ -54,7 +54,7 @@ def generate_episode_page_links(start_episode: int, end_episode: int, anime_page
 def setup_headless_browser(default_browser: str = edge_name) -> Chrome | Edge | Firefox:
     def setup_options(options: ChromeOptions | EdgeOptions | FirefoxOptions) -> ChromeOptions | EdgeOptions | FirefoxOptions:
         # For testing purposes
-        # options.add_argument("--headless=new")
+        options.add_argument("--headless=new")
         options.add_argument('--disable-extensions')
         options.add_argument('--disable-infobars')
         options.add_argument('--no-sandbox')
@@ -200,7 +200,6 @@ def dub_available(anime_title: str) -> bool:
         if dub_title == title:
             return True
     return False
-# Assumes dub is available
 
 
 def get_dub_anime_page_link(anime_title: str) -> str:

@@ -267,7 +267,7 @@ class DownloadWindow(Window):
             self.progress_bars_layout.insertWidget(
                 0, episode_page_progress_bar)
             return GetEpisodePageLinksThread(self, anime_details, anime_details.start_download_episode, anime_details.end_download_episode,
-                                             lambda eps_links: self.get_download_page_links(eps_links, anime_details), episode_page_progress_bar.update).start()
+                                             lambda eps_links: self.get_download_page_links(eps_links, anime_details), episode_page_progress_bar.update_bar).start()
         if anime_details.site == gogo_name and anime_details.sub_or_dub == dub and anime_details.dub_available:
             anime_details.anime.page_link = gogo.get_dub_anime_page_link(
                 anime_details.anime.title)
@@ -281,7 +281,7 @@ class DownloadWindow(Window):
             self, "Fetching download page links", "", len(episode_page_links), "eps")
         self.progress_bars_layout.insertWidget(0, download_page_progress_bar)
         GetDownloadPageThread(self, anime_details.site, episode_page_links, lambda down_pge_lnk, down_info: self.get_direct_download_links(
-            down_pge_lnk, down_info, anime_details), download_page_progress_bar.update).start()
+            down_pge_lnk, down_info, anime_details), download_page_progress_bar.update_bar).start()
 
     def get_direct_download_links(self, download_page_links: list[str], download_info: list[list[str]], anime_details: AnimeDetails):
         direct_download_links_progress_bar = ProgressBar(
@@ -289,7 +289,7 @@ class DownloadWindow(Window):
         self.progress_bars_layout.insertWidget(
             0, direct_download_links_progress_bar)
         GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda status: self.check_link_status(status, anime_details, download_page_links),
-                                     direct_download_links_progress_bar.update).start()
+                                     direct_download_links_progress_bar.update_bar).start()
 
     def check_link_status(self, status: int, anime_details: AnimeDetails, download_page_links: list[str]):
         if status == 1:
@@ -308,7 +308,7 @@ class DownloadWindow(Window):
             self.progress_bars_layout.insertWidget(
                 0, calculating_download_size_progress_bar)
             CalculateDownloadSizes(self, anime_details, lambda: self.queue_download(
-                anime_details), calculating_download_size_progress_bar.update).start()
+                anime_details), calculating_download_size_progress_bar.update_bar).start()
         elif anime_details.site == pahe_name:
             CalculateDownloadSizes(self, anime_details, lambda: self.queue_download(
                 anime_details), lambda x: None).start()
@@ -398,7 +398,7 @@ class DownloadManagerThread(QThread):
         self.download_window = download_window
         self.downloaded_episode_count = downloaded_episode_count
         self.anime_details = anime_details
-        self.update_anime_progress_bar.connect(anime_progress_bar.update)
+        self.update_anime_progress_bar.connect(anime_progress_bar.update_bar)
         self.send_progress_bar_details.connect(
             download_window.receive_download_progress_bar_details)
         self.progress_bars: dict[str, DownloadProgressBar] = {}
@@ -441,35 +441,39 @@ class DownloadManagerThread(QThread):
     # Gogo's direct download link sometimes doesn't work, it returns a 302 status code meaning the resource has been moved, this attempts to redirect to that link
     # It is applied to Pahe too just in case
 
-    def gogo_check_if_valid_link(self, link: str) -> requests.Response | None:
+    def gogo_check_if_valid_link(self, link: str) -> tuple[str, requests.Response | None]:
         response = cast(requests.Response, network_monad(
             lambda: requests.get(link, stream=True)))
-        if response.status_code in [301, 302, 307, 308]:
+        if response.status_code in (301, 302, 307, 308):
             possible_valid_redirect_link = response.headers.get("location", "")
-            return self.gogo_check_if_valid_link(possible_valid_redirect_link) if possible_valid_redirect_link != "" else None
+            return self.gogo_check_if_valid_link(possible_valid_redirect_link) if possible_valid_redirect_link != "" else (link, None)
         try:
             response.headers['content-length']
         except KeyError:
             response = None
 
-        return response
+        return link, response
 
-    def get_exact_episode_size(self, link: str) -> int:
-        response = self.gogo_check_if_valid_link(link)
-        return int(response.headers['content-length']) if response else 0
+    def get_exact_episode_size(self, link: str) -> tuple[str, int]:
+        link, response = self.gogo_check_if_valid_link(link)
+        return (link, int(response.headers['content-length'])) if response else (link, 0)
 
     def run(self):
         for idx, link in enumerate(self.anime_details.direct_download_links):
             while len(self.progress_bars) == settings[key_max_simulataneous_downloads]:
                 continue
-            download_size = self.get_exact_episode_size(link)
+            link, download_size = self.get_exact_episode_size(link)
             if download_size == 0:
                 continue
             while self.paused:
                 continue
             if self.cancelled:
                 break
-            episode_title = f"{self.anime_details.sanitised_title} Episode {self.anime_details.predicted_episodes_to_download[idx]}"
+            episode_number = str(
+                self.anime_details.predicted_episodes_to_download[idx])
+            if len(episode_number) <= 1:
+                episode_number = f"0{episode_number}"
+            episode_title = f"{self.anime_details.sanitised_title} E{episode_number}"
             self.mutex.lock()
             self.send_progress_bar_details.emit(
                 episode_title, download_size, self.progress_bars)
@@ -482,7 +486,7 @@ class DownloadManagerThread(QThread):
 
 
 class DownloadThread(QThread):
-    update_bar = pyqtSignal(int)
+    update_bars = pyqtSignal(int)
     finished = pyqtSignal(str)
     update_downloaded_episode_count = pyqtSignal(bool)
 
@@ -499,8 +503,8 @@ class DownloadThread(QThread):
         self.displayed_episode_title = displayed_episode_title
         self.finished.connect(finished_callback)
         self.anime_progress_bar = anime_progress_bar
-        self.update_bar.connect(handle_updating_anime_progress_bar)
-        self.update_bar.connect(self.progress_bar.update)
+        self.update_bars.connect(handle_updating_anime_progress_bar)
+        self.update_bars.connect(self.progress_bar.update_bar)
         self.update_downloaded_episode_count.connect(
             update_downloaded_episode_count_callback)
         self.mutex = mutex
@@ -523,7 +527,7 @@ class DownloadThread(QThread):
 
     def run(self):
         self.download = Download(
-            self.link, self.title, self.download_folder, lambda x: self.update_bar.emit(x))
+            self.link, self.title, self.download_folder, lambda x: self.update_bars.emit(x))
         self.progress_bar.pause_callback = self.download.pause_or_resume
         self.progress_bar.cancel_callback = self.cancel
         try:

@@ -48,6 +48,7 @@ def match_quality(potential_qualities: list[str], chosen_quality: str) -> int:
 
     return closest.index
 
+
 def sanitise_title(title: str):
     # Santises folder name to only allow names that windows can create a folder with
     valid_chars = set(printable) - set('\\/:*?"<>|')

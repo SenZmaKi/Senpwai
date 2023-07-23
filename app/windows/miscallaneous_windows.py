@@ -1,13 +1,16 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
-from PyQt6.QtCore import Qt
-from shared.global_vars_and_funcs import chopper_crying_path, pahe_normal_color, pahe_hover_color, pahe_pressed_color
-from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy
-from shared.global_vars_and_funcs import gogo_normal_color, gogo_hover_color, gogo_pressed_color
-from shared.shared_classes_and_widgets import StyledButton, StyledLabel
-from shared.global_vars_and_funcs import settings, key_gogo_default_browser, chrome_name, edge_name, chopper_crying_path
+from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal, pyqtSlot
 from windows.main_actual_window import MainWindow, Window
-from typing import cast
+from shared.global_vars_and_funcs import chopper_crying_path, pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, github_repo_url, github_api_releases_entry_point, app_name, github_icon_path, update_bckg_image_path
+from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy, settings, key_gogo_default_browser, chrome_name, edge_name, chopper_crying_path, version, key_download_folder_paths
+from shared.shared_classes_and_widgets import StyledButton, StyledLabel, network_monad, FolderButton, IconButton
+from windows.download_window import DownloadProgressBar
+from typing import cast, Callable
 from webbrowser import open_new_tab
+from shared.app_and_scraper_shared import ibytes_to_mbs_divisor, Download
+import requests
+import sys
+import os
 
 
 class FailedGettingDirectDownloadLinksWindow(Window):
@@ -89,3 +92,142 @@ class NoDefaultBrowserWindow(FailedGettingDirectDownloadLinksWindow):
         set_minimum_size_policy(download_browser_button)
         super().__init__(main_window, anime_title,
                          info_text, [download_browser_button])
+
+
+class UpdateWindow(Window):
+    def __init__(self, main_window: MainWindow, download_url: str, platform_flag: int):
+        super().__init__(main_window, update_bckg_image_path)
+        main_widget = QWidget()
+        main_layout = QVBoxLayout()
+        self.progress_bar: DownloadProgressBar | None = None
+        file_extension = ""
+        info_label = StyledLabel(font_size=24)
+        if platform_flag == 1:
+            file_extension = ".exe"
+        elif platform_flag == 2:
+            file_extension = ".deb"
+        if platform_flag in (1, 2):
+            info_label.setText(
+                "\nI will download the new version then open the folder it's in.\nThen it's up to you to run the setup to install it.\nClick the button below to update.\n")
+            set_minimum_size_policy(info_label)
+            main_layout.addWidget(
+                info_label, alignment=Qt.AlignmentFlag.AlignCenter)
+            self.update_button = StyledButton(
+                self, 30, "black", red_normal_color, red_hover_color, red_pressed_color, 20)
+            self.update_button.setText("UPDATE")
+            set_minimum_size_policy(self.update_button)
+            download_widget = QWidget()
+            self.download_layout = QVBoxLayout()
+            self.download_layout.addWidget(
+                self.update_button, alignment=Qt.AlignmentFlag.AlignCenter)
+            main_layout.addWidget(download_widget)
+            download_widget.setLayout(self.download_layout)
+            self.download_folder = os.path.join(
+                settings[key_download_folder_paths][0], "New Senpwai-setup")
+            if not os.path.isdir(self.download_folder):
+                os.mkdir(self.download_folder)
+            prev_file_path = os.path.join(
+                self.download_folder, f"{app_name}-setup.{file_extension}")
+            if os.path.exists(prev_file_path):
+                os.unlink(prev_file_path)
+            self.update_button.clicked.connect(DownloadUpdateThread(
+                main_window, self, download_url, self.download_folder, file_extension).start)
+
+        else:
+            if platform_flag == 3:
+                os_name = "Non-debian based Linux distro"
+            else:
+                os_name = "Mac OS"
+            info_label.setText(
+                f"\n{os_name} detected, you will have to build from source to update to the new version.\nThere is a guide on the README.md in the github repo.\n")
+            set_minimum_size_policy(info_label)
+            main_layout.addWidget(info_label)
+            github_button = IconButton(300, 100, github_icon_path, 1.1)
+            github_button.clicked.connect(
+                lambda: open_new_tab(github_repo_url))  # type: ignore
+            github_button.setToolTip(github_repo_url)
+            main_layout.addWidget(
+                github_button, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        main_widget.setLayout(main_layout)
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignHCenter)
+        self.setLayout(self.full_layout)
+
+    @pyqtSlot(int)
+    def receive_total_size(self, size: int):
+        self.progress_bar = DownloadProgressBar(
+            self, "Downloading", "new version setup", size, "MB", ibytes_to_mbs_divisor)
+        self.download_layout.addWidget(self.progress_bar)
+        self.download_layout.addWidget(FolderButton(
+            self.download_folder, 120, 120), alignment=Qt.AlignmentFlag.AlignCenter)
+        self.update_button.hide()
+        self.update_button.deleteLater()
+
+
+class DownloadUpdateThread(QThread):
+    update_bar = pyqtSignal(int)
+    total_size = pyqtSignal(int)
+
+    def __init__(self, main_window: MainWindow, update_window: UpdateWindow, download_url: str, download_folder: str, file_extension: str):
+        super().__init__(main_window)
+        self.download_url = download_url
+        self.total_size.connect(update_window.receive_total_size)
+        self.file_extension = file_extension
+        self.update_window = update_window
+        self.download_folder = download_folder
+
+    def run(self):
+        total_size = int(cast(str, requests.get(
+            self.download_url, stream=True).headers["content-length"]))
+        self.total_size.emit(total_size)
+        self.update_window.progress_bar
+        while not self.update_window.progress_bar:
+            continue
+        self.update_bar.connect(self.update_window.progress_bar.update_bar)
+        download = Download(self.download_url, app_name, self.download_folder,
+                            self.update_bar.emit, self.file_extension)
+        self.update_window.progress_bar.pause_callback = download.pause_or_resume
+        self.update_window.progress_bar.cancel_callback = download.cancel
+        download.start_download()
+        os.startfile(self.download_folder)
+
+
+class CheckIfUpdateAvailableThread(QThread):
+    finished = pyqtSignal(tuple)
+
+    def __init__(self, main_window: MainWindow, finished_callback: Callable):
+        super().__init__(main_window)
+        self.finished.connect(finished_callback)
+
+    def run(self):
+        self.finished.emit(self.update_available())
+
+    def update_available(self) -> tuple[bool, str, int]:
+        latest_version_json = network_monad(
+            lambda: (requests.get(github_api_releases_entry_point))).json()[0]
+        latest_version_tag = latest_version_json["tag_name"]
+        latest_version_number = latest_version_tag.replace(
+            ".", "").replace("v", "")
+        current_version_number = version.replace(".", "").replace("v", "")
+        platform_flag = self.check_platform()
+        # For testing purposes, change to {app_name}-setup.exe before deploying to production
+        target_asset_name = f"{app_name}-setup.exe" if platform_flag == 1 else f"{app_name}-setup.deb"
+        download_url = ""
+        for asset in latest_version_json["assets"]:
+            if asset["name"] == target_asset_name:
+                download_url = asset["browser_download_url"]
+        return (int(latest_version_number) > int(current_version_number), download_url, platform_flag)
+
+    def check_platform(self) -> int:
+        if sys.platform == "win32":
+            return 1
+        elif sys.platform == "linux":
+            linux_os_release_file_path = "etc/os-release"
+            if os.path.isdir(linux_os_release_file_path):
+                with open(linux_os_release_file_path, "r") as f:
+                    read = f.read()
+                    if "ID_LIKE=debian" in read or "ID_LIKE=ubuntu" in read:
+                        return 2
+            return 3
+        return 4

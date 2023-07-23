@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QGuiApplication, QIcon
-from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout, QLabel, QLayout
-from PyQt6.QtCore import QPoint, Qt
-from shared.global_vars_and_funcs import senpwai_icon_path, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path
+from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout
+from PyQt6.QtCore import QPoint, Qt, pyqtSlot
+from shared.global_vars_and_funcs import senpwai_icon_path, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton
 from typing import Callable, cast
 
@@ -22,6 +22,8 @@ class MainWindow(QMainWindow):
         self.search_window = SearchWindow(self)
         self.settings_window = SettingsWindow(self)
         self.about_window = AboutWindow(self)
+        CheckIfUpdateAvailableThread(
+            self, self.handle_update_check_result).start()
         self.stacked_windows = QStackedWidget(self)
         self.stacked_windows.addWidget(self.search_window)
         self.set_bckg_img(self.search_window.bckg_img_path)
@@ -35,6 +37,20 @@ class MainWindow(QMainWindow):
         # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
         # self.setup_and_switch_to_chosen_anime_wi  ndow(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=37d42404-faa1-9362-64e2-975d2d8aa797", "37d42404-faa1-9362-64e2-975d2d8aa797"), "pahe")
         # self.setup_and_switch_to_chosen_anime_window(Anime("Blue Lock", "https://gogoanime.hu/category/blue-lock", None), gogo_name)
+
+    @pyqtSlot(tuple)
+    def handle_update_check_result(self, result: tuple[bool, str, int]):
+        is_available, download_url, platform_flag = result
+        if not is_available:
+            return
+        self.update_window = UpdateWindow(self, download_url, platform_flag)
+        self.stacked_windows.addWidget(self.update_window)
+        update_icon = NavBarButton(
+            update_icon_path, self.switch_to_update_window)
+        self.search_window.nav_bar_layout.addWidget(update_icon)
+
+    def switch_to_update_window(self):
+        self.switch_to_window(self.update_window)
 
     def center_window(self) -> None:
         screen_geometry = QGuiApplication.primaryScreen().geometry()
@@ -86,7 +102,7 @@ class MainWindow(QMainWindow):
 
     def switch_to_downloads_window(self):
         self.switch_to_window(self.download_window)
-    
+
     def switch_to_about_window(self):
         self.switch_to_window(self.about_window)
 
@@ -126,7 +142,8 @@ class Window(QWidget):
             downloads_icon_path, main_window.switch_to_downloads_window)
         settings_window_button = NavBarButton(
             settings_icon_path, main_window.switch_to_settings_window)
-        about_window_button = NavBarButton(about_icon_path, main_window.switch_to_about_window)
+        about_window_button = NavBarButton(
+            about_icon_path, main_window.switch_to_about_window)
         nav_bar_buttons = [search_window_button, download_window_button,
                            settings_window_button, about_window_button]
         for button in nav_bar_buttons:
@@ -138,7 +155,7 @@ class Window(QWidget):
 
 # Note these modules be placed here otherwise an ImportError is experienced cause they  import MainWindow resulting to a circular import, so we have to define MainWindow first before importing them
 from windows.download_window import DownloadWindow
-from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow
+from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow, UpdateWindow, CheckIfUpdateAvailableThread
 from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread
 from windows.settings_window import SettingsWindow
 from windows.about_window import AboutWindow

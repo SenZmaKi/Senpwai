@@ -14,7 +14,12 @@ else:
     base_directory = os.path.dirname(os.path.realpath('__file__'))
 
 app_name = "Senpwai"
+version = "2.0.0"
+config_dir = user_config_dir()
 github_repo_url = "https://github.com/SenZmaKi/Senpwai"
+github_api_releases_entry_point = "https://api.github.com/repos/SenZmaKi/Senpwai/releases"
+sen_anilist_id = 5363369
+anilist_api_entrypoint = 'https://graphql.anilist.co'
 pahe_name = "pahe"
 gogo_name = "gogo"
 
@@ -27,13 +32,13 @@ q_480 = "480p"
 q_360 = "360p"
 default_quality = q_720
 
-folder = os.path.join(Path.home(), "Downloads")
-if not os.path.isdir(folder):
-    os.mkdir(folder)
-folder = os.path.join(folder, "Anime")
-if not os.path.isdir(folder):
-    os.mkdir(folder)
-default_download_folder_paths = [folder]
+downloads_folder = os.path.join(Path.home(), "Downloads")
+if not os.path.isdir(downloads_folder):
+    os.mkdir(downloads_folder)
+downloads_folder = os.path.join(downloads_folder, "Anime")
+if not os.path.isdir(downloads_folder):
+    os.mkdir(downloads_folder)
+default_download_folder_paths = [downloads_folder]
 
 default_max_simutaneous_downloads = 2
 default_gogo_browser = edge_name
@@ -41,52 +46,89 @@ default_make_download_complete_notification = True
 default_start_in_fullscreen = True
 
 assets_path = os.path.join(base_directory, "assets")
-
-
 def join_from_assets(file): return os.path.join(assets_path, file)
 
 
 senpwai_icon_path = join_from_assets("senpwai-icon.ico")
-bckg_images_path = join_from_assets("background-images")
-
-
-def generate_img_url(img_title): return os.path.join(
-    bckg_images_path, img_title).replace("\\", "/")
-
-
-search_window_bckg_image_path = generate_img_url("search.jpg")
-chosen_anime_window_bckg_image_path = generate_img_url("chosen-anime.jpg")
-settings_window_bckg_image_path = generate_img_url("settings.jpg")
-downlaod_window_bckg_image_path = generate_img_url("downloads.png")
-about_bckg_image_path = generate_img_url("about.jpg")
 loading_animation_path = join_from_assets("loading.gif")
 sadge_piece_path = join_from_assets("sadge-piece.gif")
 folder_icon_path = join_from_assets("folder.png")
-pause_icon_path = join_from_assets("pause.png")
-resume_icon_path = join_from_assets("resume.png")
-cancel_icon_path = join_from_assets("cancel.png")
-remove_from_queue_icon_path = join_from_assets("trash.png")
-move_up_queue_icon_path = join_from_assets("up.png")
-move_down_queue_icon_path = join_from_assets("down.png")
-download_complete_icon_path = join_from_assets("download-complete.png")
-chopper_crying_path = join_from_assets("chopper-crying.png").replace("\\", "/")
-folder = join_from_assets("mascots")
-files = list(Path(folder).glob("*"))
-mascot_icon_path = str(files[randint(0, len(files)-1)])
-navigation_bar_icons_folder_path = join_from_assets("navigation-bar-icons")
+mascots_folder_path = join_from_assets("mascots")
+mascots_files = list(Path(mascots_folder_path).glob("*"))
+random_mascot_icon_path = str(mascots_files[randint(0, len(mascots_files)-1)])
+
+bckg_images_path = join_from_assets("background-images")
+
+
+def join_from_bckg_images(img_title): return os.path.join(
+    bckg_images_path, img_title).replace("\\", "/")
+
+
+search_window_bckg_image_path = join_from_bckg_images("search.jpg")
+chosen_anime_window_bckg_image_path = join_from_bckg_images("chosen-anime.jpg")
+settings_window_bckg_image_path = join_from_bckg_images("settings.jpg")
+downlaod_window_bckg_image_path = join_from_bckg_images("downloads.png")
+chopper_crying_path = join_from_bckg_images("chopper-crying.png")
+about_bckg_image_path = join_from_bckg_images("about.jpg")
+update_bckg_image_path = join_from_bckg_images("update.jpg")
+
+link_icons_folder_path = join_from_assets("link-icons")
+
+
+def join_from_link_icons(icon_path): return os.path.join(
+    link_icons_folder_path, icon_path
+)
+
+
+github_sponsors_icon_path = join_from_link_icons("github-sponsors.svg")
+github_icon_path = join_from_link_icons("github.png")
+patreon_icon_path = join_from_link_icons("patreon.png")
+reddit_icon_path = join_from_link_icons("reddit.png")
+discord_icon_path = join_from_link_icons("discord.png")
+
+download_icons_folder_path = join_from_assets("download-icons")
+
+
+def join_from_download_icons(icon_path): return os.path.join(
+    download_icons_folder_path, icon_path
+)
+
+
+pause_icon_path = join_from_download_icons("pause.png")
+resume_icon_path = join_from_download_icons("resume.png")
+cancel_icon_path = join_from_download_icons("cancel.png")
+remove_from_queue_icon_path = join_from_download_icons("trash.png")
+move_up_queue_icon_path = join_from_download_icons("up.png")
+move_down_queue_icon_path = join_from_download_icons("down.png")
+download_complete_icon_path = join_from_download_icons("download-complete.png")
+
+audio_folder_path = join_from_assets("audio")
+
+
+def join_from_audio(audio_path): return os.path.join(
+    audio_folder_path, audio_path
+)
+
+
+gigachad_audio_path = join_from_audio("gigachad.mp3")
+hentai_addict_audio_path = join_from_audio("aqua-crying.mp3")
+morbius_audio_path = join_from_audio("morbin-time.mp3")
+sen_favourite_audio_path = join_from_audio("sen-favourite.wav")
+one_piece_audio_path = join_from_audio(f"one-piece-real-{randint(1, 2)}.mp3")
+
 reviewer_profile_pics_folder_path = join_from_assets("reviewer-profile-pics")
-github_sponsors_icon_path = join_from_assets("github-sponsors.svg")
-github_icon_path = join_from_assets("github.png")
-patreon_icon_path = join_from_assets("patreon.png")
-reddit_icon_path = join_from_assets("reddit.png")
-discord_icon_path = join_from_assets("discord.png")
+
 
 def join_from_reviewer(icon_path): return os.path.join(
-            reviewer_profile_pics_folder_path, icon_path
+    reviewer_profile_pics_folder_path, icon_path
 )
-sen_icon_path =  join_from_reviewer("sen.png")
+
+
+sen_icon_path = join_from_reviewer("sen.png")
 morbius_is_peak_icon_path = join_from_reviewer("morbius-is-peak.png")
 hentai_addict_icon_path = join_from_reviewer("hentai-addict.png")
+
+navigation_bar_icons_folder_path = join_from_assets("navigation-bar-icons")
 
 
 def join_from_navbar(icon_path): return os.path.join(
@@ -97,7 +139,7 @@ search_icon_path = join_from_navbar("search.png")
 downloads_icon_path = join_from_navbar("downloads.png")
 settings_icon_path = join_from_navbar("settings.png")
 about_icon_path = join_from_navbar("about.png")
-
+update_icon_path = join_from_navbar("update.png")
 
 pahe_normal_color = "#FFC300"
 pahe_hover_color = "#FFD700"
@@ -119,7 +161,7 @@ key_gogo_default_browser = "gogo_default_browser"
 key_make_download_complete_notification = "make_download_complete_notification"
 key_start_in_fullscreen = "start_in_fullscreen"
 
-config_and_settings_folder_path = os.path.join(user_config_dir(), app_name)
+config_and_settings_folder_path = os.path.join(config_dir, app_name)
 if not os.path.isdir(config_and_settings_folder_path):
     os.mkdir(config_and_settings_folder_path)
 settings_file_path = os.path.join(

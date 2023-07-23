@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal
-from shared.shared_classes_and_widgets import StyledLabel, StyledButton, OutlinedLabel, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection
+from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection
 from shared.global_vars_and_funcs import gogo_normal_color, gogo_hover_color, settings, key_sub_or_dub, q_1080, q_720, q_480, q_360, chosen_anime_window_bckg_image_path
 from shared.global_vars_and_funcs import sub, dub, set_minimum_size_policy, key_gogo_default_browser, key_quality, gogo_name, chrome_name, edge_name, firefox_name
 from windows.download_window import DownloadWindow
@@ -25,7 +25,8 @@ class HavedEpisodes(StyledLabel):
         if not haved_count:
             self.setText("You have No episodes of this anime.")
         elif haved_count >= total_episode_count:
-            self.setText("You have all the current episodes of this anime, weeeeb.") 
+            self.setText(
+                "You have all the current episodes of this anime, weeeeb.")
         else:
             self.setText(f"You have {haved_count} episodes from {start} to {end}.") if haved_count != 1 else self.setText(
                 f"You have {haved_count} episode from {start} to {end}.")
@@ -43,6 +44,7 @@ class SetupChosenAnimeWindowThread(QThread):
 
     def run(self):
         self.finished.emit(AnimeDetails(self.anime, self.site))
+
 
 class ChosenAnimeWindow(Window):
     def __init__(self, main_window: MainWindow, anime_details: AnimeDetails):
@@ -68,14 +70,12 @@ class ChosenAnimeWindow(Window):
 
         self.sub_button = SubDubButton(self, sub, 25)
         set_minimum_size_policy(self.sub_button)
-        # self.sub_button.setFixedSize(buttons_default_size)
         self.dub_button = None
         self.sub_button.clicked.connect(lambda: self.update_sub_or_dub(sub))
         if settings[key_sub_or_dub] == sub:
             self.sub_button.animateClick()
         if self.anime_details.dub_available:
             self.dub_button = SubDubButton(self, dub, 25)
-            # self.dub_button.setFixedSize(buttons_default_size)
             set_minimum_size_policy(self.dub_button)
             self.dub_button.clicked.connect(
                 lambda: self.update_sub_or_dub(dub))
@@ -130,7 +130,6 @@ class ChosenAnimeWindow(Window):
         self.download_button = DownloadButton(
             self, self.main_window.download_window, self.anime_details)
         set_minimum_size_policy(self.download_button)
-        # self.download_button.setFixedSize(180, buttons_default_size.height()+20)
 
         second_row_of_buttons_layout.addWidget(self.start_episode_input)
         second_row_of_buttons_layout.addWidget(self.end_episode_input)
@@ -158,7 +157,6 @@ class ChosenAnimeWindow(Window):
         second_row_of_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         including_error_label_layout.addWidget(second_row_of_buttons_widget)
         including_error_label_widget.setLayout(including_error_label_layout)
-        # second_row_of_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         right_widgets_layout.addWidget(including_error_label_widget)
 
         third_row_of_labels_widget = QWidget()
@@ -166,11 +164,9 @@ class ChosenAnimeWindow(Window):
 
         haved_episodes = HavedEpisodes(
             self.anime_details.haved_start, self.anime_details.haved_end, self.anime_details.haved_count, self.anime_details.episode_count)
-        # haved_episodes.setFixedSize(420, buttons_default_size.height())
         set_minimum_size_policy(haved_episodes)
         self.episode_count = EpisodeCount(
             str(self.anime_details.episode_count))
-        # self.episode_count.setFixedSize(150, buttons_default_size.height())
         set_minimum_size_policy(self.episode_count)
         third_row_of_labels_layout.addWidget(self.episode_count)
         third_row_of_labels_layout.addWidget(haved_episodes)
@@ -209,7 +205,7 @@ class ChosenAnimeWindow(Window):
             self.sub_button.picked_status(False)
         elif self.dub_button != None:
             self.dub_button.picked_status(False)
-    
+
     def error(self, error_message: str):
         self.error_label.setText(error_message)
         self.error_label.update()
@@ -234,38 +230,42 @@ class DownloadButton(StyledButton):
         start_episode = self.chosen_anime_window.start_episode_input.text()
         end_episode = self.chosen_anime_window.end_episode_input.text()
         predicted_start_point = self.anime_details.haved_end
-        if not predicted_start_point: predicted_start_point = 0
+        if not predicted_start_point:
+            predicted_start_point = 0
         predicted_start_point += 1
         error = self.chosen_anime_window.error
-        if "0"  in (start_episode, end_episode):
+        if "0" in (start_episode, end_episode):
             error("What am I supposed to do with a zero?")
             invalid_input = True
         if start_episode in ("", "0"):
             start_episode = 1
             self.chosen_anime_window.start_episode_input.setText("1")
-        if end_episode in ("" , "0"):
+        if end_episode in ("", "0"):
             end_episode = episode_count
             self.chosen_anime_window.end_episode_input.setText("")
         start_episode = int(start_episode)
         end_episode = int(end_episode)
 
         if predicted_start_point <= episode_count and start_episode > episode_count and not invalid_input:
-                error("Start episode cannot be greater than the number of episodes the anime has.")
-                invalid_input = True
-                start_episode = predicted_start_point
-                self.chosen_anime_window.start_episode_input.setText(str(predicted_start_point))
+            error(
+                "Start episode cannot be greater than the number of episodes the anime has.")
+            invalid_input = True
+            start_episode = predicted_start_point
+            self.chosen_anime_window.start_episode_input.setText(
+                str(predicted_start_point))
 
         if (end_episode < start_episode) and not invalid_input:
-                error("Stop episode cannot be less than start episode, hontoni baka ga.")
-                invalid_input = True
-                end_episode = episode_count
-                self.chosen_anime_window.end_episode_input.setText("")
+            error("Stop episode cannot be less than start episode, hontoni baka ga.")
+            invalid_input = True
+            end_episode = episode_count
+            self.chosen_anime_window.end_episode_input.setText("")
 
         elif (end_episode > episode_count) and not invalid_input:
-                error("Oe oe oe mate, stop episode cannot be greater than the number of episodes this anime has.")
-                end_episode = episode_count
-                self.chosen_anime_window.end_episode_input.setText("")
-                invalid_input = True
+            error(
+                "Oe oe oe mate, stop episode cannot be greater than the number of episodes this anime has.")
+            end_episode = episode_count
+            self.chosen_anime_window.end_episode_input.setText("")
+            invalid_input = True
 
         # For testing purposes
         # end_episode = start_episode
@@ -273,8 +273,8 @@ class DownloadButton(StyledButton):
         self.anime_details.predicted_episodes_to_download = dynamic_episodes_predictor_initialiser_pro_turboencapsulator(
             start_episode, end_episode, self.anime_details.haved_episodes)
         if len(self.anime_details.predicted_episodes_to_download) == 0 and not invalid_input:
-                error("Bakayorou, you already have all episodes within the provided range!!!")
-                invalid_input = True
+            error("Bakayorou, you already have all episodes within the provided range!!!")
+            invalid_input = True
 
         if invalid_input:
             self.chosen_anime_window.episode_count.setStyleSheet(
@@ -331,4 +331,3 @@ class Title(StyledLabel):
         super().__init__(None, 50, "orange", 30, "black")
         self.setText(title.upper())
         self.setWordWrap(True)
-

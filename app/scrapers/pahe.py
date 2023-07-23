@@ -37,9 +37,9 @@ def get_total_episode_page_count(anime_page_link: str) -> int:
     decoded_anime_page = json.loads(response.decode('UTF-8'))
     total_episode_page_count: int = decoded_anime_page['last_page']
     return total_episode_page_count
-# Issues GET requests together with the id of the anime to retrieve a list of the episode page links(not download links)
 
 
+# Retrieves a list of the episode page links(not download links)
 def get_episode_page_links(start_episode: int, end_episode: int, anime_page_link: str, anime_id: str, progress_update_callback: Callable = lambda update: None, console_app=False) -> list[str]:
     page_url = anime_page_link
     episodes_data = []
@@ -60,7 +60,7 @@ def get_episode_page_links(start_episode: int, end_episode: int, anime_page_link
     # To avoid episodes like 7.5 and 5.5 cause they're usually just recaps
     episodes_data = list(filter(lambda episode: type(
         episode['episode']) != float, episodes_data))
-    # Take note cause indices work diff from episode numbers
+    # Take note cause indices work differently from episode numbers
     episodes_data = episodes_data[start_episode-1: end_episode]
     episode_sessions = [episode['session'] for episode in episodes_data]
     episode_links = [
@@ -84,7 +84,7 @@ def get_pahewin_download_page_links_and_info(episode_page_links: list[str], prog
     if progress_bar:
         progress_bar.set_description(' Done')
         progress_bar.close()
-    # Scrapes the download data of each episode and stores the links for the in a list which is contained in another list containing all episodes
+    # Scrapes the download data of each episode and stores the links  in a list which is contained in another list containing all episodes
     pahewin_download_page_links: list[list[str]] = [
         [cast(str, download_link["href"]) for download_link in episode_data] for episode_data in download_data]
     # Scrapes the download data of each episode and stores the info for each quality and dub or sub in a list which is contained in another list containing all episodes

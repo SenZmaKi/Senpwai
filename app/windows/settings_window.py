@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtCore import Qt
-from shared.global_vars_and_funcs import AllowedSettingsTypes, validate_settings_json, settings_file_path, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path
-from shared.global_vars_and_funcs import settings, key_gogo_default_browser, key_make_download_complete_notification, key_quality, key_max_simulataneous_downloads, key_sub_or_dub, key_download_folder_paths, key_start_in_fullscreen, gogo_normal_color, gogo_hover_color, gogo_pressed_color
-from shared.global_vars_and_funcs import pahe_normal_color, pahe_pressed_color, pahe_hover_color, red_normal_color, red_hover_color, red_pressed_color, sub, dub, chrome_name, edge_name, firefox_name, q_1080, q_720, q_480, q_360
+from shared.global_vars_and_funcs import AllowedSettingsTypes, validate_settings_json, settings_file_path, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, gogo_normal_color, gogo_hover_color
+from shared.global_vars_and_funcs import settings, key_gogo_default_browser, key_make_download_complete_notification, key_quality, key_max_simulataneous_downloads, key_sub_or_dub, key_download_folder_paths, key_start_in_fullscreen
+from shared.global_vars_and_funcs import pahe_normal_color, pahe_pressed_color, pahe_hover_color, red_normal_color, red_hover_color, red_pressed_color, sub, dub, chrome_name, edge_name, firefox_name, q_1080, q_720, q_480, q_360, gogo_pressed_color
 from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
 import json
@@ -236,7 +236,7 @@ class MakeDownloadCompleteNotificationSetting(SettingWidget):
         no_button.clicked.connect(lambda: settings_window.update_settings_json(
             key_make_download_complete_notification, False))
         yes_button.picked_status(
-            True) if settings[key_start_in_fullscreen] else no_button.picked_status(True)
+            True) if settings[key_make_download_complete_notification] else no_button.picked_status(True)
         set_minimum_size_policy(yes_button)
         set_minimum_size_policy(no_button)
         super().__init__(settings_window,
@@ -298,15 +298,14 @@ class MaxSimultaneousDownloadsSetting(SettingWidget):
             "The maximum number of downloads allowed to occur at the same time.")
 
     def text_changed(self, text: str):
-        if not text.isdigit(): return
+        if not text.isdigit():
+            return
         new_setting = int(text)
-        if new_setting == 0 : 
+        if new_setting == 0:
             self.zero_error()
             return
-        self.settings_window.update_settings_json(key_max_simulataneous_downloads, new_setting)
-
-
-
+        self.settings_window.update_settings_json(
+            key_max_simulataneous_downloads, new_setting)
 
 
 class QualitySetting(SettingWidget):

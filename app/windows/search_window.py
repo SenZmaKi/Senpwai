@@ -1,12 +1,17 @@
-from PyQt6.QtGui import QPixmap, QKeyEvent
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, QLineEdit
+from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLineEdit
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QEvent, QTimer
-from shared.global_vars_and_funcs import mascot_icon_path, gogo_name, pahe_name, loading_animation_path, sadge_piece_path, set_minimum_size_policy
-from shared.global_vars_and_funcs import pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, search_window_bckg_image_path
-from shared.shared_classes_and_widgets import Anime, StyledButton, OutlinedButton, ScrollableSection, AnimationAndText
+from shared.global_vars_and_funcs import random_mascot_icon_path, gogo_name, pahe_name, loading_animation_path, sadge_piece_path, set_minimum_size_policy, sen_anilist_id, anilist_api_entrypoint, one_piece_audio_path
+from shared.global_vars_and_funcs import pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, search_window_bckg_image_path, sen_favourite_audio_path
+from shared.shared_classes_and_widgets import Anime, StyledButton, OutlinedButton, ScrollableSection, AnimationAndText, IconButton, AudioPlayer
+from shared.app_and_scraper_shared import network_monad
 from windows.main_actual_window import MainWindow, Window
 from scrapers import pahe
 from scrapers import gogo
+import requests
+from random import randint
+from typing import cast
+from time import sleep
 
 
 class SearchWindow(Window):
@@ -16,11 +21,11 @@ class SearchWindow(Window):
         main_widget = QWidget()
         main_layout = QVBoxLayout()
 
-        mascot_label = QLabel()
-        mascot_label.setPixmap(QPixmap(mascot_icon_path))
-        mascot_label.setFixedSize(130, 100)
-        mascot_label.setScaledContents(True)
-
+        mascot_button = IconButton(130, 100, random_mascot_icon_path, 1)
+        self.fetch_sen_favourite_audio = AudioPlayer(
+            sen_favourite_audio_path, volume=60)
+        mascot_button.clicked.connect(self.fetch_sen_favourite_audio.play)
+        mascot_button.clicked.connect(FetchFavouriteThread(self).start)
         self.search_bar = SearchBar(self)
         self.get_search_bar_text = lambda: self.search_bar.text()
         self.search_bar.setMinimumHeight(60)
@@ -28,7 +33,7 @@ class SearchWindow(Window):
         search_bar_and_mascot_widget = QWidget()
         search_bar_and_mascot_layout = QVBoxLayout()
         search_bar_and_mascot_layout.addWidget(
-            mascot_label, alignment=Qt.AlignmentFlag.AlignHCenter)
+            mascot_button, alignment=Qt.AlignmentFlag.AlignHCenter)
         search_bar_and_mascot_layout.addWidget(self.search_bar)
         search_bar_and_mascot_layout.setSpacing(0)
         search_bar_and_mascot_widget.setLayout(search_bar_and_mascot_layout)
@@ -62,15 +67,14 @@ class SearchWindow(Window):
             self.results_widget)
         main_layout.addWidget(self.bottom_section_stacked_widgets)
         self.search_thread = None
+        self.one_piece_real = AudioPlayer(one_piece_audio_path, volume=100)
         main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
-        # We use a timer instead of calling setFocus raw cause apparently Qt wont setFocus if the widget isn't shown on screen, so we gotta wait a but first or sth StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
+        # We use a timer instead of calling setFocus normally cause apparently Qt wont really set the widget in focus if the widget isn't shown on screen, so we gotta wait a bit first or sth StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
         QTimer.singleShot(0, self.search_bar.setFocus)
 
     def search_anime(self, anime_title: str, site: str) -> None:
-        # Check setup_chosen_anime_window and MainWindow for why the if statement
-        # I might remove this cause the behavior experienced in setup_chosen_anime_window is absent here for some reason, but for safety I'll just keep it
         if self.search_thread:
             self.search_thread.quit()
         prev_top_was_anime_not_found = self.bottom_section_stacked_widgets.currentWidget(
@@ -83,6 +87,8 @@ class SearchWindow(Window):
             item = self.results_layout.itemAt(idx)
             item.widget().deleteLater()
             self.results_layout.removeItem(item)
+        if anime_title.upper() == "ONE PIECE":
+            self.one_piece_real.play()
         self.search_thread = SearchThread(self, anime_title, site)
         self.search_thread.finished.connect(
             lambda results: self.handle_finished_search(site, results))
@@ -101,6 +107,61 @@ class SearchWindow(Window):
                 self.results_layout.addWidget(button)
         self.loading.stop()
         self.search_thread = None
+
+
+class FetchFavouriteThread(QThread):
+    def __init__(self, search_window: SearchWindow) -> None:
+        super().__init__(search_window)
+        self.search_window = search_window
+
+    def run(self):
+        favourite = self.get_random_sen_favourite()
+        if not favourite:
+            return
+        self.slow_print_favourite_in_search_bar(favourite)
+
+    def slow_print_favourite_in_search_bar(self, favourite_name: str):
+        self.search_window.search_bar.clear()
+        for idx, _ in enumerate(favourite_name):
+            self.search_window.search_bar.setText(favourite_name[:idx+1])
+            sleep(0.1)
+
+    def get_random_sen_favourite(self) -> str | None:
+        page = randint(1, 2)
+        query = '''
+        query getUserFavourite($id: Int, $page: Int){
+        User(id: $id) {
+            favourites{
+            anime(page: $page){
+                nodes{
+                title{
+                    romaji
+                }
+                }
+                pageInfo {
+                lastPage
+                perPage
+                total
+                }
+            }
+            }
+        }
+        }
+        '''
+        response = cast(requests.Response, network_monad(lambda: requests.post(anilist_api_entrypoint,
+                                                                               json={"query": query,
+                                                                                     "variables": {"id": sen_anilist_id, "page": page}},
+                                                                               headers={"Content-Type": "application/json"})))
+        if response.status_code != 200:
+            return None
+        data = response.json()
+        favourite_anime = data["data"]["User"]["favourites"]["anime"]["nodes"]
+        count = len(favourite_anime)
+        if count <= 0:
+            return None
+        chosen = favourite_anime[randint(0, count-1)]
+        anime_title = chosen["title"]["romaji"]
+        return anime_title
 
 
 class SearchBar(QLineEdit):
@@ -208,6 +269,6 @@ class SearchThread(QThread):
             for result in results:
                 title, page_link = gogo.extract_anime_title_and_page_link(
                     result)
-                if title and page_link:  # to handle dub cases
+                if title and page_link:
                     extracted_results.append(Anime(title, page_link, None))
         self.finished.emit(extracted_results)

@@ -1,6 +1,7 @@
 from PyQt6.QtGui import QPixmap, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame
-from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, pyqtSlot
+from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl, pyqtSlot
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import AllowedSettingsTypes, pahe_name, gogo_name
 from time import time
 from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, key_gogo_default_browser, key_quality, key_sub_or_dub, key_download_folder_paths, default_download_folder_paths
@@ -212,6 +213,15 @@ class OutlinedButton(StyledButton):
         return super().paintEvent(event)
 
 
+class AudioPlayer(QMediaPlayer):
+    def __init__(self, audio_path: str, volume: int = 50):
+        super().__init__()
+        audio_output = QAudioOutput(self)
+        self.setAudioOutput(audio_output)
+        self.setSource(QUrl.fromLocalFile(audio_path))
+        audio_output.setVolume(volume)
+
+
 class ErrorLabel(StyledLabel):
     def __init__(self, font_size: int, shown_duration_in_secs: int = 3, parent: QWidget | None = None):
         super().__init__(parent, font_size, font_color="red")
@@ -296,7 +306,7 @@ class ProgressBar(QWidget):
         self.prev_time = time()
 
     @pyqtSlot(int)
-    def update(self, added_value: int):
+    def update_bar(self, added_value: int):
         self.mutex.lock()
         new_value = self.bar.value() + added_value
         curr_time = time()
@@ -306,13 +316,12 @@ class ProgressBar(QWidget):
             new_value = max_value
             self.bar.setFormat(f"Completed {self.item_task_is_applied_on}")
             self.bar.setStyleSheet(self.completed_stylesheet)
-
         self.bar.setValue(new_value)
         percent_new_value = round(new_value / max_value * 100)
         self.percentage.setText(f"{percent_new_value}%")
         self.current_against_max_values.setText(
             f" {round(new_value/self.units_divisor)}/{round(max_value/self.units_divisor)} {self.units}")
-        # In cases of annoying division by zero crash where downloads update super quick
+        # If statement to handle cases of annoying division by zero error where downloads update super quick so elapsed time is roughly zero
         if time_elapsed > 0 and added_value > 0:
             rate = added_value / time_elapsed
             eta = (max_value - new_value) * (1/rate)
@@ -443,9 +452,9 @@ class AnimeDetails():
                 lower = potential.lower()
                 if os.path.isdir(potential):
                     detected = potential
-                if os.path.isdir(upper):
+                elif os.path.isdir(upper):
                     detected = upper
-                if os.path.isdir(lower):
+                elif os.path.isdir(lower):
                     detected = lower
                 if detected:
                     self.chosen_default_download_path = path
@@ -458,6 +467,29 @@ class AnimeDetails():
             return path
         sanitised_title2 = sanitise_title(self.anime.title.replace(":", ""))
         path = try_path(sanitised_title2)
+        parsed = anitopy.parse(self.sanitised_title)
+        print(parsed)
+        if parsed:
+            try:
+                season_number = parsed["anime_season"]
+                title = parsed["anime_title"]
+                parent_season_path = try_path(title)
+                if parent_season_path:
+                    join = os.path.join
+                    season_path = try_path(
+                        join(parent_season_path, self.sanitised_title))
+                    if season_path:
+                        return season_path
+                    season_path = try_path(
+                        join(parent_season_path, f"Season {season_number}"))
+                    if season_path:
+                        return season_path
+                    season_path = try_path(
+                        join(parent_season_path, sanitised_title2))
+                    if season_path:
+                        return season_path
+            except KeyError:
+                pass
         return path
 
     def get_potentially_haved_episodes(self) -> list[Path] | None:

@@ -266,7 +266,7 @@ def VersionUpdater(current_version, repo_url, github_home_url, version_download_
 
                 with open(updated_version_folder+"\\Senpwai.exe", 'wb') as file:
                     for data in response.iter_content(block_size):
-                        progress_bar.update(len(data))
+                        progress_bar.update_bar(len(data))
                         file.write(data)
                 
                 if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
