@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 from time import sleep
 from tqdm import tqdm
 import webbrowser
+from sys import platform
 
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
@@ -14,7 +15,8 @@ from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
 from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions, FirefoxOptions
 
-from subprocess import CREATE_NO_WINDOW
+if platform == "win32":
+    from subprocess import CREATE_NO_WINDOW
 from typing import Callable, cast
 from shared.app_and_scraper_shared import parser, network_monad, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time
 
@@ -63,21 +65,21 @@ def setup_headless_browser(default_browser: str = edge_name) -> Chrome | Edge | 
     def setup_edge_driver():
         service_edge = EdgeService(
             executable_path=EdgeChromiumDriverManager().install())
-        service_edge.creation_flags = CREATE_NO_WINDOW
+        if platform == "win32": service_edge.creation_flags = CREATE_NO_WINDOW
         options = cast(EdgeOptions, setup_options(EdgeOptions()))
         return Edge(service=service_edge, options=options)
 
     def setup_chrome_driver():
         service_chrome = ChromeService(
             executable_path=ChromeDriverManager().install())
-        service_chrome.creation_flags = CREATE_NO_WINDOW
+        if platform == "win32": service_chrome.creation_flags = CREATE_NO_WINDOW
         options = cast(ChromeOptions, setup_options(ChromeOptions()))
         return Chrome(service=service_chrome, options=options)
 
     def setup_firefox_driver():
-        firefox_service = FirefoxService(
+        firefox_service  = FirefoxService(
             executable_path=GeckoDriverManager().install())
-        firefox_service.creation_flags = CREATE_NO_WINDOW
+        if platform == "win32": firefox_service.creation_flags = CREATE_NO_WINDOW
         options = cast(FirefoxOptions, setup_options(FirefoxOptions()))
         return Firefox(service=firefox_service, options=options)
 
@@ -112,8 +114,7 @@ def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | 
     return (links, quality_infos)
 
 
-def get_direct_download_link_as_per_quality(download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda update: None,
-                                            max_load_wait_time=6, console_app=False) -> list[str]:
+def get_direct_download_link_as_per_quality(download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda update: None, max_load_wait_time=6, console_app=False) -> list[str]:
     # For testing purposes
     # raise TimeoutError
     download_links: list[str] = []

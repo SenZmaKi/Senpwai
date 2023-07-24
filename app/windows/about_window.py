@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import Qt
 from windows.main_actual_window import Window, MainWindow
 from shared.global_vars_and_funcs import about_bckg_image_path, set_minimum_size_policy, sen_icon_path, morbius_is_peak_icon_path, github_repo_url, gigachad_audio_path, morbius_audio_path, hentai_addict_audio_path
 from shared.global_vars_and_funcs import github_icon_path, reddit_icon_path, discord_icon_path, hentai_addict_icon_path, github_sponsors_icon_path, patreon_icon_path
@@ -38,7 +38,7 @@ class AboutWindow(Window):
         set_minimum_size_policy(support_title)
         donations_label = StyledLabel()
         donations_label.setText(
-            "Konichiwa 👋🏿 it's Sen, the creator of Senpwai, I'm a goofy ahh ahh college student from Kenya.\nWifi is kinda expensive in my country, so donations help me pay for internet and new features.")
+            "Konichiwa 👋🏿 it's Sen, the creator of Senpwai, I'm a goofy ahh ahh college student from Kenya.\nWifi is kinda expensive in my country, so donations help me pay for internet and keep developing new features and fixing bugs.")
         set_minimum_size_policy(donations_label)
         github_sponsors_button = IconButton(
             120, 120, github_sponsors_icon_path, 1.1)

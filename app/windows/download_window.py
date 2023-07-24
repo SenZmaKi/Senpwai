@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSystemTrayIcon, 
 from PyQt6.QtCore import Qt, QObject, QThread, QMutex, pyqtSignal, pyqtSlot
 from shared.global_vars_and_funcs import settings, key_make_download_complete_notification, key_max_simulataneous_downloads
 from shared.global_vars_and_funcs import set_minimum_size_policy, download_complete_icon_path, remove_from_queue_icon_path, move_up_queue_icon_path, move_down_queue_icon_path
-from shared.global_vars_and_funcs import pahe_name, gogo_name, dub, downlaod_window_bckg_image_path
+from shared.global_vars_and_funcs import pahe_name, gogo_name, dub, downlaod_window_bckg_image_path, open_folder
 from shared.app_and_scraper_shared import Download, ibytes_to_mbs_divisor, network_monad
 from windows.main_actual_window import MainWindow, Window
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, ScrollableSection, DownloadProgressBar, ProgressBar, AnimeDetails, FolderButton, OutlinedLabel, IconButton, HorizontalLine
@@ -26,7 +26,7 @@ class DownloadedEpisodeCount(StyledLabel):
         self.tray_icon = tray_icon
         self.anime_folder_path = anime_folder_path
         self.tray_icon.messageClicked.connect(
-            lambda: os.startfile(self.anime_folder_path))
+            lambda: open_folder(self.anime_folder_path))
         self.anime_title = anime_title
         self.download_complete_icon = download_complete_icon
         self.show()

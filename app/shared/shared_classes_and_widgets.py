@@ -5,7 +5,7 @@ from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import AllowedSettingsTypes, pahe_name, gogo_name
 from time import time
 from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, key_gogo_default_browser, key_quality, key_sub_or_dub, key_download_folder_paths, default_download_folder_paths
-from shared.global_vars_and_funcs import folder_icon_path, red_normal_color, red_pressed_color, pahe_normal_color, pahe_pressed_color, gogo_normal_color
+from shared.global_vars_and_funcs import folder_icon_path, red_normal_color, red_pressed_color, pahe_normal_color, pahe_pressed_color, gogo_normal_color, open_folder
 from shared.app_and_scraper_shared import sanitise_title, network_monad
 from pathlib import Path
 from typing import cast
@@ -468,7 +468,6 @@ class AnimeDetails():
         sanitised_title2 = sanitise_title(self.anime.title.replace(":", ""))
         path = try_path(sanitised_title2)
         parsed = anitopy.parse(self.sanitised_title)
-        print(parsed)
         if parsed:
             try:
                 season_number = parsed["anime_season"]
@@ -560,7 +559,7 @@ class FolderButton(IconButton):
     def __init__(self, path: str, size_x: int, size_y: int, parent: QWidget | None = None):
         super().__init__(size_x, size_y, folder_icon_path, 1.3, parent)
         self.folder_path = path
-        self.clicked.connect(lambda: os.startfile(self.folder_path))
+        self.clicked.connect(lambda: open_folder(self.folder_path))
 
 
 class NumberInput(QLineEdit):

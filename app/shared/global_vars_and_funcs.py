@@ -7,6 +7,7 @@ from scrapers.gogo import edge_name, chrome_name, firefox_name
 from PyQt6.QtWidgets import QSizePolicy
 import json
 from typing import cast
+from subprocess import Popen
 
 if getattr(sys, 'frozen', False):
     base_directory = os.path.dirname(sys.executable)
@@ -31,6 +32,11 @@ q_720 = "720p"
 q_480 = "480p"
 q_360 = "360p"
 default_quality = q_720
+
+def open_folder(folder_path: str):
+    if sys.platform == "win32": return os.start_file(folder_path)
+    elif sys.platform == "linux": return Popen(["xdg-open", folder_path]) 
+    else: return Popen(["open", folder_path])
 
 downloads_folder = os.path.join(Path.home(), "Downloads")
 if not os.path.isdir(downloads_folder):

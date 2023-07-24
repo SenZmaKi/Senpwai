@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal, pyqtSlot
 from windows.main_actual_window import MainWindow, Window
 from shared.global_vars_and_funcs import chopper_crying_path, pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, github_repo_url, github_api_releases_entry_point, app_name, github_icon_path, update_bckg_image_path
-from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy, settings, key_gogo_default_browser, chrome_name, edge_name, chopper_crying_path, version, key_download_folder_paths
+from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy, settings, key_gogo_default_browser, chrome_name, edge_name, chopper_crying_path, version, key_download_folder_paths, open_folder
 from shared.shared_classes_and_widgets import StyledButton, StyledLabel, network_monad, FolderButton, IconButton
 from windows.download_window import DownloadProgressBar
 from typing import cast, Callable
@@ -190,7 +190,9 @@ class DownloadUpdateThread(QThread):
         self.update_window.progress_bar.pause_callback = download.pause_or_resume
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
-        os.startfile(self.download_folder)
+        open_folder(self.download_folder)
+
+
 
 
 class CheckIfUpdateAvailableThread(QThread):
