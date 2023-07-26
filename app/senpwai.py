@@ -1,3 +1,9 @@
+"""
+ Author: Sen ZmaKi
+ Repository: https://github.com/SenZmaKi/Senpwai
+ Copyright: Copyright (c) 2023 AKatsuKi Inc.
+
+"""
 import sys
 from PyQt6.QtGui import QColor, QPalette, QIcon
 from PyQt6.QtWidgets import QApplication
@@ -5,7 +11,8 @@ from PyQt6.QtCore import Qt, QCoreApplication
 from windows.main_actual_window import MainWindow
 from shared.global_vars_and_funcs import senpwai_icon_path, pahe_normal_color, app_name, settings, key_start_in_fullscreen
 
-if __name__ == "__main__":
+
+def main():
     QCoreApplication.setApplicationName(app_name)
     app = QApplication(sys.argv)
     app.setApplicationName(app_name)
@@ -23,3 +30,7 @@ if __name__ == "__main__":
         window.show()
         window.center_window()
     sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

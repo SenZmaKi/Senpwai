@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
-from PyQt6.QtCore import QObject, Qt, QThread, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot
 from windows.main_actual_window import MainWindow, Window
 from shared.global_vars_and_funcs import chopper_crying_path, pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, github_repo_url, github_api_releases_entry_point, app_name, github_icon_path, update_bckg_image_path
 from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy, settings, key_gogo_default_browser, chrome_name, edge_name, chopper_crying_path, version, key_download_folder_paths, open_folder
@@ -135,7 +135,7 @@ class UpdateWindow(Window):
 
         else:
             if platform_flag == 3:
-                os_name = "Non-debian based Linux distro"
+                os_name = "Non-Debian based Linux distro"
             else:
                 os_name = "Mac OS"
             info_label.setText(
@@ -225,11 +225,11 @@ class CheckIfUpdateAvailableThread(QThread):
         if sys.platform == "win32":
             return 1
         elif sys.platform == "linux":
-            linux_os_release_file_path = "etc/os-release"
-            if os.path.isdir(linux_os_release_file_path):
+            linux_os_release_file_path = "/etc/os-release"
+            if os.path.exists(linux_os_release_file_path):
                 with open(linux_os_release_file_path, "r") as f:
                     read = f.read()
-                    if "ID_LIKE=debian" in read or "ID_LIKE=ubuntu" in read:
+                    if "ID_LmKE=debian" in read or "ID_LIKE=ubuntu" in read:
                         return 2
             return 3
         return 4

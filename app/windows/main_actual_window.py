@@ -152,8 +152,7 @@ class Window(QWidget):
         nav_bar_widget.setLayout(self.nav_bar_layout)
         self.full_layout.addWidget(nav_bar_widget)
 
-
-# Note these modules be placed here otherwise an ImportError is experienced cause they  import MainWindow resulting to a circular import, so we have to define MainWindow first before importing them
+# These modules imports must be placed here otherwise an ImportError is experienced cause they import MainWindow resulting to a circular import, so we have to define MainWindow first before importing them
 from windows.download_window import DownloadWindow
 from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow, UpdateWindow, CheckIfUpdateAvailableThread
 from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread

@@ -34,7 +34,7 @@ q_360 = "360p"
 default_quality = q_720
 
 def open_folder(folder_path: str):
-    if sys.platform == "win32": return os.start_file(folder_path)
+    if sys.platform == "win32": return os.startfile(folder_path)
     elif sys.platform == "linux": return Popen(["xdg-open", folder_path]) 
     else: return Popen(["open", folder_path])
 

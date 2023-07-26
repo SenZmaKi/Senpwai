@@ -56,7 +56,10 @@ def generate_episode_page_links(start_episode: int, end_episode: int, anime_page
 def setup_headless_browser(default_browser: str = edge_name) -> Chrome | Edge | Firefox:
     def setup_options(options: ChromeOptions | EdgeOptions | FirefoxOptions) -> ChromeOptions | EdgeOptions | FirefoxOptions:
         # For testing purposes
-        options.add_argument("--headless=new")
+        if isinstance(options, FirefoxOptions):
+            options.add_argument("--headless")
+        else:
+            options.add_argument("--headless=new")
         options.add_argument('--disable-extensions')
         options.add_argument('--disable-infobars')
         options.add_argument('--no-sandbox')
@@ -65,21 +68,24 @@ def setup_headless_browser(default_browser: str = edge_name) -> Chrome | Edge | 
     def setup_edge_driver():
         service_edge = EdgeService(
             executable_path=EdgeChromiumDriverManager().install())
-        if platform == "win32": service_edge.creation_flags = CREATE_NO_WINDOW
+        if platform == "win32":
+            service_edge.creation_flags = CREATE_NO_WINDOW
         options = cast(EdgeOptions, setup_options(EdgeOptions()))
         return Edge(service=service_edge, options=options)
 
     def setup_chrome_driver():
         service_chrome = ChromeService(
             executable_path=ChromeDriverManager().install())
-        if platform == "win32": service_chrome.creation_flags = CREATE_NO_WINDOW
+        if platform == "win32":
+            service_chrome.creation_flags = CREATE_NO_WINDOW
         options = cast(ChromeOptions, setup_options(ChromeOptions()))
         return Chrome(service=service_chrome, options=options)
 
     def setup_firefox_driver():
-        firefox_service  = FirefoxService(
+        firefox_service = FirefoxService(
             executable_path=GeckoDriverManager().install())
-        if platform == "win32": firefox_service.creation_flags = CREATE_NO_WINDOW
+        if platform == "win32":
+            firefox_service.creation_flags = CREATE_NO_WINDOW
         options = cast(FirefoxOptions, setup_options(FirefoxOptions()))
         return Firefox(service=firefox_service, options=options)
 

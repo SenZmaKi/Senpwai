@@ -26,7 +26,7 @@ class DownloadedEpisodeCount(StyledLabel):
         self.tray_icon = tray_icon
         self.anime_folder_path = anime_folder_path
         self.tray_icon.messageClicked.connect(
-            lambda: open_folder(self.anime_folder_path))
+            lambda: open_folder(self.anime_folder_path))  # type: ignore
         self.anime_title = anime_title
         self.download_complete_icon = download_complete_icon
         self.show()

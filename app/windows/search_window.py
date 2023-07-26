@@ -206,6 +206,7 @@ class SearchButton(StyledButton):
             super().__init__(window, 40, "black", gogo_normal_color,
                              gogo_hover_color, gogo_pressed_color)
             self.setText("Gogoanime")
+            self.setToolTip("Unstable")
         self.clicked.connect(lambda: window.search_anime(
             window.get_search_bar_text(), site))
 
