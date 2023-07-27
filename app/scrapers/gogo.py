@@ -109,6 +109,8 @@ def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | 
         else:
             return get_links_and_quality_info(download_page_link, driver, max_load_wait_time, load_wait_time+1)
     return (links, quality_infos)
+
+
 class GetDirectDownloadLinks(PausableFunction):
     def __init__(self) -> None:
         super().__init__()
@@ -124,9 +126,11 @@ class GetDirectDownloadLinks(PausableFunction):
             links, quality_infos = get_links_and_quality_info(
                 page_link, driver, max_load_wait_time)
             quality_idx = match_quality(quality_infos, quality)
+            print(quality_infos[quality_idx])
             download_links.append(links[quality_idx])
-            while self.paused: continue
-            if self.cancelled: 
+            while self.paused:
+                continue
+            if self.cancelled:
                 return []
             progress_update_call_back(1)
             if progress_bar:
@@ -136,9 +140,11 @@ class GetDirectDownloadLinks(PausableFunction):
             progress_bar.close()
         return download_links
 
+
 class GetDownloadPageLinks(PausableFunction):
     def __init__(self) -> None:
         super().__init__()
+
     def cancel(self):
         self.cancelled = True
 
@@ -152,10 +158,11 @@ class GetDownloadPageLinks(PausableFunction):
 
         def extract_link(episode_page_link: str) -> str:
             response = network_monad(lambda page=episode_page_link: get_page_content(episode_page_link)
-                                    )
+                                     )
             soup = BeautifulSoup(response, parser)
             soup = cast(Tag, soup.find('li', class_='dowloads'))
-            link = cast(str, cast(Tag, soup.find('a', target='_blank'))['href'])
+            link = cast(str, cast(Tag, soup.find(
+                'a', target='_blank'))['href'])
             return link
 
         for idx, episode_page_link in enumerate(episode_page_links):
@@ -166,8 +173,9 @@ class GetDownloadPageLinks(PausableFunction):
                 link = extract_link(episode_page_link.replace('-tv', ''))
             download_page_links.append(link)
             while self.paused:
-                continue 
-            if self.cancelled: return []
+                continue
+            if self.cancelled:
+                return []
             progress_update_callback(1)
             if progress_bar:
                 progress_bar.update(idx+1 - progress_bar.n)
@@ -175,6 +183,8 @@ class GetDownloadPageLinks(PausableFunction):
             progress_bar.close()
             progress_bar.set_description(' Done')
         return download_page_links
+
+
 class CalculateTotalDowloadSize(PausableFunction):
     def __init__(self):
         super().__init__()
@@ -191,8 +201,10 @@ class CalculateTotalDowloadSize(PausableFunction):
                 total_size += round(int(size) / ibytes_to_mbs_divisor)
             else:
                 total_size += int(size)
-            while self.paused: continue
-            if self.cancelled: return 0
+            while self.paused:
+                continue
+            if self.cancelled:
+                return 0
             progress_update_callback(1)
             if progress_bar:
                 progress_bar.update(idx+1 - progress_bar.n)
@@ -256,7 +268,8 @@ def test_getting_direct_download_links(query_anime_title: str, start_episode: in
     driver = setup_headless_browser(edge_name)
     direct_download_links = GetDirectDownloadLinks().get_direct_download_link_as_per_quality(
         download_page_links, quality, driver, max_load_wait_time=50, console_app=True)
-    CalculateTotalDowloadSize().calculate_total_download_size(direct_download_links, console_app=True)
+    CalculateTotalDowloadSize().calculate_total_download_size(
+        direct_download_links, console_app=True)
     driver.quit()
     list(map(print, direct_download_links))
     return direct_download_links
@@ -265,14 +278,14 @@ def test_getting_direct_download_links(query_anime_title: str, start_episode: in
 def main():
     # Download settings
     query = 'Jujutsu season 2'
-    quality = '360p'
+    quality = '480p'
     sub_or_dub = 'sub'
     start_episode = 1
     end_episode = 3
 
     direct_download_links = test_getting_direct_download_links(
         query, start_episode, end_episode, quality, sub_or_dub)
-    test_downloading(query, direct_download_links)
+    # test_downloading(query, direct_download_links)
 
 
 if __name__ == "__main__":

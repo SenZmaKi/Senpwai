@@ -8,44 +8,42 @@ import re
 
 parser = 'html.parser'
 ibytes_to_mbs_divisor = 1024*1024
-qualities = ['144p', '240p', '360p', '480p',
-             '540p', '720p', '800p', '1080p']
 quality_pattern = re.compile(r'\b(\d{3,4}p)\b')
 network_retry_wait_time = 5
 
 
 class QualityAndIndices:
-    def __init__(self, quality: str, index: int):
+    def __init__(self, quality: int, index: int):
         self.quality = quality
         self.index = index
-        self.index2: int = 0
 
 
-def match_quality(potential_qualities: list[str], chosen_quality: str) -> int:
+def match_quality(potential_qualities: list[str], user_quality: str) -> int:
     detected_qualities: list[QualityAndIndices] = []
     for idx, potential_quality in enumerate(potential_qualities):
         match = quality_pattern.search(potential_quality)
         if match:
             quality = cast(str, match.group(1))
-            if quality == chosen_quality:
+            if quality == user_quality:
                 return idx
             else:
-                detected_qualities.append(QualityAndIndices(quality, idx))
+                quality = quality.replace('p', '')
+                if quality.isdigit():
+                    detected_qualities.append(
+                        QualityAndIndices(int(quality), idx))
+    int_user_quality = int(user_quality.replace('p', ''))
+    if len(detected_qualities) <= 0:
+        if int_user_quality <= 480:
+            return 0
+        return -1
 
-    def get_and_set_up_index2(q_and_i: QualityAndIndices) -> int:
-        q_and_i.index2 = qualities.index(q_and_i.quality)
-        return q_and_i.index2
-    global qualities
-    detected_qualities.sort(
-        key=get_and_set_up_index2)
-    chosen_quality_idx = qualities.index(chosen_quality)
-
+    detected_qualities.sort(key=lambda x: x.quality)
     closest = detected_qualities[0]
     for quality in detected_qualities:
-        if quality.index2 > chosen_quality_idx:
+        print(quality.quality)
+        if quality.quality > int_user_quality:
             break
         closest = quality
-
     return closest.index
 
 
@@ -78,16 +76,18 @@ def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: 
             predicted_episodes_to_download.append(episode)
     return predicted_episodes_to_download
 
+
 class PausableFunction():
     def __init__(self) -> None:
         self.paused = False
         self.cancelled = False
-    
+
     def pause_or_resume(self):
         self.paused = not self.paused
 
     def cancel(self):
         self.cancelled = True
+
 
 class Download(PausableFunction):
     def __init__(self, link: str, episode_title: str, download_folder: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', console_app=False) -> None:
@@ -139,7 +139,7 @@ class Download(PausableFunction):
                             progress_bar.update(size)
                     except Exception:
                         break
-                       
+
             file_size = os.path.getsize(temp_file_path)
             return True if file_size >= total else handle_download(file_size)
         if not handle_download():

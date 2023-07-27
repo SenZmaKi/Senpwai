@@ -38,9 +38,10 @@ def get_total_episode_page_count(anime_page_link: str) -> int:
     total_episode_page_count: int = decoded_anime_page['last_page']
     return total_episode_page_count
 
+
 class GetEpisodePageLinks(PausableFunction):
     def __init__(self) -> None:
-       super().__init__() 
+        super().__init__()
 
     # Retrieves a list of the episode page links(not download links)
     def get_episode_page_links(self, start_episode: int, end_episode: int, anime_page_link: str, anime_id: str, progress_update_callback: Callable = lambda update: None, console_app=False) -> list[str]:
@@ -57,8 +58,10 @@ class GetEpisodePageLinks(PausableFunction):
             episodes_data += decoded_anime_page['data']
             page_url = decoded_anime_page["next_page_url"]
             page_no += 1
-            while self.paused: continue
-            if self.cancelled: return []
+            while self.paused:
+                continue
+            if self.cancelled:
+                return []
             progress_update_callback(1)
             if progress_bar:
                 progress_bar.update()
@@ -72,9 +75,11 @@ class GetEpisodePageLinks(PausableFunction):
             f'{pahe_home_url}/play/{anime_id}/{episode_session}' for episode_session in episode_sessions]
         return episode_links
 
+
 class GetPahewinDownloadPageCrap(PausableFunction):
     def __init__(self) -> None:
         super().__init__()
+
     def get_pahewin_download_page_links_and_info(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None, console_app=False) -> tuple[list[list[str]], list[list[str]]]:
         progress_bar = None if not console_app else tqdm(total=len(
             episode_page_links), desc=' Fetching download page links', unit='eps')
@@ -85,8 +90,10 @@ class GetPahewinDownloadPageCrap(PausableFunction):
             soup = BeautifulSoup(episode_page, parser)
             download_data.append(soup.find_all(
                 'a', class_='dropdown-item', target='_blank'))
-            while self.paused: continue
-            if self.cancelled: return ([], [])
+            while self.paused:
+                continue
+            if self.cancelled:
+                return ([], [])
             progress_update_callback(1)
             if progress_bar:
                 progress_bar.update(idx+1 - progress_bar.n)
@@ -111,7 +118,8 @@ def dub_available(anime_page_link: str, anime_id: str) -> bool:
     episode_links = [
         f'{pahe_home_url}/play/{anime_id}/{episode_session}' for episode_session in episode_sessions]
     episode_links = [episode_links[-1]]
-    _, download_info = GetPahewinDownloadPageCrap().get_pahewin_download_page_links_and_info(episode_links)
+    _, download_info = GetPahewinDownloadPageCrap(
+    ).get_pahewin_download_page_links_and_info(episode_links)
 
     dub_pattern = r'eng$'
     for episode in download_info:
@@ -194,6 +202,7 @@ def decrypt_token_and_post_url_page(full_key: str, key: str, v1: int, v2: int):
         i += 1
     return r
 
+
 class GetDirectDownloadLinks(PausableFunction):
     def __init__(self) -> None:
         super().__init__()
@@ -223,11 +232,13 @@ class GetDirectDownloadLinks(PausableFunction):
             post_url = cast(str, cast(Tag, soup.form)['action'])
             token_value = cast(str, cast(Tag, soup.input)['value'])
             response = network_monad(lambda post_url=post_url, download_link=download_link, cookies=cookies, token_value=token_value: requests.post(post_url, headers={'Referer': download_link}, cookies=cookies, data={
-                                    '_token': token_value}, allow_redirects=False))
+                '_token': token_value}, allow_redirects=False))
             direct_download_link = response.headers['location']
             direct_download_links.append(direct_download_link)
-            while self.paused: continue
-            if self.cancelled: return []
+            while self.paused:
+                continue
+            if self.cancelled:
+                return []
             progress_update_callback(1)
             if progress_bar:
                 progress_bar.update(idx+1 - progress_bar.n)
@@ -262,23 +273,26 @@ def test_getting_direct_download_links(query_anime_title: str, start_episode: in
         start_episode, end_episode, anime_page_link, anime_id)
     download_page_links, download_info = GetPahewinDownloadPageCrap().get_pahewin_download_page_links_and_info(
         episode_page_links, console_app=True)
-    direct_download_links = GetDirectDownloadLinks().get_direct_download_links(bind_quality_to_link_info(
-        quality, *bind_sub_or_dub_to_link_info(sub_or_dub, download_page_links, download_info))[0], console_app=True)
+    bound_links, bound_info = bind_quality_to_link_info(
+        quality, *bind_sub_or_dub_to_link_info(sub_or_dub, download_page_links, download_info))
+    list(map(print, bound_info))
+    direct_download_links = GetDirectDownloadLinks(
+    ).get_direct_download_links(bound_links, console_app=True)
     # list(map(print, direct_download_links))
-    list(map(print, download_info))
     return direct_download_links
 
 
 def main():
     # Download settings
-    query = 'Senyuu.'
+    query = 'Golden boy'
     quality = '360p'
     sub_or_dub = 'sub'
     start_episode = 1
-    end_episode = 4
+    end_episode = 1
 
-    _ = test_getting_direct_download_links(
+    direct_download_links = test_getting_direct_download_links(
         query, start_episode, end_episode, quality, sub_or_dub)
+    list(map(print, direct_download_links))
     # test_downloading(query, direct_download_links)
 
 #    test_downloading('Senyuu.', [
