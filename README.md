@@ -1,85 +1,114 @@
-# Developer's note
-Currently working on an update that adds the following features
-- A graphical user interface
-- Option to download from either gogoanime or animepahe
-- Drops the need for a headless browser for animepahe downloads, though for gogoanime the headless browser will still be required cause of captcha block
-- Introduces Linux and possibly Mac support
+# Senpwai - Anime Bulk Downloader
 
+![senpwai-icon](https://github.com/SenZmaKi/Senpwai/blob/master/app/senpwai-icon.png)
 
-# Senpwai
+**Senpwai** is a free and open-source desktop app designed for conveniently downloading anime in bulk. If you've ever thought, "Damn, I wish I could download all the One Piece episodes in a few clicks," well, that's exactly what Senpwai is built for, ignoring the occasional crashes *cough* *cough*.
+The episodes are sourced from Animepahe and Gogoanime though Animepahe is recommended cause with Gogoanime you may encounter captcha block.
 
- Free and open source windows console app written in python that automates downloading complete seasons or batches of an anime
+<p>
+ <a href="https://github.com/SenZmaKi/Senpwai/releases"><img  height="30px" src="https://img.shields.io/github/downloads/SenZmaKi/Senpwai/total" alt="Downloads"></a>
+  <a href="https://discord.gg/invite/e9UxkuyDX2" target="_blank"><img height="30px" alt="Discord" src="https://img.shields.io/discord/1131981618777702540?label=Discord&logo=discord"></a>
+  <a href="https://www.reddit.com/r/Senpwai" target="_blank"><img height="30px" alt="Subreddit subscribers" src="https://img.shields.io/reddit/subreddit-subscribers/senpwai?label=Reddit&style=social"></a>
+</p>
 
-The app applies web scraping techniques using BeautifulSoup and Selenium to automate the download process
+![download-page](https://github.com/SenZmaKi/Senpwai/assets/90490506/4a376a4f-bcaa-4f76-b3a3-68782580e4ed)
 
-The episodes are sourced from animepahe
-
-Wrote it cause I got tired of clicking links upon links and a having a billion tabs on my browser, Mendokusai naa
-
-[Video demo](https://youtu.be/JHWPWLrmrlE)
-
-## Capabilities
-- Download any anime
-
-- Download a complete season or episodes within a range e.g 14-21
-
-- Download either sub or dub depending on user's preference
-
-- Download anime in either 360p, 720p or 1080p depending on user's preference
-
-- Automatically detect and keep track of already downloaded episodes then avoid downloading them
-
-- Calculate then show the total download size to the user
-
-- Cool sound and vfx, at least in my opinion lol
-
+## Table of Contents
+1. [Installation](#installation)
+2. [Features](#features)
+3. [Building from Source](#building-from-source)
+4. [Support](#support)
+5. [Links](#links)
+6. [Legal Disclaimer](#legal-disclaimer)
+7. [Epilogue](#epilogue)
 
 ## Installation
 
-### Pre-requisites
+- **Windows**
+  
+Download the setup from the [releases](https://github.com/SenZmaKi/Senpwai/releases) page and run it.
 
-- Only Windows OS is currently supported
+- **Linux/Mac**
+  
+ You'll have to build it from source or use it as a Python script.
 
-- You'll need to also have Google Chrome installed
+## Features
+
+- Download any anime from Animepahe or Gogoanime.
+- Download a complete season or episodes within a range (e.g., 69-420).
+- Download in sub or dub (if available) depending on the user's preference.
+- Choose between video qualities: 360p, 480p (Gogoanime only), 720p, or 1080p.
+- Automatically detects episodes you already have and avoids re-downloading them.
+- Goofy aah ahh GUI and Amogus.
 
 
-### For the non-tech savvy users
+## Building from Source
 
-I built the python script to an executable (app), the link to the releases is down below:
-
-https://github.com/SenZmaKi/Senpwai/releases
-
-Just run it normally like an app, Senpwai will handle the rest
+Ensure you have [Python](https://www.python.org/downloads/) (version 3.11 or newer) and [Git](https://github.com/git-guides/install-git) installed. For Linux users, it's recommended to create a [Python virtual environment](https://docs.python.org/3/library/venv.html).
 
 
+1. Clone the repository.
 
-### For the nerds
+```
+git clone https://github.com/SenZmaKi/Senpwai
+```
 
-To install all the libraries I used in your virtual environment, once you clone the repository run 
+2. Install the dependencies.
 
-```pip install -r requirements.txt```
+```
+cd Senpwai
+pip install -r requirements.txt
+```
 
-Rename the global variable ```app_name``` to whatever window you're running the code from in order for the script to register your keyboard inputs
+3. Run the app as a normal script.
 
-Then just run the code as you would normally do
+```
+cd app
+python senpwai.py
+```
 
-If you want to build it into an executable like I did; 
+4. Alternatively, you can build it into an executable and then run it.
 
-- First install pyinstaller, it's not included in the requirements cause it's not actually used in the source code, it's just used to build the script into an exe
-```pip install pyinstaller```
+- **Linux and Mac**
 
-- Then run
-```pyinstaller --onefile --icon=Senpwai_icon.ico --add-data "audio;audio" Senpwai.py```
+```
+cd app
+pyinstaller --windowed --name=Senpwai --icon=assets/senpwai-icon.ico --add-data "assets:assets" senpwai.py
+dist/Senpwai/senpwai
+```
 
-## Disclaimer
-It is preferable to use the python script since your antivirus may flag the executable as malware cause I basically converted the python script into an executable, this video explains it: https://youtu.be/bqNvkAfTvIc?t=100. The complete source code is up on the repo.
+- **Windows**
 
+```
+cd app
+pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --add-data "assets;assets" --version-file=file_version_info.txt senpwai.py
+dist\Senpwai\senpwai
+```
+
+## Support
+
+- You can support the development of Senpwai through donations on [GitHub Sponsors](https://github.com/sponsors/SenZmaKi) or [Patreon](https://patreon.com/Senpwai).
+- You can also show your appreciation by leaving a star on the gituhb.
+- Senpwai is open to pull requests, so if you have ideas for improvements, feel free to contribute!
+
+## Links
+
+[Sub-reddit](https://reddit.com/r/Senpwai)
+
+[Discord server](https://discord.com/invite/e9UxkuyDX2)
+
+[GitHub Sponsors](https://github.com/sponsors/SenZmaKi)
+
+[Patreon](https://patreon.com/Senpwai)
+
+## Legal Disclaimer
+
+Senpwai is designed solely for providing access to publicly available content. It is not intended to support or promote piracy or copyright infringement. As the creator of this app, I hereby declare that I am not responsible for, and in no way associated with, any external links or the content they direct to.
+
+It is essential to understand that all the content available through this app are found freely accessible on the internet, and the app does not host any copyrighted content. I do not exercise control over the nature, content, or availability of the websites linked within the app.
+
+If you have any concerns or objections regarding the content provided by this app, please contact the respective website owners, webmasters, or hosting providers.
 
 ## Epilogue
-She may not be the cleanest, the most well documented or the most optimised but she's my first ever real project so she holds a special place in my black heart
 
-Gambarte and take care of Senpwai for me, she's a fragile one
-
-## Donations
-
-[![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/SenZmaKi)
+Truly one of the most apps ever of all time
