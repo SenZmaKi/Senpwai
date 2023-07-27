@@ -19,7 +19,7 @@ The episodes are sourced from Animepahe and Gogoanime though Animepahe is recomm
 3. [Building from Source](#building-from-source)
 4. [Support](#support)
 5. [Links](#links)
-6. [Legal](#legal-disclaimer)
+6. [Legal Disclaimer](#legal-disclaimer)
 7. [Epilogue](#epilogue)
 
 ## Installation
