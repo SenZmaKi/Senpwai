@@ -11,8 +11,7 @@ from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.firefox.service import Service as FirefoxService
 from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions, FirefoxOptions
 
-if platform == "win32":
-    from subprocess import CREATE_NO_WINDOW
+import subprocess
 from typing import Callable, cast
 from shared.app_and_scraper_shared import parser, network_monad, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time, PausableFunction
 
@@ -52,35 +51,34 @@ def generate_episode_page_links(start_episode: int, end_episode: int, anime_page
 def setup_headless_browser(browser: str = edge_name) -> Chrome | Edge | Firefox:
     def setup_options(options: ChromeOptions | EdgeOptions | FirefoxOptions) -> ChromeOptions | EdgeOptions | FirefoxOptions:
         # For testing purposes
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-infobars')
+        options.add_argument('--no-sandbox')
         if isinstance(options, FirefoxOptions):
             options.add_argument("--headless")
         else:
             options.add_argument("--headless=new")
-        options.add_argument('--disable-extensions')
-        options.add_argument('--disable-infobars')
-        options.add_argument('--no-sandbox')
         return options
 
     def setup_edge_driver():
         service_edge = EdgeService()
         if platform == "win32":
-            service_edge.creation_flags = CREATE_NO_WINDOW
+            service_edge.creation_flags = subprocess.CREATE_NO_WINDOW
         options = cast(EdgeOptions, setup_options(EdgeOptions()))
         return Edge(service=service_edge, options=options)
 
     def setup_chrome_driver():
         service_chrome = ChromeService()
-        if platform == "win32":
-            service_chrome.creation_flags = CREATE_NO_WINDOW
+        service_chrome.creation_flags = subprocess.CREATE_NO_WINDOW
         options = cast(ChromeOptions, setup_options(ChromeOptions()))
         return Chrome(service=service_chrome, options=options)
 
     def setup_firefox_driver():
-        firefox_service = FirefoxService()
+        service_firefox = FirefoxService()
         if platform == "win32":
-            firefox_service.creation_flags = CREATE_NO_WINDOW
+            service_firefox.creation_flags = subprocess.CREATE_NO_WINDOW
         options = cast(FirefoxOptions, setup_options(FirefoxOptions()))
-        return Firefox(service=firefox_service, options=options)
+        return Firefox(service=service_firefox, options=options)
 
     if browser == edge_name:
         return setup_edge_driver()

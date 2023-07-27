@@ -298,7 +298,7 @@ class DownloadWindow(Window):
                                      direct_download_links_progress_bar).start()
 
     def check_link_status(self, status: int, anime_details: AnimeDetails, download_page_links: list[str]):
-        if status == 1:
+        if status == 1 and anime_details.direct_download_links != []:
             self.calculate_download_size(anime_details)
         elif status == 2:
             self.main_window.create_and_switch_to_no_supported_browser_window(
@@ -633,23 +633,27 @@ class GetDirectDownloadLinksThread(QThread):
             self.anime_details.direct_download_links = obj.get_direct_download_links(
                 bound_links, lambda x: self.update_bar.emit(x))
             self.finished.emit(1)
-        if self.anime_details.site == gogo_name:
+        elif self.anime_details.site == gogo_name:
+            driver = None
             try:
                 # For testing purposes
                 # raise WebDriverException
                 # raise TimeoutError
+                driver = gogo.setup_headless_browser(self.anime_details.browser)
                 obj = gogo.GetDirectDownloadLinks()
                 self.progress_bar.pause_callback = obj.pause_or_resume
                 self.progress_bar.cancel_callback = obj.cancel
                 self.anime_details.direct_download_links = obj.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality,
-                                                                                                        gogo.setup_headless_browser(self.anime_details.browser), lambda x: self.update_bar.emit(x))
+                                                                                                        driver, lambda x: self.update_bar.emit(x))
                 self.finished.emit(1)
             except Exception as exception:
                 if isinstance(exception, WebDriverException):
                     self.finished.emit(2)
                 elif isinstance(exception, TimeoutError):
                     self.finished.emit(3)
-
+            finally:
+                if driver:
+                    driver.quit()
 
 class CalculateDownloadSizes(QThread):
     finished = pyqtSignal()

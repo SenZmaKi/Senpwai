@@ -53,7 +53,7 @@ if not os.path.isdir(downloads_folder):
 default_download_folder_paths = [downloads_folder]
 
 default_max_simutaneous_downloads = 2
-default_gogo_browser = edge_name
+default_gogo_browser = chrome_name
 default_make_download_complete_notification = True
 default_start_in_fullscreen = True
 
