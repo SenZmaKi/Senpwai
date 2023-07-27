@@ -183,7 +183,7 @@ class ChosenAnimeWindow(Window):
         main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
-        QTimer.singleShot(0, self.end_episode_input.setFocus)
+        QTimer.singleShot(0, self.download_button.setFocus)
         # For testing purposes
         # self.download_button.animateClick()
 
