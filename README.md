@@ -11,7 +11,7 @@ The episodes are sourced from Animepahe and Gogoanime though Animepahe is recomm
   <a href="https://www.reddit.com/r/Senpwai" target="_blank"><img height="30px" alt="Subreddit subscribers" src="https://img.shields.io/reddit/subreddit-subscribers/senpwai?label=Reddit&style=social"></a>
 </p>
 
-<img height="500px" widht="600px" src=https://github.com/SenZmaKi/Senpwai/assets/90490506/4a376a4f-bcaa-4f76-b3a3-68782580e4ed>
+![download-page](https://github.com/SenZmaKi/Senpwai/assets/90490506/4a376a4f-bcaa-4f76-b3a3-68782580e4ed)
 
 ## Table of Contents
 1. [Installation](#installation)
