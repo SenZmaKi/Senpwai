@@ -78,24 +78,27 @@ def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: 
             predicted_episodes_to_download.append(episode)
     return predicted_episodes_to_download
 
-
-class Download():
-    def __init__(self, link: str, episode_title: str, download_folder: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', console_app=False) -> None:
-        self.link = link
-        self.title = episode_title
-        self.extension = file_extension
-        self.path = download_folder
+class PausableFunction():
+    def __init__(self) -> None:
         self.paused = False
         self.cancelled = False
-        self.progress_update_callback = progress_update_callback
-        self.console_app = console_app
-        self.file_path = None
-
+    
     def pause_or_resume(self):
         self.paused = not self.paused
 
     def cancel(self):
         self.cancelled = True
+
+class Download(PausableFunction):
+    def __init__(self, link: str, episode_title: str, download_folder: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', console_app=False) -> None:
+        super().__init__()
+        self.link = link
+        self.title = episode_title
+        self.extension = file_extension
+        self.path = download_folder
+        self.progress_update_callback = progress_update_callback
+        self.console_app = console_app
+        self.file_path = None
 
     def start_download(self):
         response = network_monad(lambda: requests.get(
@@ -123,20 +126,20 @@ class Download():
                         data = network_monad(lambda: (next(iter_content)))
                         if progress_bar and self.paused:
                             progress_bar.set_description(' Paused')
+                        if progress_bar:
+                            progress_bar.set_description(
+                                f' Downloading {self.title}: ')
                         while self.paused:
                             continue
                         if self.cancelled:
                             return False
-                        if progress_bar:
-                            progress_bar.set_description(
-                                f' Downloading {self.title}: ')
                         size = file.write(data)
                         self.progress_update_callback(size)
                         if progress_bar:
                             progress_bar.update(size)
-                    except StopIteration:
+                    except Exception:
                         break
-
+                       
             file_size = os.path.getsize(temp_file_path)
             return True if file_size >= total else handle_download(file_size)
         if not handle_download():

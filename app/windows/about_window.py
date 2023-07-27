@@ -38,7 +38,7 @@ class AboutWindow(Window):
         set_minimum_size_policy(support_title)
         donations_label = StyledLabel()
         donations_label.setText(
-            "Konichiwa 👋🏿 it's Sen, the creator of Senpwai, I'm a goofy ahh ahh college student from Kenya.\nWifi is kinda expensive in my country, so donations help me pay for internet and keep developing new features and fixing bugs.")
+            "Konnichiwa 👋🏿 it's Sen, the creator of Senpwai, I'm a goofy ahh ahh college student from Kenya.\nWifi is kinda expensive in my country, so donations help me pay for internet and keep developing new features and fixing bugs.")
         set_minimum_size_policy(donations_label)
         github_sponsors_button = IconButton(
             120, 120, github_sponsors_icon_path, 1.1)

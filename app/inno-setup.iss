@@ -13,6 +13,7 @@
 AppId={{B1AC746D-A6F0-44EF-B812-0D93F4571B51}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+VersionInfoVersion=2.0.0.0
 ;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
@@ -21,11 +22,11 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
-;PrivilegesRequired=lowest
+PrivilegesRequired=lowest
 OutputDir=C:\Users\PC\OneDrive\Desktop
-OutputBaseFilename=Senpwai
+OutputBaseFilename=Senpwai-setup
 SetupIconFile=C:\Users\PC\OneDrive\Documents\Python stuff\Senpwai\app\dist\Senpwai\assets\senpwai-icon.ico
-Compression=lzma
+Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 

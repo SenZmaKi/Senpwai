@@ -1,6 +1,6 @@
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
-from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection
 from shared.global_vars_and_funcs import gogo_normal_color, gogo_hover_color, settings, key_sub_or_dub, q_1080, q_720, q_480, q_360, chosen_anime_window_bckg_image_path
 from shared.global_vars_and_funcs import sub, dub, set_minimum_size_policy, key_gogo_default_browser, key_quality, gogo_name, chrome_name, edge_name, firefox_name
@@ -183,7 +183,7 @@ class ChosenAnimeWindow(Window):
         main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
-
+        QTimer.singleShot(0, self.end_episode_input.setFocus)
         # For testing purposes
         # self.download_button.animateClick()
 

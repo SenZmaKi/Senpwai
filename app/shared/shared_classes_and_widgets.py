@@ -1,6 +1,6 @@
 from PyQt6.QtGui import QPixmap, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame
-from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl, pyqtSlot
+from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl, QEvent, pyqtSlot
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import AllowedSettingsTypes, pahe_name, gogo_name
 from time import time
@@ -84,6 +84,17 @@ class StyledButton(QPushButton):
                 background-color: {pressed_color};
             }}
         """)
+        self.installEventFilter(self)
+
+         
+    def eventFilter(self, obj, event):
+        if obj == self:
+            if isinstance(event, QKeyEvent) and event.type() == event.Type.KeyPress and ((event.key() == Qt.Key.Key_Return) or (event.key() == Qt.Key.Key_Enter)):
+                if isinstance(obj, QPushButton):
+                    self.animateClick()
+                    return True
+            
+            return super().eventFilter(obj, event)
 
 
 class OptionButton(StyledButton):
@@ -130,6 +141,17 @@ class IconButton(QPushButton):
                 border: none; 
                 background-color: transparent;
             }""")
+        self.installEventFilter(self)
+    
+    def eventFilter(self, obj, event):
+        if obj == self:
+            if isinstance(event, QKeyEvent) and event.type() == event.Type.KeyPress and ((event.key() == Qt.Key.Key_Return) or (event.key() == Qt.Key.Key_Enter)):
+                if isinstance(obj, QPushButton):
+                    self.animateClick()
+                    return True
+        
+        return super().eventFilter(obj, event)
+
 
 
 class AnimationAndText(QWidget):
@@ -232,7 +254,7 @@ class ErrorLabel(StyledLabel):
         return super().show()
 
 
-class ProgressBar(QWidget):
+class VirtualProgressBar(QWidget):
     def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int, units: str, units_divisor: int = 1):
         super().__init__(parent)
         self.item_task_is_applied_on = item_task_is_applied_on
@@ -337,7 +359,7 @@ class ProgressBar(QWidget):
         self.mutex.unlock()
 
 
-class DownloadProgressBar(ProgressBar):
+class ProgressBar(VirtualProgressBar):
     def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int, units: str, units_divisor: int, has_icon_buttons: bool = True):
         super().__init__(parent, task_title, item_task_is_applied_on,
                          total_value, units, units_divisor)
@@ -559,7 +581,7 @@ class FolderButton(IconButton):
     def __init__(self, path: str, size_x: int, size_y: int, parent: QWidget | None = None):
         super().__init__(size_x, size_y, folder_icon_path, 1.3, parent)
         self.folder_path = path
-        self.clicked.connect(lambda: open_folder(self.folder_path))
+        self.clicked.connect(lambda: open_folder(self.folder_path)) # type: ignore
 
 
 class NumberInput(QLineEdit):

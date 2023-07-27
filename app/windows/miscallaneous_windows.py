@@ -4,7 +4,7 @@ from windows.main_actual_window import MainWindow, Window
 from shared.global_vars_and_funcs import chopper_crying_path, pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, github_repo_url, github_api_releases_entry_point, app_name, github_icon_path, update_bckg_image_path
 from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy, settings, key_gogo_default_browser, chrome_name, edge_name, chopper_crying_path, version, key_download_folder_paths, open_folder
 from shared.shared_classes_and_widgets import StyledButton, StyledLabel, network_monad, FolderButton, IconButton
-from windows.download_window import DownloadProgressBar
+from windows.download_window import ProgressBar
 from typing import cast, Callable
 from webbrowser import open_new_tab
 from shared.app_and_scraper_shared import ibytes_to_mbs_divisor, Download
@@ -12,7 +12,7 @@ import requests
 import sys
 import os
 
-
+# I Was trying out Debian support so you may find control flow that treats Debian seperately from Linux in general
 class FailedGettingDirectDownloadLinksWindow(Window):
     def __init__(self, main_window: MainWindow, anime_title: str, info_text: str, buttons_unique_to_window: list[QPushButton]) -> None:
         super().__init__(main_window, chopper_crying_path)
@@ -99,14 +99,9 @@ class UpdateWindow(Window):
         super().__init__(main_window, update_bckg_image_path)
         main_widget = QWidget()
         main_layout = QVBoxLayout()
-        self.progress_bar: DownloadProgressBar | None = None
-        file_extension = ""
+        self.progress_bar: ProgressBar | None = None
         info_label = StyledLabel(font_size=24)
         if platform_flag == 1:
-            file_extension = ".exe"
-        elif platform_flag == 2:
-            file_extension = ".deb"
-        if platform_flag in (1, 2):
             info_label.setText(
                 "\nI will download the new version then open the folder it's in.\nThen it's up to you to run the setup to install it.\nClick the button below to update.\n")
             set_minimum_size_policy(info_label)
@@ -127,17 +122,17 @@ class UpdateWindow(Window):
             if not os.path.isdir(self.download_folder):
                 os.mkdir(self.download_folder)
             prev_file_path = os.path.join(
-                self.download_folder, f"{app_name}-setup.{file_extension}")
+                self.download_folder, f"{app_name}-setup.exe")
             if os.path.exists(prev_file_path):
                 os.unlink(prev_file_path)
             self.update_button.clicked.connect(DownloadUpdateThread(
-                main_window, self, download_url, self.download_folder, file_extension).start)
+                main_window, self, download_url, self.download_folder).start)
 
         else:
             if platform_flag == 3:
-                os_name = "Non-Debian based Linux distro"
-            else:
                 os_name = "Mac OS"
+            else:
+                os_name = "Linux OS"
             info_label.setText(
                 f"\n{os_name} detected, you will have to build from source to update to the new version.\nThere is a guide on the README.md in the github repo.\n")
             set_minimum_size_policy(info_label)
@@ -156,7 +151,7 @@ class UpdateWindow(Window):
 
     @pyqtSlot(int)
     def receive_total_size(self, size: int):
-        self.progress_bar = DownloadProgressBar(
+        self.progress_bar = ProgressBar(
             self, "Downloading", "new version setup", size, "MB", ibytes_to_mbs_divisor)
         self.download_layout.addWidget(self.progress_bar)
         self.download_layout.addWidget(FolderButton(
@@ -169,11 +164,10 @@ class DownloadUpdateThread(QThread):
     update_bar = pyqtSignal(int)
     total_size = pyqtSignal(int)
 
-    def __init__(self, main_window: MainWindow, update_window: UpdateWindow, download_url: str, download_folder: str, file_extension: str):
+    def __init__(self, main_window: MainWindow, update_window: UpdateWindow, download_url: str, download_folder: str):
         super().__init__(main_window)
         self.download_url = download_url
         self.total_size.connect(update_window.receive_total_size)
-        self.file_extension = file_extension
         self.update_window = update_window
         self.download_folder = download_folder
 
@@ -185,8 +179,8 @@ class DownloadUpdateThread(QThread):
         while not self.update_window.progress_bar:
             continue
         self.update_bar.connect(self.update_window.progress_bar.update_bar)
-        download = Download(self.download_url, app_name, self.download_folder,
-                            self.update_bar.emit, self.file_extension)
+        download = Download(self.download_url, f"{app_name}-setup", self.download_folder,
+                            self.update_bar.emit, ".exe")
         self.update_window.progress_bar.pause_callback = download.pause_or_resume
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
@@ -214,7 +208,7 @@ class CheckIfUpdateAvailableThread(QThread):
         current_version_number = version.replace(".", "").replace("v", "")
         platform_flag = self.check_platform()
         # For testing purposes, change to {app_name}-setup.exe before deploying to production
-        target_asset_name = f"{app_name}-setup.exe" if platform_flag == 1 else f"{app_name}-setup.deb"
+        target_asset_name = f"{app_name}-setup.exe"
         download_url = ""
         for asset in latest_version_json["assets"]:
             if asset["name"] == target_asset_name:
@@ -225,11 +219,5 @@ class CheckIfUpdateAvailableThread(QThread):
         if sys.platform == "win32":
             return 1
         elif sys.platform == "linux":
-            linux_os_release_file_path = "/etc/os-release"
-            if os.path.exists(linux_os_release_file_path):
-                with open(linux_os_release_file_path, "r") as f:
-                    read = f.read()
-                    if "ID_LmKE=debian" in read or "ID_LIKE=ubuntu" in read:
-                        return 2
-            return 3
-        return 4
+            return 2
+        return 3

@@ -238,10 +238,7 @@ class ResultButton(OutlinedButton):
 
     def eventFilter(self, obj, event: QEvent):
         if obj == self:
-            if isinstance(event, QKeyEvent):
-                if event.type() == event.Type.KeyPress and (event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return):
-                    self.animateClick()
-            elif event.type() == QEvent.Type.FocusIn:
+            if event.type() == QEvent.Type.FocusIn:
                 self.setStyleSheet(self.focused_sheet)
             elif event.type() == QEvent.Type.FocusOut:
                 self.setStyleSheet(self.style_sheet_buffer)

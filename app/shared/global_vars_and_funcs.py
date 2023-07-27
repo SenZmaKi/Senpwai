@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QSizePolicy
 import json
 from typing import cast
 from subprocess import Popen
+import logging
 
 if getattr(sys, 'frozen', False):
     base_directory = os.path.dirname(sys.executable)
@@ -16,7 +17,7 @@ else:
 
 app_name = "Senpwai"
 version = "2.0.0"
-config_dir = user_config_dir()
+config_dir = os.path.join(user_config_dir(), app_name)
 github_repo_url = "https://github.com/SenZmaKi/Senpwai"
 github_api_releases_entry_point = "https://api.github.com/repos/SenZmaKi/Senpwai/releases"
 sen_anilist_id = 5363369
@@ -32,6 +33,11 @@ q_720 = "720p"
 q_480 = "480p"
 q_360 = "360p"
 default_quality = q_720
+
+error_logs_file_path = os.path.join(config_dir, "error-logs.txt")
+logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+def log_error(error: str):
+    logging.error(error)
 
 def open_folder(folder_path: str):
     if sys.platform == "win32": return os.startfile(folder_path)
@@ -167,7 +173,7 @@ key_gogo_default_browser = "gogo_default_browser"
 key_make_download_complete_notification = "make_download_complete_notification"
 key_start_in_fullscreen = "start_in_fullscreen"
 
-config_and_settings_folder_path = os.path.join(config_dir, app_name)
+config_and_settings_folder_path = config_dir 
 if not os.path.isdir(config_and_settings_folder_path):
     os.mkdir(config_and_settings_folder_path)
 settings_file_path = os.path.join(

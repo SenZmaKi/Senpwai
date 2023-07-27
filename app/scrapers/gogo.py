@@ -5,10 +5,6 @@ from tqdm import tqdm
 import webbrowser
 from sys import platform
 
-from webdriver_manager.chrome import ChromeDriverManager
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
-from webdriver_manager.firefox import GeckoDriverManager
-
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.edge.service import Service as EdgeService
@@ -18,7 +14,7 @@ from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions
 if platform == "win32":
     from subprocess import CREATE_NO_WINDOW
 from typing import Callable, cast
-from shared.app_and_scraper_shared import parser, network_monad, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time
+from shared.app_and_scraper_shared import parser, network_monad, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time, PausableFunction
 
 gogo_home_url = 'https://gogoanime.hu'
 dub_extension = ' (Dub)'
@@ -53,7 +49,7 @@ def generate_episode_page_links(start_episode: int, end_episode: int, anime_page
     return episode_page_links
 
 
-def setup_headless_browser(default_browser: str = edge_name) -> Chrome | Edge | Firefox:
+def setup_headless_browser(browser: str = edge_name) -> Chrome | Edge | Firefox:
     def setup_options(options: ChromeOptions | EdgeOptions | FirefoxOptions) -> ChromeOptions | EdgeOptions | FirefoxOptions:
         # For testing purposes
         if isinstance(options, FirefoxOptions):
@@ -66,32 +62,29 @@ def setup_headless_browser(default_browser: str = edge_name) -> Chrome | Edge | 
         return options
 
     def setup_edge_driver():
-        service_edge = EdgeService(
-            executable_path=EdgeChromiumDriverManager().install())
+        service_edge = EdgeService()
         if platform == "win32":
             service_edge.creation_flags = CREATE_NO_WINDOW
         options = cast(EdgeOptions, setup_options(EdgeOptions()))
         return Edge(service=service_edge, options=options)
 
     def setup_chrome_driver():
-        service_chrome = ChromeService(
-            executable_path=ChromeDriverManager().install())
+        service_chrome = ChromeService()
         if platform == "win32":
             service_chrome.creation_flags = CREATE_NO_WINDOW
         options = cast(ChromeOptions, setup_options(ChromeOptions()))
         return Chrome(service=service_chrome, options=options)
 
     def setup_firefox_driver():
-        firefox_service = FirefoxService(
-            executable_path=GeckoDriverManager().install())
+        firefox_service = FirefoxService()
         if platform == "win32":
             firefox_service.creation_flags = CREATE_NO_WINDOW
         options = cast(FirefoxOptions, setup_options(FirefoxOptions()))
         return Firefox(service=firefox_service, options=options)
 
-    if default_browser == edge_name:
+    if browser == edge_name:
         return setup_edge_driver()
-    elif default_browser == chrome_name:
+    elif browser == chrome_name:
         return setup_chrome_driver()
     else:
         return setup_firefox_driver()
@@ -118,68 +111,97 @@ def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | 
         else:
             return get_links_and_quality_info(download_page_link, driver, max_load_wait_time, load_wait_time+1)
     return (links, quality_infos)
+class GetDirectDownloadLinks(PausableFunction):
+    def __init__(self) -> None:
+        super().__init__()
 
-
-def get_direct_download_link_as_per_quality(download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda update: None, max_load_wait_time=6, console_app=False) -> list[str]:
-    # For testing purposes
-    # raise TimeoutError
-    download_links: list[str] = []
-    progress_bar = None if not console_app else tqdm(
-        total=len(download_page_links), desc=' Fetching download links', unit='eps')
-    download_links: list[str] = []
-    for idx, page_link in enumerate(download_page_links):
-        links, quality_infos = get_links_and_quality_info(
-            page_link, driver, max_load_wait_time)
-        quality_idx = match_quality(quality_infos, quality)
-        download_links.append(links[quality_idx])
-        progress_update_call_back(1)
+    def get_direct_download_link_as_per_quality(self, download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda update: None, max_load_wait_time=6, console_app=False) -> list[str]:
+        # For testing purposes
+        # raise TimeoutError
+        download_links: list[str] = []
+        progress_bar = None if not console_app else tqdm(
+            total=len(download_page_links), desc=' Fetching download links', unit='eps')
+        download_links: list[str] = []
+        for idx, page_link in enumerate(download_page_links):
+            links, quality_infos = get_links_and_quality_info(
+                page_link, driver, max_load_wait_time)
+            quality_idx = match_quality(quality_infos, quality)
+            download_links.append(links[quality_idx])
+            while self.paused: continue
+            if self.cancelled: 
+                return []
+            progress_update_call_back(1)
+            if progress_bar:
+                progress_bar.update(idx+1 - progress_bar.n)
         if progress_bar:
-            progress_bar.update(idx+1 - progress_bar.n)
-    if progress_bar:
-        progress_bar.set_description(' Complete')
-        progress_bar.close()
-    return download_links
+            progress_bar.set_description(' Complete')
+            progress_bar.close()
+        return download_links
 
+class GetDownloadPageLinks(PausableFunction):
+    def __init__(self) -> None:
+        super().__init__()
+    def cancel(self):
+        self.cancelled = True
 
-def get_download_page_links(episode_page_links: list[str], progress_update_callback: Callable = lambda x: None, console_app=False) -> list[str]:
-    progress_bar = None if not console_app else tqdm(total=len(
-        episode_page_links), desc=' Fetching download page links', unit='eps')
-    download_page_links: list[str] = []
-    for idx, episode_page_link in enumerate(episode_page_links):
-        response = network_monad(
-            lambda episode_page_link=episode_page_link: requests.get(episode_page_link).content)
-        soup = BeautifulSoup(response, parser)
-        soup = cast(Tag, soup.find('li', class_='dowloads'))
-        link = cast(str, cast(Tag, soup.find('a', target='_blank'))['href'])
-        download_page_links.append(link)
-        progress_update_callback(1)
+    def get_download_page_links(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None, console_app=False) -> list[str]:
+        progress_bar = None if not console_app else tqdm(total=len(
+            episode_page_links), desc=' Fetching download page links', unit='eps')
+        download_page_links: list[str] = []
+
+        def get_page_content(episode_page_link): return requests.get(
+            episode_page_link).content
+
+        def extract_link(episode_page_link: str) -> str:
+            response = network_monad(lambda page=episode_page_link: get_page_content(episode_page_link)
+                                    )
+            soup = BeautifulSoup(response, parser)
+            soup = cast(Tag, soup.find('li', class_='dowloads'))
+            link = cast(str, cast(Tag, soup.find('a', target='_blank'))['href'])
+            return link
+
+        for idx, episode_page_link in enumerate(episode_page_links):
+            try:
+                link = extract_link(episode_page_link)
+            except AttributeError:
+                # To handle a case like for Jujutsu Kaisen 2nd Season where when there is TV in the titie it misses in the episode page links
+                link = extract_link(episode_page_link.replace('-tv', ''))
+            download_page_links.append(link)
+            while self.paused:
+                continue 
+            if self.cancelled: return []
+            progress_update_callback(1)
+            if progress_bar:
+                progress_bar.update(idx+1 - progress_bar.n)
         if progress_bar:
-            progress_bar.update(idx+1 - progress_bar.n)
-    if progress_bar:
-        progress_bar.close()
-        progress_bar.set_description(' Done')
-    return download_page_links
+            progress_bar.close()
+            progress_bar.set_description(' Done')
+        return download_page_links
+class CalculateTotalDowloadSize(PausableFunction):
+    def __init__(self):
+        super().__init__()
 
-
-def calculate_download_total_size(download_links: list[str], progress_update_callback: Callable = lambda update: None, in_megabytes=False, console_app=False) -> int:
-    progress_bar = None if not console_app else tqdm(
-        total=len(download_links), desc=' Calculating total download size', unit='eps')
-    total_size = 0
-    for idx, link in enumerate(download_links):
-        response = network_monad(
-            lambda link=link: requests.get(link, stream=True))
-        size = response.headers.get('content-length', 0)
-        if in_megabytes:
-            total_size += round(int(size) / ibytes_to_mbs_divisor)
-        else:
-            total_size += int(size)
-        progress_update_callback(1)
+    def calculate_total_download_size(self, download_links: list[str], progress_update_callback: Callable = lambda update: None, in_megabytes=False, console_app=False) -> int:
+        progress_bar = None if not console_app else tqdm(
+            total=len(download_links), desc=' Calculating total download size', unit='eps')
+        total_size = 0
+        for idx, link in enumerate(download_links):
+            response = network_monad(
+                lambda link=link: requests.get(link, stream=True))
+            size = response.headers.get('content-length', 0)
+            if in_megabytes:
+                total_size += round(int(size) / ibytes_to_mbs_divisor)
+            else:
+                total_size += int(size)
+            while self.paused: continue
+            if self.cancelled: return 0
+            progress_update_callback(1)
+            if progress_bar:
+                progress_bar.update(idx+1 - progress_bar.n)
         if progress_bar:
-            progress_bar.update(idx+1 - progress_bar.n)
-    if progress_bar:
-        progress_bar.set_description(' Done')
-        progress_bar.close()
-    return total_size
+            progress_bar.set_description(' Done')
+            progress_bar.close()
+        return total_size
 
 
 def open_browser_with_links(download_links: str) -> None:
@@ -231,12 +253,12 @@ def test_getting_direct_download_links(query_anime_title: str, start_episode: in
     extract_poster_summary_and_episode_count(anime_page_link)
     episode_page_links = generate_episode_page_links(
         start_episode, end_episode, anime_page_link)
-    download_page_links = get_download_page_links(
+    download_page_links = GetDownloadPageLinks().get_download_page_links(
         episode_page_links, console_app=True)
-    driver = setup_headless_browser()
-    direct_download_links = get_direct_download_link_as_per_quality(
+    driver = setup_headless_browser(edge_name)
+    direct_download_links = GetDirectDownloadLinks().get_direct_download_link_as_per_quality(
         download_page_links, quality, driver, max_load_wait_time=50, console_app=True)
-    calculate_download_total_size(direct_download_links, console_app=True)
+    CalculateTotalDowloadSize().calculate_total_download_size(direct_download_links, console_app=True)
     driver.quit()
     list(map(print, direct_download_links))
     return direct_download_links
@@ -244,11 +266,11 @@ def test_getting_direct_download_links(query_anime_title: str, start_episode: in
 
 def main():
     # Download settings
-    query = 'Senyuu.'
+    query = 'Jujutsu season 2'
     quality = '360p'
     sub_or_dub = 'sub'
     start_episode = 1
-    end_episode = 4
+    end_episode = 3
 
     direct_download_links = test_getting_direct_download_links(
         query, start_episode, end_episode, quality, sub_or_dub)

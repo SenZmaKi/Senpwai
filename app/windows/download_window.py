@@ -6,7 +6,7 @@ from shared.global_vars_and_funcs import set_minimum_size_policy, download_compl
 from shared.global_vars_and_funcs import pahe_name, gogo_name, dub, downlaod_window_bckg_image_path, open_folder
 from shared.app_and_scraper_shared import Download, ibytes_to_mbs_divisor, network_monad
 from windows.main_actual_window import MainWindow, Window
-from shared.shared_classes_and_widgets import StyledLabel, StyledButton, ScrollableSection, DownloadProgressBar, ProgressBar, AnimeDetails, FolderButton, OutlinedLabel, IconButton, HorizontalLine
+from shared.shared_classes_and_widgets import StyledLabel, StyledButton, ScrollableSection, ProgressBar, VirtualProgressBar, AnimeDetails, FolderButton, OutlinedLabel, IconButton, HorizontalLine
 from typing import Callable, cast
 from selenium.common.exceptions import WebDriverException
 import os
@@ -29,6 +29,7 @@ class DownloadedEpisodeCount(StyledLabel):
             lambda: open_folder(self.anime_folder_path))  # type: ignore
         self.anime_title = anime_title
         self.download_complete_icon = download_complete_icon
+        self.is_cancelled = False
         self.show()
 
     def reinitialise(self, new_total: int, new_anime_title: str, new_anime_folder_path: str):
@@ -47,17 +48,17 @@ class DownloadedEpisodeCount(StyledLabel):
     def is_complete(self) -> bool:
         return self.current_episodes >= self.total_episodes
 
-    def is_cancelled(self) -> bool:
-        return self.total_episodes <= 0
+    def check_if_cancelled(self) -> bool:
+        return self.is_cancelled
 
     def update(self, added_episode_count: int):
         self.current_episodes += added_episode_count
         self.setText(f"{self.current_episodes}/{self.total_episodes} eps")
-        if self.is_complete() and not self.is_cancelled() and settings[key_make_download_complete_notification]:
+        if self.is_complete() and not self.check_if_cancelled() and settings[key_make_download_complete_notification]:
             self.download_complete_notification()
         super().update()
         set_minimum_size_policy(self)
-        if self.is_complete() or self.is_cancelled():
+        if self.is_complete() or self.check_if_cancelled():
             self.start_next_download()
 
     def start_next_download(self):
@@ -120,7 +121,7 @@ class PauseAllButton(StyledButton):
 
 
 class QueuedDownload(QWidget):
-    def __init__(self, anime_details: AnimeDetails, progress_bar: DownloadProgressBar, download_queue):
+    def __init__(self, anime_details: AnimeDetails, progress_bar: ProgressBar, download_queue):
         super().__init__()
         label = StyledLabel(font_size=20)
         self.anime_details = anime_details
@@ -181,7 +182,7 @@ class DownloadQueue(QWidget):
         queued_download.down_button.deleteLater()
         queued_download.remove_button.deleteLater()
 
-    def add_queued_download(self, anime_details: AnimeDetails, progress_bar: DownloadProgressBar):
+    def add_queued_download(self, anime_details: AnimeDetails, progress_bar: ProgressBar):
         self.queued_downloads_layout.addWidget(
             QueuedDownload(anime_details, progress_bar, self))
 
@@ -244,7 +245,7 @@ class DownloadWindow(Window):
         self.setLayout(self.full_layout)
         self.download_queue = DownloadQueue()
         self.first_download_since_app_start = True
-        self.current_anime_progress_bar: DownloadProgressBar | None = None
+        self.current_anime_progress_bar: ProgressBar | None = None
 
         # For testing purposes
         # from shared.shared_classes_and_widgets import Anime
@@ -261,35 +262,40 @@ class DownloadWindow(Window):
         self.get_episode_page_links(anime_details)
 
     def get_episode_page_links(self, anime_details: AnimeDetails):
+        count = pahe.get_total_episode_page_count(anime_details.anime.page_link) if anime_details.site == pahe_name else 0
+        episode_page_progress_bar = ProgressBar(
+            None, "Getting episode page links", "", count, "pgs", 1)
         if anime_details.site == pahe_name:
-            episode_page_progress_bar = ProgressBar(
-                None, "Getting episode page links", "", pahe.get_total_episode_page_count(anime_details.anime.page_link), "pgs")
             self.progress_bars_layout.insertWidget(
                 0, episode_page_progress_bar)
             return GetEpisodePageLinksThread(self, anime_details, anime_details.start_download_episode, anime_details.end_download_episode,
-                                             lambda eps_links: self.get_download_page_links(eps_links, anime_details), episode_page_progress_bar.update_bar).start()
+                                             lambda eps_links: self.get_download_page_links(eps_links, anime_details), episode_page_progress_bar).start()
         if anime_details.site == gogo_name and anime_details.sub_or_dub == dub and anime_details.dub_available:
             anime_details.anime.page_link = gogo.get_dub_anime_page_link(
                 anime_details.anime.title)
         GetEpisodePageLinksThread(self, anime_details, anime_details.start_download_episode, anime_details.end_download_episode,
-                                  lambda eps_links: self.get_download_page_links(eps_links, anime_details), lambda x: None).start()
+                                  lambda eps_links: self.get_download_page_links(eps_links, anime_details), episode_page_progress_bar).start()
 
     def get_download_page_links(self, episode_page_links: list[str], anime_details: AnimeDetails):
+        if episode_page_links == []: 
+            return
         episode_page_links = [episode_page_links[eps-anime_details.start_download_episode]
                               for eps in anime_details.predicted_episodes_to_download]
         download_page_progress_bar = ProgressBar(
-            self, "Fetching download page links", "", len(episode_page_links), "eps")
+            self, "Fetching download page links", "", len(episode_page_links), "eps", 1)
         self.progress_bars_layout.insertWidget(0, download_page_progress_bar)
         GetDownloadPageThread(self, anime_details.site, episode_page_links, lambda down_pge_lnk, down_info: self.get_direct_download_links(
-            down_pge_lnk, down_info, anime_details), download_page_progress_bar.update_bar).start()
+            down_pge_lnk, down_info, anime_details), download_page_progress_bar).start()
 
     def get_direct_download_links(self, download_page_links: list[str], download_info: list[list[str]], anime_details: AnimeDetails):
+        if download_page_links == []:
+            return
         direct_download_links_progress_bar = ProgressBar(
-            self, "Retrieving direct download links, this may take a while", "", len(download_page_links), "eps")
+            self, "Retrieving direct download links, this may take a while", "", len(download_page_links), "eps", 1)
         self.progress_bars_layout.insertWidget(
             0, direct_download_links_progress_bar)
         GetDirectDownloadLinksThread(self, download_page_links, download_info, anime_details, lambda status: self.check_link_status(status, anime_details, download_page_links),
-                                     direct_download_links_progress_bar.update_bar).start()
+                                     direct_download_links_progress_bar).start()
 
     def check_link_status(self, status: int, anime_details: AnimeDetails, download_page_links: list[str]):
         if status == 1:
@@ -300,25 +306,29 @@ class DownloadWindow(Window):
         elif status == 3:
             self.main_window.create_and_switch_to_captcha_block_window(
                 anime_details.anime.title, download_page_links)
+        else:
+            return
 
     def calculate_download_size(self, anime_details: AnimeDetails):
+        calculating_download_size_progress_bar = ProgressBar(
+            self, "Calcutlating total download size", "", len(anime_details.direct_download_links), "eps", 1)
         if anime_details.site == gogo_name:
-            calculating_download_size_progress_bar = ProgressBar(
-                self, "Calcutlating total download size", "", len(anime_details.direct_download_links), "eps")
             self.progress_bars_layout.insertWidget(
                 0, calculating_download_size_progress_bar)
             CalculateDownloadSizes(self, anime_details, lambda: self.queue_download(
-                anime_details), calculating_download_size_progress_bar.update_bar).start()
+                anime_details), calculating_download_size_progress_bar).start()
         elif anime_details.site == pahe_name:
             CalculateDownloadSizes(self, anime_details, lambda: self.queue_download(
-                anime_details), lambda x: None).start()
+                anime_details),  calculating_download_size_progress_bar).start()
 
     def queue_download(self, anime_details: AnimeDetails):
+        if anime_details.total_download_size == 0:
+            return
         if not anime_details.anime_folder_path:
             anime_details.anime_folder_path = os.path.join(
                 anime_details.chosen_default_download_path, anime_details.sanitised_title)
             os.mkdir(anime_details.anime_folder_path)
-        anime_progress_bar = DownloadProgressBar(
+        anime_progress_bar = ProgressBar(
             self, "Downloading", anime_details.anime.title, anime_details.total_download_size, "MB", 1, False)
         anime_progress_bar.bar.setMinimumHeight(50)
 
@@ -329,7 +339,7 @@ class DownloadWindow(Window):
                 None, 0, self.tray_icon, anime_details.anime.title, self.download_complete_icon, anime_details.anime_folder_path, self)
 
             def download_is_active(): return not self.downloaded_episode_count.is_complete(
-            ) or not self.downloaded_episode_count.is_cancelled()
+            ) or not self.downloaded_episode_count.check_if_cancelled()
             set_minimum_size_policy(self.downloaded_episode_count)
             self.folder_button = FolderButton(
                 cast(str, ''), 120, 120, None)
@@ -381,8 +391,8 @@ class DownloadWindow(Window):
         current_download_manager_thread.start()
 
     @pyqtSlot(str, int, dict)
-    def receive_download_progress_bar_details(self, episode_title: str, episode_size: int, progress_bars: dict[str, DownloadProgressBar]):
-        bar = DownloadProgressBar(
+    def receive_download_progress_bar_details(self, episode_title: str, episode_size: int, progress_bars: dict[str, ProgressBar]):
+        bar = ProgressBar(
             None, "Downloading", episode_title, episode_size, "MB", ibytes_to_mbs_divisor)
         progress_bars[episode_title] = bar
         self.progress_bars_layout.insertWidget(0, bar)
@@ -392,7 +402,7 @@ class DownloadManagerThread(QThread):
     send_progress_bar_details = pyqtSignal(str, int, dict)
     update_anime_progress_bar = pyqtSignal(int)
 
-    def __init__(self, download_window: DownloadWindow, anime_details: AnimeDetails, anime_progress_bar: DownloadProgressBar, downloaded_episode_count: DownloadedEpisodeCount) -> None:
+    def __init__(self, download_window: DownloadWindow, anime_details: AnimeDetails, anime_progress_bar: ProgressBar, downloaded_episode_count: DownloadedEpisodeCount) -> None:
         super().__init__(download_window)
         self.anime_progress_bar = anime_progress_bar
         self.download_window = download_window
@@ -401,7 +411,7 @@ class DownloadManagerThread(QThread):
         self.update_anime_progress_bar.connect(anime_progress_bar.update_bar)
         self.send_progress_bar_details.connect(
             download_window.receive_download_progress_bar_details)
-        self.progress_bars: dict[str, DownloadProgressBar] = {}
+        self.progress_bars: dict[str, ProgressBar] = {}
         self.prev_bar = None
         self.mutex = QMutex()
         self.paused = False
@@ -419,11 +429,12 @@ class DownloadManagerThread(QThread):
             self.cancelled = True
             for key in self.progress_bars.keys():
                 self.progress_bars[key].cancel_button.click()
+            self.downloaded_episode_count.is_cancelled = True
             self.anime_progress_bar.cancel()
 
-    # The total size for animepahe isn't accurate, below is to appropriately handle updating the anime_progress_bar if site is animepahe
     @pyqtSlot(int)
     def handle_updating_anime_progress_bar(self, added: int):
+        # Rounded cause download size is accurate to MBs in animepahe but the same is applied to gogoanime to make everything more streamlined
         added_rounded = round(added / ibytes_to_mbs_divisor)
         self.update_anime_progress_bar.emit(added_rounded)
 
@@ -439,7 +450,7 @@ class DownloadManagerThread(QThread):
             self.downloaded_episode_count.total_episodes -= 1
             self.downloaded_episode_count.update(0)
     # Gogo's direct download link sometimes doesn't work, it returns a 302 status code meaning the resource has been moved, this attempts to redirect to that link
-    # It is applied to Pahe too just in case
+    # It is applied to Pahe too just in case and to make everything streamlined
 
     def gogo_check_if_valid_link(self, link: str) -> tuple[str, requests.Response | None]:
         response = cast(requests.Response, network_monad(
@@ -481,7 +492,7 @@ class DownloadManagerThread(QThread):
             while episode_title not in self.progress_bars:
                 continue
             DownloadThread(self, link, episode_title, download_size, self.anime_details.site, cast(str, self.anime_details.anime_folder_path),
-                           self.progress_bars[episode_title], episode_title, self.pop_from_progress_bars,
+                           self.progress_bars[episode_title], episode_title,  self.pop_from_progress_bars,
                            self.anime_progress_bar, self.handle_updating_anime_progress_bar, self.update_downloaded_episode_count, self.mutex).start()
 
 
@@ -490,8 +501,8 @@ class DownloadThread(QThread):
     finished = pyqtSignal(str)
     update_downloaded_episode_count = pyqtSignal(bool)
 
-    def __init__(self, parent: DownloadManagerThread, link: str, title: str, size: int, site: str, download_folder: str,  progress_bar: DownloadProgressBar,
-                 displayed_episode_title: str, finished_callback: Callable, anime_progress_bar: ProgressBar, handle_updating_anime_progress_bar: Callable,
+    def __init__(self, parent: DownloadManagerThread, link: str, title: str, size: int, site: str, download_folder: str,  progress_bar: ProgressBar,
+                 displayed_episode_title: str, finished_callback: Callable, anime_progress_bar: VirtualProgressBar, handle_updating_anime_progress_bar: Callable,
                  update_downloaded_episode_count_callback: Callable, mutex: QMutex) -> None:
         super().__init__(parent)
         self.link = link
@@ -544,20 +555,23 @@ class GetEpisodePageLinksThread(QThread):
     finished = pyqtSignal(list)
     update_bar = pyqtSignal(int)
 
-    def __init__(self, parent, anime_details: AnimeDetails, start_episode: int, end_episode: int, finished_callback: Callable, progress_update_callback: Callable):
+    def __init__(self, parent, anime_details: AnimeDetails, start_episode: int, end_episode: int, finished_callback: Callable, progress_bar: ProgressBar):
         super().__init__(parent)
         self.anime_details = anime_details
         self.finished.connect(
             lambda episode_page_links: finished_callback(episode_page_links))
         self.start_episode = start_episode
+        self.progress_bar = progress_bar
         self.end_index = end_episode
-        self.update_bar.connect(progress_update_callback)
+        self.update_bar.connect(progress_bar.update_bar)
 
     def run(self):
         if self.anime_details.site == pahe_name:
-            episode_page_links = pahe.get_episode_page_links(self.start_episode, self.end_index, self.anime_details.anime.page_link, cast(
-                str, self.anime_details.anime.id), lambda x: self.update_bar.emit(x))
-            self.finished.emit(episode_page_links)
+            obj = pahe.GetEpisodePageLinks()
+            self.progress_bar.pause_callback = obj.pause_or_resume
+            self.progress_bar.cancel_callback = obj.cancel
+            self.finished.emit(obj.get_episode_page_links(self.start_episode, self.end_index, self.anime_details.anime.page_link, cast(
+                str, self.anime_details.anime.id), lambda x: self.update_bar.emit(x)))
         elif self.anime_details.site == gogo_name:
             episode_page_links = gogo.generate_episode_page_links(
                 self.start_episode, self.end_index, self.anime_details.anime.page_link)
@@ -568,23 +582,27 @@ class GetDownloadPageThread(QThread):
     finished = pyqtSignal(list, list)
     update_bar = pyqtSignal(int)
 
-    def __init__(self, parent, site: str, episode_page_links: list[str], finished_callback: Callable, progress_update_callback: Callable):
+    def __init__(self, parent, site: str, episode_page_links: list[str], finished_callback: Callable, progress_bar: ProgressBar):
         super().__init__(parent)
         self.site = site
         self.episode_page_links = episode_page_links
         self.finished.connect(lambda download_page_links, download_info: finished_callback(
             download_page_links, download_info))
-        self.update_bar.connect(progress_update_callback)
+        self.progress_bar = progress_bar
+        self.update_bar.connect(progress_bar.update_bar)
 
     def run(self):
         if self.site == pahe_name:
-            download_page_links, download_info = pahe.get_pahewin_download_page_links_and_info(
-                self.episode_page_links, lambda x: self.update_bar.emit(x))
-            self.finished.emit(download_page_links, download_info)
+            obj = pahe.GetPahewinDownloadPageCrap()
+            self.progress_bar.pause_callback = obj.pause_or_resume
+            self.progress_bar.cancel_callback = obj.cancel
+            self.finished.emit(*obj.get_pahewin_download_page_links_and_info(self.episode_page_links, self.update_bar.emit))
         elif self.site == gogo_name:
-            download_page_links = gogo.get_download_page_links(
-                self.episode_page_links, lambda x: self.update_bar.emit(x))
-            self.finished.emit(download_page_links, [])
+            obj = gogo.GetDownloadPageLinks()
+            self.progress_bar.pause_callback = obj.pause_or_resume
+            self.progress_bar.cancel_callback = obj.cancel
+            self.finished.emit(obj.get_download_page_links(
+                self.episode_page_links, lambda x: self.update_bar.emit(x)), [])
 
 
 class GetDirectDownloadLinksThread(QThread):
@@ -592,14 +610,15 @@ class GetDirectDownloadLinksThread(QThread):
     update_bar = pyqtSignal(int)
 
     def __init__(self, download_window: DownloadWindow, download_page_links: list[str] | list[list[str]], download_info: list[list[str]], anime_details: AnimeDetails,
-                 finished_callback: Callable, progress_update_callback: Callable):
+                 finished_callback: Callable, progress_bar: ProgressBar):
         super().__init__(download_window)
         self.download_window = download_window
         self.download_page_links = download_page_links
         self.download_info = download_info
         self.anime_details = anime_details
         self.finished.connect(finished_callback)
-        self.update_bar.connect(progress_update_callback)
+        self.progress_bar = progress_bar
+        self.update_bar.connect(progress_bar.update_bar)
 
     def run(self):
         if self.anime_details.site == pahe_name:
@@ -608,7 +627,10 @@ class GetDirectDownloadLinksThread(QThread):
             bound_links, bound_info = pahe.bind_quality_to_link_info(
                 self.anime_details.quality, bound_links, bound_info)
             self.anime_details.download_info = bound_info
-            self.anime_details.direct_download_links = pahe.get_direct_download_links(
+            obj = pahe.GetDirectDownloadLinks()
+            self.progress_bar.pause_callback = obj.pause_or_resume
+            self.progress_bar.cancel_callback = obj.cancel
+            self.anime_details.direct_download_links = obj.get_direct_download_links(
                 bound_links, lambda x: self.update_bar.emit(x))
             self.finished.emit(1)
         if self.anime_details.site == gogo_name:
@@ -616,7 +638,10 @@ class GetDirectDownloadLinksThread(QThread):
                 # For testing purposes
                 # raise WebDriverException
                 # raise TimeoutError
-                self.anime_details.direct_download_links = gogo.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality,
+                obj = gogo.GetDirectDownloadLinks()
+                self.progress_bar.pause_callback = obj.pause_or_resume
+                self.progress_bar.cancel_callback = obj.cancel
+                self.anime_details.direct_download_links = obj.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality,
                                                                                                         gogo.setup_headless_browser(self.anime_details.browser), lambda x: self.update_bar.emit(x))
                 self.finished.emit(1)
             except Exception as exception:
@@ -630,16 +655,19 @@ class CalculateDownloadSizes(QThread):
     finished = pyqtSignal()
     update_bar = pyqtSignal(int)
 
-    def __init__(self, parent: QObject, anime_details: AnimeDetails, finished_callback: Callable, progress_update_callback: Callable):
+    def __init__(self, parent: QObject, anime_details: AnimeDetails, finished_callback: Callable, progress_bar: ProgressBar):
         super().__init__(parent)
-        self.progress_update_callback = progress_update_callback
         self.anime_details = anime_details
         self.finished.connect(finished_callback)
-        self.update_bar.connect(progress_update_callback)
+        self.progress_bar = progress_bar
+        self.update_bar.connect(progress_bar.update_bar)
 
     def run(self):
         if self.anime_details.site == gogo_name:
-            self.anime_details.total_download_size = gogo.calculate_download_total_size(
+            obj = gogo.CalculateTotalDowloadSize()
+            self.progress_bar.pause_callback = obj.pause_or_resume
+            self.progress_bar.cancel_callback = obj.cancel
+            self.anime_details.total_download_size = obj.calculate_total_download_size(
                 self.anime_details.direct_download_links, lambda x: self.update_bar.emit(x), True)
         elif self.anime_details.site == pahe_name:
             self.anime_details.total_download_size = pahe.calculate_total_download_size(
