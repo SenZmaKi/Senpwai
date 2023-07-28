@@ -2,7 +2,7 @@
 
 ![senpwai-icon](https://github.com/SenZmaKi/Senpwai/blob/master/app/senpwai-icon.png)
 
-**Senpwai** is a free and open-source desktop app designed for conveniently downloading anime in bulk. If you've ever thought, "Damn, I wish I could download all the One Piece episodes in a few clicks," well, that's exactly what Senpwai is built for, ignoring the occasional crashes *cough* *cough*.
+**Senpwai** is a free and open-source desktop app designed for conveniently downloading anime in bulk. Ever thought, "Damn, I wish I could download all the One Piece episodes in a few clicks," well, that's exactly what Senpwai is built for, ignoring the occasional crashes *cough* *cough*.
 The episodes are sourced from Animepahe and Gogoanime though Animepahe is recommended cause with Gogoanime you may encounter captcha block.
 
 <p>
@@ -38,6 +38,7 @@ Download the setup from the [releases](https://github.com/SenZmaKi/Senpwai/relea
 - Download in sub or dub (if available) depending on the user's preference.
 - Choose between video qualities: 360p, 480p (Gogoanime only), 720p, or 1080p.
 - Automatically detects episodes you already have and avoids re-downloading them.
+- Robust and graceful download error management.
 - Goofy aah ahh GUI and Amogus.
 
 
