@@ -1,4 +1,4 @@
-# Senpwai - Anime Bulk Downloader
+# Senpwai - Bulk Anime Downloader
 
 ![senpwai-icon](https://github.com/SenZmaKi/Senpwai/blob/master/app/senpwai-icon.png)
 
@@ -9,6 +9,7 @@ The episodes are sourced from Animepahe and Gogoanime though Animepahe is recomm
  <a href="https://github.com/SenZmaKi/Senpwai/releases"><img  height="30px" src="https://img.shields.io/github/downloads/SenZmaKi/Senpwai/total" alt="Downloads"></a>
   <a href="https://discord.gg/invite/e9UxkuyDX2" target="_blank"><img height="30px" alt="Discord" src="https://img.shields.io/discord/1131981618777702540?label=Discord&logo=discord"></a>
   <a href="https://www.reddit.com/r/Senpwai" target="_blank"><img height="30px" alt="Subreddit subscribers" src="https://img.shields.io/reddit/subreddit-subscribers/senpwai?label=Reddit&style=social"></a>
+ <a href="https://youtu.be/c89BggqSmNs"  target="_blank"><img height="30px" <img alt="YouTube Video Views" src="https://img.shields.io/youtube/views/c89BggqSmNs"></a>
 </p>
 
 ![download-page](https://github.com/SenZmaKi/Senpwai/assets/90490506/4a376a4f-bcaa-4f76-b3a3-68782580e4ed)
@@ -100,6 +101,8 @@ dist\Senpwai\senpwai
 [GitHub Sponsors](https://github.com/sponsors/SenZmaKi)
 
 [Patreon](https://patreon.com/Senpwai)
+
+[Video demo](https://youtu.be/c89BggqSmNs)
 
 ## Legal Disclaimer
 
