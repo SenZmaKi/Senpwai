@@ -74,7 +74,7 @@ python senpwai.py
 ```
 cd app
 pyinstaller --windowed --name=Senpwai --icon=assets/senpwai-icon.ico --add-data "assets:assets" senpwai.py
-dist/Senpwai/senpwai
+dist/Senpwai/Senpwai
 ```
 
 - **Windows**
@@ -82,7 +82,7 @@ dist/Senpwai/senpwai
 ```
 cd app
 pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --add-data "assets;assets" --version-file=file_version_info.txt senpwai.py
-dist\Senpwai\senpwai
+dist\Senpwai\Senpwai
 ```
 
 ## Support
