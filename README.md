@@ -1,9 +1,10 @@
-# Senpwai - Bulk Anime Downloader
+# Senpwai - Batch Anime Downloader
 
 ![senpwai-icon](https://github.com/SenZmaKi/Senpwai/blob/master/app/senpwai-icon.png)
 
-**Senpwai** is a free and open-source desktop app designed for conveniently downloading anime in bulk. Ever thought, "Damn, I wish I could download all the One Piece episodes in a few clicks," well, that's exactly what Senpwai is built for, ignoring the occasional crashes *cough* *cough*.
-The episodes are sourced from Animepahe and Gogoanime though Animepahe is recommended cause with Gogoanime you may encounter captcha block.
+**Senpwai** is a free and open-source desktop app designed for conveniently batch downloading anime. Ever thought, "Damn, I really wish there was a way to download all the One Piece episodes in a few clicks," well, that's exactly what Senpwai is built for, ignoring the occasional crashes *cough* *cough*.
+
+The episodes are sourced from Animepahe and Gogoanime, though downloading from Animepahe is recommended cause with Gogoanime you may sometimes encounter captcha block.
 
 <p>
  <a href="https://github.com/SenZmaKi/Senpwai/releases"><img  height="30px" src="https://img.shields.io/github/downloads/SenZmaKi/Senpwai/total" alt="Downloads"></a>
@@ -29,14 +30,14 @@ Download the setup from the [releases](https://github.com/SenZmaKi/Senpwai/relea
 
 - **Linux/Mac**
   
- You'll have to build it from source or use it as a Python script.
+ You'll have to [build from source](#building-from-source).
 
 ## Features
 
 - Download any anime from Animepahe or Gogoanime.
 - Download a complete season or episodes within a range (e.g., 69-420).
-- Download in sub or dub (if available) depending on the user's preference.
 - Choose between video qualities: 360p, 480p (Gogoanime only), 720p, or 1080p.
+- Download in sub or dub (if available) depending on the user's preference.
 - Automatically detects episodes you already have and avoids re-downloading them.
 - Robust and graceful download error management.
 - Goofy aah ahh GUI and Amogus.
