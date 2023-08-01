@@ -2,7 +2,7 @@
 PyQt6==6.5.1
 requests==2.30.0
 bs4==0.0.1
-selenium==4.10.0    
+selenium==4.11.2    
 anitopy==2.1.1
 appdirs==1.4.4
 pyinstaller==5.13.0
