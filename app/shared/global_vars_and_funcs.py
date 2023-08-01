@@ -39,7 +39,7 @@ default_quality = q_720
 error_logs_file_path = os.path.join(config_dir, "error-logs.txt")
 if not os.path.exists(error_logs_file_path):
     with open(error_logs_file_path, "w") as f:
-        f.write("FIRST BOOT")
+        f.write("__--FIRST BOOT--__\n")
     
 logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 def log_error(error: str):

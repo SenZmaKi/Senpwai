@@ -6,7 +6,7 @@ from shared.global_vars_and_funcs import AllowedSettingsTypes, pahe_name, gogo_n
 from time import time
 from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, key_gogo_default_browser, key_quality, key_sub_or_dub, key_download_folder_paths, default_download_folder_paths
 from shared.global_vars_and_funcs import folder_icon_path, red_normal_color, red_pressed_color, pahe_normal_color, pahe_pressed_color, gogo_normal_color, open_folder
-from shared.app_and_scraper_shared import sanitise_title, network_monad
+from shared.app_and_scraper_shared import sanitise_title, network_error_retry_wrapper
 from pathlib import Path
 from typing import cast
 import requests
@@ -552,12 +552,12 @@ class AnimeDetails():
         if self.site == pahe_name:
             poster_url, summary, episode_count = pahe.extract_poster_summary_and_episode_count(
                 cast(str, self.anime.id))
-            poster_image = network_monad(
+            poster_image = network_error_retry_wrapper(
                 lambda: requests.get(poster_url).content)
         elif self.site == gogo_name:
             poster_url, summary, episode_count = gogo.extract_poster_summary_and_episode_count(
                 self.anime.page_link)
-            poster_image = network_monad(
+            poster_image = network_error_retry_wrapper(
                 lambda: requests.get(poster_url).content)
         return (poster_image, summary, episode_count)
 

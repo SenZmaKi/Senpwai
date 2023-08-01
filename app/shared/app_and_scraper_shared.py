@@ -55,7 +55,7 @@ def sanitise_title(title: str):
     return sanitised[:255].rstrip()
 
 
-def network_monad(function: Callable) -> Any:
+def network_error_retry_wrapper(function: Callable) -> Any:
     while True:
         try:
             return function()
@@ -101,7 +101,7 @@ class Download(PausableFunction):
         self.file_path = None
 
     def start_download(self):
-        response = network_monad(lambda: requests.get(
+        response = network_error_retry_wrapper(lambda: requests.get(
             self.link, stream=True, timeout=30))
 
         def response_ranged(start_byte): return requests.get(
@@ -119,11 +119,12 @@ class Download(PausableFunction):
         def handle_download(start_byte: int = 0) -> bool:
             mode = 'wb' if start_byte == 0 else 'ab'
             with open(temp_file_path, mode) as file:
-                iter_content = response.iter_content(chunk_size=ibytes_to_mbs_divisor) if start_byte == 0 else network_monad(
+                iter_content = response.iter_content(chunk_size=ibytes_to_mbs_divisor) if start_byte == 0 else network_error_retry_wrapper(
                     lambda: response_ranged(start_byte).iter_content(chunk_size=ibytes_to_mbs_divisor))
                 while True:
                     try:
-                        data = network_monad(lambda: (next(iter_content)))
+                        data = network_error_retry_wrapper(
+                            lambda: (next(iter_content)))
                         if progress_bar and self.paused:
                             progress_bar.set_description(' Paused')
                         if progress_bar:

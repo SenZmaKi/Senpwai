@@ -2,11 +2,10 @@ import requests
 from bs4 import BeautifulSoup, ResultSet, Tag
 import json
 from tqdm import tqdm
-import os
 import re
 from typing import Callable, cast, Any
 from math import pow
-from shared.app_and_scraper_shared import network_monad, parser, test_downloading, match_quality, PausableFunction
+from shared.app_and_scraper_shared import network_error_retry_wrapper, parser, test_downloading, match_quality, PausableFunction
 
 pahe_home_url = 'https://animepahe.ru'
 api_url_extension = '/api?m='
@@ -14,8 +13,7 @@ api_url_extension = '/api?m='
 
 def search(keyword: str) -> list[dict]:
     search_url = pahe_home_url+api_url_extension+'search&q='+keyword
-    response = network_monad(lambda: network_monad(
-        lambda: requests.get(search_url).content))
+    response = network_error_retry_wrapper(lambda: requests.get(search_url).content)
     try:
         decoded = json.loads(response.decode('UTF-8'))
         return decoded['data']
@@ -32,8 +30,7 @@ def extract_anime_id_title_and_page_link(result: dict) -> tuple[str, str, str]:
 
 def get_total_episode_page_count(anime_page_link: str) -> int:
     page_url = f'{anime_page_link}&page={1}'
-    response = network_monad(lambda: network_monad(
-        lambda: requests.get(page_url).content))
+    response = network_error_retry_wrapper(lambda: requests.get(page_url).content)
     decoded_anime_page = json.loads(response.decode('UTF-8'))
     total_episode_page_count: int = decoded_anime_page['last_page']
     return total_episode_page_count
@@ -52,7 +49,7 @@ class GetEpisodePageLinks(PausableFunction):
             total=end_episode, desc=' Fetching episode page links', units='eps')
         while page_url != None:
             page_url = f'{anime_page_link}&page={page_no}'
-            response = network_monad(
+            response = network_error_retry_wrapper(
                 lambda page_url=page_url: requests.get(page_url).content)
             decoded_anime_page = json.loads(response.decode('UTF-8'))
             episodes_data += decoded_anime_page['data']
@@ -85,7 +82,7 @@ class GetPahewinDownloadPageCrap(PausableFunction):
             episode_page_links), desc=' Fetching download page links', unit='eps')
         download_data: list[ResultSet[BeautifulSoup]] = []
         for idx, episode_page_link in enumerate(episode_page_links):
-            episode_page = network_monad(
+            episode_page = network_error_retry_wrapper(
                 lambda episode_page_link=episode_page_link: requests.get(episode_page_link).content)
             soup = BeautifulSoup(episode_page, parser)
             download_data.append(soup.find_all(
@@ -111,7 +108,7 @@ class GetPahewinDownloadPageCrap(PausableFunction):
 
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
     page_url = f'{anime_page_link}&page={1}'
-    response = network_monad(lambda: requests.get(page_url).content)
+    response = network_error_retry_wrapper(lambda: requests.get(page_url).content)
     decoded_anime_page = json.loads(response.decode('UTF-8'))
     episodes_data = decoded_anime_page['data']
     episode_sessions = [episode['session'] for episode in episodes_data]
@@ -214,13 +211,13 @@ class GetDirectDownloadLinks(PausableFunction):
         param_regex = re.compile(
             r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""")
         for idx, pahewin_link in enumerate(pahewin_download_page_links):
-            kwik_download_page = network_monad(
+            kwik_download_page = network_error_retry_wrapper(
                 lambda pahewin_link=pahewin_link: requests.get(pahewin_link).content)
             soup = BeautifulSoup(kwik_download_page, parser)
             download_link = cast(str, cast(Tag, soup.find(
                 "a", class_="btn btn-primary btn-block redirect"))["href"])
 
-            response = network_monad(
+            response = network_error_retry_wrapper(
                 lambda download_link=download_link: requests.get(download_link))
             cookies = response.cookies
             match = cast(re.Match, param_regex.search(response.text))
@@ -231,7 +228,7 @@ class GetDirectDownloadLinks(PausableFunction):
             soup = BeautifulSoup(decrypted, parser)
             post_url = cast(str, cast(Tag, soup.form)['action'])
             token_value = cast(str, cast(Tag, soup.input)['value'])
-            response = network_monad(lambda post_url=post_url, download_link=download_link, cookies=cookies, token_value=token_value: requests.post(post_url, headers={'Referer': download_link}, cookies=cookies, data={
+            response = network_error_retry_wrapper(lambda post_url=post_url, download_link=download_link, cookies=cookies, token_value=token_value: requests.post(post_url, headers={'Referer': download_link}, cookies=cookies, data={
                 '_token': token_value}, allow_redirects=False))
             direct_download_link = response.headers['location']
             direct_download_links.append(direct_download_link)
@@ -250,7 +247,7 @@ class GetDirectDownloadLinks(PausableFunction):
 
 def extract_poster_summary_and_episode_count(anime_id: str) -> tuple[str, str, int]:
     page_link = f'{pahe_home_url}/anime/{anime_id}'
-    response = network_monad(lambda: requests.get(page_link).content)
+    response = network_error_retry_wrapper(lambda: requests.get(page_link).content)
     soup = BeautifulSoup(response, parser)
     poster = soup.find(class_='youtube-preview')
     if not isinstance(poster, Tag):
@@ -259,7 +256,7 @@ def extract_poster_summary_and_episode_count(anime_id: str) -> tuple[str, str, i
     summary = cast(Tag, soup.find(class_='anime-synopsis')).get_text()
 
     page_link = f'{pahe_home_url}{api_url_extension}release&id={anime_id}&sort=episode_desc'
-    response = network_monad(lambda: requests.get(page_link).content)
+    response = network_error_retry_wrapper(lambda: requests.get(page_link).content)
     episode_count = json.loads(response)['total']
     return (poster_link, summary, int(episode_count))
 

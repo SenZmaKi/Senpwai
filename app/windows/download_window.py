@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QObject, QThread, QMutex, pyqtSignal, pyqtSlot
 from shared.global_vars_and_funcs import settings, key_make_download_complete_notification, key_max_simulataneous_downloads
 from shared.global_vars_and_funcs import set_minimum_size_policy, download_complete_icon_path, remove_from_queue_icon_path, move_up_queue_icon_path, move_down_queue_icon_path
 from shared.global_vars_and_funcs import pahe_name, gogo_name, dub, downlaod_window_bckg_image_path, open_folder
-from shared.app_and_scraper_shared import Download, ibytes_to_mbs_divisor, network_monad
+from shared.app_and_scraper_shared import Download, ibytes_to_mbs_divisor, network_error_retry_wrapper
 from windows.main_actual_window import MainWindow, Window
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, ScrollableSection, ProgressBar, VirtualProgressBar, AnimeDetails, FolderButton, OutlinedLabel, IconButton, HorizontalLine
 from typing import Callable, cast
@@ -262,7 +262,8 @@ class DownloadWindow(Window):
         self.get_episode_page_links(anime_details)
 
     def get_episode_page_links(self, anime_details: AnimeDetails):
-        count = pahe.get_total_episode_page_count(anime_details.anime.page_link) if anime_details.site == pahe_name else 0
+        count = pahe.get_total_episode_page_count(
+            anime_details.anime.page_link) if anime_details.site == pahe_name else 0
         episode_page_progress_bar = ProgressBar(
             None, "Getting episode page links", "", count, "pgs", 1)
         if anime_details.site == pahe_name:
@@ -277,7 +278,7 @@ class DownloadWindow(Window):
                                   lambda eps_links: self.get_download_page_links(eps_links, anime_details), episode_page_progress_bar).start()
 
     def get_download_page_links(self, episode_page_links: list[str], anime_details: AnimeDetails):
-        if episode_page_links == []: 
+        if episode_page_links == []:
             return
         episode_page_links = [episode_page_links[eps-anime_details.start_download_episode]
                               for eps in anime_details.predicted_episodes_to_download]
@@ -336,15 +337,15 @@ class DownloadWindow(Window):
             anime_details, anime_progress_bar)
         if self.first_download_since_app_start:
             self.downloaded_episode_count = DownloadedEpisodeCount(
-                None, 0, self.tray_icon, anime_details.anime.title, self.download_complete_icon, anime_details.anime_folder_path, self)
+                self, 0, self.tray_icon, anime_details.anime.title, self.download_complete_icon, anime_details.anime_folder_path, self)
 
             def download_is_active(): return not self.downloaded_episode_count.is_complete(
             ) or not self.downloaded_episode_count.check_if_cancelled()
             set_minimum_size_policy(self.downloaded_episode_count)
             self.folder_button = FolderButton(
                 cast(str, ''), 120, 120, None)
-            self.pause_button = PauseAllButton(download_is_active)
-            self.cancel_button = CancelAllButton()
+            self.pause_button = PauseAllButton(download_is_active, self)
+            self.cancel_button = CancelAllButton(self)
             set_minimum_size_policy(self.pause_button)
             set_minimum_size_policy(self.cancel_button)
             space = QSpacerItem(50, 0)
@@ -453,7 +454,7 @@ class DownloadManagerThread(QThread):
     # It is applied to Pahe too just in case and to make everything streamlined
 
     def gogo_check_if_valid_link(self, link: str) -> tuple[str, requests.Response | None]:
-        response = cast(requests.Response, network_monad(
+        response = cast(requests.Response, network_error_retry_wrapper(
             lambda: requests.get(link, stream=True)))
         if response.status_code in (301, 302, 307, 308):
             possible_valid_redirect_link = response.headers.get("location", "")
@@ -596,7 +597,8 @@ class GetDownloadPageThread(QThread):
             obj = pahe.GetPahewinDownloadPageCrap()
             self.progress_bar.pause_callback = obj.pause_or_resume
             self.progress_bar.cancel_callback = obj.cancel
-            self.finished.emit(*obj.get_pahewin_download_page_links_and_info(self.episode_page_links, self.update_bar.emit))
+            self.finished.emit(
+                *obj.get_pahewin_download_page_links_and_info(self.episode_page_links, self.update_bar.emit))
         elif self.site == gogo_name:
             obj = gogo.GetDownloadPageLinks()
             self.progress_bar.pause_callback = obj.pause_or_resume
@@ -639,12 +641,13 @@ class GetDirectDownloadLinksThread(QThread):
                 # For testing purposes
                 # raise WebDriverException
                 # raise TimeoutError
-                driver = gogo.setup_headless_browser(self.anime_details.browser)
+                driver = gogo.setup_headless_browser(
+                    self.anime_details.browser)
                 obj = gogo.GetDirectDownloadLinks()
                 self.progress_bar.pause_callback = obj.pause_or_resume
                 self.progress_bar.cancel_callback = obj.cancel
                 self.anime_details.direct_download_links = obj.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality,
-                                                                                                        driver, lambda x: self.update_bar.emit(x))
+                                                                                                       driver, lambda x: self.update_bar.emit(x))
                 self.finished.emit(1)
             except Exception as exception:
                 if isinstance(exception, WebDriverException):
@@ -654,6 +657,7 @@ class GetDirectDownloadLinksThread(QThread):
             finally:
                 if driver:
                     driver.quit()
+
 
 class CalculateDownloadSizes(QThread):
     finished = pyqtSignal()

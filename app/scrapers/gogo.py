@@ -13,7 +13,7 @@ from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions
 
 import subprocess
 from typing import Callable, cast
-from shared.app_and_scraper_shared import parser, network_monad, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time, PausableFunction
+from shared.app_and_scraper_shared import parser, network_error_retry_wrapper, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time, PausableFunction
 
 gogo_home_url = 'https://gogoanime.hu'
 dub_extension = ' (Dub)'
@@ -25,7 +25,8 @@ firefox_name = 'firefox'
 def search(keyword: str) -> list[BeautifulSoup]:
     search_url = '/search.html?keyword='
     search = gogo_home_url + search_url + keyword
-    response = network_monad(lambda: requests.get(search).content)
+    response = network_error_retry_wrapper(
+        lambda: requests.get(search).content)
     soup = BeautifulSoup(response, parser)
     results_page = cast(Tag, soup.find('ul', class_="items"))
     results = results_page.find_all('li')
@@ -50,13 +51,14 @@ def generate_episode_page_links(start_episode: int, end_episode: int, anime_page
 
 def setup_headless_browser(browser: str = edge_name) -> Chrome | Edge | Firefox:
     def setup_options(options: ChromeOptions | EdgeOptions | FirefoxOptions) -> ChromeOptions | EdgeOptions | FirefoxOptions:
-        # For testing purposes
         options.add_argument('--disable-extensions')
         options.add_argument('--disable-infobars')
         options.add_argument('--no-sandbox')
         if isinstance(options, FirefoxOptions):
+            # For testing purposes, when deploying remember to uncomment out
             options.add_argument("--headless")
         else:
+            # For testing purposes, when deploying remember to uncomment out
             options.add_argument("--headless=new")
         return options
 
@@ -157,8 +159,8 @@ class GetDownloadPageLinks(PausableFunction):
             episode_page_link).content
 
         def extract_link(episode_page_link: str) -> str:
-            response = network_monad(lambda page=episode_page_link: get_page_content(episode_page_link)
-                                     )
+            response = network_error_retry_wrapper(lambda page=episode_page_link: get_page_content(episode_page_link)
+                                                   )
             soup = BeautifulSoup(response, parser)
             soup = cast(Tag, soup.find('li', class_='dowloads'))
             link = cast(str, cast(Tag, soup.find(
@@ -194,7 +196,7 @@ class CalculateTotalDowloadSize(PausableFunction):
             total=len(download_links), desc=' Calculating total download size', unit='eps')
         total_size = 0
         for idx, link in enumerate(download_links):
-            response = network_monad(
+            response = network_error_retry_wrapper(
                 lambda link=link: requests.get(link, stream=True))
             size = response.headers.get('content-length', 0)
             if in_megabytes:
@@ -220,7 +222,8 @@ def open_browser_with_links(download_links: str) -> None:
 
 
 def extract_poster_summary_and_episode_count(anime_page_link: str) -> tuple[str, str, int]:
-    response = network_monad(lambda: requests.get(anime_page_link).content)
+    response = network_error_retry_wrapper(
+        lambda: requests.get(anime_page_link).content)
     soup = BeautifulSoup(response, parser)
     poster_link = cast(str, cast(Tag, cast(Tag, soup.find(
         class_='anime_info_body_bg')).find('img'))['src'])

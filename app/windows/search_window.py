@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QEvent, QTimer
 from shared.global_vars_and_funcs import random_mascot_icon_path, gogo_name, pahe_name, loading_animation_path, sadge_piece_path, set_minimum_size_policy, sen_anilist_id, anilist_api_entrypoint, one_piece_audio_path
 from shared.global_vars_and_funcs import pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, search_window_bckg_image_path, sen_favourite_audio_path
 from shared.shared_classes_and_widgets import Anime, StyledButton, OutlinedButton, ScrollableSection, AnimationAndText, IconButton, AudioPlayer
-from shared.app_and_scraper_shared import network_monad
+from shared.app_and_scraper_shared import network_error_retry_wrapper
 from windows.main_actual_window import MainWindow, Window
 from scrapers import pahe
 from scrapers import gogo
@@ -148,7 +148,7 @@ class FetchFavouriteThread(QThread):
         }
         }
         '''
-        response = cast(requests.Response, network_monad(lambda: requests.post(anilist_api_entrypoint,
+        response = cast(requests.Response, network_error_retry_wrapper(lambda: requests.post(anilist_api_entrypoint,
                                                                                json={"query": query,
                                                                                      "variables": {"id": sen_anilist_id, "page": page}},
                                                                                headers={"Content-Type": "application/json"})))

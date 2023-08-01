@@ -3,7 +3,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot
 from windows.main_actual_window import MainWindow, Window
 from shared.global_vars_and_funcs import chopper_crying_path, pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, github_repo_url, github_api_releases_entry_point, app_name, github_icon_path, update_bckg_image_path
 from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy, settings, key_gogo_default_browser, chrome_name, edge_name, chopper_crying_path, version, key_download_folder_paths, open_folder
-from shared.shared_classes_and_widgets import StyledButton, StyledLabel, network_monad, FolderButton, IconButton
+from shared.shared_classes_and_widgets import StyledButton, StyledLabel, network_error_retry_wrapper, FolderButton, IconButton
 from windows.download_window import ProgressBar
 from typing import cast, Callable
 from webbrowser import open_new_tab
@@ -200,7 +200,7 @@ class CheckIfUpdateAvailableThread(QThread):
         self.finished.emit(self.update_available())
 
     def update_available(self) -> tuple[bool, str, int]:
-        latest_version_json = network_monad(
+        latest_version_json = network_error_retry_wrapper(
             lambda: (requests.get(github_api_releases_entry_point))).json()[0]
         latest_version_tag = latest_version_json["tag_name"]
         latest_version_number = latest_version_tag.replace(
