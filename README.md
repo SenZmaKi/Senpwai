@@ -44,7 +44,7 @@ Download the setup from the [releases](https://github.com/SenZmaKi/Senpwai/relea
 
 ## Building from Source
 
-Ensure you have [Python](https://www.python.org/downloads/) (version 3.11 or newer) and [Git](https://github.com/git-guides/install-git) installed. For Linux users, it's recommended to create a [Python virtual environment](https://docs.python.org/3/library/venv.html).
+Ensure you have [Python](https://www.python.org/downloads/) (version 3.11 or newer) and [Git](https://github.com/git-guides/install-git) installed. For Linux users you also have to create a [Python virtual environment](https://docs.python.org/3/library/venv.html), the same is recommended for Mac and Windows, but you don't have to.
 
 
 1. Clone the repository.
