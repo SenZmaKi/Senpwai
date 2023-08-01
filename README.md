@@ -88,7 +88,7 @@ dist\Senpwai\Senpwai
 ## Support
 
 - You can support the development of Senpwai through donations on [GitHub Sponsors](https://github.com/sponsors/SenZmaKi) or [Patreon](https://patreon.com/Senpwai).
-- You can also show your appreciation by leaving a star on the gituhb.
+- You can also show your appreciation by leaving a star on the github.
 - Senpwai is open to pull requests, so if you have ideas for improvements, feel free to contribute!
 
 ## Links
@@ -105,10 +105,10 @@ dist\Senpwai\Senpwai
 
 Senpwai is designed solely for providing access to publicly available content. It is not intended to support or promote piracy or copyright infringement. As the creator of this app, I hereby declare that I am not responsible for, and in no way associated with, any external links or the content they direct to.
 
-It is essential to understand that all the content available through this app are found freely accessible on the internet, and the app does not host any copyrighted content. I do not exercise control over the nature, content, or availability of the websites linked within the app.
+It is essential to understand that all the content available through this app are found freely accessible on the internet and the app does not host any copyrighted content. I do not exercise control over the nature, content, or availability of the websites linked within the app.
 
-If you have any concerns or objections regarding the content provided by this app, please contact the respective website owners, webmasters, or hosting providers.
+If you have any concerns or objections regarding the content provided by this app, please contact the respective website owners, webmasters, or hosting providers. Thank you.
 
 ## Epilogue
 
-Truly one of the most apps ever of all time
+Truly one of the most apps ever of all time.
