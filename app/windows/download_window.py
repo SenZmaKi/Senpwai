@@ -482,9 +482,7 @@ class DownloadManagerThread(QThread):
             if self.cancelled:
                 break
             episode_number = str(
-                self.anime_details.predicted_episodes_to_download[idx])
-            if len(episode_number) <= 1:
-                episode_number = f"0{episode_number}"
+                self.anime_details.predicted_episodes_to_download[idx]).zfill(2)
             episode_title = f"{self.anime_details.sanitised_title} E{episode_number}"
             self.mutex.lock()
             self.send_progress_bar_details.emit(
@@ -594,7 +592,7 @@ class GetDownloadPageThread(QThread):
 
     def run(self):
         if self.site == pahe_name:
-            obj = pahe.GetPahewinDownloadPageCrap()
+            obj = pahe.GetPahewinDownloadPage()
             self.progress_bar.pause_callback = obj.pause_or_resume
             self.progress_bar.cancel_callback = obj.cancel
             self.finished.emit(

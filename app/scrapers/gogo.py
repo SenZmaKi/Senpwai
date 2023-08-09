@@ -1,7 +1,7 @@
+                # To handle a case like for Jujutsu Kaisen 2nd Season where when there is TV in the titie it misses in the episode page links
 import requests
 from bs4 import BeautifulSoup, ResultSet, Tag
 from time import sleep
-from tqdm import tqdm
 import webbrowser
 from sys import platform
 
@@ -15,16 +15,31 @@ import subprocess
 from typing import Callable, cast
 from shared.app_and_scraper_shared import parser, network_error_retry_wrapper, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time, PausableFunction
 
-gogo_home_url = 'https://gogoanime.hu'
-dub_extension = ' (Dub)'
-edge_name = 'edge'
-chrome_name = 'chrome'
-firefox_name = 'firefox'
+# Hls mode imports
+import json
+from yarl import URL as parseUrl
+import base64
+import re
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.padding import PKCS7
+from cryptography.hazmat.backends import default_backend
+
+GOGO_HOME_URL = 'https://gogoanime.cl'
+DUB_EXTENSION = ' (Dub)'
+EDGE = 'edge'
+CHROME = 'chrome'
+FIREFOX = 'firefox'
+
+# Hls mode globals
+LOAD_EP_LIST_API = 'https://ajax.gogo-load.com/ajax/load-list-episode?ep_start=0&ep_end={}&id={}'
+KEYS_REGEX = re.compile(rb'(?:container|videocontent)-(\d+)')
+ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
 
 
 def search(keyword: str) -> list[BeautifulSoup]:
     search_url = '/search.html?keyword='
-    search = gogo_home_url + search_url + keyword
+    search = GOGO_HOME_URL + search_url + keyword
     response = network_error_retry_wrapper(
         lambda: requests.get(search).content)
     soup = BeautifulSoup(response, parser)
@@ -35,8 +50,8 @@ def search(keyword: str) -> list[BeautifulSoup]:
 
 def extract_anime_title_and_page_link(result: BeautifulSoup) -> tuple[str, str] | tuple[None, None]:
     title = cast(str, cast(Tag, result.find('a'))['title'])
-    page_link = gogo_home_url + cast(str, cast(Tag, result.find('a'))['href'])
-    if dub_extension in title:
+    page_link = GOGO_HOME_URL + cast(str, cast(Tag, result.find('a'))['href'])
+    if DUB_EXTENSION in title:
         return (None, None)
     return (title, page_link)
 
@@ -45,11 +60,11 @@ def generate_episode_page_links(start_episode: int, end_episode: int, anime_page
     episode_page_links: list[str] = []
     for episode_num in range(start_episode, end_episode+1):
         episode_page_links.append(
-            f'{gogo_home_url}{anime_page_link.split("/category")[1]}-episode-{episode_num}')
+            f'{GOGO_HOME_URL}{anime_page_link.split("/category")[1]}-episode-{episode_num}')
     return episode_page_links
 
 
-def setup_headless_browser(browser: str = edge_name) -> Chrome | Edge | Firefox:
+def setup_headless_browser(browser: str = EDGE) -> Chrome | Edge | Firefox:
     def setup_options(options: ChromeOptions | EdgeOptions | FirefoxOptions) -> ChromeOptions | EdgeOptions | FirefoxOptions:
         options.add_argument('--disable-extensions')
         options.add_argument('--disable-infobars')
@@ -82,9 +97,9 @@ def setup_headless_browser(browser: str = edge_name) -> Chrome | Edge | Firefox:
         options = cast(FirefoxOptions, setup_options(FirefoxOptions()))
         return Firefox(service=service_firefox, options=options)
 
-    if browser == edge_name:
+    if browser == EDGE:
         return setup_edge_driver()
-    elif browser == chrome_name:
+    elif browser == CHROME:
         return setup_chrome_driver()
     else:
         return setup_firefox_driver()
@@ -117,29 +132,21 @@ class GetDirectDownloadLinks(PausableFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def get_direct_download_link_as_per_quality(self, download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda update: None, max_load_wait_time=6, console_app=False) -> list[str]:
+    def get_direct_download_link_as_per_quality(self, download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda update: None, max_load_wait_time=6) -> list[str]:
         # For testing purposes
         # raise TimeoutError
         download_links: list[str] = []
-        progress_bar = None if not console_app else tqdm(
-            total=len(download_page_links), desc=' Fetching download links', unit='eps')
         download_links: list[str] = []
-        for idx, page_link in enumerate(download_page_links):
+        for page_link in download_page_links:
             links, quality_infos = get_links_and_quality_info(
                 page_link, driver, max_load_wait_time)
             quality_idx = match_quality(quality_infos, quality)
-            print(quality_infos[quality_idx])
             download_links.append(links[quality_idx])
             while self.paused:
                 continue
             if self.cancelled:
                 return []
             progress_update_call_back(1)
-            if progress_bar:
-                progress_bar.update(idx+1 - progress_bar.n)
-        if progress_bar:
-            progress_bar.set_description(' Complete')
-            progress_bar.close()
         return download_links
 
 
@@ -147,43 +154,33 @@ class GetDownloadPageLinks(PausableFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def cancel(self):
-        self.cancelled = True
-
-    def get_download_page_links(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None, console_app=False) -> list[str]:
-        progress_bar = None if not console_app else tqdm(total=len(
-            episode_page_links), desc=' Fetching download page links', unit='eps')
+    def get_download_page_links(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> list[str]:
         download_page_links: list[str] = []
 
-        def get_page_content(episode_page_link): return requests.get(
-            episode_page_link).content
-
         def extract_link(episode_page_link: str) -> str:
-            response = network_error_retry_wrapper(lambda page=episode_page_link: get_page_content(episode_page_link)
-                                                   )
-            soup = BeautifulSoup(response, parser)
+            response = cast(requests.Response, network_error_retry_wrapper(lambda page=episode_page_link: requests.get(page)))
+            if response.status_code != 200:
+                # To handle a case like for Jujutsu Kaisen 2nd Season where when there is TV in the anime page link it misses in the episode page links
+                episode_page_link = episode_page_link.replace('-tv', '')
+                response = cast(requests.Response, network_error_retry_wrapper(lambda page=episode_page_link: requests.get(page)))
+            soup = BeautifulSoup(response.content, parser)
             soup = cast(Tag, soup.find('li', class_='dowloads'))
             link = cast(str, cast(Tag, soup.find(
                 'a', target='_blank'))['href'])
             return link
 
-        for idx, episode_page_link in enumerate(episode_page_links):
+        for eps_pg_link in episode_page_links:
             try:
-                link = extract_link(episode_page_link)
+                link = extract_link(eps_pg_link)
             except AttributeError:
-                # To handle a case like for Jujutsu Kaisen 2nd Season where when there is TV in the titie it misses in the episode page links
-                link = extract_link(episode_page_link.replace('-tv', ''))
+                link = fix_dead_episode_page_link(eps_pg_link)
+                link = extract_link(eps_pg_link.replace('-tv', ''))
             download_page_links.append(link)
             while self.paused:
                 continue
             if self.cancelled:
                 return []
             progress_update_callback(1)
-            if progress_bar:
-                progress_bar.update(idx+1 - progress_bar.n)
-        if progress_bar:
-            progress_bar.close()
-            progress_bar.set_description(' Done')
         return download_page_links
 
 
@@ -191,9 +188,7 @@ class CalculateTotalDowloadSize(PausableFunction):
     def __init__(self):
         super().__init__()
 
-    def calculate_total_download_size(self, download_links: list[str], progress_update_callback: Callable = lambda update: None, in_megabytes=False, console_app=False) -> int:
-        progress_bar = None if not console_app else tqdm(
-            total=len(download_links), desc=' Calculating total download size', unit='eps')
+    def calculate_total_download_size(self, download_links: list[str], progress_update_callback: Callable = lambda update: None, in_megabytes=False) -> int:
         total_size = 0
         for idx, link in enumerate(download_links):
             response = network_error_retry_wrapper(
@@ -208,11 +203,6 @@ class CalculateTotalDowloadSize(PausableFunction):
             if self.cancelled:
                 return 0
             progress_update_callback(1)
-            if progress_bar:
-                progress_bar.update(idx+1 - progress_bar.n)
-        if progress_bar:
-            progress_bar.set_description(' Done')
-            progress_bar.close()
         return total_size
 
 
@@ -235,7 +225,7 @@ def extract_poster_summary_and_episode_count(anime_page_link: str) -> tuple[str,
 
 
 def dub_available(anime_title: str) -> bool:
-    dub_title = f'{anime_title}{dub_extension}'
+    dub_title = f'{anime_title}{DUB_EXTENSION}'
     results = search(dub_title)
     for result in results:
         title = cast(str, cast(Tag, result.find('a'))['title'])
@@ -245,20 +235,109 @@ def dub_available(anime_title: str) -> bool:
 
 
 def get_dub_anime_page_link(anime_title: str) -> str:
-    dub_title = f'{anime_title}{dub_extension}'
+    dub_title = f'{anime_title}{DUB_EXTENSION}'
     results = search(dub_title)
     page_link = ''
     for result in results:
         title = cast(str, cast(Tag, result.find('a'))['title'])
         if dub_title == title:
-            page_link = gogo_home_url + \
+            page_link = GOGO_HOME_URL + \
                 cast(str, cast(Tag, result.find('a'))['href'])
             break
     return page_link
 
+# To handle a case like for Jujutsu Kaisen 2nd Season where when there is TV in the anime page link it misses in the episode page links
+def fix_dead_episode_page_link(episode_page_link: str) -> str:
+    return episode_page_link.replace('-tv', '')
 
-def test_getting_direct_download_links(query_anime_title: str, start_episode: int, end_episode: int, quality: str, sub_or_dub='sub') -> list[str]:
-    result = search(query_anime_title)[0]
+# Hls mode functions start here
+
+def get_embed_url(episode_page_link: str) -> str:
+    response = requests.get(episode_page_link)
+    if response.status_code != 200:
+        episode_page_link = fix_dead_episode_page_link(episode_page_link)
+        response = requests.get(episode_page_link)
+    soup = BeautifulSoup(response.content, parser)
+    return cast(str, soup.select('iframe')[0]['src'])
+
+
+def aes_encrypt(data: str, *, key, iv) -> bytes:
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    encryptor = cipher.encryptor()
+    padder = PKCS7(128).padder()
+    padded_data = padder.update(data.encode()) + padder.finalize()
+    return base64.b64encode(encryptor.update(padded_data) + encryptor.finalize())
+
+
+def aes_decrypt(data: str, *, key, iv) -> str:
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
+    decryptor = cipher.decryptor()
+    decrypted_data = decryptor.update(
+        base64.b64decode(data)) + decryptor.finalize()
+    unpadder = PKCS7(128).unpadder()
+    unpadded_data = unpadder.update(decrypted_data) + unpadder.finalize()
+    return unpadded_data.decode()
+
+
+def extract_steam_url(embed_url: str) -> str:
+    parsed_url = parseUrl(embed_url)
+    content_id = parsed_url.query['id']
+    streaming_page_host = f'https://{parsed_url.host}/'
+    streaming_page = requests.get(embed_url).content
+
+    encryption_key, iv, decryption_key = (
+        _.group(1) for _ in KEYS_REGEX.finditer(streaming_page)
+    )
+    component = aes_decrypt(
+        cast(re.Match[bytes], ENCRYPTED_DATA_REGEX.search(
+            streaming_page)).group(1).decode(),
+        key=encryption_key,
+        iv=iv,
+    ) + "&id={}&alias={}".format(
+        aes_encrypt(content_id, key=encryption_key,
+                    iv=iv).decode(), content_id
+    )
+
+    component = component.split("&", 1)[1]
+    ajax_response = requests.get(
+        streaming_page_host + "encrypt-ajax.php?" + component,
+        headers={"x-requested-with": "XMLHttpRequest"},
+    )
+    content = json.loads(
+        aes_decrypt(ajax_response.json()[
+            'data'], key=decryption_key, iv=iv)
+    )
+
+    try:
+        source = content["source"]
+        stream_url = source[0]["file"]
+    except KeyError:
+        source = content["source_bk"]
+        stream_url = source[0]["file"]
+    return stream_url
+
+
+class GetHlsLinks(PausableFunction):
+    def __init__(self, episode_urls: list[str]) -> None:
+        super().__init__()
+        self.episode_urls = episode_urls
+
+    def get_hls_links(self, progress_update_callback: Callable = lambda x: None) -> list[str]:
+        hls_links: list[str] = []
+        for eps_url in self.episode_urls:
+            while self.paused:
+                continue
+            hls_links.append(extract_steam_url(get_embed_url(eps_url)))
+            if self.cancelled:
+                return []
+            progress_update_callback(1)
+        return hls_links
+
+
+def test_getting_episode_page_links(anime_title: str, start_episode: int, end_episode: int, sub_or_dub='sub') -> list[str]:
+    result = search(anime_title)[0]
     anime_title, anime_page_link = cast(
         tuple[str, str], extract_anime_title_and_page_link(result))
     if sub_or_dub == 'dub' and dub_available(anime_title):
@@ -266,29 +345,43 @@ def test_getting_direct_download_links(query_anime_title: str, start_episode: in
     extract_poster_summary_and_episode_count(anime_page_link)
     episode_page_links = generate_episode_page_links(
         start_episode, end_episode, anime_page_link)
+    list(map(print, episode_page_links))
+    return episode_page_links
+
+
+def test_getting_direct_download_links(episode_page_links: list[str], quality: str):
     download_page_links = GetDownloadPageLinks().get_download_page_links(
-        episode_page_links, console_app=True)
-    driver = setup_headless_browser(edge_name)
+        episode_page_links)
+    driver = setup_headless_browser(EDGE)
     direct_download_links = GetDirectDownloadLinks().get_direct_download_link_as_per_quality(
-        download_page_links, quality, driver, max_load_wait_time=50, console_app=True)
+        download_page_links, quality, driver, max_load_wait_time=50)
     CalculateTotalDowloadSize().calculate_total_download_size(
-        direct_download_links, console_app=True)
+        direct_download_links)
     driver.quit()
     list(map(print, direct_download_links))
     return direct_download_links
 
 
+def test_getting_hls_links(episode_page_links: list[str]) -> list[str]:
+    hls_links = GetHlsLinks(episode_page_links).get_hls_links()
+    list(map(print, hls_links))
+    return hls_links
+
+
 def main():
     # Download settings
-    query = 'Jujutsu season 2'
-    quality = '480p'
+    anime_title = 'Senyuu'
+    quality = '360p'
     sub_or_dub = 'sub'
     start_episode = 1
-    end_episode = 3
+    end_episode = 2
 
-    direct_download_links = test_getting_direct_download_links(
-        query, start_episode, end_episode, quality, sub_or_dub)
-    # test_downloading(query, direct_download_links)
+    episode_page_links = test_getting_episode_page_links(
+        anime_title, start_episode, end_episode, sub_or_dub)
+    direct_download_links = test_getting_direct_download_links(episode_page_links, quality)
+    # hls_links = test_getting_hls_links(episode_page_links)
+    # test_downloading(anime_title, hls_links, True, quality)
+    test_downloading(anime_title, direct_download_links)
 
 
 if __name__ == "__main__":

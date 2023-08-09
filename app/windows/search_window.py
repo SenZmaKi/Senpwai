@@ -187,7 +187,8 @@ class SearchBar(QLineEdit):
                 if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
                     self.search_window.pahe_search_button.animateClick()
                 elif event.key() == Qt.Key.Key_Tab:
-                    if first_button := self.search_window.results_layout.itemAt(0):
+                    first_button = self.search_window.results_layout.itemAt(0)
+                    if first_button: 
                         first_button.widget().setFocus()
                     else:
                         self.search_window.gogo_search_button.animateClick()

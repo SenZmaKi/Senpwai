@@ -3,7 +3,7 @@ import sys
 from random import randint
 from appdirs import user_config_dir
 from pathlib import Path
-from scrapers.gogo import edge_name, chrome_name, firefox_name
+from scrapers.gogo import EDGE, CHROME, FIREFOX
 from PyQt6.QtWidgets import QSizePolicy
 import json
 from typing import cast
@@ -59,7 +59,7 @@ if not os.path.isdir(downloads_folder):
 default_download_folder_paths = [downloads_folder]
 
 default_max_simutaneous_downloads = 2
-default_gogo_browser = chrome_name
+default_gogo_browser = CHROME
 default_make_download_complete_notification = True
 default_start_in_fullscreen = True
 
@@ -237,7 +237,7 @@ def validate_settings_json(settings_json: dict) -> dict:
         clean_settings[key_max_simulataneous_downloads] = default_max_simutaneous_downloads
     try:
         gogo_default_browser = settings_json[key_gogo_default_browser]
-        if gogo_default_browser not in (chrome_name, edge_name, firefox_name):
+        if gogo_default_browser not in (CHROME, EDGE, FIREFOX):
             raise KeyError
         clean_settings[key_gogo_default_browser] = gogo_default_browser
     except KeyError:

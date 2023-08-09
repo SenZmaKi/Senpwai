@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection
 from shared.global_vars_and_funcs import gogo_normal_color, gogo_hover_color, settings, key_sub_or_dub, q_1080, q_720, q_480, q_360, chosen_anime_window_bckg_image_path
-from shared.global_vars_and_funcs import sub, dub, set_minimum_size_policy, key_gogo_default_browser, key_quality, gogo_name, chrome_name, edge_name, firefox_name
+from shared.global_vars_and_funcs import sub, dub, set_minimum_size_policy, key_gogo_default_browser, key_quality, gogo_name, CHROME, EDGE, FIREFOX
 from windows.download_window import DownloadWindow
 from shared.app_and_scraper_shared import dynamic_episodes_predictor_initialiser_pro_turboencapsulator
 from windows.main_actual_window import MainWindow, Window
@@ -140,9 +140,9 @@ class ChosenAnimeWindow(Window):
         self.error_label.hide()
         including_error_label_layout.addWidget(self.error_label)
         if anime_details.site == gogo_name:
-            chrome_browser_button = GogoBrowserButton(self, chrome_name, 21)
-            edge_browser_button = GogoBrowserButton(self, edge_name, 21)
-            firefox_browser_button = GogoBrowserButton(self, firefox_name, 21)
+            chrome_browser_button = GogoBrowserButton(self, CHROME, 21)
+            edge_browser_button = GogoBrowserButton(self, EDGE, 21)
+            firefox_browser_button = GogoBrowserButton(self, FIREFOX, 21)
             self.browser_buttons = [chrome_browser_button,
                                     edge_browser_button, firefox_browser_button]
             for button in self.browser_buttons:

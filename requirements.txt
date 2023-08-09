@@ -6,4 +6,3 @@ selenium==4.10.0
 anitopy==2.1.1
 appdirs==1.4.4
 pyinstaller==5.13.0
-tqdm==4.65.0

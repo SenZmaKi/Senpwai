@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtCore import Qt
 from shared.global_vars_and_funcs import AllowedSettingsTypes, validate_settings_json, settings_file_path, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, gogo_normal_color, gogo_hover_color
 from shared.global_vars_and_funcs import settings, key_gogo_default_browser, key_make_download_complete_notification, key_quality, key_max_simulataneous_downloads, key_sub_or_dub, key_download_folder_paths, key_start_in_fullscreen
-from shared.global_vars_and_funcs import pahe_normal_color, pahe_pressed_color, pahe_hover_color, red_normal_color, red_hover_color, red_pressed_color, sub, dub, chrome_name, edge_name, firefox_name, q_1080, q_720, q_480, q_360, gogo_pressed_color
+from shared.global_vars_and_funcs import pahe_normal_color, pahe_pressed_color, pahe_hover_color, red_normal_color, red_hover_color, red_pressed_color, sub, dub, CHROME, EDGE, FIREFOX, q_1080, q_720, q_480, q_360, gogo_pressed_color
 from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
 import json
@@ -248,10 +248,10 @@ class GogoDefaultBrowserSetting(SettingWidget):
         font_size = settings_window.font_size
         self.settings_window = settings_window
         button_chrome = GogoBrowserButton(
-            settings_window, chrome_name, font_size)
-        button_edge = GogoBrowserButton(settings_window, edge_name, font_size)
+            settings_window, CHROME, font_size)
+        button_edge = GogoBrowserButton(settings_window, EDGE, font_size)
         button_firefox = GogoBrowserButton(
-            settings_window, firefox_name, font_size)
+            settings_window, FIREFOX, font_size)
         self.browser_buttons_list = [
             button_chrome, button_edge, button_firefox]
         for button in self.browser_buttons_list:
@@ -283,12 +283,12 @@ class MaxSimultaneousDownloadsSetting(SettingWidget):
         number_input.setText(str(settings[key_max_simulataneous_downloads]))
         number_input.textChanged.connect(self.text_changed)
         zero_error = ErrorLabel(18, 4)
-        zero_error.setText("Bruh, max simulataneous downloads can't be zero.")
+        zero_error.setText("Bruh, max simultaneous downloads can't be zero.")
         set_minimum_size_policy(zero_error)
-        zero_error.hide()
         self.zero_error = zero_error.show
         main_layout = QVBoxLayout()
         main_layout.addWidget(zero_error)
+        zero_error.hide()
         main_layout.addWidget(number_input)
         main_widget = QWidget()
         main_widget.setLayout(main_layout)

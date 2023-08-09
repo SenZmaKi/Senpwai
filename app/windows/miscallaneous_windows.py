@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot
 from windows.main_actual_window import MainWindow, Window
 from shared.global_vars_and_funcs import chopper_crying_path, pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, github_repo_url, github_api_releases_entry_point, app_name, github_icon_path, update_bckg_image_path
-from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy, settings, key_gogo_default_browser, chrome_name, edge_name, chopper_crying_path, version, key_download_folder_paths, open_folder
+from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy, settings, key_gogo_default_browser, CHROME, EDGE, chopper_crying_path, version, key_download_folder_paths, open_folder
 from shared.shared_classes_and_widgets import StyledButton, StyledLabel, network_error_retry_wrapper, FolderButton, IconButton
 from windows.download_window import ProgressBar
 from typing import cast, Callable
@@ -77,11 +77,11 @@ class NoDefaultBrowserWindow(FailedGettingDirectDownloadLinksWindow):
         info_text = f"Sumimasen, downloaading from Gogoanime requires you have either: \n\t\tChrome, Edge or Firefox installed\nYour current Gogo default browser is {gogo_default_browser.capitalize()} but I couldn't find it installed"
         download_browser_button = StyledButton(
             None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
-        if gogo_default_browser == chrome_name:
+        if gogo_default_browser == CHROME:
             download_browser_button.setText("Download Chrome")
             download_browser_button.clicked.connect(lambda: open_new_tab(
                 "https://www.google.com/chrome"))  # type: ignore
-        elif gogo_default_browser == edge_name:
+        elif gogo_default_browser == EDGE:
             download_browser_button.setText("Download Edge")
             download_browser_button.clicked.connect(lambda: open_new_tab(
                 "https://www.microsoft.com/edge/download"))  # type: ignore
