@@ -1,8 +1,8 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtCore import Qt
-from shared.global_vars_and_funcs import AllowedSettingsTypes, validate_settings_json, settings_file_path, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, gogo_normal_color, gogo_hover_color
-from shared.global_vars_and_funcs import settings, key_gogo_default_browser, key_make_download_complete_notification, key_quality, key_max_simulataneous_downloads, key_sub_or_dub, key_download_folder_paths, key_start_in_fullscreen
+from shared.global_vars_and_funcs import AllowedSettingsTypes, validate_settings_json, settings_file_path, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, gogo_normal_color, gogo_hover_color
+from shared.global_vars_and_funcs import settings, key_gogo_default_browser, key_make_download_complete_notification, key_quality, key_max_simulataneous_downloads, key_sub_or_dub, key_download_folder_paths, key_start_in_fullscreen, key_gogo_hls_mode
 from shared.global_vars_and_funcs import pahe_normal_color, pahe_pressed_color, pahe_hover_color, red_normal_color, red_hover_color, red_pressed_color, sub, dub, CHROME, EDGE, FIREFOX, q_1080, q_720, q_480, q_360, gogo_pressed_color
 from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
@@ -14,7 +14,7 @@ from typing import cast
 class SettingsWindow(Window):
     def __init__(self, main_window: MainWindow) -> None:
         super().__init__(main_window, settings_window_bckg_image_path)
-        self.font_size = 25
+        self.font_size = 20
         main_layout = QVBoxLayout()
         self.main_widget = ScrollableSection(main_layout)
         self.sub_dub_setting = SubDubSetting(self)
@@ -24,15 +24,15 @@ class SettingsWindow(Window):
         self.gogo_default_browser_setting = GogoDefaultBrowserSetting(self)
         self.make_download_complete_notification_setting = MakeDownloadCompleteNotificationSetting(
             self)
-        self.start_in_fullscreen = StartInFullscreenSetting(
-            self
-        )
+        self.start_in_fullscreen = StartInFullscreenSetting(self)
         self.download_folder_setting = DownloadFoldersSetting(
             self, main_window)
+        self.gogo_hls_mode_setting = GogoHlsModeSetting(self)
         main_layout.addWidget(self.sub_dub_setting)
         main_layout.addWidget(self.quality_setting)
         main_layout.addWidget(self.max_simultaneous_downloads_setting)
         main_layout.addWidget(self.gogo_default_browser_setting)
+        main_layout.addWidget(self.gogo_hls_mode_setting)
         main_layout.addWidget(
             self.make_download_complete_notification_setting)
         main_layout.addWidget(self.start_in_fullscreen)
@@ -143,6 +143,7 @@ class DownloadFoldersSetting(QWidget):
     def add_folder_to_settings(self):
         added_folder_path = QFileDialog.getExistingDirectory(
             self.main_window, "Choose folder")
+        added_folder_path = fix_qt_path_for_windows(added_folder_path)
         if not self.is_valid_new_folder(added_folder_path):
             return
         self.folder_widgets_layout.addWidget(DownloadFolderWidget(
@@ -182,14 +183,15 @@ class DownloadFolderWidget(QWidget):
     def change_folder(self):
         new_folder_path = QFileDialog.getExistingDirectory(
             self.main_window, "Choose folder")
+        new_folder_path = fix_qt_path_for_windows(new_folder_path)
         if self.download_folder_setting.is_valid_new_folder(new_folder_path):
             self.download_folder_setting.change_from_folder_settings(
                 new_folder_path, self)
 
 
-class YesOrNo(OptionButton):
-    def __init__(self, on_or_off: bool, font_size):
-        super().__init__(None, on_or_off, "YES" if on_or_off else "NO",
+class YesOrNoButton(OptionButton):
+    def __init__(self, yes_or_no: bool, font_size):
+        super().__init__(None, yes_or_no, "YES" if yes_or_no else "NO",
                          font_size, pahe_normal_color, pahe_pressed_color)
 
 
@@ -207,40 +209,36 @@ class SettingWidget(QWidget):
         self.setLayout(main_layout)
 
 
-class StartInFullscreenSetting(SettingWidget):
-    def __init__(self, settings_window: SettingsWindow):
-        yes_button = YesOrNo(True, settings_window.font_size)
-        no_button = YesOrNo(False, settings_window.font_size)
+class YesOrNoSetting(SettingWidget):
+    def __init__(self, settings_window: SettingsWindow, setting_info: str, setting_key_in_json: str, tooltip: str = ''):
+        yes_button = YesOrNoButton(True, settings_window.font_size)
+        no_button = YesOrNoButton(False, settings_window.font_size)
         yes_button.clicked.connect(lambda: no_button.picked_status(False))
         no_button.clicked.connect(lambda: yes_button.picked_status(False))
         yes_button.clicked.connect(lambda: settings_window.update_settings_json(
-            key_start_in_fullscreen, True))
+            setting_key_in_json, True))
         no_button.clicked.connect(lambda: settings_window.update_settings_json(
-            key_start_in_fullscreen, False))
+            setting_key_in_json, False))
         yes_button.picked_status(
-            True) if settings[key_start_in_fullscreen] else no_button.picked_status(True)
+            True) if settings[setting_key_in_json] else no_button.picked_status(True)
         set_minimum_size_policy(yes_button)
         set_minimum_size_policy(no_button)
         super().__init__(settings_window,
-                         "Start app in fullscreen?", [yes_button, no_button])
+                         setting_info, [yes_button, no_button])
+
+        if tooltip != '':
+            self.setting_label.setToolTip(tooltip)
 
 
-class MakeDownloadCompleteNotificationSetting(SettingWidget):
+class StartInFullscreenSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        yes_button = YesOrNo(True, settings_window.font_size)
-        no_button = YesOrNo(False, settings_window.font_size)
-        yes_button.clicked.connect(lambda: no_button.picked_status(False))
-        no_button.clicked.connect(lambda: yes_button.picked_status(False))
-        yes_button.clicked.connect(lambda: settings_window.update_settings_json(
-            key_make_download_complete_notification, True))
-        no_button.clicked.connect(lambda: settings_window.update_settings_json(
-            key_make_download_complete_notification, False))
-        yes_button.picked_status(
-            True) if settings[key_make_download_complete_notification] else no_button.picked_status(True)
-        set_minimum_size_policy(yes_button)
-        set_minimum_size_policy(no_button)
-        super().__init__(settings_window,
-                         "Notify you when download completes uWu?", [yes_button, no_button])
+        super().__init__(settings_window, "Start app in fullscreen?", key_start_in_fullscreen)
+
+
+class MakeDownloadCompleteNotificationSetting(YesOrNoSetting):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__(settings_window, "Notify you when download completes uWu?",
+                         key_make_download_complete_notification)
 
 
 class GogoDefaultBrowserSetting(SettingWidget):
@@ -264,7 +262,7 @@ class GogoDefaultBrowserSetting(SettingWidget):
         super().__init__(settings_window,
                          "Gogo default scraping browser", self.browser_buttons_list)
         self.setting_label.setToolTip(
-            "The selected browser will be used for scraping if you download from Gogoanime.")
+            "The selected browser will be used for scraping if you download from Gogoanime in normal mode.")
 
     def update_browser(self, browser: str):
         self.settings_window.update_settings_json(
@@ -272,6 +270,12 @@ class GogoDefaultBrowserSetting(SettingWidget):
         for button in self.browser_buttons_list:
             if button.browser != browser:
                 button.picked_status(False)
+
+
+class GogoHlsModeSetting(YesOrNoSetting):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__(settings_window, "Use Hls mode for Gogoanime?", key_gogo_hls_mode,
+                         "HLS mode guarantees Gogoanime downloads will occur, zettaini, but it requires ffmpeg to be installed.\nAlso, the download size and duration are unknown, and pausing or canceling a download is not possible without restarting the app.")
 
 
 class MaxSimultaneousDownloadsSetting(SettingWidget):
@@ -285,10 +289,10 @@ class MaxSimultaneousDownloadsSetting(SettingWidget):
         zero_error = ErrorLabel(18, 4)
         zero_error.setText("Bruh, max simultaneous downloads can't be zero.")
         set_minimum_size_policy(zero_error)
-        self.zero_error = zero_error.show
+        zero_error.hide()
         main_layout = QVBoxLayout()
         main_layout.addWidget(zero_error)
-        zero_error.hide()
+        self.zero_error = zero_error.show
         main_layout.addWidget(number_input)
         main_widget = QWidget()
         main_widget.setLayout(main_layout)

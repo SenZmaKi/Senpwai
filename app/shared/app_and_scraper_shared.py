@@ -6,6 +6,7 @@ import requests
 from string import printable
 import re
 import subprocess
+from threading import Event
 
 parser = 'html.parser'
 ibytes_to_mbs_divisor = 1024*1024
@@ -78,19 +79,22 @@ def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: 
     return predicted_episodes_to_download
 
 
-class PausableFunction():
+class PausableAndCancellableFunction:
     def __init__(self) -> None:
-        self.paused = False
+        self.resume = Event()
+        self.resume.set()
         self.cancelled = False
 
+    
     def pause_or_resume(self):
-        self.paused = not self.paused
+        if self.resume.is_set():
+            return self.resume.clear()
+        self.resume.set()
 
     def cancel(self):
         self.cancelled = True
 
-
-class Download(PausableFunction):
+class Download(PausableAndCancellableFunction):
     def __init__(self, link: str, episode_title: str, download_folder_path: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', is_hls_download=False, hls_quality='') -> None:
         super().__init__()
         self.link = link
@@ -98,21 +102,34 @@ class Download(PausableFunction):
         self.file_extension = file_extension
         self.download_folder_path = download_folder_path
         self.progress_update_callback = progress_update_callback
-        self.is_hls_stream_download = is_hls_download
+        self.is_hls_download = is_hls_download
         self.hls_resolution = hls_quality
+        self.ffmpeg_process: subprocess.Popen
         file_title = f'{self.episode_title}{self.file_extension}'
         self.file_path = os.path.join(self.download_folder_path, file_title)
         temporary_file_title = f'{self.episode_title} [Downloading]{self.file_extension}'
         self.temporary_file_path = os.path.join(
             self.download_folder_path, temporary_file_title)
+        if os.path.isfile(self.temporary_file_path): os.unlink(self.temporary_file_path) 
+
+    def cancel(self):
+        print("cancelled")
+        if self.is_hls_download: 
+            self.ffmpeg_process.terminate()
+        return super().cancel()
+
 
     def start_download(self):
-        if self.is_hls_stream_download:
-            download_complete = self.hls_download()
-        else:
-            download_complete = self.normal_download()
-        if not download_complete and os.path.isfile(self.temporary_file_path):
-            return os.unlink(self.temporary_file_path)
+        download_complete = False
+        while not download_complete and not self.cancelled:
+            if self.is_hls_download:
+                download_complete = self.hls_download()
+            else:
+                download_complete = self.normal_download()
+        if self.cancelled:
+            if os.path.isfile(self.temporary_file_path):
+                os.unlink(self.temporary_file_path)
+            return
         os.rename(self.temporary_file_path, self.file_path)
 
     def hls_download(self) -> bool:
@@ -129,9 +146,16 @@ class Download(PausableFunction):
             resolution_index = match_quality(ep_resolutions, quality)
             command = generate_ffmpeg_command(
                 hls_link, resolution_index, file_path)
-            completed_process = subprocess.run(
-                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            return True if completed_process.returncode == 0 else False
+            if platform == 'win32':
+                self.ffmpeg_process = subprocess.Popen(
+                    args=command, creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                self.ffmpeg_process = subprocess.Popen(
+                    args=command
+                )
+            returncode = self.ffmpeg_process.wait()
+            print(returncode)
+            return True if returncode == 0 else False
 
         return download(self.link, self.temporary_file_path, self.hls_resolution)
 
@@ -153,8 +177,7 @@ class Download(PausableFunction):
                     try:
                         data = network_error_retry_wrapper(
                             lambda: (next(iter_content)))
-                        while self.paused:
-                            continue
+                        self.resume.wait()
                         if self.cancelled:
                             return False
                         size = file.write(data)

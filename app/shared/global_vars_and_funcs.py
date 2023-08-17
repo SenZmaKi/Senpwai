@@ -62,6 +62,7 @@ default_max_simutaneous_downloads = 2
 default_gogo_browser = CHROME
 default_make_download_complete_notification = True
 default_start_in_fullscreen = True
+default_gogo_hls_mode = False
 
 assets_path = os.path.join(base_directory, "assets")
 def join_from_assets(file): return os.path.join(assets_path, file)
@@ -178,6 +179,7 @@ key_max_simulataneous_downloads = "max_simultaneous_downloads"
 key_gogo_default_browser = "gogo_default_browser"
 key_make_download_complete_notification = "make_download_complete_notification"
 key_start_in_fullscreen = "start_in_fullscreen"
+key_gogo_hls_mode = "gogo_hls_mode"
 
 settings_file_path = os.path.join(
     config_dir, "settings.json")
@@ -201,6 +203,10 @@ def set_minimum_size_policy(object):
                          QSizePolicy.Policy.Minimum)
     object.setFixedSize(object.sizeHint())
 
+def fix_qt_path_for_windows(path: str) -> str:
+    if sys.platform  == "win32":
+        path = path.replace("/", "\\")
+    return path
 
 def validate_settings_json(settings_json: dict) -> dict:
     clean_settings = {}
@@ -221,7 +227,7 @@ def validate_settings_json(settings_json: dict) -> dict:
     valid_folder_paths: list[str] = default_download_folder_paths
     try:
         download_folder_paths = settings_json[key_download_folder_paths]
-        valid_folder_paths = [path for path in download_folder_paths if os.path.isdir(
+        valid_folder_paths = [fix_qt_path_for_windows(path) for path in download_folder_paths if os.path.isdir(
             path) and not requires_admin_access(path) and path not in valid_folder_paths]
         if len(valid_folder_paths) == 0:
             valid_folder_paths = default_download_folder_paths
@@ -256,6 +262,14 @@ def validate_settings_json(settings_json: dict) -> dict:
         clean_settings[key_start_in_fullscreen] = start_in_fullscreen
     except KeyError:
         clean_settings[key_start_in_fullscreen] = default_start_in_fullscreen
+    try:
+        gogo_hls_mode = settings_json[key_gogo_hls_mode]
+        if not isinstance(gogo_hls_mode, bool):
+            raise KeyError
+        clean_settings[key_gogo_hls_mode] = gogo_hls_mode
+    except KeyError:
+        clean_settings[key_gogo_hls_mode] = default_gogo_hls_mode
+
 
     return clean_settings
 

@@ -4,7 +4,7 @@ import json
 import re
 from typing import Callable, cast
 from math import pow
-from shared.app_and_scraper_shared import network_error_retry_wrapper, parser, test_downloading, match_quality, PausableFunction
+from shared.app_and_scraper_shared import network_error_retry_wrapper, parser, test_downloading, match_quality, PausableAndCancellableFunction
 
 PAHE_HOME_URL = 'https://animepahe.ru'
 API_URL_EXTENSION = '/api?m='
@@ -37,7 +37,7 @@ def get_total_episode_page_count(anime_page_link: str) -> int:
     return total_episode_page_count
 
 
-class GetEpisodePageLinks(PausableFunction):
+class GetEpisodePageLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
@@ -54,8 +54,7 @@ class GetEpisodePageLinks(PausableFunction):
             episodes_data += decoded_anime_page['data']
             page_url = decoded_anime_page["next_page_url"]
             page_no += 1
-            while self.paused:
-                continue
+            self.resume.wait()
             if self.cancelled:
                 return []
             progress_update_callback(1)
@@ -70,7 +69,7 @@ class GetEpisodePageLinks(PausableFunction):
         return episode_links
 
 
-class GetPahewinDownloadPage(PausableFunction):
+class GetPahewinDownloadPage(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
@@ -82,8 +81,7 @@ class GetPahewinDownloadPage(PausableFunction):
             soup = BeautifulSoup(episode_page, parser)
             download_data.append(soup.find_all(
                 'a', class_='dropdown-item', target='_blank'))
-            while self.paused:
-                continue
+            self.resume.wait()
             if self.cancelled:
                 return ([], [])
             progress_update_callback(1)
@@ -191,7 +189,7 @@ def decrypt_token_and_post_url_page(full_key: str, key: str, v1: int, v2: int) -
     return r
 
 
-class GetDirectDownloadLinks(PausableFunction):
+class GetDirectDownloadLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
@@ -221,8 +219,7 @@ class GetDirectDownloadLinks(PausableFunction):
                 '_token': token_value}, allow_redirects=False))
             direct_download_link = response.headers['location']
             direct_download_links.append(direct_download_link)
-            while self.paused:
-                continue
+            self.resume.wait()
             if self.cancelled:
                 return []
             progress_update_callback(1)

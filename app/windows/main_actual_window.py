@@ -34,6 +34,9 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
 
+        
+        # For testing purposes comment out on deployment
+        # self.search_window.search_anime('Senyuu', 'gogo')
         # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
         # self.setup_and_switch_to_chosen_anime_wi  ndow(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=37d42404-faa1-9362-64e2-975d2d8aa797", "37d42404-faa1-9362-64e2-975d2d8aa797"), "pahe")
         # self.setup_and_switch_to_chosen_anime_window(Anime("Blue Lock", "https://gogoanime.hu/category/blue-lock", None), gogo_name)

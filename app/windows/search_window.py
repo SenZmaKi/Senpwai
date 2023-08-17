@@ -102,8 +102,11 @@ class SearchWindow(Window):
         else:
             self.bottom_section_stacked_widgets.setCurrentWidget(
                 self.results_widget)
-            for result in results:
+            for idx, result in enumerate(results):
                 button = ResultButton(result, self.main_window, site, 9, 48)
+                # For testing purposes comment out on deployment
+                # if idx == 0:
+                #     button.click()
                 self.results_layout.addWidget(button)
         self.loading.stop()
         self.search_thread = None

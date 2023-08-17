@@ -139,7 +139,7 @@ class ChosenAnimeWindow(Window):
         self.error_label = ErrorLabel(18, 6)
         self.error_label.hide()
         including_error_label_layout.addWidget(self.error_label)
-        if anime_details.site == gogo_name:
+        if anime_details.site == gogo_name and not anime_details.is_hls_download:
             chrome_browser_button = GogoBrowserButton(self, CHROME, 21)
             edge_browser_button = GogoBrowserButton(self, EDGE, 21)
             firefox_browser_button = GogoBrowserButton(self, FIREFOX, 21)
@@ -268,7 +268,7 @@ class DownloadButton(StyledButton):
             invalid_input = True
 
         # For testing purposes
-        # end_episode = start_episode
+        # end_episode = start_episode + 7
 
         self.anime_details.predicted_episodes_to_download = dynamic_episodes_predictor_initialiser_pro_turboencapsulator(
             start_episode, end_episode, self.anime_details.haved_episodes)

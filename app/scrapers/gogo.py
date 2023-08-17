@@ -1,5 +1,5 @@
-                # To handle a case like for Jujutsu Kaisen 2nd Season where when there is TV in the titie it misses in the episode page links
 import requests
+from urllib.parse import quote
 from bs4 import BeautifulSoup, ResultSet, Tag
 from time import sleep
 import webbrowser
@@ -13,7 +13,7 @@ from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions
 
 import subprocess
 from typing import Callable, cast
-from shared.app_and_scraper_shared import parser, network_error_retry_wrapper, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time, PausableFunction
+from shared.app_and_scraper_shared import parser, network_error_retry_wrapper, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time, PausableAndCancellableFunction
 
 # Hls mode imports
 import json
@@ -39,7 +39,7 @@ ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
 
 def search(keyword: str) -> list[BeautifulSoup]:
     search_url = '/search.html?keyword='
-    search = GOGO_HOME_URL + search_url + keyword
+    search = GOGO_HOME_URL + search_url + quote(keyword)
     response = network_error_retry_wrapper(
         lambda: requests.get(search).content)
     soup = BeautifulSoup(response, parser)
@@ -72,6 +72,7 @@ def setup_headless_browser(browser: str = EDGE) -> Chrome | Edge | Firefox:
         if isinstance(options, FirefoxOptions):
             # For testing purposes, when deploying remember to uncomment out
             options.add_argument("--headless")
+           # pass
         else:
             # For testing purposes, when deploying remember to uncomment out
             options.add_argument("--headless=new")
@@ -128,7 +129,7 @@ def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | 
     return (links, quality_infos)
 
 
-class GetDirectDownloadLinks(PausableFunction):
+class GetDirectDownloadLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
@@ -142,15 +143,14 @@ class GetDirectDownloadLinks(PausableFunction):
                 page_link, driver, max_load_wait_time)
             quality_idx = match_quality(quality_infos, quality)
             download_links.append(links[quality_idx])
-            while self.paused:
-                continue
+            self.resume.wait()
             if self.cancelled:
                 return []
             progress_update_call_back(1)
         return download_links
 
 
-class GetDownloadPageLinks(PausableFunction):
+class GetDownloadPageLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
@@ -176,15 +176,14 @@ class GetDownloadPageLinks(PausableFunction):
                 link = fix_dead_episode_page_link(eps_pg_link)
                 link = extract_link(eps_pg_link.replace('-tv', ''))
             download_page_links.append(link)
-            while self.paused:
-                continue
+            self.resume.wait()
             if self.cancelled:
                 return []
             progress_update_callback(1)
         return download_page_links
 
 
-class CalculateTotalDowloadSize(PausableFunction):
+class CalculateTotalDowloadSize(PausableAndCancellableFunction):
     def __init__(self):
         super().__init__()
 
@@ -198,8 +197,7 @@ class CalculateTotalDowloadSize(PausableFunction):
                 total_size += round(int(size) / ibytes_to_mbs_divisor)
             else:
                 total_size += int(size)
-            while self.paused:
-                continue
+            self.resume.wait()
             if self.cancelled:
                 return 0
             progress_update_callback(1)
@@ -228,6 +226,7 @@ def dub_available(anime_title: str) -> bool:
     dub_title = f'{anime_title}{DUB_EXTENSION}'
     results = search(dub_title)
     for result in results:
+        print(result)
         title = cast(str, cast(Tag, result.find('a'))['title'])
         if dub_title == title:
             return True
@@ -319,16 +318,14 @@ def extract_steam_url(embed_url: str) -> str:
     return stream_url
 
 
-class GetHlsLinks(PausableFunction):
-    def __init__(self, episode_urls: list[str]) -> None:
+class GetHlsLinks(PausableAndCancellableFunction):
+    def __init__(self) -> None:
         super().__init__()
-        self.episode_urls = episode_urls
 
-    def get_hls_links(self, progress_update_callback: Callable = lambda x: None) -> list[str]:
+    def get_hls_links(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> list[str]:
         hls_links: list[str] = []
-        for eps_url in self.episode_urls:
-            while self.paused:
-                continue
+        for eps_url in episode_page_links:
+            self.resume.wait()
             hls_links.append(extract_steam_url(get_embed_url(eps_url)))
             if self.cancelled:
                 return []
@@ -363,7 +360,7 @@ def test_getting_direct_download_links(episode_page_links: list[str], quality: s
 
 
 def test_getting_hls_links(episode_page_links: list[str]) -> list[str]:
-    hls_links = GetHlsLinks(episode_page_links).get_hls_links()
+    hls_links = GetHlsLinks().get_hls_links(episode_page_links)
     list(map(print, hls_links))
     return hls_links
 
@@ -373,15 +370,15 @@ def main():
     anime_title = 'Senyuu'
     quality = '360p'
     sub_or_dub = 'sub'
-    start_episode = 1
-    end_episode = 2
+    start_episode = 5 
+    end_episode = 5 
 
     episode_page_links = test_getting_episode_page_links(
         anime_title, start_episode, end_episode, sub_or_dub)
-    direct_download_links = test_getting_direct_download_links(episode_page_links, quality)
-    # hls_links = test_getting_hls_links(episode_page_links)
+    # direct_download_links = test_getting_direct_download_links(episode_page_links, quality)
+    #hls_links = test_getting_hls_links(episode_page_links)
     # test_downloading(anime_title, hls_links, True, quality)
-    test_downloading(anime_title, direct_download_links)
+    # test_downloading(anime_title, direct_download_links)
 
 
 if __name__ == "__main__":

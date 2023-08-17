@@ -4,8 +4,9 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt, QCoreApplication
 from windows.main_actual_window import MainWindow
 from shared.global_vars_and_funcs import senpwai_icon_path, pahe_normal_color, app_name, settings, key_start_in_fullscreen, log_error
+from types import TracebackType
 
-def custom_exception_handler(type_, value, traceback):
+def custom_exception_handler(type_: type[BaseException], value: BaseException, traceback: TracebackType | None):
     log_error(f"Unhandled exception: {type_.__name__}: {value}")
     sys.__excepthook__(type_, value, traceback)  # Call the default exception handler
 

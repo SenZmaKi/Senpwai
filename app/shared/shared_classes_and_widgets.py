@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl, QEvent, pyqtSlot
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import AllowedSettingsTypes, pahe_name, gogo_name
 from time import time
-from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, key_gogo_default_browser, key_quality, key_sub_or_dub, key_download_folder_paths, default_download_folder_paths
+from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, key_gogo_default_browser, key_quality, key_sub_or_dub, key_download_folder_paths, key_gogo_hls_mode
 from shared.global_vars_and_funcs import folder_icon_path, red_normal_color, red_pressed_color, pahe_normal_color, pahe_pressed_color, gogo_normal_color, open_folder
 from shared.app_and_scraper_shared import sanitise_title, network_error_retry_wrapper
 from pathlib import Path
@@ -405,7 +405,7 @@ class ProgressBar(VirtualProgressBar):
         return True if self.bar.value() >= self.total_value else False
 
     def cancel(self):
-        if not self.paused and not self.is_complete():
+        if not self.paused and not self.is_complete() and not self.cancelled:
             self.bar.setFormat(f"Cancelled {self.item_task_is_applied_on}")
             self.cancel_callback()
             self.cancelled = True
@@ -447,6 +447,7 @@ class AnimeDetails():
     def __init__(self, anime: Anime, site: str):
         self.anime = anime
         self.site = site
+        self.is_hls_download = True if (site == gogo_name) and settings[key_gogo_hls_mode] else False
         self.browser = settings[key_gogo_default_browser]
         self.sanitised_title = sanitise_title(anime.title)
         self.chosen_default_download_path: str = ''
