@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QObject, QThread, QMutex, pyqtSignal, pyqtSlot
 from shared.global_vars_and_funcs import settings, key_make_download_complete_notification, key_max_simulataneous_downloads, key_gogo_hls_mode
 from shared.global_vars_and_funcs import set_minimum_size_policy, download_complete_icon_path, remove_from_queue_icon_path, move_up_queue_icon_path, move_down_queue_icon_path
 from shared.global_vars_and_funcs import pahe_name, gogo_name, dub, downlaod_window_bckg_image_path, open_folder
-from shared.app_and_scraper_shared import Download, ibytes_to_mbs_divisor, network_error_retry_wrapper, PausableAndCancellableFunction
+from shared.app_and_scraper_shared import Download, ibytes_to_mbs_divisor, network_error_retry_wrapper, PausableAndCancellableFunction, ffmpeg_is_installed
 from windows.main_actual_window import MainWindow, Window
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, ScrollableSection, ProgressBar, AnimeDetails, FolderButton, OutlinedLabel, IconButton, HorizontalLine, ErrorLabel
 from typing import Callable, cast
@@ -15,48 +15,76 @@ from scrapers import gogo
 from scrapers import pahe
 from threading import Event
 
+class CurrentAgainstTotal(StyledLabel):
+    def __init__(self, total: int, units: str, font_size=30, parent: QObject | None=None):
+        super().__init__(parent, font_size)
+        self.total = total
+        self.current = 0
+        self.units = units
+        # This is to ensure that even if a child class overwrides update count, the parent's update count still gets called during parent initialisation
+        CurrentAgainstTotal.update_count(self, 0)
+    
+    def update_count(self, added: int):
+        self.current += added
+        self.setText(f"{self.current}/{self.total} {self.units}")
+        set_minimum_size_policy(self)
+        self.update()
 
-class DownloadedEpisodeCount(StyledLabel):
-    def __init__(self, parent, total_episodes: int, tray_icon: QSystemTrayIcon, anime_title: str,
-                 download_complete_icon: QIcon, anime_folder_path: str, download_window):
-        super().__init__(parent, 30)
+class HlsEstimatedSize(CurrentAgainstTotal):
+    def __init__(self, download_window, total_episode_count: int):
+        super().__init__(0, "MBs", parent=download_window)
+        self.download_window = cast(Download, download_window)
+        self.total_episode_count = total_episode_count
+        self.current_episode_count = 0
+        self.sizes_for_each_eps: list[int] = []
+
+    def update_count(self, added: int):
+        if added == 0:
+            self.total -= self.current
+            self.total_episode_count -= 1
+        else:
+            self.sizes_for_each_eps.append(added)
+        count = len(self.sizes_for_each_eps)
+        if count > 0:
+            new_current = sum(self.sizes_for_each_eps)
+            self.current = new_current
+            self.total = round((new_current / count) * self.total_episode_count)
+        super().update_count(0)
+
+
+class DownloadedEpisodeCount(CurrentAgainstTotal):
+    def __init__(self, download_window, total_episodes: int, tray_icon: QSystemTrayIcon, anime_title: str,
+                 download_complete_icon: QIcon, anime_folder_path: str):
         self.download_window = cast(DownloadWindow, download_window)
         self.download_window = download_window
-        self.total_episodes = total_episodes
-        self.current_episodes = 0
         self.tray_icon = tray_icon
         self.anime_folder_path = anime_folder_path
         self.tray_icon.messageClicked.connect(
-            lambda: open_folder(self.anime_folder_path))  # type: ignore
+            lambda: open_folder(self.anime_folder_path))
         self.anime_title = anime_title
         self.download_complete_icon = download_complete_icon
         self.cancelled = False
-        self.show()
+        super().__init__(total_episodes, "eps", 30, download_window)
 
     def reinitialise(self, new_total: int, new_anime_title: str, new_anime_folder_path: str):
         self.cancelled = False
-        self.current_episodes = 0
-        self.total_episodes = new_total
+        self.current = 0
+        self.total = new_total
         self.anime_folder_path = new_anime_folder_path
         self.anime_title = new_anime_title
-        self.setText(f"{0}/{new_total} eps")
-        set_minimum_size_policy(self)
-        self.update()
+        super().update_count(0)
 
     def download_complete_notification(self):
         self.tray_icon.showMessage(
             "Download Complete", self.anime_title, self.download_complete_icon)
 
     def is_complete(self) -> bool:
-        return self.current_episodes >= self.total_episodes
+        return self.current >= self.total
 
     def update_count(self, added_episode_count: int):
-        self.current_episodes += added_episode_count
-        self.setText(f"{self.current_episodes}/{self.total_episodes} eps")
-        set_minimum_size_policy(self)
-        self.update()
+        super().update_count(added_episode_count)
         complete = self.is_complete()
-        if complete and settings[key_make_download_complete_notification]:
+        if complete and self.total != 0 and settings[key_make_download_complete_notification]:
             self.download_complete_notification()
         if complete or self.cancelled:
             self.start_next_download()
@@ -245,6 +273,7 @@ class DownloadWindow(Window):
         self.first_download_since_app_start = True
         self.current_anime_progress_bar: ProgressBar | None = None
         self.hls_download_note: StyledLabel | None = None
+        self.hls_est_size: HlsEstimatedSize | None = None
         self.pause_button: PauseAllButton
         self.cancel_button: CancelAllButton
         self.folder_button: FolderButton
@@ -294,6 +323,8 @@ class DownloadWindow(Window):
             down_pge_lnk, down_info, anime_details), download_page_progress_bar).start()
     
     def get_hls_links(self, episode_page_links: list[str], anime_details: AnimeDetails):
+        if not ffmpeg_is_installed():
+            return self.main_window.create_and_switch_to_no_ffmpeg_window()
         if episode_page_links == []:
             return
         episode_page_links = [episode_page_links[eps-anime_details.start_download_episode]
@@ -338,8 +369,12 @@ class DownloadWindow(Window):
                 anime_details),  calculating_download_size_progress_bar).start()
 
     def queue_download(self, anime_details: AnimeDetails):
+        # Verification that the download about to be queued is valid in that the progress of the previous function wasn't cancelled resulting to a premature callback
+        if anime_details.is_hls_download and len(anime_details.direct_download_links) == 0:
+            return
         if not anime_details.is_hls_download and anime_details.total_download_size == 0:
             return
+
         if not anime_details.anime_folder_path:
             anime_details.anime_folder_path = os.path.join(
                 anime_details.chosen_default_download_path, anime_details.sanitised_title)
@@ -356,7 +391,8 @@ class DownloadWindow(Window):
             anime_details, anime_progress_bar)
         if self.first_download_since_app_start:
             self.downloaded_episode_count = DownloadedEpisodeCount(
-                self, 0, self.tray_icon, anime_details.anime.title, self.download_complete_icon, anime_details.anime_folder_path, self)
+                self, 0, self.tray_icon, anime_details.anime.title, 
+                self.download_complete_icon, anime_details.anime_folder_path)
 
             set_minimum_size_policy(self.downloaded_episode_count)
             self.folder_button = FolderButton(
@@ -379,30 +415,33 @@ class DownloadWindow(Window):
         if not self.pause_button.download_is_active():
             self.start_download()
 
-    def remove_previous_progress_bar(self):
-        if self.current_anime_progress_bar:
-            self.current_anime_progress_bar.deleteLater()
-            self.first_row_of_progress_bar_layout.removeWidget(
-                self.current_anime_progress_bar)
-
-    def start_download(self):
-        if self.hls_download_note:
-            self.hls_download_note.deleteLater()
-            self.hls_download_note = None
-        self.remove_previous_progress_bar()
+    def clean_out_previous_download(self):
         if self.first_download_since_app_start:
             self.first_download_since_app_start = False
         else:
             self.download_queue.get_or_pop_first_queued_download(pop=True)
+        if self.current_anime_progress_bar:
+            self.current_anime_progress_bar.deleteLater()
+            self.first_row_of_progress_bar_layout.removeWidget(
+                self.current_anime_progress_bar)
+        if self.hls_download_note and self.hls_est_size:
+            self.hls_download_note.deleteLater()
+            self.hls_download_note = None
+            self.hls_est_size.deleteLater()
+            self.hls_est_size = None
+
+    def start_download(self):
+        self.clean_out_previous_download()
         current_queued = self.download_queue.get_or_pop_first_queued_download()
         self.download_queue.remove_buttons_from_queued_download(current_queued)
         anime_details = current_queued.anime_details
         is_hls_download = anime_details.is_hls_download
         if is_hls_download:
             self.hls_download_note = StyledLabel(self, 17)
-            self.hls_download_note.setText("Note that the current download is in HLS mode so you can't pause it.\nAlso the progress bars won't update until the episode completes downloading.")
+            self.hls_download_note.setText("Since the current download is in HLS mode you can't pause ongoing episode downloads and\nthe progress bars only show progress of the episode download completion.")
             set_minimum_size_policy(self.hls_download_note)
-            self.second_row_of_buttons_layout.addWidget(self.hls_download_note)
+            self.hls_est_size = HlsEstimatedSize(self, len(anime_details.direct_download_links))
+            self.second_row_of_buttons_layout.insertWidget(0, self.hls_est_size)
             self.main_layout.insertWidget(1, self.hls_download_note, alignment=Qt.AlignmentFlag.AlignHCenter)
         self.current_anime_progress_bar = current_queued.progress_bar
         self.downloaded_episode_count.reinitialise(len(
@@ -481,15 +520,20 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
         if self.ongoing_downloads_count < settings[key_max_simulataneous_downloads]:
             self.download_slot_available.set()        
 
-    @pyqtSlot(bool)
-    def update_downloaded_episode_count(self, is_cancelled: bool):
-        if not is_cancelled:
-            count = 1
-        else:
+    @pyqtSlot(bool, str)
+    def update_eps_count_and_size(self, is_cancelled: bool, eps_file_path: str):
+        hls_est_size = self.download_window.hls_est_size
+        if is_cancelled:
             if not self.downloaded_episode_count.cancelled:
-                self.downloaded_episode_count.total_episodes -= 1
-            count = 0
-        self.downloaded_episode_count.update_count(count)
+                self.downloaded_episode_count.total -= 1
+            self.downloaded_episode_count.update_count(0)
+            if hls_est_size:
+                hls_est_size.update_count(0)
+        else:
+            self.downloaded_episode_count.update_count(1)
+            if hls_est_size:
+                eps_size = round(os.path.getsize(eps_file_path) / ibytes_to_mbs_divisor)
+                hls_est_size.update_count(eps_size)
     # Gogo's direct download link sometimes doesn't work, it returns a 302 status code meaning the resource has been moved, this attempts to redirect to that link
     # It is applied to Pahe too just in case and to make everything streamlined
 
@@ -531,10 +575,12 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
             while episode_title not in self.progress_bars:
                 continue
             episode_progress_bar = self.progress_bars[episode_title]
+            if self.anime_details.is_hls_download:
+                episode_progress_bar.pause_button.hide()
             # This is specifcally at this point instead of at the top cause of the above http request made in self.get_exact_episode_size such that if a user pauses or cancels as the request is in progress the pause will be captured
             DownloadThread(self, link, episode_title, download_size, self.anime_details.site, self.anime_details.is_hls_download, self.anime_details.quality, cast(str, self.anime_details.anime_folder_path),
                            episode_progress_bar, self.clean_up_finished_download,
-                           self.anime_progress_bar, self.handle_updating_anime_progress_bar, self.update_downloaded_episode_count, self.mutex).start()
+                           self.anime_progress_bar, self.handle_updating_anime_progress_bar, self.update_eps_count_and_size, self.mutex).start()
             self.ongoing_downloads_count += 1
             if self.ongoing_downloads_count >= settings[key_max_simulataneous_downloads]:
                 self.download_slot_available.clear()
@@ -543,11 +589,11 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
 class DownloadThread(QThread):
     update_bars = pyqtSignal(int)
     finished = pyqtSignal(str)
-    update_downloaded_episode_count = pyqtSignal(bool)
+    update_eps_count_and_hls_sizes = pyqtSignal(bool, str)
 
     def __init__(self, parent: DownloadManagerThread, link: str, title: str, size: int, site: str, is_hls_download: bool, hls_quality: str, download_folder: str,  progress_bar: ProgressBar,
                  finished_callback: Callable, anime_progress_bar: ProgressBar, handle_updating_anime_progress_bar: Callable,
-                 update_downloaded_episode_count_callback: Callable, mutex: QMutex) -> None:
+                 update_eps_count_and_hls_sizes: Callable, mutex: QMutex) -> None:
         super().__init__(parent)
         self.link = link
         self.title = title
@@ -561,8 +607,8 @@ class DownloadThread(QThread):
         self.anime_progress_bar = anime_progress_bar
         self.update_bars.connect(handle_updating_anime_progress_bar)
         self.update_bars.connect(self.progress_bar.update_bar)
-        self.update_downloaded_episode_count.connect(
-            update_downloaded_episode_count_callback)
+        self.update_eps_count_and_hls_sizes.connect(
+            update_eps_count_and_hls_sizes)
         self.mutex = mutex
         self.download: Download
         self.is_cancelled = False
@@ -592,15 +638,12 @@ class DownloadThread(QThread):
             self.progress_bar.pause_callback = self.download.pause_or_resume
         self.progress_bar.cancel_callback = self.cancel
 
-        try:
-            self.download.start_download()
-        except FileExistsError:
-            pass
+        self.download.start_download()
         self.mutex.lock()
         if self.is_hls_download and not self.is_cancelled:
             self.update_bars.emit(1)
         self.finished.emit(self.title)
-        self.update_downloaded_episode_count.emit(self.is_cancelled)
+        self.update_eps_count_and_hls_sizes.emit(self.is_cancelled, self.download.file_path)
         self.mutex.unlock()
 
 

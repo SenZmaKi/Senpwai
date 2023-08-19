@@ -226,7 +226,6 @@ def dub_available(anime_title: str) -> bool:
     dub_title = f'{anime_title}{DUB_EXTENSION}'
     results = search(dub_title)
     for result in results:
-        print(result)
         title = cast(str, cast(Tag, result.find('a'))['title'])
         if dub_title == title:
             return True

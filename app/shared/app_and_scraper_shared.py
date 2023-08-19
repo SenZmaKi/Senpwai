@@ -52,7 +52,7 @@ def sanitise_title(title: str):
     # Santises folder name to only allow names that windows can create a folder with
     valid_chars = set(printable) - set('\\/:*?"<>|')
     title = title.replace(':', ' -')
-    sanitised = ''.join(filter(lambda c: c in valid_chars, title))
+    sanitised = ''.join(filter(lambda char: char in valid_chars, title))
     return sanitised[:255].rstrip()
 
 
@@ -78,6 +78,16 @@ def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: 
             predicted_episodes_to_download.append(episode)
     return predicted_episodes_to_download
 
+def ffmpeg_is_installed() -> bool:
+    try:
+        if platform == "win32":
+            subprocess.run("ffmpeg", creationflags=subprocess.CREATE_NO_WINDOW)
+        else:
+            subprocess.run("ffmpeg")
+        return True
+    except FileNotFoundError:
+        return False
+        
 
 class PausableAndCancellableFunction:
     def __init__(self) -> None:
@@ -113,7 +123,6 @@ class Download(PausableAndCancellableFunction):
         if os.path.isfile(self.temporary_file_path): os.unlink(self.temporary_file_path) 
 
     def cancel(self):
-        print("cancelled")
         if self.is_hls_download: 
             self.ffmpeg_process.terminate()
         return super().cancel()
@@ -130,6 +139,8 @@ class Download(PausableAndCancellableFunction):
             if os.path.isfile(self.temporary_file_path):
                 os.unlink(self.temporary_file_path)
             return
+        if os.path.isfile(self.file_path):
+            os.unlink(self.file_path)
         os.rename(self.temporary_file_path, self.file_path)
 
     def hls_download(self) -> bool:
@@ -154,7 +165,6 @@ class Download(PausableAndCancellableFunction):
                     args=command
                 )
             returncode = self.ffmpeg_process.wait()
-            print(returncode)
             return True if returncode == 0 else False
 
         return download(self.link, self.temporary_file_path, self.hls_resolution)

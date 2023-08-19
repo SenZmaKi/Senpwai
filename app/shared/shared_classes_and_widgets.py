@@ -1,6 +1,6 @@
 from PyQt6.QtGui import QPixmap, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame
-from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl, QEvent, pyqtSlot
+from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl, pyqtSlot
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import AllowedSettingsTypes, pahe_name, gogo_name
 from time import time
@@ -114,9 +114,9 @@ class OptionButton(StyledButton):
         self.picked_style_sheet = self.not_picked_style_sheet+styles_to_overwride
         self.option = option
         self.setText(option_displayed)
-        self.clicked.connect(lambda: self.picked_status(True))
+        self.clicked.connect(lambda: self.set_picked_status(True))
 
-    def picked_status(self, picked: bool):
+    def set_picked_status(self, picked: bool):
         if picked:
             self.setStyleSheet(self.picked_style_sheet)
         else:
@@ -632,6 +632,11 @@ class SubDubButton(OptionButton):
                          font_size,  pahe_normal_color, pahe_pressed_color)
         self.sub_or_dub = sub_or_dub
 
+class GogoNormOrHlsButton(OptionButton):
+    def __init__(self, window: QWidget, norm_or_hls: str, font_size: int):
+        super().__init__(window, norm_or_hls, norm_or_hls.upper(), 
+                         font_size, red_normal_color, red_pressed_color)
+        self.norm_or_hls = norm_or_hls
 
 class HorizontalLine(QFrame):
     def __init__(self, color: str = "black", parent: QWidget | None = None):

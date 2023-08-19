@@ -213,14 +213,14 @@ class YesOrNoSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow, setting_info: str, setting_key_in_json: str, tooltip: str = ''):
         yes_button = YesOrNoButton(True, settings_window.font_size)
         no_button = YesOrNoButton(False, settings_window.font_size)
-        yes_button.clicked.connect(lambda: no_button.picked_status(False))
-        no_button.clicked.connect(lambda: yes_button.picked_status(False))
+        yes_button.clicked.connect(lambda: no_button.set_picked_status(False))
+        no_button.clicked.connect(lambda: yes_button.set_picked_status(False))
         yes_button.clicked.connect(lambda: settings_window.update_settings_json(
             setting_key_in_json, True))
         no_button.clicked.connect(lambda: settings_window.update_settings_json(
             setting_key_in_json, False))
-        yes_button.picked_status(
-            True) if settings[setting_key_in_json] else no_button.picked_status(True)
+        yes_button.set_picked_status(
+            True) if settings[setting_key_in_json] else no_button.set_picked_status(True)
         set_minimum_size_policy(yes_button)
         set_minimum_size_policy(no_button)
         super().__init__(settings_window,
@@ -258,7 +258,7 @@ class GogoDefaultBrowserSetting(SettingWidget):
             button.clicked.connect(
                 lambda garbage_bool, browser=browser: self.update_browser(browser))
             if button.browser == settings[key_gogo_default_browser]:
-                button.picked_status(True)
+                button.set_picked_status(True)
         super().__init__(settings_window,
                          "Gogo default scraping browser", self.browser_buttons_list)
         self.setting_label.setToolTip(
@@ -269,7 +269,7 @@ class GogoDefaultBrowserSetting(SettingWidget):
             key_gogo_default_browser, browser)
         for button in self.browser_buttons_list:
             if button.browser != browser:
-                button.picked_status(False)
+                button.set_picked_status(False)
 
 
 class GogoHlsModeSetting(YesOrNoSetting):
@@ -328,14 +328,14 @@ class QualitySetting(SettingWidget):
             button.clicked.connect(
                 lambda garbage_bool, quality=quality: self.update_quality(quality))
             if button.quality == settings[key_quality]:
-                button.picked_status(True)
+                button.set_picked_status(True)
         super().__init__(settings_window, "Download quality", self.quality_buttons_list)
 
     def update_quality(self, quality: str):
         self.settings_window.update_settings_json(key_quality, quality)
         for button in self.quality_buttons_list:
             if button.quality != quality:
-                button.picked_status(False)
+                button.set_picked_status(False)
 
 
 class SubDubSetting(SettingWidget):
@@ -350,8 +350,8 @@ class SubDubSetting(SettingWidget):
             sub_button.click()
         else:
             dub_button.click()
-        sub_button.clicked.connect(lambda: dub_button.picked_status(False))
-        dub_button.clicked.connect(lambda: sub_button.picked_status(False))
+        sub_button.clicked.connect(lambda: dub_button.set_picked_status(False))
+        dub_button.clicked.connect(lambda: sub_button.set_picked_status(False))
         sub_button.clicked.connect(
             lambda: settings_window.update_settings_json(key_sub_or_dub, sub))
         dub_button.clicked.connect(

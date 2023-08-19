@@ -1,9 +1,10 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot
-from windows.main_actual_window import MainWindow, Window
+from windows.main_actual_window import MainWindow, TemporaryWindow
 from shared.global_vars_and_funcs import chopper_crying_path, pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, github_repo_url, github_api_releases_entry_point, app_name, github_icon_path, update_bckg_image_path
 from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy, settings, key_gogo_default_browser, CHROME, EDGE, chopper_crying_path, version, key_download_folder_paths, open_folder
-from shared.shared_classes_and_widgets import StyledButton, StyledLabel, network_error_retry_wrapper, FolderButton, IconButton
+from shared.shared_classes_and_widgets import StyledButton, StyledLabel, network_error_retry_wrapper, FolderButton, IconButton 
+from shared.app_and_scraper_shared import ffmpeg_is_installed
 from windows.download_window import ProgressBar
 from typing import cast, Callable
 from webbrowser import open_new_tab
@@ -11,56 +12,58 @@ from shared.app_and_scraper_shared import ibytes_to_mbs_divisor, Download
 import requests
 import sys
 import os
+import subprocess
 
-# I Was trying out Debian support so you may find control flow that treats Debian seperately from Linux in general
-class FailedGettingDirectDownloadLinksWindow(Window):
-    def __init__(self, main_window: MainWindow, anime_title: str, info_text: str, buttons_unique_to_window: list[QPushButton]) -> None:
+class SthCrashedWindow(TemporaryWindow):
+    def __init__(self, main_window: MainWindow, crash_info_text: str, widgets_to_add: list[QWidget]):
         super().__init__(main_window, chopper_crying_path)
         main_window.set_bckg_img(chopper_crying_path)
         info_label = StyledLabel(font_size=30)
-        info_label.setText(info_text)
+        info_label.setText(crash_info_text)
         set_minimum_size_policy(info_label)
-        main_layout = QVBoxLayout()
-        buttons_layout = QHBoxLayout()
+        self.main_layout = QVBoxLayout()
+        self.main_layout.addWidget(info_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.buttons_layout = QHBoxLayout()
+        list(map(self.buttons_layout.addWidget, widgets_to_add))
         buttons_widget = QWidget()
+        buttons_widget.setLayout(self.buttons_layout)
+        self.main_layout.addWidget(buttons_widget)
+        main_widget = QWidget()
+        main_widget.setLayout(self.main_layout)
+        self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignHCenter)
+        self.setLayout(self.full_layout)
+
+class FailedGettingDirectDownloadLinksWindow(SthCrashedWindow):
+    def __init__(self, main_window: MainWindow, anime_title: str, info_text: str, widgets_to_add: list[QWidget]) -> None:
         switch_to_anime_pahe_button = StyledButton(
             None, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color)
-        switch_to_anime_pahe_button.setText("Switch to animepahe")
+        switch_to_anime_pahe_button.setText("Switch to Animepahe")
         set_minimum_size_policy(switch_to_anime_pahe_button)
         switch_to_anime_pahe_button.clicked.connect(
             lambda: main_window.switch_to_pahe(anime_title, self))
         switch_to_anime_pahe_button.clicked.connect(
             lambda: main_window.stacked_windows.removeWidget(self)
         )
-        switch_to_anime_pahe_button.clicked.connect(self.deleteLater)
-        change_default_browser_button = StyledButton(
-            None, 25, "black", red_normal_color, red_hover_color, red_pressed_color)
-        change_default_browser_button.setText("Change gogo default browser")
-        change_default_browser_button.clicked.connect(
-            main_window.switch_to_settings_window)
-        change_default_browser_button.clicked.connect(
-            lambda: main_window.stacked_windows.removeWidget(self)
-        )
-        change_default_browser_button.clicked.connect(self.deleteLater)
-        set_minimum_size_policy(change_default_browser_button)
-        buttons_layout.addWidget(switch_to_anime_pahe_button)
-        buttons_layout.addWidget(change_default_browser_button)
-        list(map(buttons_layout.addWidget, buttons_unique_to_window))
-        buttons_widget.setLayout(buttons_layout)
-        main_layout.addWidget(
-            info_label, alignment=Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(buttons_widget)
-        main_widget = QWidget()
-        main_widget.setLayout(main_layout)
-        self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignHCenter)
-        self.setLayout(self.full_layout)
+        change_default_browser_button = SwitchToSettingsWindowButton("Change Gogo default browser", self, main_window)
+        switch_to_hls_mode_button = SwitchToSettingsWindowButton("Switch to HLS mode", self, main_window)
+        super().__init__(main_window, info_text, [switch_to_anime_pahe_button, change_default_browser_button, switch_to_hls_mode_button, *widgets_to_add])
+
+class SwitchToSettingsWindowButton(StyledButton):
+    def __init__(self, button_text: str, window: SthCrashedWindow, main_window: MainWindow):
+        super().__init__(None, 25, "black", red_normal_color, red_hover_color, red_pressed_color)
+        self.clicked.connect(main_window.switch_to_settings_window)
+        self.clicked.connect(lambda: main_window.stacked_windows.removeWidget(window))
+        self.clicked.connect(window.deleteLater)
+        self.setText(button_text)
+        set_minimum_size_policy(self)
+
 
 
 class CaptchaBlockWindow(FailedGettingDirectDownloadLinksWindow):
     def __init__(self, main_window: MainWindow, anime_title: str, download_page_links: list[str]) -> None:
         main_window.set_bckg_img(chopper_crying_path)
         info_text = (
-            f"Captcha block detected, this only ever happens with Gogoanime\nChanging your Gogo default browser setting may help\nYour current Gogo default browser is {settings[key_gogo_default_browser].capitalize()}")
+            f"Captcha block detected, this only ever happens with Gogoanime in Normal mode\nChanging your Gogo default browser setting may help\nYour current Gogo default browser is {settings[key_gogo_default_browser].capitalize()}\nYou can also try using HLS mode instead of Normal mode")
         open_browser_with_links_button = StyledButton(
             None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
         open_browser_with_links_button.setText("Download in browser")
@@ -74,7 +77,7 @@ class CaptchaBlockWindow(FailedGettingDirectDownloadLinksWindow):
 class NoDefaultBrowserWindow(FailedGettingDirectDownloadLinksWindow):
     def __init__(self, main_window: MainWindow, anime_title: str):
         gogo_default_browser = cast(str, settings[key_gogo_default_browser])
-        info_text = f"Sumimasen, downloaading from Gogoanime requires you have either: \n\t\tChrome, Edge or Firefox installed\nYour current Gogo default browser is {gogo_default_browser.capitalize()} but I couldn't find it installed"
+        info_text = f"Sumimasen, downloaading from Gogoanime in Normal mode requires you have either: \n\t\tChrome, Edge or Firefox installed\nYour current Gogo default browser is {gogo_default_browser.capitalize()} but I couldn't find it installed\nYou can also use HLS mode but you'll need to have FFmpeg installed"
         download_browser_button = StyledButton(
             None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
         if gogo_default_browser == CHROME:
@@ -93,8 +96,41 @@ class NoDefaultBrowserWindow(FailedGettingDirectDownloadLinksWindow):
         super().__init__(main_window, anime_title,
                          info_text, [download_browser_button])
 
+class NoFFmpegWindow(SthCrashedWindow):
+    def __init__(self, main_window: MainWindow):
+        info_text = "Sumanai, in order to use HLS mode you need to have FFmpeg\ninstalled and properly added to path"
+        install_ffmepg_button = StyledButton(None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
+        install_ffmepg_button.setText("Install FFmpeg")
+        set_minimum_size_policy(install_ffmepg_button)
+        install_ffmepg_button.clicked.connect(lambda: TryInstallingFFmpegThread(self).start())
+        switch_to_normal_mode = SwitchToSettingsWindowButton("Switch to Normal mode", self, main_window)
+        super().__init__(main_window, info_text, [install_ffmepg_button, switch_to_normal_mode])
+    
+class TryInstallingFFmpegThread(QThread):
+    def __init__(self, no_ffmpeg_window: NoFFmpegWindow):
+        super().__init__(no_ffmpeg_window)
+    
+    def run(self):
+        if sys.platform == "win32":
+            try:
+                subprocess.run("winget install Gyan.FFmpeg", creationflags=subprocess.CREATE_NEW_CONSOLE)
+            except FileNotFoundError:
+                pass
+            if not ffmpeg_is_installed():
+                open_new_tab("https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Windows")
+        
+        elif sys.platform == "linux":
+            try:
+                subprocess.run("sudo apt-get install ffmpeg", shell=True)
+            except FileNotFoundError:
+                pass
+            if not ffmpeg_is_installed():
+                open_new_tab("https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Linux")
+        else:
+            open_new_tab("https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_macOS")
 
-class UpdateWindow(Window):
+            
+class UpdateWindow(TemporaryWindow):
     def __init__(self, main_window: MainWindow, download_url: str, platform_flag: int):
         super().__init__(main_window, update_bckg_image_path)
         main_widget = QWidget()
@@ -134,7 +170,7 @@ class UpdateWindow(Window):
             else:
                 os_name = "Linux OS"
             info_label.setText(
-                f"\n{os_name} detected, you will have to build from source to update to the new version.\nThere is a guide on the README.md in the github repo.\n")
+                f"\n{os_name} detected, you will have to build from source to update to the new version.\nThere is a guide on the README.md in the Github Repository.\n")
             set_minimum_size_policy(info_label)
             main_layout.addWidget(info_label)
             github_button = IconButton(300, 100, github_icon_path, 1.1)

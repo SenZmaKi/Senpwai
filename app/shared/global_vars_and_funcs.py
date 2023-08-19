@@ -45,10 +45,10 @@ logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR, format='
 def log_error(error: str):
     logging.error(error)
 
-def open_folder(folder_path: str):
-    if sys.platform == "win32": return os.startfile(folder_path)
-    elif sys.platform == "linux": return Popen(["xdg-open", folder_path]) 
-    else: return Popen(["open", folder_path])
+def open_folder(folder_path: str) -> None:
+    if sys.platform == "win32": os.startfile(folder_path)
+    elif sys.platform == "linux": Popen(["xdg-open", folder_path]) 
+    else: Popen(["open", folder_path])
 
 downloads_folder = os.path.join(Path.home(), "Downloads")
 if not os.path.isdir(downloads_folder):
