@@ -4,8 +4,6 @@
 
 **Senpwai** is a free and open-source desktop app designed for conveniently batch downloading anime. Ever thought, "Damn, I really wish there was a way to download all the One Piece episodes in a few clicks," well, that's exactly what Senpwai is built for, ignoring the occasional crashes *cough* *cough*.
 
-The episodes are sourced from Animepahe and Gogoanime, though downloading from Animepahe is recommended cause with Gogoanime you may sometimes encounter captcha block.
-
 <p>
  <a href="https://github.com/SenZmaKi/Senpwai/releases"><img  height="30px" src="https://img.shields.io/github/downloads/SenZmaKi/Senpwai/total" alt="Downloads"></a>
   <a href="https://discord.gg/invite/e9UxkuyDX2" target="_blank"><img height="30px" alt="Discord" src="https://img.shields.io/discord/1131981618777702540?label=Discord&logo=discord"></a>
@@ -18,15 +16,16 @@ The episodes are sourced from Animepahe and Gogoanime, though downloading from A
 2. [Features](#features)
 3. [Building from Source](#building-from-source)
 4. [Support](#support)
-5. [Links](#links)
-6. [Legal Disclaimer](#legal-disclaimer)
-7. [Epilogue](#epilogue)
+5. [FAQ](#faq)
+6. [Links](#links)
+7. [Legal Disclaimer](#legal-disclaimer)
+8. [Epilogue](#epilogue)
 
 ## Installation
 
 - **Windows**
   
-Download the setup from the [releases](https://github.com/SenZmaKi/Senpwai/releases) page and run it.
+Download the setup from the [releases page](https://github.com/SenZmaKi/Senpwai/releases) and run it.
 
 - **Linux/Mac**
   
@@ -58,13 +57,13 @@ git clone https://github.com/SenZmaKi/Senpwai
 
 ```
 cd Senpwai
+cd app
 pip install -r requirements.txt
 ```
 
 3. Run the app as a normal script.
 
 ```
-cd app
 python senpwai.py
 ```
 
@@ -73,7 +72,6 @@ python senpwai.py
 - **Linux and Mac**
 
 ```
-cd app
 pyinstaller --windowed --name=Senpwai --icon=assets/senpwai-icon.ico --add-data "assets:assets" senpwai.py
 dist/Senpwai/Senpwai
 ```
@@ -81,16 +79,46 @@ dist/Senpwai/Senpwai
 - **Windows**
 
 ```
-cd app
 pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --add-data "assets;assets" --version-file=file_version_info.txt senpwai.py
 dist\Senpwai\Senpwai
 ```
 
+
 ## Support
 
 - You can support the development of Senpwai through donations on [GitHub Sponsors](https://github.com/sponsors/SenZmaKi) or [Patreon](https://patreon.com/Senpwai).
-- You can also show your appreciation by leaving a star on the github.
+- You can also leave a star on the github for more weebs to know about it.
 - Senpwai is open to pull requests, so if you have ideas for improvements, feel free to contribute!
+
+## FAQ
+
+<details> <summary> What is HLS mode? </summary>
+ 
+HLS mode attempts to fix the problem of Captcha block with Gogoanime Normal mode. 
+In HLS mode Gogoanime downloads are guaranteed to work, though with a few downsides:
+
+- Requires [FFmpeg](https://www.hostinger.com/tutorials/how-to-install-ffmpeg) to be installed.
+  
+- Ongoing downloads can't be paused.
+  
+- No download progress indication, the progress bars only indicate the completion of downloading each episode.
+  
+- May occasionally crash if you don't have a stable internet connection.
+
+</details>
+
+<details> <summary> Do you intend to add more sources? </summary> 
+
+One person can only do so much, I only plan on adding another source if something ever happens to Animepahe or Gogoanime.
+More sources means more writing more code which in turn means fixing more bugs.
+
+</details>
+
+<details> <summary> Why does it use so much memory? </summary>
+
+Senpwai is written in Python which is one of the most developer-friendly but unoptimised languages.
+
+</details>
 
 ## Links
 
