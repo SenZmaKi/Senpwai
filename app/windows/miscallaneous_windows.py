@@ -136,7 +136,7 @@ class TryInstallingFFmpegThread(QThread):
 
         elif sys.platform == "linux":
             try:
-                subprocess.run("sudo apt-get install ffmpeg", shell=True)
+                subprocess.run("sudo apt-get update && sudo apt-get install ffmpeg", shell=True)
             except FileNotFoundError:
                 pass
             if not ffmpeg_is_installed():

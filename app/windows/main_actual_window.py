@@ -18,19 +18,18 @@ class MainWindow(QMainWindow):
         self.tray_icon = QSystemTrayIcon(QIcon(SENPWAI_ICON_PATH), self)
         self.tray_icon.show()
         self.download_window = DownloadWindow(self)
-        from windows.search_window import SearchWindow
         self.search_window = SearchWindow(self)
         self.settings_window = SettingsWindow(self)
         self.about_window = AboutWindow(self)
         CheckIfUpdateAvailableThread(
             self, self.handle_update_check_result).start()
         self.stacked_windows = QStackedWidget(self)
+        # The widget that is added first is implicitly set as the current widget
         self.stacked_windows.addWidget(self.search_window)
         self.set_bckg_img(self.search_window.bckg_img_path)
         self.stacked_windows.addWidget(self.download_window)
         self.stacked_windows.addWidget(self.settings_window)
         self.stacked_windows.addWidget(self.about_window)
-        self.stacked_windows.setCurrentWidget(self.search_window)
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
 
@@ -183,3 +182,4 @@ from windows.settings_window import SettingsWindow
 from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread
 from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow, UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
 from windows.download_window import DownloadWindow
+from windows.search_window import SearchWindow

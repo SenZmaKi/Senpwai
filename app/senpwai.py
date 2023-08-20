@@ -25,7 +25,11 @@ def main():
 
     window = MainWindow()
     if cast(bool, settings[KEY_START_IN_FULLSCREEN]):
-        window.showMaximized()
+        if sys.platform == "win32":
+            window.showMaximized()
+        else:
+            # TO-DO: Fix bug where window.showMaxmized() does not work on Linux, also maximize window button does not work
+            window.showFullScreen()
     else:
         window.show()
         window.center_window()
