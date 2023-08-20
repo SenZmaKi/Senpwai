@@ -2,10 +2,10 @@ from PyQt6.QtGui import QPixmap, QPen, QPainterPath, QPainter, QMovie, QKeyEvent
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame
 from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl, pyqtSlot
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from shared.global_vars_and_funcs import AllowedSettingsTypes, pahe_name, gogo_name
+from shared.global_vars_and_funcs import ALLOWED_SETTINGS_TYPES, PAHE, GOGO
 from time import time
-from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, key_gogo_default_browser, key_quality, key_sub_or_dub, key_download_folder_paths, key_gogo_hls_mode
-from shared.global_vars_and_funcs import folder_icon_path, red_normal_color, red_pressed_color, pahe_normal_color, pahe_pressed_color, gogo_normal_color, open_folder
+from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE
+from shared.global_vars_and_funcs import folder_icon_path, RED_NORMAL_COLOR, RED_PRESSED_COLOR, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, open_folder, GOGO_HLS_MODE
 from shared.app_and_scraper_shared import sanitise_title, network_error_retry_wrapper
 from pathlib import Path
 from typing import cast
@@ -24,7 +24,7 @@ class Anime():
 
 
 class BckgImg(QLabel):
-    def __init__(self, parent, image_path) -> None:
+    def __init__(self, parent: QWidget, image_path: str) -> None:
         super().__init__(parent)
         pixmap = QPixmap(image_path)
         self.setPixmap(pixmap)
@@ -86,19 +86,18 @@ class StyledButton(QPushButton):
         """)
         self.installEventFilter(self)
 
-         
     def eventFilter(self, obj, event):
         if obj == self:
             if isinstance(event, QKeyEvent) and event.type() == event.Type.KeyPress and ((event.key() == Qt.Key.Key_Return) or (event.key() == Qt.Key.Key_Enter)):
                 if isinstance(obj, QPushButton):
                     self.animateClick()
                     return True
-            
+
             return super().eventFilter(obj, event)
 
 
 class OptionButton(StyledButton):
-    def __init__(self, parent: QWidget | None, option: AllowedSettingsTypes, option_displayed: str, font_size: int, chosen_color: str, hover_color: str, font_color="white"):
+    def __init__(self, parent: QWidget | None, option: ALLOWED_SETTINGS_TYPES, option_displayed: str, font_size: int, chosen_color: str, hover_color: str, font_color="white"):
         super().__init__(parent, font_size, font_color,
                          "rgba(128, 128, 128, 255)", chosen_color, hover_color)
         self.not_picked_style_sheet = self.styleSheet()
@@ -142,16 +141,15 @@ class IconButton(QPushButton):
                 background-color: transparent;
             }""")
         self.installEventFilter(self)
-    
+
     def eventFilter(self, obj, event):
         if obj == self:
             if isinstance(event, QKeyEvent) and event.type() == event.Type.KeyPress and ((event.key() == Qt.Key.Key_Return) or (event.key() == Qt.Key.Key_Enter)):
                 if isinstance(obj, QPushButton):
                     self.animateClick()
                     return True
-        
-        return super().eventFilter(obj, event)
 
+        return super().eventFilter(obj, event)
 
 
 class AnimationAndText(QWidget):
@@ -204,7 +202,7 @@ class OutlinedLabel(QLabel):
         path.addText(self.paint_x, self.paint_y, self.font(), self.text())
         painter.drawPath(path)
 
-        # Call the parent class's paintEvent to draw the button background and other properties
+        # Call the parent class's paintEvent to draw the label background and other properties
         painter.end()
         return super().paintEvent(event)
 
@@ -288,7 +286,7 @@ class VirtualProgressBar(QWidget):
          """)
         style_to_overwride = f"""
                 QProgressBar::chunk {{
-                 background-color: {gogo_normal_color};
+                 background-color: {GOGO_NORMAL_COLOR};
                 }}"""
         self.completed_stylesheet = self.bar.styleSheet()+style_to_overwride
         text_style_sheet = """
@@ -447,8 +445,9 @@ class AnimeDetails():
     def __init__(self, anime: Anime, site: str):
         self.anime = anime
         self.site = site
-        self.is_hls_download = True if (site == gogo_name) and settings[key_gogo_hls_mode] else False
-        self.browser = settings[key_gogo_default_browser]
+        self.is_hls_download = True if (site == GOGO) and cast(
+            str, settings[KEY_GOGO_NORM_OR_HLS_MODE]) == GOGO_HLS_MODE else False
+        self.browser = cast(str, settings[KEY_GOGO_DEFAULT_BROWSER])
         self.sanitised_title = sanitise_title(anime.title)
         self.chosen_default_download_path: str = ''
         self.anime_folder_path = self.get_anime_folder_path()
@@ -459,8 +458,8 @@ class AnimeDetails():
         self.poster, self.summary, self.episode_count = self.get_poster_image_summary_and_episode_count()
         self.start_download_episode = 0
         self.end_download_episode = 0
-        self.quality = settings[key_quality]
-        self.sub_or_dub = settings[key_sub_or_dub]
+        self.quality = cast(str, settings[KEY_QUALITY])
+        self.sub_or_dub = cast(str, settings[KEY_SUB_OR_DUB])
         self.direct_download_links: list[str] = []
         self.download_info: list[str] = []
         self.total_download_size: int = 0
@@ -469,7 +468,7 @@ class AnimeDetails():
     def get_anime_folder_path(self) -> str | None:
         def try_path(title: str) -> str | None:
             detected = None
-            for path in settings[key_download_folder_paths]:
+            for path in cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS]):
                 potential = os.path.join(path, title)
                 upper = potential.upper()
                 lower = potential.lower()
@@ -482,7 +481,8 @@ class AnimeDetails():
                 if detected:
                     self.chosen_default_download_path = path
                     return detected
-            self.chosen_default_download_path = settings[key_download_folder_paths][0]
+            self.chosen_default_download_path = cast(
+                list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])[0]
             return None
 
         path = try_path(self.sanitised_title)
@@ -539,10 +539,10 @@ class AnimeDetails():
 
     def get_dub_availablilty_status(self) -> bool:
         dub_available = False
-        if self.site == pahe_name:
+        if self.site == PAHE:
             dub_available = pahe.dub_available(
                 self.anime.page_link, cast(str, self.anime.id))
-        elif self.site == gogo_name:
+        elif self.site == GOGO:
             dub_available = gogo.dub_available(self.anime.title)
         return dub_available
 
@@ -550,12 +550,12 @@ class AnimeDetails():
         poster_image: bytes = b''
         summary: str = ''
         episode_count: int = 0
-        if self.site == pahe_name:
+        if self.site == PAHE:
             poster_url, summary, episode_count = pahe.extract_poster_summary_and_episode_count(
                 cast(str, self.anime.id))
             poster_image = network_error_retry_wrapper(
                 lambda: requests.get(poster_url).content)
-        elif self.site == gogo_name:
+        elif self.site == GOGO:
             poster_url, summary, episode_count = gogo.extract_poster_summary_and_episode_count(
                 self.anime.page_link)
             poster_image = network_error_retry_wrapper(
@@ -582,7 +582,8 @@ class FolderButton(IconButton):
     def __init__(self, path: str, size_x: int, size_y: int, parent: QWidget | None = None):
         super().__init__(size_x, size_y, folder_icon_path, 1.3, parent)
         self.folder_path = path
-        self.clicked.connect(lambda: open_folder(self.folder_path)) # type: ignore
+        self.clicked.connect(lambda: open_folder(
+            self.folder_path))  # type: ignore
 
 
 class NumberInput(QLineEdit):
@@ -615,28 +616,30 @@ class NumberInput(QLineEdit):
 class GogoBrowserButton(OptionButton):
     def __init__(self, window: QWidget, browser: str, font_size: int):
         super().__init__(window, browser, browser.upper(),
-                         font_size, red_normal_color, red_pressed_color)
+                         font_size, RED_NORMAL_COLOR, RED_PRESSED_COLOR)
         self.browser = browser
 
 
 class QualityButton(OptionButton):
     def __init__(self, window: QWidget, quality: str, font_size: int):
         super().__init__(window, quality, quality, font_size,
-                         pahe_normal_color, pahe_pressed_color)
+                         PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR)
         self.quality = quality
 
 
 class SubDubButton(OptionButton):
     def __init__(self, window: QWidget, sub_or_dub: str, font_size: int):
         super().__init__(window, sub_or_dub, sub_or_dub.upper(),
-                         font_size,  pahe_normal_color, pahe_pressed_color)
+                         font_size,  PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR)
         self.sub_or_dub = sub_or_dub
+
 
 class GogoNormOrHlsButton(OptionButton):
     def __init__(self, window: QWidget, norm_or_hls: str, font_size: int):
-        super().__init__(window, norm_or_hls, norm_or_hls.upper(), 
-                         font_size, red_normal_color, red_pressed_color)
+        super().__init__(window, norm_or_hls, norm_or_hls.upper(),
+                         font_size, RED_NORMAL_COLOR, RED_PRESSED_COLOR)
         self.norm_or_hls = norm_or_hls
+
 
 class HorizontalLine(QFrame):
     def __init__(self, color: str = "black", parent: QWidget | None = None):

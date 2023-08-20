@@ -1,0 +1,10 @@
+# python>=3.11.1
+anitopy==2.1.1
+appdirs==1.4.4
+bs4==0.0.1
+cryptography==41.0.3
+PyQt6==6.5.1
+requests==2.31.0
+selenium==4.11.2
+yarl==1.9.2
+pyinstaller==5.13

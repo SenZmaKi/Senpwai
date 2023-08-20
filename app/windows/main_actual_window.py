@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QGuiApplication, QIcon
 from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import QPoint, Qt, pyqtSlot
-from shared.global_vars_and_funcs import senpwai_icon_path, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path
+from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton
 from typing import Callable, cast
 
@@ -15,7 +15,7 @@ class MainWindow(QMainWindow):
         window_position = QPoint(center_point.x(
         ) - self.rect().center().x(), center_point.y() - self.rect().center().y())
         self.move(window_position)
-        self.tray_icon = QSystemTrayIcon(QIcon(senpwai_icon_path), self)
+        self.tray_icon = QSystemTrayIcon(QIcon(SENPWAI_ICON_PATH), self)
         self.tray_icon.show()
         self.download_window = DownloadWindow(self)
         from windows.search_window import SearchWindow
@@ -34,7 +34,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
 
-        
         # For testing purposes comment out on deployment
         # self.search_window.search_anime('Senyuu', 'gogo')
         # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
@@ -90,7 +89,7 @@ class MainWindow(QMainWindow):
         self.switch_to_search_window()
         self.stacked_windows.removeWidget(initiator)
         initiator.deleteLater()
-    
+
     def switch_to_gogo(self, anime_title: str, initiator: QWidget):
         self.search_window.search_bar.setText(anime_title)
         self.search_window.gogo_search_button.animateClick()
@@ -108,11 +107,11 @@ class MainWindow(QMainWindow):
         self.switch_to_window(self.search_window)
         self.search_window.search_bar.setFocus()
 
-    def switch_to_settings_window(self):
-        self.switch_to_window(self.settings_window)
-
     def switch_to_downloads_window(self):
         self.switch_to_window(self.download_window)
+
+    def switch_to_settings_window(self):
+        self.switch_to_window(self.settings_window)
 
     def switch_to_about_window(self):
         self.switch_to_window(self.about_window)
@@ -121,17 +120,17 @@ class MainWindow(QMainWindow):
         captcha_block_window = CaptchaBlockWindow(
             self, anime_title, download_page_links)
         self.stacked_windows.addWidget(captcha_block_window)
-        self.stacked_windows.setCurrentWidget(captcha_block_window)
+        self.switch_to_window(captcha_block_window)
 
     def create_and_switch_to_no_supported_browser_window(self, anime_title: str):
         no_supported_browser_window = NoDefaultBrowserWindow(self, anime_title)
         self.stacked_windows.addWidget(no_supported_browser_window)
-        self.stacked_windows.setCurrentWidget(no_supported_browser_window)
-    
+        self.switch_to_window(no_supported_browser_window)
+
     def create_and_switch_to_no_ffmpeg_window(self):
         no_ffmpeg_window = NoFFmpegWindow(self)
         self.stacked_windows.addWidget(no_ffmpeg_window)
-        self.stacked_windows.setCurrentWidget(no_ffmpeg_window)
+        self.switch_to_window(no_ffmpeg_window)
 
 
 class NavBarButton(IconButton):
@@ -161,23 +160,26 @@ class Window(QWidget):
         about_window_button = NavBarButton(
             about_icon_path, main_window.switch_to_about_window)
         self.nav_bar_buttons = [search_window_button, download_window_button,
-                           settings_window_button, about_window_button]
+                                settings_window_button, about_window_button]
         for button in self.nav_bar_buttons:
             self.nav_bar_layout.addWidget(button)
         self.nav_bar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         nav_bar_widget.setLayout(self.nav_bar_layout)
         self.full_layout.addWidget(nav_bar_widget)
 
+
 class TemporaryWindow(Window):
     def __init__(self, main_window: MainWindow, bckg_img_path: str):
         super().__init__(main_window, bckg_img_path)
         for button in self.nav_bar_buttons:
-            button.clicked.connect(lambda: main_window.stacked_windows.removeWidget(self))
+            button.clicked.connect(
+                lambda: main_window.stacked_windows.removeWidget(self))
             button.clicked.connect(self.deleteLater)
 
 # These modules imports must be placed here otherwise an ImportError is experienced cause they import MainWindow resulting to a circular import, so we have to define MainWindow first before importing them
-from windows.download_window import DownloadWindow
-from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow, UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
-from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread
-from windows.settings_window import SettingsWindow
+
 from windows.about_window import AboutWindow
+from windows.settings_window import SettingsWindow
+from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread
+from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow, UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
+from windows.download_window import DownloadWindow

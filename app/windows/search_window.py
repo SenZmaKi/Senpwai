@@ -1,8 +1,8 @@
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLineEdit
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QEvent, QTimer
-from shared.global_vars_and_funcs import random_mascot_icon_path, gogo_name, pahe_name, loading_animation_path, sadge_piece_path, set_minimum_size_policy, sen_anilist_id, anilist_api_entrypoint, one_piece_audio_path
-from shared.global_vars_and_funcs import pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, search_window_bckg_image_path, sen_favourite_audio_path
+from shared.global_vars_and_funcs import random_mascot_icon_path, GOGO, PAHE, loading_animation_path, sadge_piece_path, set_minimum_size_policy, sen_anilist_id, anilist_api_entrypoint, one_piece_audio_path
+from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, search_window_bckg_image_path, sen_favourite_audio_path
 from shared.shared_classes_and_widgets import Anime, StyledButton, OutlinedButton, ScrollableSection, AnimationAndText, IconButton, AudioPlayer
 from shared.app_and_scraper_shared import network_error_retry_wrapper
 from windows.main_actual_window import MainWindow, Window
@@ -41,10 +41,10 @@ class SearchWindow(Window):
 
         search_buttons_widget = QWidget()
         search_buttons_layout = QHBoxLayout()
-        self.pahe_search_button = SearchButton(self, pahe_name)
+        self.pahe_search_button = SearchButton(self, PAHE)
         set_minimum_size_policy(self.pahe_search_button)
         # self.pahe_search_button.setFixedSize(220, 60)
-        self.gogo_search_button = SearchButton(self, gogo_name)
+        self.gogo_search_button = SearchButton(self, GOGO)
         set_minimum_size_policy(self.gogo_search_button)
         # self.gogo_search_button.setFixedSize(220, 60)
         search_buttons_layout.addWidget(self.pahe_search_button)
@@ -201,14 +201,14 @@ class SearchBar(QLineEdit):
 
 class SearchButton(StyledButton):
     def __init__(self, window: SearchWindow, site: str):
-        if site == pahe_name:
-            super().__init__(window, 40, "black", pahe_normal_color,
-                             pahe_hover_color, pahe_pressed_color)
+        if site == PAHE:
+            super().__init__(window, 40, "black", PAHE_NORMAL_COLOR,
+                             PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR)
             self.setText("Animepahe")
             self.setToolTip("Recommended")
         else:
-            super().__init__(window, 40, "black", gogo_normal_color,
-                             gogo_hover_color, gogo_pressed_color)
+            super().__init__(window, 40, "black", GOGO_NORMAL_COLOR,
+                             GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
             self.setText("Gogoanime")
             self.setToolTip("Unstable")
         self.clicked.connect(lambda: window.search_anime(
@@ -217,12 +217,12 @@ class SearchButton(StyledButton):
 
 class ResultButton(OutlinedButton):
     def __init__(self, anime: Anime,  main_window: MainWindow, site: str, paint_x: int, paint_y: int):
-        if site == pahe_name:
-            hover_color = pahe_normal_color
-            pressed_color = pahe_hover_color
+        if site == PAHE:
+            hover_color = PAHE_NORMAL_COLOR
+            pressed_color = PAHE_HOVER_COLOR
         else:
-            hover_color = gogo_normal_color
-            pressed_color = gogo_hover_color
+            hover_color = GOGO_NORMAL_COLOR
+            pressed_color = GOGO_HOVER_COLOR
         super().__init__(paint_x, paint_y, None, 40, "white",
                          "transparent", hover_color, pressed_color, 21)
         self.setText(anime.title)
@@ -259,14 +259,14 @@ class SearchThread(QThread):
 
     def run(self):
         extracted_results = []
-        if self.site == pahe_name:
+        if self.site == PAHE:
             results = pahe.search(self.anime_title)
 
             for result in results:
                 anime_id, title, page_link = pahe.extract_anime_id_title_and_page_link(
                     result)
                 extracted_results.append(Anime(title, page_link, anime_id))
-        elif self.site == gogo_name:
+        elif self.site == GOGO:
             results = gogo.search(self.anime_title)
             for result in results:
                 title, page_link = gogo.extract_anime_title_and_page_link(

@@ -15,40 +15,56 @@ if getattr(sys, 'frozen', False):
 else:
     base_directory = os.path.dirname(os.path.realpath('__file__'))
 
-app_name = "Senpwai"
-version = "2.0.0"
-config_dir = os.path.join(user_config_dir(), app_name)
-if not os.path.isdir(config_dir): 
+# The general Senpwai naming convention is that if a variable is used in more than one module outside this current module then it is considered a global hence declared in capital
+
+APP_NAME = "Senpwai"
+VERSION = "2.0.1"
+config_dir = os.path.join(user_config_dir(), APP_NAME)
+if not os.path.isdir(config_dir):
     os.makedirs(config_dir)
-github_repo_url = "https://github.com/SenZmaKi/Senpwai"
+GITHUB_REPO_URL = "https://github.com/SenZmaKi/Senpwai"
 github_api_releases_entry_point = "https://api.github.com/repos/SenZmaKi/Senpwai/releases"
 sen_anilist_id = 5363369
 anilist_api_entrypoint = 'https://graphql.anilist.co'
-pahe_name = "pahe"
-gogo_name = "gogo"
+PAHE = "pahe"
+GOGO = "gogo"
 
-dub = "dub"
-sub = "sub"
-default_sub_or_dub = sub
-q_1080 = "1080p"
-q_720 = "720p"
-q_480 = "480p"
-q_360 = "360p"
-default_quality = q_720
+DUB = "dub"
+SUB = "sub"
+default_sub_or_dub = SUB
+Q_1080 = "1080p"
+Q_720 = "720p"
+Q_480 = "480p"
+Q_360 = "360p"
+default_quality = Q_720
+GOGO_NORM_MODE = "norm"
+GOGO_HLS_MODE = "hls"
+DEFAULT_GOGO_NORM_OR_HLS = GOGO_NORM_MODE
 
-error_logs_file_path = os.path.join(config_dir, "error-logs.txt")
+error_logs_file_path = os.path.join(config_dir, "errors.log")
 if not os.path.exists(error_logs_file_path):
+    deprecated_log_file_path = os.path.join(config_dir, "error-logs.txt")
+    if os.path.exists(deprecated_log_file_path):
+        os.unlink(deprecated_log_file_path)
     with open(error_logs_file_path, "w") as f:
-        f.write("__--FIRST BOOT--__\n")
-    
-logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+        f.write("__-- FIRST BOOT --__\n")
+
+logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
+
 def log_error(error: str):
     logging.error(error)
 
+
 def open_folder(folder_path: str) -> None:
-    if sys.platform == "win32": os.startfile(folder_path)
-    elif sys.platform == "linux": Popen(["xdg-open", folder_path]) 
-    else: Popen(["open", folder_path])
+    if sys.platform == "win32":
+        os.startfile(folder_path)
+    elif sys.platform == "linux":
+        Popen(["xdg-open", folder_path])
+    else:
+        Popen(["open", folder_path])
+
 
 downloads_folder = os.path.join(Path.home(), "Downloads")
 if not os.path.isdir(downloads_folder):
@@ -68,7 +84,7 @@ assets_path = os.path.join(base_directory, "assets")
 def join_from_assets(file): return os.path.join(assets_path, file)
 
 
-senpwai_icon_path = join_from_assets("senpwai-icon.ico")
+SENPWAI_ICON_PATH = join_from_assets("senpwai-icon.ico")
 loading_animation_path = join_from_assets("loading.gif")
 sadge_piece_path = join_from_assets("sadge-piece.gif")
 folder_icon_path = join_from_assets("folder.png")
@@ -160,32 +176,32 @@ settings_icon_path = join_from_navbar("settings.png")
 about_icon_path = join_from_navbar("about.png")
 update_icon_path = join_from_navbar("update.png")
 
-pahe_normal_color = "#FFC300"
-pahe_hover_color = "#FFD700"
-pahe_pressed_color = "#FFE900"
+PAHE_NORMAL_COLOR = "#FFC300"
+PAHE_HOVER_COLOR = "#FFD700"
+PAHE_PRESSED_COLOR = "#FFE900"
 
-gogo_normal_color = "#00FF00"
-gogo_hover_color = "#60FF00"
-gogo_pressed_color = "#99FF00"
+GOGO_NORMAL_COLOR = "#00FF00"
+GOGO_HOVER_COLOR = "#60FF00"
+GOGO_PRESSED_COLOR = "#99FF00"
 
-red_normal_color = "#E80000"
-red_hover_color = "#FF0202"
-red_pressed_color = "#FF1C1C"
+RED_NORMAL_COLOR = "#E80000"
+RED_HOVER_COLOR = "#FF0202"
+RED_PRESSED_COLOR = "#FF1C1C"
 
-key_sub_or_dub = "sub_or_dub"
-key_quality = "quality"
-key_download_folder_paths = "download_folder_paths"
-key_max_simulataneous_downloads = "max_simultaneous_downloads"
-key_gogo_default_browser = "gogo_default_browser"
-key_make_download_complete_notification = "make_download_complete_notification"
-key_start_in_fullscreen = "start_in_fullscreen"
-key_gogo_hls_mode = "gogo_hls_mode"
+KEY_SUB_OR_DUB = "sub_or_dub"
+KEY_QUALITY = "quality"
+KEY_DOWNLOAD_FOLDER_PATHS = "download_folder_paths"
+KEY_MAX_SIMULTANEOUS_DOWNLOADS = "max_simultaneous_downloads"
+KEY_GOGO_DEFAULT_BROWSER = "gogo_default_browser"
+KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION = "make_download_complete_notification"
+KEY_START_IN_FULLSCREEN = "start_in_fullscreen"
+KEY_GOGO_NORM_OR_HLS_MODE = "gogo_hls_mode"
 
 settings_file_path = os.path.join(
     config_dir, "settings.json")
 
 amogus_easter_egg = "ඞ"
-AllowedSettingsTypes = (str | int | bool | list[str])
+ALLOWED_SETTINGS_TYPES = (str | int | bool | list[str])
 
 
 def requires_admin_access(folder_path):
@@ -203,78 +219,79 @@ def set_minimum_size_policy(object):
                          QSizePolicy.Policy.Minimum)
     object.setFixedSize(object.sizeHint())
 
+
 def fix_qt_path_for_windows(path: str) -> str:
-    if sys.platform  == "win32":
+    if sys.platform == "win32":
         path = path.replace("/", "\\")
     return path
+
 
 def validate_settings_json(settings_json: dict) -> dict:
     clean_settings = {}
     try:
-        sub_or_dub = settings_json[key_sub_or_dub]
-        if sub_or_dub not in (sub, dub):
+        sub_or_dub = settings_json[KEY_SUB_OR_DUB]
+        if sub_or_dub not in (SUB, DUB):
             raise KeyError
-        clean_settings[key_sub_or_dub] = sub_or_dub
+        clean_settings[KEY_SUB_OR_DUB] = sub_or_dub
     except KeyError:
-        clean_settings[key_sub_or_dub] = default_sub_or_dub
+        clean_settings[KEY_SUB_OR_DUB] = default_sub_or_dub
     try:
-        quality = settings_json[key_quality]
-        if quality not in (q_1080, q_720, q_480, q_360):
+        quality = settings_json[KEY_QUALITY]
+        if quality not in (Q_1080, Q_720, Q_480, Q_360):
             raise KeyError
-        clean_settings[key_quality] = quality
+        clean_settings[KEY_QUALITY] = quality
     except KeyError:
-        clean_settings[key_quality] = default_quality
+        clean_settings[KEY_QUALITY] = default_quality
     valid_folder_paths: list[str] = default_download_folder_paths
     try:
-        download_folder_paths = settings_json[key_download_folder_paths]
+        download_folder_paths = settings_json[KEY_DOWNLOAD_FOLDER_PATHS]
         valid_folder_paths = [fix_qt_path_for_windows(path) for path in download_folder_paths if os.path.isdir(
             path) and not requires_admin_access(path) and path not in valid_folder_paths]
         if len(valid_folder_paths) == 0:
             valid_folder_paths = default_download_folder_paths
         raise KeyError
     except KeyError:
-        clean_settings[key_download_folder_paths] = valid_folder_paths
+        clean_settings[KEY_DOWNLOAD_FOLDER_PATHS] = valid_folder_paths
     try:
-        max_simultaneous_downloads = settings_json[key_max_simulataneous_downloads]
+        max_simultaneous_downloads = settings_json[KEY_MAX_SIMULTANEOUS_DOWNLOADS]
         if not isinstance(max_simultaneous_downloads, int) or max_simultaneous_downloads <= 0:
             raise KeyError
-        clean_settings[key_max_simulataneous_downloads] = max_simultaneous_downloads
+        clean_settings[KEY_MAX_SIMULTANEOUS_DOWNLOADS] = max_simultaneous_downloads
     except KeyError:
-        clean_settings[key_max_simulataneous_downloads] = default_max_simutaneous_downloads
+        clean_settings[KEY_MAX_SIMULTANEOUS_DOWNLOADS] = default_max_simutaneous_downloads
     try:
-        gogo_default_browser = settings_json[key_gogo_default_browser]
+        gogo_default_browser = settings_json[KEY_GOGO_DEFAULT_BROWSER]
         if gogo_default_browser not in (CHROME, EDGE, FIREFOX):
             raise KeyError
-        clean_settings[key_gogo_default_browser] = gogo_default_browser
+        clean_settings[KEY_GOGO_DEFAULT_BROWSER] = gogo_default_browser
     except KeyError:
-        clean_settings[key_gogo_default_browser] = default_gogo_browser
+        clean_settings[KEY_GOGO_DEFAULT_BROWSER] = default_gogo_browser
     try:
-        make_download_complete_notification = settings_json[key_make_download_complete_notification]
+        make_download_complete_notification = settings_json[KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION]
         if not isinstance(make_download_complete_notification, bool):
             raise KeyError
-        clean_settings[key_make_download_complete_notification] = make_download_complete_notification
+        clean_settings[KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION] = make_download_complete_notification
     except KeyError:
-        clean_settings[key_make_download_complete_notification] = default_make_download_complete_notification
+        clean_settings[KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION] = default_make_download_complete_notification
     try:
-        start_in_fullscreen = settings_json[key_start_in_fullscreen]
+        start_in_fullscreen = settings_json[KEY_START_IN_FULLSCREEN]
         if not isinstance(start_in_fullscreen, bool):
             raise KeyError
-        clean_settings[key_start_in_fullscreen] = start_in_fullscreen
+        clean_settings[KEY_START_IN_FULLSCREEN] = start_in_fullscreen
     except KeyError:
-        clean_settings[key_start_in_fullscreen] = default_start_in_fullscreen
+        clean_settings[KEY_START_IN_FULLSCREEN] = default_start_in_fullscreen
     try:
-        gogo_hls_mode = settings_json[key_gogo_hls_mode]
-        if not isinstance(gogo_hls_mode, bool):
+        gogo_norm_or_hls_mode = settings_json[KEY_GOGO_NORM_OR_HLS_MODE]
+        if gogo_norm_or_hls_mode not in (GOGO_NORM_MODE, GOGO_HLS_MODE):
             raise KeyError
-        clean_settings[key_gogo_hls_mode] = gogo_hls_mode
+        clean_settings[KEY_GOGO_NORM_OR_HLS_MODE] = gogo_norm_or_hls_mode
     except KeyError:
-        clean_settings[key_gogo_hls_mode] = default_gogo_hls_mode
-
+        clean_settings[KEY_GOGO_NORM_OR_HLS_MODE] = DEFAULT_GOGO_NORM_OR_HLS
 
     return clean_settings
 
 
-def configure_settings() -> dict:
+def configure_settings() -> dict[str, ALLOWED_SETTINGS_TYPES]:
     settings = {}
     if os.path.exists(settings_file_path):
         with open(settings_file_path, "r") as f:

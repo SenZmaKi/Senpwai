@@ -2,11 +2,12 @@ from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, GogoNormOrHlsButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection
-from shared.global_vars_and_funcs import gogo_normal_color, gogo_hover_color, settings, key_sub_or_dub, q_1080, q_720, q_480, q_360, chosen_anime_window_bckg_image_path
-from shared.global_vars_and_funcs import sub, dub, set_minimum_size_policy, key_gogo_default_browser, key_quality, gogo_name, CHROME, EDGE, FIREFOX
+from shared.global_vars_and_funcs import GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, settings, KEY_SUB_OR_DUB, Q_1080, Q_720, Q_480, Q_360, chosen_anime_window_bckg_image_path
+from shared.global_vars_and_funcs import SUB, DUB, set_minimum_size_policy, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, GOGO, CHROME, EDGE, FIREFOX
 from windows.download_window import DownloadWindow
 from shared.app_and_scraper_shared import dynamic_episodes_predictor_initialiser_pro_turboencapsulator
-from windows.main_actual_window import MainWindow, Window, TemporaryWindow
+from windows.main_actual_window import MainWindow, TemporaryWindow
+from typing import cast
 
 
 class SummaryLabel(StyledLabel):
@@ -68,18 +69,18 @@ class ChosenAnimeWindow(TemporaryWindow):
         summary_widget = ScrollableSection(summary_layout)
         right_widgets_layout.addWidget(summary_widget)
 
-        self.sub_button = SubDubButton(self, sub, 25)
+        self.sub_button = SubDubButton(self, SUB, 25)
         set_minimum_size_policy(self.sub_button)
         self.dub_button = None
-        self.sub_button.clicked.connect(lambda: self.update_sub_or_dub(sub))
-        if settings[key_sub_or_dub] == sub:
+        self.sub_button.clicked.connect(lambda: self.update_sub_or_dub(SUB))
+        if cast(str, settings[KEY_SUB_OR_DUB]) == SUB:
             self.sub_button.set_picked_status(True)
         if self.anime_details.dub_available:
-            self.dub_button = SubDubButton(self, dub, 25)
+            self.dub_button = SubDubButton(self, DUB, 25)
             set_minimum_size_policy(self.dub_button)
             self.dub_button.clicked.connect(
-                lambda: self.update_sub_or_dub(dub))
-            if settings[key_sub_or_dub] == dub:
+                lambda: self.update_sub_or_dub(DUB))
+            if cast(str, settings[KEY_SUB_OR_DUB]) == DUB:
                 self.dub_button.set_picked_status(True)
             self.dub_button.clicked.connect(
                 lambda: self.sub_button.set_picked_status(False))
@@ -87,7 +88,7 @@ class ChosenAnimeWindow(TemporaryWindow):
                 lambda: self.dub_button.set_picked_status(False))  # type: ignore
         else:
             self.sub_button.set_picked_status(True)
-            self.anime_details.sub_or_dub = sub
+            self.anime_details.sub_or_dub = SUB
 
         first_row_of_buttons_widget = QWidget()
         first_row_of_buttons_layout = QHBoxLayout()
@@ -95,10 +96,10 @@ class ChosenAnimeWindow(TemporaryWindow):
         if self.dub_button:
             first_row_of_buttons_layout.addWidget(self.dub_button)
 
-        self.button_1080 = QualityButton(self, q_1080, 21)
-        self.button_720 = QualityButton(self, q_720, 21)
-        self.button_480 = QualityButton(self, q_480, 21)
-        self.button_360 = QualityButton(self, q_360, 21)
+        self.button_1080 = QualityButton(self, Q_1080, 21)
+        self.button_720 = QualityButton(self, Q_720, 21)
+        self.button_480 = QualityButton(self, Q_480, 21)
+        self.button_360 = QualityButton(self, Q_360, 21)
         self.quality_buttons_list = [
             self.button_1080, self.button_720, self.button_480, self.button_360]
 
@@ -108,13 +109,15 @@ class ChosenAnimeWindow(TemporaryWindow):
             quality = button.quality
             button.clicked.connect(
                 lambda garbage_bool, quality=quality: self.update_quality(quality))
-            if quality == settings[key_quality]:
+            if quality == cast(str, settings[KEY_QUALITY]):
                 button.set_picked_status(True)
-        if anime_details.site == gogo_name:
+        if anime_details.site == GOGO:
             self.norm_button = GogoNormOrHlsButton(self, "norm", 21)
             self.hls_button = GogoNormOrHlsButton(self, "hls", 21)
-            self.norm_button.clicked.connect(lambda garbage_bool: self.update_is_hls_download(False))
-            self.hls_button.clicked.connect(lambda garbage_bool: self.update_is_hls_download(True))
+            self.norm_button.clicked.connect(
+                lambda garbage_bool: self.update_is_hls_download(False))
+            self.hls_button.clicked.connect(
+                lambda garbage_bool: self.update_is_hls_download(True))
             set_minimum_size_policy(self.norm_button)
             set_minimum_size_policy(self.hls_button)
             if anime_details.is_hls_download:
@@ -153,7 +156,7 @@ class ChosenAnimeWindow(TemporaryWindow):
         self.error_label = ErrorLabel(18, 6)
         self.error_label.hide()
         including_error_label_layout.addWidget(self.error_label)
-        if anime_details.site == gogo_name:
+        if anime_details.site == GOGO:
             chrome_browser_button = GogoBrowserButton(self, CHROME, 21)
             edge_browser_button = GogoBrowserButton(self, EDGE, 21)
             firefox_browser_button = GogoBrowserButton(self, FIREFOX, 21)
@@ -165,7 +168,7 @@ class ChosenAnimeWindow(TemporaryWindow):
                 browser = button.browser
                 button.clicked.connect(
                     lambda garbage_bool, browser=browser: self.update_browser(browser))
-                if browser == settings[key_gogo_default_browser]:
+                if browser == cast(str, settings[KEY_GOGO_DEFAULT_BROWSER]):
                     button.set_picked_status(True)
         second_row_of_buttons_widget.setLayout(second_row_of_buttons_layout)
         second_row_of_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -222,7 +225,7 @@ class ChosenAnimeWindow(TemporaryWindow):
 
     def update_sub_or_dub(self, sub_or_dub: str):
         self.anime_details.sub_or_dub = sub_or_dub
-        if sub_or_dub == dub:
+        if sub_or_dub == DUB:
             self.sub_button.set_picked_status(False)
         elif self.dub_button != None:
             self.dub_button.set_picked_status(False)
@@ -237,7 +240,7 @@ class ChosenAnimeWindow(TemporaryWindow):
 class DownloadButton(StyledButton):
     def __init__(self, chosen_anime_window: ChosenAnimeWindow, download_window: DownloadWindow, anime_details: AnimeDetails):
         super().__init__(chosen_anime_window, 26, "white",
-                         "green", gogo_normal_color, gogo_hover_color)
+                         "green", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR)
         self.chosen_anime_window = chosen_anime_window
         self.download_window = download_window
         self.main_window = chosen_anime_window.main_window

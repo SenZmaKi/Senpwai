@@ -1,7 +1,7 @@
 import os
 from sys import platform
 from time import sleep
-from typing import Callable, Any, cast
+from typing import Callable, Any, cast, Iterator
 import requests
 from string import printable
 import re
@@ -78,6 +78,7 @@ def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: 
             predicted_episodes_to_download.append(episode)
     return predicted_episodes_to_download
 
+
 def ffmpeg_is_installed() -> bool:
     try:
         if platform == "win32":
@@ -87,7 +88,7 @@ def ffmpeg_is_installed() -> bool:
         return True
     except FileNotFoundError:
         return False
-        
+
 
 class PausableAndCancellableFunction:
     def __init__(self) -> None:
@@ -95,7 +96,6 @@ class PausableAndCancellableFunction:
         self.resume.set()
         self.cancelled = False
 
-    
     def pause_or_resume(self):
         if self.resume.is_set():
             return self.resume.clear()
@@ -103,6 +103,7 @@ class PausableAndCancellableFunction:
 
     def cancel(self):
         self.cancelled = True
+
 
 class Download(PausableAndCancellableFunction):
     def __init__(self, link: str, episode_title: str, download_folder_path: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', is_hls_download=False, hls_quality='') -> None:
@@ -120,13 +121,13 @@ class Download(PausableAndCancellableFunction):
         temporary_file_title = f'{self.episode_title} [Downloading]{self.file_extension}'
         self.temporary_file_path = os.path.join(
             self.download_folder_path, temporary_file_title)
-        if os.path.isfile(self.temporary_file_path): os.unlink(self.temporary_file_path) 
+        if os.path.isfile(self.temporary_file_path):
+            os.unlink(self.temporary_file_path)
 
     def cancel(self):
-        if self.is_hls_download: 
+        if self.is_hls_download:
             self.ffmpeg_process.terminate()
         return super().cancel()
-
 
     def start_download(self):
         download_complete = False
@@ -145,18 +146,20 @@ class Download(PausableAndCancellableFunction):
 
     def hls_download(self) -> bool:
         def get_potential_qualities(master_playlist_url: str) -> list[str]:
-            response = requests.get(master_playlist_url)
-            lines = response.text.split('\n')
-            return lines
+            response = cast(requests.Response, network_error_retry_wrapper(
+                lambda: requests.get(master_playlist_url)))
+            lines = response.text.split(',')
+            qualities = [line for line in lines if "NAME=" in line]
+            return qualities
 
         def generate_ffmpeg_command(hls_link: str, resolution_index: int, file_path: str) -> list[str]:
             return ['ffmpeg', '-i', hls_link, '-map', f'0:p:{resolution_index}', '-c', 'copy', file_path]
 
         def download(hls_link: str, file_path: str, quality: str) -> bool:
-            ep_resolutions = get_potential_qualities(hls_link)
-            resolution_index = match_quality(ep_resolutions, quality)
+            ep_qualities = get_potential_qualities(hls_link)
+            target_quality_idx = match_quality(ep_qualities, quality)
             command = generate_ffmpeg_command(
-                hls_link, resolution_index, file_path)
+                hls_link, target_quality_idx, file_path)
             if platform == 'win32':
                 self.ffmpeg_process = subprocess.Popen(
                     args=command, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -170,8 +173,8 @@ class Download(PausableAndCancellableFunction):
         return download(self.link, self.temporary_file_path, self.hls_resolution)
 
     def normal_download(self) -> bool:
-        response = network_error_retry_wrapper(lambda: requests.get(
-            self.link, stream=True, timeout=30))
+        response = cast(requests.Response, network_error_retry_wrapper(lambda: requests.get(
+            self.link, stream=True, timeout=30)))
 
         def response_ranged(start_byte): return requests.get(
             self.link, stream=True, headers={'Range': f'bytes={start_byte}-'}, timeout=30)
@@ -181,18 +184,18 @@ class Download(PausableAndCancellableFunction):
         def download(start_byte: int = 0) -> bool:
             mode = 'wb' if start_byte == 0 else 'ab'
             with open(self.temporary_file_path, mode) as file:
-                iter_content = response.iter_content(chunk_size=ibytes_to_mbs_divisor) if start_byte == 0 else network_error_retry_wrapper(
-                    lambda: response_ranged(start_byte).iter_content(chunk_size=ibytes_to_mbs_divisor))
+                iter_content = cast(Iterator[bytes], response.iter_content(chunk_size=ibytes_to_mbs_divisor) if start_byte == 0 else network_error_retry_wrapper(
+                    lambda: response_ranged(start_byte).iter_content(chunk_size=ibytes_to_mbs_divisor)))
                 while True:
                     try:
-                        data = network_error_retry_wrapper(
-                            lambda: (next(iter_content)))
+                        data = cast(bytes, network_error_retry_wrapper(
+                            lambda: (next(iter_content))))
                         self.resume.wait()
                         if self.cancelled:
                             return False
                         size = file.write(data)
                         self.progress_update_callback(size)
-                    except Exception:
+                    except:
                         break
 
             file_size = os.path.getsize(self.temporary_file_path)

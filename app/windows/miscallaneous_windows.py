@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot
 from windows.main_actual_window import MainWindow, TemporaryWindow
-from shared.global_vars_and_funcs import chopper_crying_path, pahe_normal_color, pahe_hover_color, pahe_pressed_color, gogo_normal_color, gogo_hover_color, gogo_pressed_color, github_repo_url, github_api_releases_entry_point, app_name, github_icon_path, update_bckg_image_path
-from shared.global_vars_and_funcs import red_normal_color, red_hover_color, red_pressed_color, set_minimum_size_policy, settings, key_gogo_default_browser, CHROME, EDGE, chopper_crying_path, version, key_download_folder_paths, open_folder
-from shared.shared_classes_and_widgets import StyledButton, StyledLabel, network_error_retry_wrapper, FolderButton, IconButton 
+from shared.global_vars_and_funcs import chopper_crying_path, PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, GITHUB_REPO_URL, github_api_releases_entry_point, APP_NAME, github_icon_path, update_bckg_image_path
+from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, settings, KEY_GOGO_DEFAULT_BROWSER, CHROME, EDGE, chopper_crying_path, VERSION, KEY_DOWNLOAD_FOLDER_PATHS, open_folder
+from shared.shared_classes_and_widgets import StyledButton, StyledLabel, network_error_retry_wrapper, FolderButton, IconButton
 from shared.app_and_scraper_shared import ffmpeg_is_installed
 from windows.download_window import ProgressBar
 from typing import cast, Callable
@@ -14,15 +14,16 @@ import sys
 import os
 import subprocess
 
+
 class SthCrashedWindow(TemporaryWindow):
     def __init__(self, main_window: MainWindow, crash_info_text: str, widgets_to_add: list[QWidget]):
         super().__init__(main_window, chopper_crying_path)
-        main_window.set_bckg_img(chopper_crying_path)
-        info_label = StyledLabel(font_size=30)
+        info_label = StyledLabel(font_size=25)
         info_label.setText(crash_info_text)
         set_minimum_size_policy(info_label)
         self.main_layout = QVBoxLayout()
-        self.main_layout.addWidget(info_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.addWidget(
+            info_label, alignment=Qt.AlignmentFlag.AlignCenter)
         self.buttons_layout = QHBoxLayout()
         list(map(self.buttons_layout.addWidget, widgets_to_add))
         buttons_widget = QWidget()
@@ -33,10 +34,11 @@ class SthCrashedWindow(TemporaryWindow):
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignHCenter)
         self.setLayout(self.full_layout)
 
+
 class FailedGettingDirectDownloadLinksWindow(SthCrashedWindow):
     def __init__(self, main_window: MainWindow, anime_title: str, info_text: str, widgets_to_add: list[QWidget]) -> None:
         switch_to_anime_pahe_button = StyledButton(
-            None, 25, "black", pahe_normal_color, pahe_hover_color, pahe_pressed_color)
+            None, 25, "black", PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR)
         switch_to_anime_pahe_button.setText("Switch to Animepahe")
         set_minimum_size_policy(switch_to_anime_pahe_button)
         switch_to_anime_pahe_button.clicked.connect(
@@ -44,28 +46,33 @@ class FailedGettingDirectDownloadLinksWindow(SthCrashedWindow):
         switch_to_anime_pahe_button.clicked.connect(
             lambda: main_window.stacked_windows.removeWidget(self)
         )
-        change_default_browser_button = SwitchToSettingsWindowButton("Change Gogo default browser", self, main_window)
-        switch_to_hls_mode_button = SwitchToSettingsWindowButton("Switch to HLS mode", self, main_window)
-        super().__init__(main_window, info_text, [switch_to_anime_pahe_button, change_default_browser_button, switch_to_hls_mode_button, *widgets_to_add])
+        change_default_browser_button = SwitchToSettingsWindowButton(
+            "Change Gogo default browser", self, main_window)
+        switch_to_hls_mode_button = SwitchToSettingsWindowButton(
+            "Switch to HLS mode", self, main_window)
+        super().__init__(main_window, info_text, [
+            switch_to_anime_pahe_button, change_default_browser_button, switch_to_hls_mode_button, *widgets_to_add])
+
 
 class SwitchToSettingsWindowButton(StyledButton):
     def __init__(self, button_text: str, window: SthCrashedWindow, main_window: MainWindow):
-        super().__init__(None, 25, "black", red_normal_color, red_hover_color, red_pressed_color)
+        super().__init__(None, 25, "black", RED_NORMAL_COLOR,
+                         RED_HOVER_COLOR, RED_PRESSED_COLOR)
         self.clicked.connect(main_window.switch_to_settings_window)
-        self.clicked.connect(lambda: main_window.stacked_windows.removeWidget(window))
+        self.clicked.connect(
+            lambda: main_window.stacked_windows.removeWidget(window))
         self.clicked.connect(window.deleteLater)
         self.setText(button_text)
         set_minimum_size_policy(self)
-
 
 
 class CaptchaBlockWindow(FailedGettingDirectDownloadLinksWindow):
     def __init__(self, main_window: MainWindow, anime_title: str, download_page_links: list[str]) -> None:
         main_window.set_bckg_img(chopper_crying_path)
         info_text = (
-            f"Captcha block detected, this only ever happens with Gogoanime in Normal mode\nChanging your Gogo default browser setting may help\nYour current Gogo default browser is {settings[key_gogo_default_browser].capitalize()}\nYou can also try using HLS mode instead of Normal mode")
+            f"Captcha block detected, this only ever happens with Gogoanime in Normal mode.\nChanging your Gogo default browser setting may help.\nYour current Gogo default browser is {cast(str, settings[KEY_GOGO_DEFAULT_BROWSER]).capitalize()}.\nYou can also try using HLS mode instead of Normal mode.")
         open_browser_with_links_button = StyledButton(
-            None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
+            None, 25, "black", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
         open_browser_with_links_button.setText("Download in browser")
         open_browser_with_links_button.clicked.connect(lambda: list(
             map(open_new_tab, download_page_links)))  # type: ignore
@@ -76,10 +83,10 @@ class CaptchaBlockWindow(FailedGettingDirectDownloadLinksWindow):
 
 class NoDefaultBrowserWindow(FailedGettingDirectDownloadLinksWindow):
     def __init__(self, main_window: MainWindow, anime_title: str):
-        gogo_default_browser = cast(str, settings[key_gogo_default_browser])
-        info_text = f"Sumimasen, downloaading from Gogoanime in Normal mode requires you have either: \n\t\tChrome, Edge or Firefox installed\nYour current Gogo default browser is {gogo_default_browser.capitalize()} but I couldn't find it installed\nYou can also use HLS mode but you'll need to have FFmpeg installed"
+        gogo_default_browser = cast(str, settings[KEY_GOGO_DEFAULT_BROWSER])
+        info_text = f"Sumimasen, downloaading from Gogoanime in Normal mode requires you have either: \n\t\tChrome, Edge or Firefox installed.\nYour current Gogo default browser is {gogo_default_browser.capitalize()} but I couldn't find it installed.\nYou can also try using HLS mode instead of Normal mode."
         download_browser_button = StyledButton(
-            None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
+            None, 25, "black", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
         if gogo_default_browser == CHROME:
             download_browser_button.setText("Download Chrome")
             download_browser_button.clicked.connect(lambda: open_new_tab(
@@ -96,40 +103,50 @@ class NoDefaultBrowserWindow(FailedGettingDirectDownloadLinksWindow):
         super().__init__(main_window, anime_title,
                          info_text, [download_browser_button])
 
+
 class NoFFmpegWindow(SthCrashedWindow):
     def __init__(self, main_window: MainWindow):
-        info_text = "Sumanai, in order to use HLS mode you need to have FFmpeg\ninstalled and properly added to path"
-        install_ffmepg_button = StyledButton(None, 25, "black", gogo_normal_color, gogo_hover_color, gogo_pressed_color)
+        info_text = "Sumanai, in order to use HLS mode you need to have FFmpeg\ninstalled and properly added to path."
+        install_ffmepg_button = StyledButton(
+            None, 25, "black", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
         install_ffmepg_button.setText("Install FFmpeg")
         set_minimum_size_policy(install_ffmepg_button)
-        install_ffmepg_button.clicked.connect(lambda: TryInstallingFFmpegThread(self).start())
-        switch_to_normal_mode = SwitchToSettingsWindowButton("Switch to Normal mode", self, main_window)
-        super().__init__(main_window, info_text, [install_ffmepg_button, switch_to_normal_mode])
-    
+        install_ffmepg_button.clicked.connect(
+            lambda: TryInstallingFFmpegThread(self).start())
+        switch_to_normal_mode = SwitchToSettingsWindowButton(
+            "Switch to Normal mode", self, main_window)
+        super().__init__(main_window, info_text, [
+            install_ffmepg_button, switch_to_normal_mode])
+
+
 class TryInstallingFFmpegThread(QThread):
     def __init__(self, no_ffmpeg_window: NoFFmpegWindow):
         super().__init__(no_ffmpeg_window)
-    
+
     def run(self):
         if sys.platform == "win32":
             try:
-                subprocess.run("winget install Gyan.FFmpeg", creationflags=subprocess.CREATE_NEW_CONSOLE)
+                subprocess.run("winget install Gyan.FFmpeg",
+                               creationflags=subprocess.CREATE_NEW_CONSOLE)
             except FileNotFoundError:
                 pass
             if not ffmpeg_is_installed():
-                open_new_tab("https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Windows")
-        
+                open_new_tab(
+                    "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Windows")
+
         elif sys.platform == "linux":
             try:
                 subprocess.run("sudo apt-get install ffmpeg", shell=True)
             except FileNotFoundError:
                 pass
             if not ffmpeg_is_installed():
-                open_new_tab("https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Linux")
+                open_new_tab(
+                    "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Linux")
         else:
-            open_new_tab("https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_macOS")
+            open_new_tab(
+                "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_macOS")
 
-            
+
 class UpdateWindow(TemporaryWindow):
     def __init__(self, main_window: MainWindow, download_url: str, platform_flag: int):
         super().__init__(main_window, update_bckg_image_path)
@@ -144,7 +161,7 @@ class UpdateWindow(TemporaryWindow):
             main_layout.addWidget(
                 info_label, alignment=Qt.AlignmentFlag.AlignCenter)
             self.update_button = StyledButton(
-                self, 30, "black", red_normal_color, red_hover_color, red_pressed_color, 20)
+                self, 30, "black", RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, 20)
             self.update_button.setText("UPDATE")
             set_minimum_size_policy(self.update_button)
             download_widget = QWidget()
@@ -154,11 +171,11 @@ class UpdateWindow(TemporaryWindow):
             main_layout.addWidget(download_widget)
             download_widget.setLayout(self.download_layout)
             self.download_folder = os.path.join(
-                settings[key_download_folder_paths][0], "New Senpwai-setup")
+                cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])[0], "New Senpwai-setup")
             if not os.path.isdir(self.download_folder):
                 os.mkdir(self.download_folder)
             prev_file_path = os.path.join(
-                self.download_folder, f"{app_name}-setup.exe")
+                self.download_folder, f"{APP_NAME}-setup.exe")
             if os.path.exists(prev_file_path):
                 os.unlink(prev_file_path)
             self.update_button.clicked.connect(DownloadUpdateThread(
@@ -175,8 +192,8 @@ class UpdateWindow(TemporaryWindow):
             main_layout.addWidget(info_label)
             github_button = IconButton(300, 100, github_icon_path, 1.1)
             github_button.clicked.connect(
-                lambda: open_new_tab(github_repo_url))  # type: ignore
-            github_button.setToolTip(github_repo_url)
+                lambda: open_new_tab(GITHUB_REPO_URL))  # type: ignore
+            github_button.setToolTip(GITHUB_REPO_URL)
             main_layout.addWidget(
                 github_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -215,14 +232,12 @@ class DownloadUpdateThread(QThread):
         while not self.update_window.progress_bar:
             continue
         self.update_bar.connect(self.update_window.progress_bar.update_bar)
-        download = Download(self.download_url, f"{app_name}-setup", self.download_folder,
+        download = Download(self.download_url, f"{APP_NAME}-setup", self.download_folder,
                             self.update_bar.emit, ".exe")
         self.update_window.progress_bar.pause_callback = download.pause_or_resume
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
         open_folder(self.download_folder)
-
-
 
 
 class CheckIfUpdateAvailableThread(QThread):
@@ -241,10 +256,10 @@ class CheckIfUpdateAvailableThread(QThread):
         latest_version_tag = latest_version_json["tag_name"]
         latest_version_number = latest_version_tag.replace(
             ".", "").replace("v", "")
-        current_version_number = version.replace(".", "").replace("v", "")
+        current_version_number = VERSION.replace(".", "").replace("v", "")
         platform_flag = self.check_platform()
         # For testing purposes, change to {app_name}-setup.exe before deploying to production
-        target_asset_name = f"{app_name}-setup.exe"
+        target_asset_name = f"{APP_NAME}-setup.exe"
         download_url = ""
         for asset in latest_version_json["assets"]:
             if asset["name"] == target_asset_name:

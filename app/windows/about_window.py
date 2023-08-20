@@ -1,8 +1,8 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout
 from PyQt6.QtCore import Qt
-from windows.main_actual_window import Window, MainWindow
-from shared.global_vars_and_funcs import about_bckg_image_path, set_minimum_size_policy, sen_icon_path, morbius_is_peak_icon_path, github_repo_url, gigachad_audio_path, morbius_audio_path, hentai_addict_audio_path
-from shared.global_vars_and_funcs import github_icon_path, reddit_icon_path, discord_icon_path, hentai_addict_icon_path, github_sponsors_icon_path, patreon_icon_path
+from windows.main_actual_window import MainWindow, Window
+from shared.global_vars_and_funcs import about_bckg_image_path, set_minimum_size_policy, sen_icon_path, morbius_is_peak_icon_path, GITHUB_REPO_URL, gigachad_audio_path, morbius_audio_path, hentai_addict_audio_path
+from shared.global_vars_and_funcs import github_icon_path, reddit_icon_path, discord_icon_path, hentai_addict_icon_path, github_sponsors_icon_path, patreon_icon_path, VERSION
 from shared.shared_classes_and_widgets import StyledLabel, IconButton, ScrollableSection, AudioPlayer
 from webbrowser import open_new_tab
 
@@ -69,8 +69,8 @@ class AboutWindow(Window):
         set_minimum_size_policy(bug_reports_label)
         github_button = IconButton(200, 80, github_icon_path, 1.1)
         github_button.clicked.connect(
-            lambda: open_new_tab(github_repo_url))  # type: ignore
-        github_button.setToolTip(github_repo_url)
+            lambda: open_new_tab(GITHUB_REPO_URL))  # type: ignore
+        github_button.setToolTip(GITHUB_REPO_URL)
         reddit_button = IconButton(80, 80, reddit_icon_path, 1.1)
         reddit_button.clicked.connect(lambda: open_new_tab(
             "https://reddit.com/r/Senpwai"))  # type: ignore
@@ -88,6 +88,9 @@ class AboutWindow(Window):
         social_links_buttons_layout.addWidget(discord_button)
         social_links_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         social_links_buttons_widget.setLayout(social_links_buttons_layout)
+        version_title = Title(f"Version {VERSION}")
+        set_minimum_size_policy(version_title)
+
 
         main_layout.addSpacing(40)
         main_layout.addWidget(reviews_title, Qt.AlignmentFlag.AlignCenter)
@@ -100,6 +103,7 @@ class AboutWindow(Window):
         main_layout.addWidget(social_links_title)
         main_layout.addWidget(bug_reports_label)
         main_layout.addWidget(social_links_buttons_widget)
+        main_layout.addWidget(version_title)
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignTop)
         self.setLayout(self.full_layout)
 

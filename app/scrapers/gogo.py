@@ -20,7 +20,6 @@ import json
 from yarl import URL as parseUrl
 import base64
 import re
-
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.backends import default_backend
@@ -31,10 +30,10 @@ EDGE = 'edge'
 CHROME = 'chrome'
 FIREFOX = 'firefox'
 
-# Hls mode globals
-LOAD_EP_LIST_API = 'https://ajax.gogo-load.com/ajax/load-list-episode?ep_start=0&ep_end={}&id={}'
-KEYS_REGEX = re.compile(rb'(?:container|videocontent)-(\d+)')
-ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
+# Hls mode variables
+load_ep_list_api = 'https://ajax.gogo-load.com/ajax/load-list-episode?ep_start=0&ep_end={}&id={}'
+keys_regex = re.compile(rb'(?:container|videocontent)-(\d+)')
+encrypted_data_regex = re.compile(rb'data-value="(.+?)"')
 
 
 def search(keyword: str) -> list[BeautifulSoup]:
@@ -158,11 +157,13 @@ class GetDownloadPageLinks(PausableAndCancellableFunction):
         download_page_links: list[str] = []
 
         def extract_link(episode_page_link: str) -> str:
-            response = cast(requests.Response, network_error_retry_wrapper(lambda page=episode_page_link: requests.get(page)))
+            response = cast(requests.Response, network_error_retry_wrapper(
+                lambda page=episode_page_link: requests.get(page)))
             if response.status_code != 200:
                 # To handle a case like for Jujutsu Kaisen 2nd Season where when there is TV in the anime page link it misses in the episode page links
                 episode_page_link = episode_page_link.replace('-tv', '')
-                response = cast(requests.Response, network_error_retry_wrapper(lambda page=episode_page_link: requests.get(page)))
+                response = cast(requests.Response, network_error_retry_wrapper(
+                    lambda page=episode_page_link: requests.get(page)))
             soup = BeautifulSoup(response.content, parser)
             soup = cast(Tag, soup.find('li', class_='dowloads'))
             link = cast(str, cast(Tag, soup.find(
@@ -245,16 +246,21 @@ def get_dub_anime_page_link(anime_title: str) -> str:
     return page_link
 
 # To handle a case like for Jujutsu Kaisen 2nd Season where when there is TV in the anime page link it misses in the episode page links
+
+
 def fix_dead_episode_page_link(episode_page_link: str) -> str:
     return episode_page_link.replace('-tv', '')
 
 # Hls mode functions start here
 
+
 def get_embed_url(episode_page_link: str) -> str:
-    response = requests.get(episode_page_link)
+    response = cast(requests.Response, network_error_retry_wrapper(
+        lambda: requests.get(episode_page_link)))
     if response.status_code != 200:
         episode_page_link = fix_dead_episode_page_link(episode_page_link)
-        response = requests.get(episode_page_link)
+        response = cast(requests.Response, network_error_retry_wrapper(
+            lambda: requests.get(episode_page_link)))
     soup = BeautifulSoup(response.content, parser)
     return cast(str, soup.select('iframe')[0]['src'])
 
@@ -283,13 +289,14 @@ def extract_steam_url(embed_url: str) -> str:
     parsed_url = parseUrl(embed_url)
     content_id = parsed_url.query['id']
     streaming_page_host = f'https://{parsed_url.host}/'
-    streaming_page = requests.get(embed_url).content
+    streaming_page = cast(bytes, network_error_retry_wrapper(
+        lambda: requests.get(embed_url).content))
 
     encryption_key, iv, decryption_key = (
-        _.group(1) for _ in KEYS_REGEX.finditer(streaming_page)
+        _.group(1) for _ in keys_regex.finditer(streaming_page)
     )
     component = aes_decrypt(
-        cast(re.Match[bytes], ENCRYPTED_DATA_REGEX.search(
+        cast(re.Match[bytes], encrypted_data_regex.search(
             streaming_page)).group(1).decode(),
         key=encryption_key,
         iv=iv,
@@ -299,10 +306,10 @@ def extract_steam_url(embed_url: str) -> str:
     )
 
     component = component.split("&", 1)[1]
-    ajax_response = requests.get(
+    ajax_response = cast(requests.Response, network_error_retry_wrapper(lambda: requests.get(
         streaming_page_host + "encrypt-ajax.php?" + component,
         headers={"x-requested-with": "XMLHttpRequest"},
-    )
+    )))
     content = json.loads(
         aes_decrypt(ajax_response.json()[
             'data'], key=decryption_key, iv=iv)
@@ -369,13 +376,13 @@ def main():
     anime_title = 'Senyuu'
     quality = '360p'
     sub_or_dub = 'sub'
-    start_episode = 5 
-    end_episode = 5 
+    start_episode = 5
+    end_episode = 5
 
     episode_page_links = test_getting_episode_page_links(
         anime_title, start_episode, end_episode, sub_or_dub)
     # direct_download_links = test_getting_direct_download_links(episode_page_links, quality)
-    #hls_links = test_getting_hls_links(episode_page_links)
+    # hls_links = test_getting_hls_links(episode_page_links)
     # test_downloading(anime_title, hls_links, True, quality)
     # test_downloading(anime_title, direct_download_links)
 

@@ -1,10 +1,10 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtCore import Qt
-from shared.global_vars_and_funcs import AllowedSettingsTypes, validate_settings_json, settings_file_path, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, gogo_normal_color, gogo_hover_color
-from shared.global_vars_and_funcs import settings, key_gogo_default_browser, key_make_download_complete_notification, key_quality, key_max_simulataneous_downloads, key_sub_or_dub, key_download_folder_paths, key_start_in_fullscreen, key_gogo_hls_mode
-from shared.global_vars_and_funcs import pahe_normal_color, pahe_pressed_color, pahe_hover_color, red_normal_color, red_hover_color, red_pressed_color, sub, dub, CHROME, EDGE, FIREFOX, q_1080, q_720, q_480, q_360, gogo_pressed_color
-from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
+from shared.global_vars_and_funcs import ALLOWED_SETTINGS_TYPES, validate_settings_json, settings_file_path, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR
+from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE
+from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, CHROME, EDGE, FIREFOX, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR
+from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
 import json
 import os
@@ -27,12 +27,12 @@ class SettingsWindow(Window):
         self.start_in_fullscreen = StartInFullscreenSetting(self)
         self.download_folder_setting = DownloadFoldersSetting(
             self, main_window)
-        self.gogo_hls_mode_setting = GogoHlsModeSetting(self)
+        self.gogo_norm_or_hls_mode_setting = GogoNormOrHlsSetting(self)
         main_layout.addWidget(self.sub_dub_setting)
         main_layout.addWidget(self.quality_setting)
         main_layout.addWidget(self.max_simultaneous_downloads_setting)
         main_layout.addWidget(self.gogo_default_browser_setting)
-        main_layout.addWidget(self.gogo_hls_mode_setting)
+        main_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
         main_layout.addWidget(
             self.make_download_complete_notification_setting)
         main_layout.addWidget(self.start_in_fullscreen)
@@ -42,7 +42,7 @@ class SettingsWindow(Window):
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
 
-    def update_settings_json(self, key: str, new_value: AllowedSettingsTypes):
+    def update_settings_json(self, key: str, new_value: ALLOWED_SETTINGS_TYPES):
         settings[key] = new_value
         validated = validate_settings_json(settings)
         with open(settings_file_path, "w") as f:
@@ -64,7 +64,7 @@ class DownloadFoldersSetting(QWidget):
         self.error_label = ErrorLabel(18, 6)
         self.error_label.hide()
         add_button = StyledButton(self, self.font_size, "White",
-                                  gogo_normal_color, gogo_hover_color, gogo_pressed_color)
+                                  GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
         add_button.clicked.connect(self.add_folder_to_settings)
         add_button.setText("ADD")
         set_minimum_size_policy(add_button)
@@ -82,7 +82,7 @@ class DownloadFoldersSetting(QWidget):
         horizontal_line.setFixedHeight(8)
         self.main_layout.addWidget(horizontal_line)
         self.folder_widgets_layout = QVBoxLayout()
-        for idx, folder in enumerate(settings[key_download_folder_paths]):
+        for idx, folder in enumerate(cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])):
             self.folder_widgets_layout.addWidget(DownloadFolderWidget(
                 main_window, self, self.font_size - 5, folder, idx))
         folder_widgets_widget = ScrollableSection(self.folder_widgets_layout)
@@ -103,7 +103,7 @@ class DownloadFoldersSetting(QWidget):
         elif not os.path.isdir(new_folder_path):
             self.error("Choose a valid folder, onegaishimasu")
             return False
-        elif new_folder_path in settings[key_download_folder_paths]:
+        elif new_folder_path in cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS]):
             self.error("Baka!!! that folder is already in the settings")
             return False
         else:
@@ -118,26 +118,26 @@ class DownloadFoldersSetting(QWidget):
     def change_from_folder_settings(self, new_folder_path: str, download_folder_widget: QWidget):
         download_folder_widget = cast(
             DownloadFolderWidget, download_folder_widget)
-        new_folders_settings = cast(list, settings[key_download_folder_paths])
+        new_folders_settings = cast(list, settings[KEY_DOWNLOAD_FOLDER_PATHS])
         new_folders_settings[download_folder_widget.index] = new_folder_path
         download_folder_widget.folder_path = new_folder_path
         download_folder_widget.folder_label.setText(new_folder_path)
         set_minimum_size_policy(download_folder_widget.folder_label)
         download_folder_widget.folder_label.update()
         self.settings_window.update_settings_json(
-            key_download_folder_paths, new_folders_settings)
+            KEY_DOWNLOAD_FOLDER_PATHS, new_folders_settings)
 
     def remove_from_folder_settings(self, download_folder_widget: QWidget):
         download_folder_widget = cast(
             DownloadFolderWidget, download_folder_widget)
-        new_folders_settings = cast(list, settings[key_download_folder_paths])
+        new_folders_settings = cast(list, settings[KEY_DOWNLOAD_FOLDER_PATHS])
         if len(new_folders_settings) - 1 <= 0:
             return self.error("Yarou!!! You must have at least one download folder")
         new_folders_settings.pop(download_folder_widget.index)
         download_folder_widget.deleteLater()
         self.folder_widgets_layout.removeWidget(download_folder_widget)
         self.settings_window.update_settings_json(
-            key_download_folder_paths, new_folders_settings)
+            KEY_DOWNLOAD_FOLDER_PATHS, new_folders_settings)
         self.update_widget_indices()
 
     def add_folder_to_settings(self):
@@ -149,7 +149,7 @@ class DownloadFoldersSetting(QWidget):
         self.folder_widgets_layout.addWidget(DownloadFolderWidget(
             self.main_window, self, self.font_size - 5, added_folder_path, self.folder_widgets_layout.count()))
         self.settings_window.update_settings_json(
-            key_download_folder_paths, settings[key_download_folder_paths] + [added_folder_path])
+            KEY_DOWNLOAD_FOLDER_PATHS, cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS]) + [added_folder_path])
 
 
 class DownloadFolderWidget(QWidget):
@@ -164,12 +164,12 @@ class DownloadFolderWidget(QWidget):
         self.folder_label.setText(folder_path)
         set_minimum_size_policy(self.folder_label)
         self.change_button = StyledButton(
-            self, font_size, "white", pahe_normal_color, pahe_hover_color, pahe_pressed_color)
+            self, font_size, "white", PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR)
         self.change_button.clicked.connect(self.change_folder)
         self.change_button.setText("CHANGE")
         set_minimum_size_policy(self.change_button)
         remove_button = StyledButton(
-            self, font_size, "white", red_normal_color, red_hover_color, red_pressed_color)
+            self, font_size, "white", RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR)
         remove_button.setText("REMOVE")
         remove_button.clicked.connect(
             lambda: self.download_folder_setting.remove_from_folder_settings(self))
@@ -192,7 +192,7 @@ class DownloadFolderWidget(QWidget):
 class YesOrNoButton(OptionButton):
     def __init__(self, yes_or_no: bool, font_size):
         super().__init__(None, yes_or_no, "YES" if yes_or_no else "NO",
-                         font_size, pahe_normal_color, pahe_pressed_color)
+                         font_size, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR)
 
 
 class SettingWidget(QWidget):
@@ -232,13 +232,13 @@ class YesOrNoSetting(SettingWidget):
 
 class StartInFullscreenSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Start app in fullscreen?", key_start_in_fullscreen)
+        super().__init__(settings_window, "Start app in fullscreen?", KEY_START_IN_FULLSCREEN)
 
 
 class MakeDownloadCompleteNotificationSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Notify you when download completes uWu?",
-                         key_make_download_complete_notification)
+                         KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION)
 
 
 class GogoDefaultBrowserSetting(SettingWidget):
@@ -257,25 +257,48 @@ class GogoDefaultBrowserSetting(SettingWidget):
             browser = button.browser
             button.clicked.connect(
                 lambda garbage_bool, browser=browser: self.update_browser(browser))
-            if button.browser == settings[key_gogo_default_browser]:
+            if button.browser == cast(str, settings[KEY_GOGO_DEFAULT_BROWSER]):
                 button.set_picked_status(True)
         super().__init__(settings_window,
                          "Gogo default scraping browser", self.browser_buttons_list)
         self.setting_label.setToolTip(
-            "The selected browser will be used for scraping if you download from Gogoanime in normal mode.")
+            "The selected browser will be used for scraping if you download from Gogoanime in Normal mode.")
 
     def update_browser(self, browser: str):
         self.settings_window.update_settings_json(
-            key_gogo_default_browser, browser)
+            KEY_GOGO_DEFAULT_BROWSER, browser)
         for button in self.browser_buttons_list:
             if button.browser != browser:
                 button.set_picked_status(False)
 
 
-class GogoHlsModeSetting(YesOrNoSetting):
+class GogoNormOrHlsSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Use Hls mode for Gogoanime?", key_gogo_hls_mode,
-                         "HLS mode guarantees Gogoanime downloads will occur, zettaini, but it requires ffmpeg to be installed.\nAlso, the download size and duration are unknown, and pausing or canceling a download is not possible without restarting the app.")
+        norm_button = GogoNormOrHlsButton(
+            settings_window, GOGO_NORM_MODE, settings_window.font_size)
+        set_minimum_size_policy(norm_button)
+        hls_button = GogoNormOrHlsButton(
+            settings_window, GOGO_HLS_MODE, settings_window.font_size)
+        set_minimum_size_policy(hls_button)
+        if cast(str, settings[KEY_GOGO_NORM_OR_HLS_MODE]) == GOGO_HLS_MODE:
+            hls_button.set_picked_status(True)
+        else:
+            norm_button.set_picked_status(True)
+        norm_button.clicked.connect(
+            lambda: hls_button.set_picked_status(False))
+        norm_button.setToolTip(
+            "In Normal mode you may occasionally encounter Captcha block.\nAlso you must have either Chrome, Edge or Firefox installed.")
+        hls_info_text = "HLS mode guarantees Gogoanime downloads will go through, zettaini, but in order for it to work\nyou must have FFmpeg installed. Also, you can't pause ongoing downloads while in HLS mode"
+        hls_button.clicked.connect(
+            lambda: norm_button.set_picked_status(False))
+        hls_button.setToolTip(hls_info_text)
+        norm_button.clicked.connect(
+            lambda: settings_window.update_settings_json(KEY_GOGO_NORM_OR_HLS_MODE, GOGO_NORM_MODE))
+        hls_button.clicked.connect(
+            lambda: settings_window.update_settings_json(KEY_GOGO_NORM_OR_HLS_MODE, GOGO_HLS_MODE))
+        super().__init__(settings_window,
+                         "Gogo Normal or HLS mode?", [norm_button, hls_button])
+        self.setting_label.setToolTip(hls_info_text)
 
 
 class MaxSimultaneousDownloadsSetting(SettingWidget):
@@ -284,7 +307,8 @@ class MaxSimultaneousDownloadsSetting(SettingWidget):
         number_input = NumberInput(font_size=settings_window.font_size)
         number_input.setFixedWidth(60)
         number_input.setPlaceholderText(amogus_easter_egg)
-        number_input.setText(str(settings[key_max_simulataneous_downloads]))
+        number_input.setText(
+            str(cast(int, settings[KEY_MAX_SIMULTANEOUS_DOWNLOADS])))
         number_input.textChanged.connect(self.text_changed)
         zero_error = ErrorLabel(18, 4)
         zero_error.setText("Bruh, max simultaneous downloads can't be zero.")
@@ -309,17 +333,17 @@ class MaxSimultaneousDownloadsSetting(SettingWidget):
             self.zero_error()
             return
         self.settings_window.update_settings_json(
-            key_max_simulataneous_downloads, new_setting)
+            KEY_MAX_SIMULTANEOUS_DOWNLOADS, new_setting)
 
 
 class QualitySetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
         font_size = settings_window.font_size
         self.settings_window = settings_window
-        button_1080 = QualityButton(settings_window, q_1080, font_size)
-        button_720 = QualityButton(settings_window, q_720, font_size)
-        button_480 = QualityButton(settings_window, q_480, font_size)
-        button_360 = QualityButton(settings_window, q_360, font_size)
+        button_1080 = QualityButton(settings_window, Q_1080, font_size)
+        button_720 = QualityButton(settings_window, Q_720, font_size)
+        button_480 = QualityButton(settings_window, Q_480, font_size)
+        button_360 = QualityButton(settings_window, Q_360, font_size)
         self.quality_buttons_list = [button_1080,
                                      button_720, button_480, button_360]
         for button in self.quality_buttons_list:
@@ -327,12 +351,12 @@ class QualitySetting(SettingWidget):
             quality = button.quality
             button.clicked.connect(
                 lambda garbage_bool, quality=quality: self.update_quality(quality))
-            if button.quality == settings[key_quality]:
+            if button.quality == cast(str, settings[KEY_QUALITY]):
                 button.set_picked_status(True)
         super().__init__(settings_window, "Download quality", self.quality_buttons_list)
 
     def update_quality(self, quality: str):
-        self.settings_window.update_settings_json(key_quality, quality)
+        self.settings_window.update_settings_json(KEY_QUALITY, quality)
         for button in self.quality_buttons_list:
             if button.quality != quality:
                 button.set_picked_status(False)
@@ -341,20 +365,20 @@ class QualitySetting(SettingWidget):
 class SubDubSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
         sub_button = SubDubButton(
-            settings_window, sub, settings_window.font_size)
+            settings_window, SUB, settings_window.font_size)
         set_minimum_size_policy(sub_button)
         dub_button = SubDubButton(
-            settings_window, dub, settings_window.font_size)
+            settings_window, DUB, settings_window.font_size)
         set_minimum_size_policy(dub_button)
-        if settings[key_sub_or_dub] == sub:
+        if cast(str, settings[KEY_SUB_OR_DUB]) == SUB:
             sub_button.click()
         else:
             dub_button.click()
         sub_button.clicked.connect(lambda: dub_button.set_picked_status(False))
         dub_button.clicked.connect(lambda: sub_button.set_picked_status(False))
         sub_button.clicked.connect(
-            lambda: settings_window.update_settings_json(key_sub_or_dub, sub))
+            lambda: settings_window.update_settings_json(KEY_SUB_OR_DUB, SUB))
         dub_button.clicked.connect(
-            lambda: settings_window.update_settings_json(key_sub_or_dub, dub))
+            lambda: settings_window.update_settings_json(KEY_SUB_OR_DUB, DUB))
         super().__init__(settings_window,
                          "Sub or Dub?", [sub_button, dub_button])
