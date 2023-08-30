@@ -13,7 +13,7 @@ from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions
 
 import subprocess
 from typing import Callable, cast
-from shared.app_and_scraper_shared import parser, network_error_retry_wrapper, test_downloading, match_quality, ibytes_to_mbs_divisor, network_retry_wait_time, PausableAndCancellableFunction
+from shared.app_and_scraper_shared import PARSER, network_error_retry_wrapper, test_downloading, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction
 
 # Hls mode imports
 import json
@@ -41,7 +41,7 @@ def search(keyword: str) -> list[BeautifulSoup]:
     search = GOGO_HOME_URL + search_url + quote(keyword)
     response = network_error_retry_wrapper(
         lambda: requests.get(search).content)
-    soup = BeautifulSoup(response, parser)
+    soup = BeautifulSoup(response, PARSER)
     results_page = cast(Tag, soup.find('ul', class_="items"))
     results = results_page.find_all('li')
     return results
@@ -111,10 +111,10 @@ def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | 
             try:
                 return driver.get(download_page_link)
             except WebDriverException:
-                sleep(network_retry_wait_time)
+                sleep(NETWORK_RETRY_WAIT_TIME)
     network_error_retry()
     sleep(load_wait_time)
-    soup = BeautifulSoup(driver.page_source, parser)
+    soup = BeautifulSoup(driver.page_source, PARSER)
     links_and_infos = soup.find_all('a')
     links = [link_and_info['href']
              for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
@@ -164,7 +164,7 @@ class GetDownloadPageLinks(PausableAndCancellableFunction):
                 episode_page_link = episode_page_link.replace('-tv', '')
                 response = cast(requests.Response, network_error_retry_wrapper(
                     lambda page=episode_page_link: requests.get(page)))
-            soup = BeautifulSoup(response.content, parser)
+            soup = BeautifulSoup(response.content, PARSER)
             soup = cast(Tag, soup.find('li', class_='dowloads'))
             link = cast(str, cast(Tag, soup.find(
                 'a', target='_blank'))['href'])
@@ -195,7 +195,7 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
                 lambda link=link: requests.get(link, stream=True))
             size = response.headers.get('content-length', 0)
             if in_megabytes:
-                total_size += round(int(size) / ibytes_to_mbs_divisor)
+                total_size += round(int(size) / IBYTES_TO_MBS_DIVISOR)
             else:
                 total_size += int(size)
             self.resume.wait()
@@ -213,7 +213,7 @@ def open_browser_with_links(download_links: str) -> None:
 def extract_poster_summary_and_episode_count(anime_page_link: str) -> tuple[str, str, int]:
     response = network_error_retry_wrapper(
         lambda: requests.get(anime_page_link).content)
-    soup = BeautifulSoup(response, parser)
+    soup = BeautifulSoup(response, PARSER)
     poster_link = cast(str, cast(Tag, cast(Tag, soup.find(
         class_='anime_info_body_bg')).find('img'))['src'])
     summary = soup.find_all('p', class_='type')[
@@ -261,7 +261,7 @@ def get_embed_url(episode_page_link: str) -> str:
         episode_page_link = fix_dead_episode_page_link(episode_page_link)
         response = cast(requests.Response, network_error_retry_wrapper(
             lambda: requests.get(episode_page_link)))
-    soup = BeautifulSoup(response.content, parser)
+    soup = BeautifulSoup(response.content, PARSER)
     return cast(str, soup.select('iframe')[0]['src'])
 
 

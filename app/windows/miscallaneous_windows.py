@@ -8,7 +8,7 @@ from shared.app_and_scraper_shared import ffmpeg_is_installed
 from windows.download_window import ProgressBar
 from typing import cast, Callable
 from webbrowser import open_new_tab
-from shared.app_and_scraper_shared import ibytes_to_mbs_divisor, Download
+from shared.app_and_scraper_shared import IBYTES_TO_MBS_DIVISOR, Download
 import requests
 import sys
 import os
@@ -205,7 +205,7 @@ class UpdateWindow(TemporaryWindow):
     @pyqtSlot(int)
     def receive_total_size(self, size: int):
         self.progress_bar = ProgressBar(
-            self, "Downloading", "new version setup", size, "MB", ibytes_to_mbs_divisor)
+            self, "Downloading", "new version setup", size, "MB", IBYTES_TO_MBS_DIVISOR)
         self.download_layout.addWidget(self.progress_bar)
         self.download_layout.addWidget(FolderButton(
             self.download_folder, 120, 120), alignment=Qt.AlignmentFlag.AlignCenter)

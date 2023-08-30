@@ -8,10 +8,10 @@ import re
 import subprocess
 from threading import Event
 
-parser = 'html.parser'
-ibytes_to_mbs_divisor = 1024*1024
-quality_pattern = re.compile(r'\b(\d{3,4}p)\b')
-network_retry_wait_time = 5
+PARSER = 'html.parser'
+IBYTES_TO_MBS_DIVISOR = 1024*1024
+QUALITY_PATTERN = re.compile(r'\b(\d{3,4}p)\b')
+NETWORK_RETRY_WAIT_TIME = 5
 
 
 class QualityAndIndices:
@@ -23,7 +23,7 @@ class QualityAndIndices:
 def match_quality(potential_qualities: list[str], user_quality: str) -> int:
     detected_qualities: list[QualityAndIndices] = []
     for idx, potential_quality in enumerate(potential_qualities):
-        match = quality_pattern.search(potential_quality)
+        match = QUALITY_PATTERN.search(potential_quality)
         if match:
             quality = cast(str, match.group(1))
             if quality == user_quality:
@@ -184,8 +184,8 @@ class Download(PausableAndCancellableFunction):
         def download(start_byte: int = 0) -> bool:
             mode = 'wb' if start_byte == 0 else 'ab'
             with open(self.temporary_file_path, mode) as file:
-                iter_content = cast(Iterator[bytes], response.iter_content(chunk_size=ibytes_to_mbs_divisor) if start_byte == 0 else network_error_retry_wrapper(
-                    lambda: response_ranged(start_byte).iter_content(chunk_size=ibytes_to_mbs_divisor)))
+                iter_content = cast(Iterator[bytes], response.iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR) if start_byte == 0 else network_error_retry_wrapper(
+                    lambda: response_ranged(start_byte).iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR)))
                 while True:
                     try:
                         data = cast(bytes, network_error_retry_wrapper(

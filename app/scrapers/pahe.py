@@ -4,7 +4,7 @@ import json
 import re
 from typing import Callable, cast
 from math import pow
-from shared.app_and_scraper_shared import network_error_retry_wrapper, parser, test_downloading, match_quality, PausableAndCancellableFunction
+from shared.app_and_scraper_shared import network_error_retry_wrapper, PARSER, test_downloading, match_quality, PausableAndCancellableFunction
 
 PAHE_HOME_URL = 'https://animepahe.ru'
 API_URL_EXTENSION = '/api?m='
@@ -78,7 +78,7 @@ class GetPahewinDownloadPage(PausableAndCancellableFunction):
         for idx, episode_page_link in enumerate(episode_page_links):
             episode_page = network_error_retry_wrapper(
                 lambda episode_page_link=episode_page_link: requests.get(episode_page_link).content)
-            soup = BeautifulSoup(episode_page, parser)
+            soup = BeautifulSoup(episode_page, PARSER)
             download_data.append(soup.find_all(
                 'a', class_='dropdown-item', target='_blank'))
             self.resume.wait()
@@ -200,7 +200,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
         for idx, pahewin_link in enumerate(pahewin_download_page_links):
             kwik_download_page = network_error_retry_wrapper(
                 lambda pahewin_link=pahewin_link: requests.get(pahewin_link).content)
-            soup = BeautifulSoup(kwik_download_page, parser)
+            soup = BeautifulSoup(kwik_download_page, PARSER)
             download_link = cast(str, cast(Tag, soup.find(
                 "a", class_="btn btn-primary btn-block redirect"))["href"])
 
@@ -212,7 +212,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
                 2), match.group(3), match.group(4)
             decrypted = decrypt_token_and_post_url_page(
                 full_key, key, int(v1), int(v2))
-            soup = BeautifulSoup(decrypted, parser)
+            soup = BeautifulSoup(decrypted, PARSER)
             post_url = cast(str, cast(Tag, soup.form)['action'])
             token_value = cast(str, cast(Tag, soup.input)['value'])
             response = network_error_retry_wrapper(lambda post_url=post_url, download_link=download_link, cookies=cookies, token_value=token_value: requests.post(post_url, headers={'Referer': download_link}, cookies=cookies, data={
@@ -230,7 +230,7 @@ def extract_poster_summary_and_episode_count(anime_id: str) -> tuple[str, str, i
     page_link = f'{PAHE_HOME_URL}/anime/{anime_id}'
     response = network_error_retry_wrapper(
         lambda: requests.get(page_link).content)
-    soup = BeautifulSoup(response, parser)
+    soup = BeautifulSoup(response, PARSER)
     poster = soup.find(class_='youtube-preview')
     if not isinstance(poster, Tag):
         poster = cast(Tag, soup.find(class_='poster-image'))

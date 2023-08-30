@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QThread, QMutex, pyqtSignal, pyqtSlot
 from shared.global_vars_and_funcs import settings, KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_GOGO_NORM_OR_HLS_MODE
 from shared.global_vars_and_funcs import set_minimum_size_policy, download_complete_icon_path, remove_from_queue_icon_path, move_up_queue_icon_path, move_down_queue_icon_path
 from shared.global_vars_and_funcs import PAHE, GOGO, DUB, downlaod_window_bckg_image_path, open_folder
-from shared.app_and_scraper_shared import Download, ibytes_to_mbs_divisor, network_error_retry_wrapper, PausableAndCancellableFunction, ffmpeg_is_installed
+from shared.app_and_scraper_shared import Download, IBYTES_TO_MBS_DIVISOR, network_error_retry_wrapper, PausableAndCancellableFunction, ffmpeg_is_installed
 from windows.main_actual_window import MainWindow, Window
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, ScrollableSection, ProgressBar, AnimeDetails, FolderButton, OutlinedLabel, IconButton, HorizontalLine, ErrorLabel
 from typing import Callable, cast
@@ -474,7 +474,7 @@ class DownloadWindow(Window):
             bar.pause_or_resume = lambda: None
         else:
             bar = ProgressBar(
-                None, "Downloading", episode_title, episode_size, "MB", ibytes_to_mbs_divisor)
+                None, "Downloading", episode_title, episode_size, "MB", IBYTES_TO_MBS_DIVISOR)
         progress_bars[episode_title] = bar
         self.progress_bars_layout.insertWidget(0, bar)
 
@@ -522,7 +522,7 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
         if self.anime_details.is_hls_download:
             self.update_anime_progress_bar.emit(added)
         else:
-            added_rounded = round(added / ibytes_to_mbs_divisor)
+            added_rounded = round(added / IBYTES_TO_MBS_DIVISOR)
             self.update_anime_progress_bar.emit(added_rounded)
 
     @pyqtSlot(str)
@@ -545,7 +545,7 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
             self.downloaded_episode_count.update_count(1)
             if hls_est_size:
                 eps_size = round(os.path.getsize(
-                    eps_file_path) / ibytes_to_mbs_divisor)
+                    eps_file_path) / IBYTES_TO_MBS_DIVISOR)
                 hls_est_size.update_count(eps_size)
     # Gogo's direct download link sometimes doesn't work, it returns a 302 status code meaning the resource has been moved, this attempts to redirect to that link
     # It is applied to Pahe too just in case and to make everything streamlined
@@ -629,7 +629,7 @@ class DownloadThread(QThread):
 
     def cancel(self):
         self.download.cancel()
-        divisor = 1 if self.is_hls_download else ibytes_to_mbs_divisor
+        divisor = 1 if self.is_hls_download else IBYTES_TO_MBS_DIVISOR
         new_maximum = self.anime_progress_bar.bar.maximum() - round(self.size /
                                                                     divisor)
         if new_maximum > 0:
