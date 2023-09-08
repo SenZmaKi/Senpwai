@@ -11,10 +11,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.set_bckg_img = lambda img_path: self.setStyleSheet(
             f"QMainWindow{{border-image: url({img_path}) 0 0 0 0 stretch stretch;}}")
-        center_point = QGuiApplication.primaryScreen().availableGeometry().center()
-        window_position = QPoint(center_point.x(
-        ) - self.rect().center().x(), center_point.y() - self.rect().center().y())
-        self.move(window_position)
+        self.center_window()
         self.tray_icon = QSystemTrayIcon(QIcon(SENPWAI_ICON_PATH), self)
         self.tray_icon.show()
         self.download_window = DownloadWindow(self)
@@ -54,10 +51,9 @@ class MainWindow(QMainWindow):
         self.switch_to_window(self.update_window)
 
     def center_window(self) -> None:
-        screen_geometry = QGuiApplication.primaryScreen().geometry()
+        screen_geometry = QGuiApplication.primaryScreen().availableGeometry()
         x = (screen_geometry.width() - self.width()) // 2
-        y = (screen_geometry.height() - self.height()) // 2
-        self.move(x, y)
+        self.move(x, 0)
 
     def setup_and_switch_to_chosen_anime_window(self, anime: Anime, site: str):
         # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned when a set a user clicks more than one ResultButton causing the original thread to be reassigned hence get destroyed
@@ -105,6 +101,7 @@ class MainWindow(QMainWindow):
     def switch_to_search_window(self):
         self.switch_to_window(self.search_window)
         self.search_window.search_bar.setFocus()
+        self.search_window.on_focus()
 
     def switch_to_downloads_window(self):
         self.switch_to_window(self.download_window)
