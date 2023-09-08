@@ -13,6 +13,7 @@ import requests
 import sys
 import os
 import subprocess
+import re
 
 
 class SthCrashedWindow(TemporaryWindow):
@@ -158,7 +159,7 @@ class TryInstallingFFmpegThread(QThread):
 
 
 class UpdateWindow(TemporaryWindow):
-    def __init__(self, main_window: MainWindow, download_url: str, platform_flag: int):
+    def __init__(self, main_window: MainWindow, download_url: str, file_name: str, platform_flag: int):
         super().__init__(main_window, update_bckg_image_path)
         main_widget = QWidget()
         main_layout = QVBoxLayout()
@@ -166,7 +167,7 @@ class UpdateWindow(TemporaryWindow):
         info_label = StyledLabel(font_size=24)
         if platform_flag == 1:
             info_label.setText(
-                "\nI will download the new version then open the folder it's in.\nThen it's up to you to run the setup to install it.\nClick the button below to update.\n")
+                "\nI will download the new version then open the folder it's in.\nThen it's up to you to close the current app\nand run the new version setup to install it.\nClick the button below to start the download.\n")
             set_minimum_size_policy(info_label)
             main_layout.addWidget(
                 info_label, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -185,11 +186,11 @@ class UpdateWindow(TemporaryWindow):
             if not os.path.isdir(self.download_folder):
                 os.mkdir(self.download_folder)
             prev_file_path = os.path.join(
-                self.download_folder, f"{APP_NAME}-setup.exe")
+                self.download_folder, file_name)
             if os.path.exists(prev_file_path):
                 os.unlink(prev_file_path)
             self.update_button.clicked.connect(DownloadUpdateThread(
-                main_window, self, download_url, self.download_folder).start)
+                main_window, self, download_url, self.download_folder, file_name).start)
 
         else:
             if platform_flag == 3:
@@ -227,12 +228,13 @@ class DownloadUpdateThread(QThread):
     update_bar = pyqtSignal(int)
     total_size = pyqtSignal(int)
 
-    def __init__(self, main_window: MainWindow, update_window: UpdateWindow, download_url: str, download_folder: str):
+    def __init__(self, main_window: MainWindow, update_window: UpdateWindow, download_url: str, download_folder: str, file_name: str):
         super().__init__(main_window)
         self.download_url = download_url
         self.total_size.connect(update_window.receive_total_size)
         self.update_window = update_window
         self.download_folder = download_folder
+        self.file_name = file_name
 
     def run(self):
         total_size = int(cast(str, requests.get(
@@ -242,12 +244,15 @@ class DownloadUpdateThread(QThread):
         while not self.update_window.progress_bar:
             continue
         self.update_bar.connect(self.update_window.progress_bar.update_bar)
-        download = Download(self.download_url, f"{APP_NAME}-setup", self.download_folder,
-                            self.update_bar.emit, ".exe")
+        file_name, ext = self.file_name.split(".")
+        ext = "." + ext
+        download = Download(self.download_url, file_name, self.download_folder,
+                            self.update_bar.emit, ext)
         self.update_window.progress_bar.pause_callback = download.pause_or_resume
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
-        open_folder(self.download_folder)
+        if not download.cancelled:
+            open_folder(self.download_folder)
 
 
 class CheckIfUpdateAvailableThread(QThread):
@@ -260,21 +265,31 @@ class CheckIfUpdateAvailableThread(QThread):
     def run(self):
         self.finished.emit(self.update_available())
 
-    def update_available(self) -> tuple[bool, str, int]:
+    def update_available(self) -> tuple[bool, str, str, int]:
         latest_version_json = network_error_retry_wrapper(
             lambda: (requests.get(github_api_releases_entry_point))).json()[0]
         latest_version_tag = latest_version_json["tag_name"]
-        latest_version_number = latest_version_tag.replace(
-            ".", "").replace("v", "")
-        current_version_number = VERSION.replace(".", "").replace("v", "")
+        ver_regex = re.compile(r'(\d+(\.\d+)*)')
+        match = cast(re.Match, ver_regex.search(latest_version_tag))
+        latest_version = match.group(1)
         platform_flag = self.check_platform()
-        # For testing purposes, change to {app_name}-setup.exe before deploying to production
-        target_asset_name = f"{APP_NAME}-setup.exe"
+        target_asset_names = [f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
+                              f"{APP_NAME}-installer.exe", f"{APP_NAME}-installer.msi"]
         download_url = ""
-        for asset in latest_version_json["assets"]:
-            if asset["name"] == target_asset_name:
-                download_url = asset["browser_download_url"]
-        return (int(latest_version_number) > int(current_version_number), download_url, platform_flag)
+        asset_name = ""
+        curr_s = VERSION.split(".")
+        new_s = latest_version.split(".")
+        update_available = False
+        for c, n in zip(curr_s, new_s):
+            if int(c) < int(n):
+                update_available = True
+        if update_available:
+            for asset in latest_version_json["assets"]:
+                if asset["name"] in target_asset_names:
+                    download_url = asset["browser_download_url"]
+                    asset_name = asset["name"]
+                    break
+        return (update_available, download_url, asset_name,  platform_flag)
 
     def check_platform(self) -> int:
         if sys.platform == "win32":

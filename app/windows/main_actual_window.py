@@ -40,11 +40,11 @@ class MainWindow(QMainWindow):
         # self.setup_and_switch_to_chosen_anime_window(Anime("Blue Lock", "https://gogoanime.hu/category/blue-lock", None), gogo_name)
 
     @pyqtSlot(tuple)
-    def handle_update_check_result(self, result: tuple[bool, str, int]):
-        is_available, download_url, platform_flag = result
+    def handle_update_check_result(self, result: tuple[bool, str, str, int]):
+        is_available, download_url, file_name, platform_flag = result
         if not is_available:
             return
-        self.update_window = UpdateWindow(self, download_url, platform_flag)
+        self.update_window = UpdateWindow(self, download_url, file_name, platform_flag)
         self.stacked_windows.addWidget(self.update_window)
         update_icon = NavBarButton(
             update_icon_path, self.switch_to_update_window)
