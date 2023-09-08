@@ -1,8 +1,7 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtCore import Qt
 from shared.global_vars_and_funcs import ALLOWED_SETTINGS_TYPES, validate_settings_json, settings_file_path, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR
-from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE
+from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_AUTO_DOWNLOAD_FOLDERS
 from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, CHROME, EDGE, FIREFOX, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR
 from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
@@ -14,9 +13,18 @@ from typing import cast
 class SettingsWindow(Window):
     def __init__(self, main_window: MainWindow) -> None:
         super().__init__(main_window, settings_window_bckg_image_path)
-        self.font_size = 20
-        main_layout = QVBoxLayout()
-        self.main_widget = ScrollableSection(main_layout)
+        self.font_size = 18
+        main_layout = QHBoxLayout()
+        main_widget = ScrollableSection(main_layout)
+        left_layout = QVBoxLayout()
+        left_widget = QWidget()
+        left_widget.setLayout(left_layout)
+        right_layout = QVBoxLayout()
+        right_widget = QWidget()
+        right_widget.setLayout(right_layout)
+        main_layout.addWidget(left_widget)
+        main_layout.addWidget(right_widget)
+
         self.sub_dub_setting = SubDubSetting(self)
         self.quality_setting = QualitySetting(self)
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(
@@ -28,17 +36,17 @@ class SettingsWindow(Window):
         self.download_folder_setting = DownloadFoldersSetting(
             self, main_window)
         self.gogo_norm_or_hls_mode_setting = GogoNormOrHlsSetting(self)
-        main_layout.addWidget(self.sub_dub_setting)
-        main_layout.addWidget(self.quality_setting)
-        main_layout.addWidget(self.max_simultaneous_downloads_setting)
-        main_layout.addWidget(self.gogo_default_browser_setting)
-        main_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
-        main_layout.addWidget(
+        self.auto_download_folders = AutoDownloadFoldersSetting(self, main_window)
+        left_layout.addWidget(self.sub_dub_setting)
+        left_layout.addWidget(self.quality_setting)
+        left_layout.addWidget(self.max_simultaneous_downloads_setting)
+        left_layout.addWidget(self.gogo_default_browser_setting)
+        left_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
+        left_layout.addWidget(
             self.make_download_complete_notification_setting)
-        main_layout.addWidget(self.start_in_fullscreen)
-        main_layout.addWidget(self.download_folder_setting)
-        main_widget = QWidget()
-        main_widget.setLayout(main_layout)
+        left_layout.addWidget(self.start_in_fullscreen)
+        right_layout.addWidget(self.download_folder_setting)
+        right_layout.addWidget(self.auto_download_folders)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
 
@@ -49,21 +57,22 @@ class SettingsWindow(Window):
             json.dump(validated, f, indent=4)
 
 
-class DownloadFoldersSetting(QWidget):
-    def __init__(self, settings_window: SettingsWindow, main_window: MainWindow):
+class FolderSetting(QWidget):
+    def __init__(self, settings_window: SettingsWindow, main_window: MainWindow, setting_info: str, setting_key: str, setting_tool_tip: str | None):
         super().__init__()
         self.settings_window = settings_window
         self.font_size = settings_window.font_size
         self.main_window = main_window
         self.main_layout = QVBoxLayout()
+        self.setting_key = setting_key
         settings_label = StyledLabel(font_size=self.font_size+5)
-        settings_label.setText("Download folders")
-        settings_label.setToolTip(
-            "Senpwai will search these folders in the order shown looking for episodes of an anime that is about to be downloaded.")
+        settings_label.setText(setting_info)
+        if setting_tool_tip:
+            settings_label.setToolTip(setting_tool_tip)
         set_minimum_size_policy(settings_label)
         self.error_label = ErrorLabel(18, 6)
         self.error_label.hide()
-        add_button = StyledButton(self, self.font_size, "White",
+        add_button = StyledButton(self, self.font_size, "white",
                                   GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
         add_button.clicked.connect(self.add_folder_to_settings)
         add_button.setText("ADD")
@@ -78,13 +87,10 @@ class DownloadFoldersSetting(QWidget):
             settings_label_and_add_button_layout)
         self.main_layout.addWidget(self.error_label)
         self.main_layout.addWidget(settings_label_and_add_button_widget)
-        horizontal_line = HorizontalLine()
-        horizontal_line.setFixedHeight(8)
-        self.main_layout.addWidget(horizontal_line)
         self.folder_widgets_layout = QVBoxLayout()
-        for idx, folder in enumerate(cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])):
-            self.folder_widgets_layout.addWidget(DownloadFolderWidget(
-                main_window, self, self.font_size - 5, folder, idx))
+        for idx, folder in enumerate(cast(list[str], settings[self.setting_key])):
+            self.folder_widgets_layout.addWidget(FolderWidget(
+                main_window, self, self.font_size - 5, folder, idx), alignment=Qt.AlignmentFlag.AlignTop)
         folder_widgets_widget = ScrollableSection(self.folder_widgets_layout)
         self.main_layout.addWidget(folder_widgets_widget)
         self.setLayout(self.main_layout)
@@ -103,7 +109,7 @@ class DownloadFoldersSetting(QWidget):
         elif not os.path.isdir(new_folder_path):
             self.error("Choose a valid folder, onegaishimasu")
             return False
-        elif new_folder_path in cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS]):
+        elif new_folder_path in cast(list[str], settings[self.setting_key]):
             self.error("Baka!!! that folder is already in the settings")
             return False
         else:
@@ -112,32 +118,30 @@ class DownloadFoldersSetting(QWidget):
     def update_widget_indices(self):
         for idx in range(self.folder_widgets_layout.count()):
 
-            cast(DownloadFolderWidget, self.folder_widgets_layout.itemAt(
+            cast(FolderWidget, self.folder_widgets_layout.itemAt(
                 idx).widget()).index = idx
 
-    def change_from_folder_settings(self, new_folder_path: str, download_folder_widget: QWidget):
-        download_folder_widget = cast(
-            DownloadFolderWidget, download_folder_widget)
-        new_folders_settings = cast(list, settings[KEY_DOWNLOAD_FOLDER_PATHS])
-        new_folders_settings[download_folder_widget.index] = new_folder_path
-        download_folder_widget.folder_path = new_folder_path
-        download_folder_widget.folder_label.setText(new_folder_path)
-        set_minimum_size_policy(download_folder_widget.folder_label)
-        download_folder_widget.folder_label.update()
+    def change_from_folder_settings(self, new_folder_path: str, folder_widget: QWidget):
+        folder_widget = cast(
+            FolderWidget, folder_widget)
+        new_folders_settings = cast(list, settings[self.setting_key])
+        new_folders_settings[folder_widget.index] = new_folder_path
+        folder_widget.folder_path = new_folder_path
+        folder_widget.folder_label.setText(new_folder_path)
+        set_minimum_size_policy(folder_widget.folder_label)
+        folder_widget.folder_label.update()
         self.settings_window.update_settings_json(
-            KEY_DOWNLOAD_FOLDER_PATHS, new_folders_settings)
+            self.setting_key, new_folders_settings)
 
-    def remove_from_folder_settings(self, download_folder_widget: QWidget):
-        download_folder_widget = cast(
-            DownloadFolderWidget, download_folder_widget)
-        new_folders_settings = cast(list, settings[KEY_DOWNLOAD_FOLDER_PATHS])
-        if len(new_folders_settings) - 1 <= 0:
-            return self.error("Yarou!!! You must have at least one download folder")
-        new_folders_settings.pop(download_folder_widget.index)
-        download_folder_widget.deleteLater()
-        self.folder_widgets_layout.removeWidget(download_folder_widget)
+    def remove_from_folder_settings(self, folder_widget: QWidget):
+        folder_widget = cast(
+            FolderWidget, folder_widget)
+        new_folders_settings = cast(list, settings[self.setting_key])
+        new_folders_settings.pop(folder_widget.index)
+        folder_widget.deleteLater()
+        self.folder_widgets_layout.removeWidget(folder_widget)
         self.settings_window.update_settings_json(
-            KEY_DOWNLOAD_FOLDER_PATHS, new_folders_settings)
+            self.setting_key, new_folders_settings)
         self.update_widget_indices()
 
     def add_folder_to_settings(self):
@@ -146,18 +150,31 @@ class DownloadFoldersSetting(QWidget):
         added_folder_path = fix_qt_path_for_windows(added_folder_path)
         if not self.is_valid_new_folder(added_folder_path):
             return
-        self.folder_widgets_layout.addWidget(DownloadFolderWidget(
-            self.main_window, self, self.font_size - 5, added_folder_path, self.folder_widgets_layout.count()))
+        self.folder_widgets_layout.addWidget(FolderWidget(
+            self.main_window, self, self.font_size - 5, added_folder_path, self.folder_widgets_layout.count()), alignment=Qt.AlignmentFlag.AlignTop)
         self.settings_window.update_settings_json(
-            KEY_DOWNLOAD_FOLDER_PATHS, cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS]) + [added_folder_path])
+            self.setting_key, cast(list[str], settings[self.setting_key]) + [added_folder_path])
 
 
-class DownloadFolderWidget(QWidget):
-    def __init__(self, main_window: MainWindow, download_folder_setting: DownloadFoldersSetting, font_size: int, folder_path: str, index: int):
+class DownloadFoldersSetting(FolderSetting):
+    def __init__(self, settings_window: SettingsWindow, main_window: MainWindow):
+        super().__init__(settings_window, main_window, "Download folders", KEY_DOWNLOAD_FOLDER_PATHS, "Senpwai will search these folders for anime episodes, in the order shown")
+    
+    def remove_from_folder_settings(self, download_folder_widget: QWidget):
+        if len(cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])) - 1 <= 0:
+            return self.error("Yarou!!! You must have at least one download folder")
+        return super().remove_from_folder_settings(download_folder_widget)
+    
+class AutoDownloadFoldersSetting(FolderSetting):
+    def __init__(self, settings_window: SettingsWindow, main_window: MainWindow):
+        super().__init__(settings_window, main_window, "Auto download folders", KEY_AUTO_DOWNLOAD_FOLDERS, "Senpwai will check for new episodes of these anime when you start the app")
+
+class FolderWidget(QWidget):
+    def __init__(self, main_window: MainWindow, folder_setting: FolderSetting, font_size: int, folder_path: str, index: int):
         super().__init__()
         self.main_window = main_window
         self.folder_path = folder_path
-        self.download_folder_setting = download_folder_setting
+        self.folder_setting = folder_setting
         self.index = index
         main_layout = QHBoxLayout()
         self.folder_label = StyledLabel(font_size=font_size)
@@ -172,7 +189,7 @@ class DownloadFolderWidget(QWidget):
             self, font_size, "white", RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR)
         remove_button.setText("REMOVE")
         remove_button.clicked.connect(
-            lambda: self.download_folder_setting.remove_from_folder_settings(self))
+            lambda: self.folder_setting.remove_from_folder_settings(self))
         set_minimum_size_policy(remove_button)
         main_layout.addWidget(self.folder_label)
         main_layout.addWidget(self.change_button)
@@ -184,8 +201,8 @@ class DownloadFolderWidget(QWidget):
         new_folder_path = QFileDialog.getExistingDirectory(
             self.main_window, "Choose folder")
         new_folder_path = fix_qt_path_for_windows(new_folder_path)
-        if self.download_folder_setting.is_valid_new_folder(new_folder_path):
-            self.download_folder_setting.change_from_folder_settings(
+        if self.folder_setting.is_valid_new_folder(new_folder_path):
+            self.folder_setting.change_from_folder_settings(
                 new_folder_path, self)
 
 

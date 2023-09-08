@@ -214,7 +214,7 @@ class DownloadQueue(QWidget):
 
     def add_queued_download(self, anime_details: AnimeDetails, progress_bar: ProgressBar):
         self.queued_downloads_layout.addWidget(
-            QueuedDownload(anime_details, progress_bar, self))
+            QueuedDownload(anime_details, progress_bar, self), alignment=Qt.AlignmentFlag.AlignTop)
 
     def move_queued_download(self, to_move: QueuedDownload, up_or_down="up"):
         queued_downloads = self.get_queued_downloads()
