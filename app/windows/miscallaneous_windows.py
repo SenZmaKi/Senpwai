@@ -106,6 +106,7 @@ class NoDefaultBrowserWindow(FailedGettingDirectDownloadLinksWindow):
 
 class NoFFmpegWindow(SthCrashedWindow):
     def __init__(self, main_window: MainWindow):
+        self.switch_to_search_window = main_window.switch_to_search_window
         info_text = "Sumanai, in order to use HLS mode you need to have FFmpeg\ninstalled and properly added to path."
         install_ffmepg_button = StyledButton(
             None, 25, "black", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
@@ -122,26 +123,35 @@ class NoFFmpegWindow(SthCrashedWindow):
 class TryInstallingFFmpegThread(QThread):
     def __init__(self, no_ffmpeg_window: NoFFmpegWindow):
         super().__init__(no_ffmpeg_window)
+        # WARNING if you ever change order of navigation buttons update this too
+        # Click search window button on navigation bar
+        self.switch_to_search_window = no_ffmpeg_window.nav_bar_buttons[0].click
+        self.no_ffmpeg_window = no_ffmpeg_window
 
     def run(self):
         if sys.platform == "win32":
             try:
                 subprocess.run("winget install Gyan.FFmpeg",
                                creationflags=subprocess.CREATE_NEW_CONSOLE)
-            except FileNotFoundError:
+            except:
                 pass
-            if not ffmpeg_is_installed():
+            if ffmpeg_is_installed():
+                self.switch_to_search_window()
+            else:
                 open_new_tab(
                     "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Windows")
-
         elif sys.platform == "linux":
             try:
-                subprocess.run("sudo apt-get update && sudo apt-get install ffmpeg", shell=True)
-            except FileNotFoundError:
+                subprocess.run(
+                    "sudo apt-get update && sudo apt-get install ffmpeg", shell=True)
+            except:
                 pass
-            if not ffmpeg_is_installed():
+            if ffmpeg_is_installed():
+                self.switch_to_search_window()
+            else:
                 open_new_tab(
                     "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Linux")
+
         else:
             open_new_tab(
                 "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_macOS")
