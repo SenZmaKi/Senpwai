@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QGuiApplication, QIcon
 from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout
-from PyQt6.QtCore import QPoint, Qt, pyqtSlot
-from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path
+from PyQt6.QtCore import Qt, pyqtSlot
+from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, settings, KEY_ANIME_TO_AUTO
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton
 from typing import Callable, cast
 
@@ -41,7 +41,8 @@ class MainWindow(QMainWindow):
         is_available, download_url, file_name, platform_flag = result
         if not is_available:
             return
-        self.update_window = UpdateWindow(self, download_url, file_name, platform_flag)
+        self.update_window = UpdateWindow(
+            self, download_url, file_name, platform_flag)
         self.stacked_windows.addWidget(self.update_window)
         update_icon = NavBarButton(
             update_icon_path, self.switch_to_update_window)
@@ -175,8 +176,8 @@ class TemporaryWindow(Window):
 # These modules imports must be placed here otherwise an ImportError is experienced cause they import MainWindow resulting to a circular import, so we have to define MainWindow first before importing them
 
 from windows.about_window import AboutWindow
-from windows.settings_window import SettingsWindow
-from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread
-from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow, UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
-from windows.download_window import DownloadWindow
 from windows.search_window import SearchWindow
+from windows.download_window import DownloadWindow
+from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow, UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
+from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread
+from windows.settings_window import SettingsWindow

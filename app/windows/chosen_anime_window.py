@@ -1,10 +1,11 @@
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
-from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, GogoNormOrHlsButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection
-from shared.global_vars_and_funcs import GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, settings, KEY_SUB_OR_DUB, Q_1080, Q_720, Q_480, Q_360, chosen_anime_window_bckg_image_path
-from shared.global_vars_and_funcs import SUB, DUB, set_minimum_size_policy, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, GOGO, CHROME, EDGE, FIREFOX
+from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, GogoNormOrHlsButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection, DualStateButton
+from shared.global_vars_and_funcs import GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, RED_NORMAL_COLOR, RED_PRESSED_COLOR, settings, KEY_SUB_OR_DUB, Q_1080, Q_720, Q_480, Q_360, chosen_anime_window_bckg_image_path
+from shared.global_vars_and_funcs import SUB, DUB, set_minimum_size_policy, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_ANIME_TO_AUTO, GOGO, CHROME, EDGE, FIREFOX
 from windows.download_window import DownloadWindow
+from windows.settings_window import SettingsWindow
 from shared.app_and_scraper_shared import dynamic_episodes_predictor_initialiser_pro_turboencapsulator
 from windows.main_actual_window import MainWindow, TemporaryWindow
 from typing import cast
@@ -12,14 +13,14 @@ from typing import cast
 
 class SummaryLabel(StyledLabel):
     def __init__(self, summary: str):
-        super().__init__(font_size=20)
+        super().__init__(font_size=18)
         self.setText(summary)
         self.setWordWrap(True)
 
 
 class HavedEpisodes(StyledLabel):
     def __init__(self, start: int | None, end: int | None, haved_count: int | None, total_episode_count: int):
-        super().__init__(font_size=23)
+        super().__init__(font_size=18)
         self.start = start
         self.end = end
         self.count = haved_count
@@ -31,7 +32,6 @@ class HavedEpisodes(StyledLabel):
         else:
             self.setText(f"You have {haved_count} episodes from {start} to {end}.") if haved_count != 1 else self.setText(
                 f"You have {haved_count} episode from {start} to {end}.")
-        self.setWordWrap(True)
 
 
 class SetupChosenAnimeWindowThread(QThread):
@@ -67,16 +67,17 @@ class ChosenAnimeWindow(TemporaryWindow):
         summary_layout = QVBoxLayout()
         summary_layout.addWidget(summary_label)
         summary_widget = ScrollableSection(summary_layout)
+        summary_widget.setMaximumHeight(300)
         right_widgets_layout.addWidget(summary_widget)
 
-        self.sub_button = SubDubButton(self, SUB, 25)
+        self.sub_button = SubDubButton(self, SUB, 18)
         set_minimum_size_policy(self.sub_button)
         self.dub_button = None
         self.sub_button.clicked.connect(lambda: self.update_sub_or_dub(SUB))
         if cast(str, settings[KEY_SUB_OR_DUB]) == SUB:
             self.sub_button.set_picked_status(True)
         if self.anime_details.dub_available:
-            self.dub_button = SubDubButton(self, DUB, 25)
+            self.dub_button = SubDubButton(self, DUB, 18)
             set_minimum_size_policy(self.dub_button)
             self.dub_button.clicked.connect(
                 lambda: self.update_sub_or_dub(DUB))
@@ -96,10 +97,10 @@ class ChosenAnimeWindow(TemporaryWindow):
         if self.dub_button:
             first_row_of_buttons_layout.addWidget(self.dub_button)
 
-        self.button_1080 = QualityButton(self, Q_1080, 21)
-        self.button_720 = QualityButton(self, Q_720, 21)
-        self.button_480 = QualityButton(self, Q_480, 21)
-        self.button_360 = QualityButton(self, Q_360, 21)
+        self.button_1080 = QualityButton(self, Q_1080, 18)
+        self.button_720 = QualityButton(self, Q_720, 18)
+        self.button_480 = QualityButton(self, Q_480, 18)
+        self.button_360 = QualityButton(self, Q_360, 18)
         self.quality_buttons_list = [
             self.button_1080, self.button_720, self.button_480, self.button_360]
 
@@ -112,8 +113,8 @@ class ChosenAnimeWindow(TemporaryWindow):
             if quality == cast(str, settings[KEY_QUALITY]):
                 button.set_picked_status(True)
         if anime_details.site == GOGO:
-            self.norm_button = GogoNormOrHlsButton(self, "norm", 21)
-            self.hls_button = GogoNormOrHlsButton(self, "hls", 21)
+            self.norm_button = GogoNormOrHlsButton(self, "norm", 18)
+            self.hls_button = GogoNormOrHlsButton(self, "hls", 18)
             self.norm_button.clicked.connect(
                 lambda garbage_bool: self.update_is_hls_download(False))
             self.hls_button.clicked.connect(
@@ -157,9 +158,9 @@ class ChosenAnimeWindow(TemporaryWindow):
         self.error_label.hide()
         including_error_label_layout.addWidget(self.error_label)
         if anime_details.site == GOGO:
-            chrome_browser_button = GogoBrowserButton(self, CHROME, 21)
-            edge_browser_button = GogoBrowserButton(self, EDGE, 21)
-            firefox_browser_button = GogoBrowserButton(self, FIREFOX, 21)
+            chrome_browser_button = GogoBrowserButton(self, CHROME, 18)
+            edge_browser_button = GogoBrowserButton(self, EDGE, 18)
+            firefox_browser_button = GogoBrowserButton(self, FIREFOX, 18)
             self.browser_buttons = [chrome_browser_button,
                                     edge_browser_button, firefox_browser_button]
             for button in self.browser_buttons:
@@ -191,14 +192,21 @@ class ChosenAnimeWindow(TemporaryWindow):
             folder_button = FolderButton(
                 self.anime_details.anime_folder_path, 120, 120)
             third_row_of_labels_layout.addWidget(folder_button)
+        auto_download_button = AutoDownloadButton(
+            anime_details.sanitised_title, self, self.main_window.settings_window)
+        if anime_details.sanitised_title in cast(list[str], settings[KEY_ANIME_TO_AUTO]):
+            auto_download_button.change_status()
+        set_minimum_size_policy(auto_download_button)
+        third_row_of_labels_layout.addWidget(auto_download_button)
         third_row_of_labels_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         third_row_of_labels_widget.setLayout(third_row_of_labels_layout)
         right_widgets_layout.addWidget(third_row_of_labels_widget)
         right_widgets_widget.setLayout(right_widgets_layout)
         main_layout.addWidget(right_widgets_widget)
         main_widget = ScrollableSection(main_layout)
-        main_widget.horizontalScrollBar().setValue(main_widget.horizontalScrollBar().maximum())
-        #main_widget.setLayout(main_layout)
+        main_widget.horizontalScrollBar().setValue(
+            main_widget.horizontalScrollBar().maximum())
+        # main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
         QTimer.singleShot(0, self.download_button.setFocus)
@@ -238,9 +246,26 @@ class ChosenAnimeWindow(TemporaryWindow):
         self.error_label.show()
 
 
+class AutoDownloadButton(DualStateButton):
+    def __init__(self, sanitised_anime_title: str, chosen_anime_window: ChosenAnimeWindow, settings: SettingsWindow):
+        self.add_to_settings = lambda: settings.anime_to_auto_download.add_anime(
+            sanitised_anime_title)
+        self.remove_from_settings = lambda: settings.anime_to_auto_download.remove_anime(
+            sanitised_anime_title)
+        self.set = False
+        super().__init__(chosen_anime_window, 18, "white",
+                         RED_PRESSED_COLOR, RED_NORMAL_COLOR, "AUTO")
+
+    def change_status(self):
+        super().change_status()
+        if self.on:
+            return self.add_to_settings()
+        self.remove_from_settings()
+
+
 class DownloadButton(StyledButton):
     def __init__(self, chosen_anime_window: ChosenAnimeWindow, download_window: DownloadWindow, anime_details: AnimeDetails):
-        super().__init__(chosen_anime_window, 26, "white",
+        super().__init__(chosen_anime_window, 21, "white",
                          "green", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR)
         self.chosen_anime_window = chosen_anime_window
         self.download_window = download_window
@@ -316,7 +341,7 @@ class DownloadButton(StyledButton):
 
 class EpisodeCount(StyledLabel):
     def __init__(self, count: str):
-        super().__init__(None, 24, "rgba(255, 50, 0, 230)")
+        super().__init__(None, 21, "rgba(255, 50, 0, 230)")
         self.setText(f"{count} episodes")
         self.normal_style_sheet = self.styleSheet()
         self.setWordWrap(True)
@@ -353,6 +378,6 @@ class Poster(QLabel):
 
 class Title(StyledLabel):
     def __init__(self, title: str):
-        super().__init__(None, 50, "orange", 30, "black")
+        super().__init__(None, 40, "orange", 20, "black")
         self.setText(title.upper())
         self.setWordWrap(True)

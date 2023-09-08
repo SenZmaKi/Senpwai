@@ -2,7 +2,7 @@ from PyQt6.QtGui import QPixmap, QPen, QPainterPath, QPainter, QMovie, QKeyEvent
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame
 from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl, pyqtSlot
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from shared.global_vars_and_funcs import ALLOWED_SETTINGS_TYPES, PAHE, GOGO
+from shared.global_vars_and_funcs import SETTINGS_TYPES, PAHE, GOGO
 from time import time
 from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE
 from shared.global_vars_and_funcs import folder_icon_path, RED_NORMAL_COLOR, RED_PRESSED_COLOR, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, open_folder, GOGO_HLS_MODE
@@ -96,8 +96,35 @@ class StyledButton(QPushButton):
             return super().eventFilter(obj, event)
 
 
+class DualStateButton(StyledButton):
+    def __init__(self, parent: QWidget | None, font_size: int, font_color: str, hover_color: str, set_color: str, text: str, unset_color="rgba(128, 128, 128, 255)", border_radius=12):
+        super().__init__(parent, font_size, font_color,
+                         unset_color, hover_color, set_color, border_radius)
+        self.on = False
+        self.setText(text)
+        self.off_stylesheet = self.styleSheet()
+        styles_to_overwride = f"""
+            QPushButton {{
+            border-radius: 7px;
+            background-color: {set_color};
+        }}
+        QPushButton:hover {{
+            background-color: {hover_color};
+        }}
+    """
+        self.on_stylesheet = self.off_stylesheet+styles_to_overwride
+        self.clicked.connect(self.change_status)
+
+    def change_status(self):
+        self.on = not self.on
+        if self.on:
+            self.setStyleSheet(self.on_stylesheet)
+        else:
+            self.setStyleSheet(self.off_stylesheet)
+
+
 class OptionButton(StyledButton):
-    def __init__(self, parent: QWidget | None, option: ALLOWED_SETTINGS_TYPES, option_displayed: str, font_size: int, chosen_color: str, hover_color: str, font_color="white"):
+    def __init__(self, parent: QWidget | None, option: SETTINGS_TYPES, option_displayed: str, font_size: int, chosen_color: str, hover_color: str, font_color="white"):
         super().__init__(parent, font_size, font_color,
                          "rgba(128, 128, 128, 255)", chosen_color, hover_color)
         self.not_picked_style_sheet = self.styleSheet()

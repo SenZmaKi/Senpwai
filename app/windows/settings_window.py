@@ -1,14 +1,13 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtCore import Qt
-from shared.global_vars_and_funcs import ALLOWED_SETTINGS_TYPES, validate_settings_json, settings_file_path, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR
-from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_AUTO_DOWNLOAD_FOLDERS
-from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, CHROME, EDGE, FIREFOX, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR
-from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
+from shared.global_vars_and_funcs import SETTINGS_TYPES, validate_settings_json, settings_file_path, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR
+from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_ANIME_TO_AUTO, KEY_AUTO_DOWNLOAD_SITE
+from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, CHROME, EDGE, FIREFOX, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO
+from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel
 from windows.main_actual_window import MainWindow, Window
 import json
 import os
 from typing import cast
-
 
 class SettingsWindow(Window):
     def __init__(self, main_window: MainWindow) -> None:
@@ -36,7 +35,8 @@ class SettingsWindow(Window):
         self.download_folder_setting = DownloadFoldersSetting(
             self, main_window)
         self.gogo_norm_or_hls_mode_setting = GogoNormOrHlsSetting(self)
-        self.auto_download_folders = AutoDownloadFoldersSetting(self, main_window)
+        self.anime_to_auto_download = AnimeToAutoDownload(self,)
+        self.auto_download_pahe_or_gogo = AutoDownloadSite(self)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
@@ -46,11 +46,12 @@ class SettingsWindow(Window):
             self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_in_fullscreen)
         right_layout.addWidget(self.download_folder_setting)
-        right_layout.addWidget(self.auto_download_folders)
+        right_layout.addWidget(self.auto_download_pahe_or_gogo)
+        right_layout.addWidget(self.anime_to_auto_download)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
 
-    def update_settings_json(self, key: str, new_value: ALLOWED_SETTINGS_TYPES):
+    def update_settings_json(self, key: str, new_value: SETTINGS_TYPES):
         settings[key] = new_value
         validated = validate_settings_json(settings)
         with open(settings_file_path, "w") as f:
@@ -73,7 +74,7 @@ class FolderSetting(QWidget):
         self.error_label = ErrorLabel(18, 6)
         self.error_label.hide()
         add_button = StyledButton(self, self.font_size, "white",
-                                  GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
+                                  "green", GOGO_NORMAL_COLOR, GOGO_PRESSED_COLOR)
         add_button.clicked.connect(self.add_folder_to_settings)
         add_button.setText("ADD")
         set_minimum_size_policy(add_button)
@@ -90,7 +91,7 @@ class FolderSetting(QWidget):
         self.folder_widgets_layout = QVBoxLayout()
         for idx, folder in enumerate(cast(list[str], settings[self.setting_key])):
             self.folder_widgets_layout.addWidget(FolderWidget(
-                main_window, self, self.font_size - 5, folder, idx), alignment=Qt.AlignmentFlag.AlignTop)
+                main_window, self, self.font_size - 2, folder, idx), alignment=Qt.AlignmentFlag.AlignTop)
         folder_widgets_widget = ScrollableSection(self.folder_widgets_layout)
         self.main_layout.addWidget(folder_widgets_widget)
         self.setLayout(self.main_layout)
@@ -158,16 +159,14 @@ class FolderSetting(QWidget):
 
 class DownloadFoldersSetting(FolderSetting):
     def __init__(self, settings_window: SettingsWindow, main_window: MainWindow):
-        super().__init__(settings_window, main_window, "Download folders", KEY_DOWNLOAD_FOLDER_PATHS, "Senpwai will search these folders for anime episodes, in the order shown")
-    
+        super().__init__(settings_window, main_window, "Download folders", KEY_DOWNLOAD_FOLDER_PATHS,
+                         "Senpwai will search these folders for anime episodes, in the order shown")
+
     def remove_from_folder_settings(self, download_folder_widget: QWidget):
         if len(cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])) - 1 <= 0:
             return self.error("Yarou!!! You must have at least one download folder")
         return super().remove_from_folder_settings(download_folder_widget)
-    
-class AutoDownloadFoldersSetting(FolderSetting):
-    def __init__(self, settings_window: SettingsWindow, main_window: MainWindow):
-        super().__init__(settings_window, main_window, "Auto download folders", KEY_AUTO_DOWNLOAD_FOLDERS, "Senpwai will check for new episodes of these anime when you start the app")
+
 
 class FolderWidget(QWidget):
     def __init__(self, main_window: MainWindow, folder_setting: FolderSetting, font_size: int, folder_path: str, index: int):
@@ -213,12 +212,15 @@ class YesOrNoButton(OptionButton):
 
 
 class SettingWidget(QWidget):
-    def __init__(self, settings_window: SettingsWindow, setting_info: str, widgets_to_add: list):
+    def __init__(self, settings_window: SettingsWindow, setting_info: str, widgets_to_add: list, horizintal_layout=True):
         super().__init__()
         self.setting_label = StyledLabel(font_size=settings_window.font_size+5)
         self.setting_label.setText(setting_info)
         set_minimum_size_policy(self.setting_label)
-        main_layout = QHBoxLayout()
+        if horizintal_layout:
+            main_layout = QHBoxLayout()
+        else:
+            main_layout = QVBoxLayout()
         main_layout.addWidget(self.setting_label)
         for button in widgets_to_add:
             main_layout.addWidget(button)
@@ -226,8 +228,90 @@ class SettingWidget(QWidget):
         self.setLayout(main_layout)
 
 
+class RemovableWidget(QWidget):
+    def __init__(self, text: str, font_size: int = 20):
+        super().__init__()
+        main_layout = QHBoxLayout()
+        self.text = text
+        label = StyledLabel(self, font_size)
+        label.setText(text)
+        self.remove_button = StyledButton(
+            self, font_size, "white", RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR)
+        self.remove_button.setText("REMOVE")
+        self.remove_button.clicked.connect(self.deleteLater)
+        set_minimum_size_policy(self.remove_button)
+        main_layout.addWidget(label)
+        main_layout.addWidget(self.remove_button)
+        self.setLayout(main_layout)
+
+
+class AnimeToAutoDownload(SettingWidget):
+    def __init__(self, settings_window: SettingsWindow):
+        self.main_layout = QVBoxLayout()
+        self.settings_window = settings_window
+        main_widget = ScrollableSection(self.main_layout)
+        self.anime_buttons: list[RemovableWidget] = []
+        for anime in cast(list[str], settings[KEY_ANIME_TO_AUTO]):
+            wid = RemovableWidget(anime, font_size=16)
+            self.setup_anime_widget(wid)
+            # clicked signal seems to pass some bool automatically
+        super().__init__(settings_window,
+                         "Anime to auto download", [main_widget], False)
+
+    def setup_anime_widget(self, wid: RemovableWidget):
+        wid.remove_button.clicked.connect(lambda garbage_bool, txt=wid.text: cast(
+            list[str], settings[KEY_ANIME_TO_AUTO]).remove(txt))
+        wid.remove_button.clicked.connect(lambda: self.settings_window.update_settings_json(
+            KEY_ANIME_TO_AUTO, settings[KEY_ANIME_TO_AUTO]))
+        wid.remove_button.clicked.connect(
+            lambda: self.anime_buttons.remove(wid))
+        set_minimum_size_policy(wid)
+        self.main_layout.addWidget(wid)
+        self.anime_buttons.append(wid)
+
+    def remove_anime(self, sanitised_title: str):
+        for anime in self.anime_buttons:
+            if anime.text == sanitised_title:
+                anime.remove_button.click()
+
+    def add_anime(self, sanitised_title: str):
+        for anime in self.anime_buttons:
+            if anime.text == sanitised_title:
+                return
+        wid = RemovableWidget(sanitised_title, 16)
+        self.setup_anime_widget(wid)
+        new_setting = cast(
+            list[str], settings[KEY_ANIME_TO_AUTO]) + [sanitised_title]
+        self.settings_window.update_settings_json(
+            KEY_ANIME_TO_AUTO, new_setting)
+
+
+class AutoDownloadSite(SettingWidget):
+    def __init__(self, settings_window: SettingsWindow):
+        self.font_size = settings_window.font_size
+        pahe_button = OptionButton(
+            None, PAHE, "PAHE", self.font_size, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR)
+        gogo_button = OptionButton(
+            None, GOGO, "GOGO", self.font_size, GOGO_NORMAL_COLOR, GOGO_PRESSED_COLOR)
+        pahe_button.clicked.connect(
+            lambda: gogo_button.set_picked_status(False))
+        pahe_button.clicked.connect(lambda: settings_window.update_settings_json(
+            KEY_AUTO_DOWNLOAD_SITE, pahe_button.option))
+        gogo_button.clicked.connect(
+            lambda: pahe_button.set_picked_status(False))
+        gogo_button.clicked.connect(lambda: settings_window.update_settings_json(
+            KEY_AUTO_DOWNLOAD_SITE, gogo_button.option))
+        if settings[KEY_AUTO_DOWNLOAD_SITE] == PAHE:
+            pahe_button.set_picked_status(True)
+        else:
+            gogo_button.set_picked_status(True)
+
+        super().__init__(settings_window,
+                         "Auto download site", [pahe_button, gogo_button])
+
+
 class YesOrNoSetting(SettingWidget):
-    def __init__(self, settings_window: SettingsWindow, setting_info: str, setting_key_in_json: str, tooltip: str = ''):
+    def __init__(self, settings_window: SettingsWindow, setting_info: str, setting_key_in_json: str, tooltip: str | None = None):
         yes_button = YesOrNoButton(True, settings_window.font_size)
         no_button = YesOrNoButton(False, settings_window.font_size)
         yes_button.clicked.connect(lambda: no_button.set_picked_status(False))
@@ -243,7 +327,7 @@ class YesOrNoSetting(SettingWidget):
         super().__init__(settings_window,
                          setting_info, [yes_button, no_button])
 
-        if tooltip != '':
+        if tooltip:
             self.setting_label.setToolTip(tooltip)
 
 

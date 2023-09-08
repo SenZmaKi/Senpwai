@@ -40,7 +40,7 @@ default_quality = Q_720
 GOGO_NORM_MODE = "norm"
 GOGO_HLS_MODE = "hls"
 DEFAULT_GOGO_NORM_OR_HLS = GOGO_NORM_MODE
-KEY_AUTO_DOWNLOAD_FOLDERS = "auto_download_folders"
+default_auto_download_site = PAHE
 
 error_logs_file_path = os.path.join(config_dir, "errors.log")
 if not os.path.exists(error_logs_file_path):
@@ -197,12 +197,15 @@ KEY_GOGO_DEFAULT_BROWSER = "gogo_default_browser"
 KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION = "make_download_complete_notification"
 KEY_START_IN_FULLSCREEN = "start_in_fullscreen"
 KEY_GOGO_NORM_OR_HLS_MODE = "gogo_hls_mode"
+KEY_ANIME_TO_AUTO = "anime_to_auto_download"
+KEY_AUTO_DOWNLOAD_SITE = "auto_download_pahe_or_gogo"
+
 
 settings_file_path = os.path.join(
     config_dir, "settings.json")
 
 amogus_easter_egg = "ඞ"
-ALLOWED_SETTINGS_TYPES = (str | int | bool | list[str])
+SETTINGS_TYPES = (str | int | bool | list[str])
 
 
 def requires_admin_access(folder_path):
@@ -246,8 +249,9 @@ def validate_settings_json(settings_json: dict) -> dict:
     valid_folder_paths: list[str] = default_download_folder_paths
     try:
         # If a KeyError gets raised then set it to the default setting
-        download_folder_paths = cast(list[str], settings_json[KEY_DOWNLOAD_FOLDER_PATHS])
-        # If no  KeyError then validate the folders first before saving them, saving them, there's probably better ways to do this but I'm hungry af 
+        download_folder_paths = cast(
+            list[str], settings_json[KEY_DOWNLOAD_FOLDER_PATHS])
+        # If no  KeyError then validate the folders first before saving them, saving them, there's probably better ways to do this but I'm hungry af
         valid_folder_paths = [fix_qt_path_for_windows(path) for path in download_folder_paths if os.path.isdir(
             path) and not requires_admin_access(path) and path not in valid_folder_paths]
         if valid_folder_paths == []:
@@ -290,18 +294,29 @@ def validate_settings_json(settings_json: dict) -> dict:
         clean_settings[KEY_GOGO_NORM_OR_HLS_MODE] = gogo_norm_or_hls_mode
     except KeyError:
         clean_settings[KEY_GOGO_NORM_OR_HLS_MODE] = DEFAULT_GOGO_NORM_OR_HLS
-    valid_folder_paths = []
     try:
-        auto_download_folders = cast(list[str], settings_json[KEY_AUTO_DOWNLOAD_FOLDERS])
-        valid_folder_paths = [fix_qt_path_for_windows(path) for path in auto_download_folders if os.path.isdir(
-        path) and not requires_admin_access(path)]
-        raise KeyError
+        anime_to_auto_download = cast(
+            list[str], list(set(settings_json[KEY_ANIME_TO_AUTO])))
+        if not isinstance(anime_to_auto_download, list):
+            raise KeyError
+        valid = []
+        for anime in anime_to_auto_download:
+            if isinstance(anime, str):
+                valid.append(anime)
+        clean_settings[KEY_ANIME_TO_AUTO] = valid
     except KeyError:
-        clean_settings[KEY_AUTO_DOWNLOAD_FOLDERS] = valid_folder_paths
+        clean_settings[KEY_ANIME_TO_AUTO] = []
+    try:
+        pahe_or_gogo_auto = settings_json[KEY_AUTO_DOWNLOAD_SITE]
+        if pahe_or_gogo_auto not in (PAHE, GOGO):
+            raise KeyError
+        clean_settings[KEY_AUTO_DOWNLOAD_SITE] = pahe_or_gogo_auto
+    except KeyError:
+        clean_settings[KEY_AUTO_DOWNLOAD_SITE] = default_auto_download_site
     return clean_settings
 
 
-def configure_settings() -> dict[str, ALLOWED_SETTINGS_TYPES]:
+def configure_settings() -> dict[str, SETTINGS_TYPES]:
     settings = {}
     if os.path.exists(settings_file_path):
         with open(settings_file_path, "r") as f:
