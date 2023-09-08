@@ -253,7 +253,7 @@ class ErrorLabel(StyledLabel):
 
 
 class VirtualProgressBar(QWidget):
-    def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int, units: str, units_divisor: int = 1):
+    def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int, units: str, units_divisor: int = 1, delete_on_completion=True):
         super().__init__(parent)
         self.item_task_is_applied_on = item_task_is_applied_on
         self.total_value = total_value
@@ -261,6 +261,9 @@ class VirtualProgressBar(QWidget):
         self.units_divisor = units_divisor
         self.mutex = QMutex()
         self.items_layout = QHBoxLayout(self)  # type: ignore
+        self.delete_on_completion = delete_on_completion
+        self.deleteTimer = lambda: QTimer(
+            self).singleShot(60000, self.deleteLater)
         self.setLayout(self.items_layout)
 
         self.bar = QProgressBar(self)
@@ -332,10 +335,12 @@ class VirtualProgressBar(QWidget):
         curr_time = time()
         time_elapsed = curr_time - self.prev_time
         max_value = self.bar.maximum()
+        complete = False
         if new_value >= max_value:
             new_value = max_value
             self.bar.setFormat(f"Completed {self.item_task_is_applied_on}")
             self.bar.setStyleSheet(self.completed_stylesheet)
+            complete = True
         self.bar.setValue(new_value)
         percent_new_value = round(new_value / max_value * 100)
         self.percentage.setText(f"{percent_new_value}%")
@@ -355,12 +360,15 @@ class VirtualProgressBar(QWidget):
                 f" {round(rate/self.units_divisor, 1)} {self.units}/s")
             self.prev_time = curr_time
         self.mutex.unlock()
+        if complete and self.delete_on_completion:
+            self.deleteTimer()
 
 
 class ProgressBar(VirtualProgressBar):
-    def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int, units: str, units_divisor: int, has_icon_buttons: bool = True):
+    def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int,
+                 units: str, units_divisor: int, has_icon_buttons: bool = True, delete_on_completion=True):
         super().__init__(parent, task_title, item_task_is_applied_on,
-                         total_value, units, units_divisor)
+                         total_value, units, units_divisor, delete_on_completion=delete_on_completion)
         self.has_icon_buttons = has_icon_buttons
         self.task_title = task_title
         self.paused = False
@@ -423,6 +431,8 @@ class ProgressBar(VirtualProgressBar):
                     border-radius: 10px;
                 }
             """)
+            if self.delete_on_completion:
+                self.deleteTimer()
 
     def pause_or_resume(self):
         if not self.cancelled and not self.is_complete():

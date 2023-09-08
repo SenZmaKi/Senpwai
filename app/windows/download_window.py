@@ -385,10 +385,10 @@ class DownloadWindow(Window):
             os.mkdir(anime_details.anime_folder_path)
         if anime_details.is_hls_download:
             anime_progress_bar = ProgressBar(
-                self, "Downloading[HLS]", anime_details.anime.title, len(anime_details.direct_download_links), "eps", 1, False)
+                self, "Downloading[HLS]", anime_details.anime.title, len(anime_details.direct_download_links), "eps", 1, False, False)
         else:
             anime_progress_bar = ProgressBar(
-                self, "Downloading", anime_details.anime.title, anime_details.total_download_size, "MB", 1, False)
+                self, "Downloading", anime_details.anime.title, anime_details.total_download_size, "MB", 1, False, False)
         anime_progress_bar.bar.setMinimumHeight(50)
 
         self.download_queue.add_queued_download(

@@ -205,7 +205,7 @@ class UpdateWindow(TemporaryWindow):
     @pyqtSlot(int)
     def receive_total_size(self, size: int):
         self.progress_bar = ProgressBar(
-            self, "Downloading", "new version setup", size, "MB", IBYTES_TO_MBS_DIVISOR)
+            self, "Downloading", "new version setup", size, "MB", IBYTES_TO_MBS_DIVISOR, delete_on_completion=False)
         self.download_layout.addWidget(self.progress_bar)
         self.download_layout.addWidget(FolderButton(
             self.download_folder, 120, 120), alignment=Qt.AlignmentFlag.AlignCenter)
