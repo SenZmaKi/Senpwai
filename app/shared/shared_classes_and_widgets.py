@@ -574,7 +574,7 @@ class AnimeDetails():
 
 
 class ScrollableSection(QScrollArea):
-    def __init__(self, layout: QVBoxLayout):
+    def __init__(self, layout: QHBoxLayout | QVBoxLayout):
         super().__init__()
         self.setWidgetResizable(True)
         self.main_widget = QWidget()
