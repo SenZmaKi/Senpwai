@@ -55,6 +55,7 @@ class SearchWindow(Window):
 
         self.results_layout = QVBoxLayout()
         self.results_widget = ScrollableSection(self.results_layout)
+        self.res_wid_hor_scroll_bar = self.results_widget.horizontalScrollBar()
 
         self.loading = AnimationAndText(
             loading_animation_path, 600, 300, "Loading.. .", 1, 48, 50)
@@ -73,6 +74,10 @@ class SearchWindow(Window):
         self.setLayout(self.full_layout)
         # We use a timer instead of calling setFocus normally cause apparently Qt wont really set the widget in focus if the widget isn't shown on screen, so we gotta wait a bit first or sth StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
         QTimer.singleShot(0, self.search_bar.setFocus)
+
+    def on_focus(self):
+        self.search_bar.setFocus()
+        self.res_wid_hor_scroll_bar.setValue(self.res_wid_hor_scroll_bar.minimum())
 
     def search_anime(self, anime_title: str, site: str) -> None:
         if self.search_thread:
