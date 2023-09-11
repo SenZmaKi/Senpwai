@@ -1,10 +1,10 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot
-from windows.main_actual_window import MainWindow, TemporaryWindow
+from windows.main_actual_window import MainWindow, TemporaryWindow, Window
 from shared.global_vars_and_funcs import chopper_crying_path, PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, GITHUB_REPO_URL, github_api_releases_entry_point, APP_NAME, github_icon_path, update_bckg_image_path
 from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, settings, KEY_GOGO_DEFAULT_BROWSER, CHROME, EDGE, chopper_crying_path, VERSION, KEY_DOWNLOAD_FOLDER_PATHS, open_folder
-from shared.shared_classes_and_widgets import StyledButton, StyledLabel, network_error_retry_wrapper, FolderButton, IconButton
-from shared.app_and_scraper_shared import ffmpeg_is_installed
+from shared.shared_classes_and_widgets import StyledButton, StyledLabel, FolderButton, IconButton
+from shared.app_and_scraper_shared import ffmpeg_is_installed, network_error_retry_wrapper
 from windows.download_window import ProgressBar
 from typing import cast, Callable
 from webbrowser import open_new_tab
@@ -26,7 +26,7 @@ class SthCrashedWindow(TemporaryWindow):
         self.main_layout.addWidget(
             info_label, alignment=Qt.AlignmentFlag.AlignCenter)
         self.buttons_layout = QHBoxLayout()
-        list(map(self.buttons_layout.addWidget, widgets_to_add))
+        for w in widgets_to_add: self.buttons_layout.addWidget(w)
         buttons_widget = QWidget()
         buttons_widget.setLayout(self.buttons_layout)
         self.main_layout.addWidget(buttons_widget)
@@ -117,6 +117,7 @@ class NoFFmpegWindow(SthCrashedWindow):
             lambda: TryInstallingFFmpegThread(self).start())
         switch_to_normal_mode = SwitchToSettingsWindowButton(
             "Switch to Normal mode", self, main_window)
+        self.make_notification = main_window.make_notification
         super().__init__(main_window, info_text, [
             install_ffmepg_button, switch_to_normal_mode])
 
@@ -137,6 +138,7 @@ class TryInstallingFFmpegThread(QThread):
             except:
                 pass
             if ffmpeg_is_installed():
+                self.no_ffmpeg_window.make_notification("Successfully Installed", "FFmpeg", True)
                 self.switch_to_search_window()
             else:
                 open_new_tab(
@@ -148,6 +150,7 @@ class TryInstallingFFmpegThread(QThread):
             except:
                 pass
             if ffmpeg_is_installed():
+                self.no_ffmpeg_window.make_notification("Successfully Installed", "FFmpeg", True)
                 self.switch_to_search_window()
             else:
                 open_new_tab(
@@ -158,7 +161,7 @@ class TryInstallingFFmpegThread(QThread):
                 "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_macOS")
 
 
-class UpdateWindow(TemporaryWindow):
+class UpdateWindow(Window):
     def __init__(self, main_window: MainWindow, download_url: str, file_name: str, platform_flag: int):
         super().__init__(main_window, update_bckg_image_path)
         main_widget = QWidget()
@@ -167,7 +170,7 @@ class UpdateWindow(TemporaryWindow):
         info_label = StyledLabel(font_size=24)
         if platform_flag == 1:
             info_label.setText(
-                "\nI will download the new version then open the folder it's in.\nThen it's up to you to close the current app\nand run the new version setup to install it.\nClick the button below to start the download.\n")
+                "\nSenpwai will download the new version then open the folder it's in.\nThen it's up to you to close the current version\nand run the new version setup to install it.\nClick the button below to start the download.\n")
             set_minimum_size_policy(info_label)
             main_layout.addWidget(
                 info_label, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -235,6 +238,7 @@ class DownloadUpdateThread(QThread):
         self.update_window = update_window
         self.download_folder = download_folder
         self.file_name = file_name
+        self.make_notification = main_window.make_notification
 
     def run(self):
         total_size = int(cast(str, requests.get(
@@ -252,7 +256,9 @@ class DownloadUpdateThread(QThread):
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
         if not download.cancelled:
-            open_folder(self.download_folder)
+            o = lambda: open_folder(self.download_folder)
+            self.make_notification("Download Complete", "New Senpwai version setup", True, o)
+            o()
 
 
 class CheckIfUpdateAvailableThread(QThread):

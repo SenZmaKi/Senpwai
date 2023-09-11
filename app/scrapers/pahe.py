@@ -4,13 +4,13 @@ import json
 import re
 from typing import Callable, cast
 from math import pow
-from shared.app_and_scraper_shared import network_error_retry_wrapper, PARSER, test_downloading, match_quality, PausableAndCancellableFunction
+from shared.app_and_scraper_shared import network_error_retry_wrapper, PARSER, test_downloading, match_quality, PausableAndCancellableFunction, AnimeMetadata
 
 PAHE_HOME_URL = 'https://animepahe.ru'
 API_URL_EXTENSION = '/api?m='
 
 
-def search(keyword: str) -> list[dict]:
+def search(keyword: str) -> list[dict[str, str]]:
     search_url = PAHE_HOME_URL+API_URL_EXTENSION+'search&q='+keyword
     response = network_error_retry_wrapper(
         lambda: requests.get(search_url).content)
@@ -21,7 +21,7 @@ def search(keyword: str) -> list[dict]:
         return []
 
 
-def extract_anime_id_title_and_page_link(result: dict) -> tuple[str, str, str]:
+def extract_anime_id_title_and_page_link(result: dict[str, str]) -> tuple[str, str, str]:
     anime_id = result['session']
     title = result['title']
     page_link = f'{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_asc'
@@ -226,7 +226,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
         return direct_download_links
 
 
-def extract_poster_summary_and_episode_count(anime_id: str) -> tuple[str, str, int]:
+def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     page_link = f'{PAHE_HOME_URL}/anime/{anime_id}'
     response = network_error_retry_wrapper(
         lambda: requests.get(page_link).content)
@@ -236,19 +236,30 @@ def extract_poster_summary_and_episode_count(anime_id: str) -> tuple[str, str, i
         poster = cast(Tag, soup.find(class_='poster-image'))
     poster_link = cast(str, poster['href'])
     summary = cast(Tag, soup.find(class_='anime-synopsis')).get_text()
-
+    tag = soup.find(title="Currently Airing")
+    is_ongoing = False
+    if tag:
+        is_ongoing = True
+    genres_tags = cast(Tag, cast(Tag, soup.find(
+        class_="anime-genre font-weight-bold")).find('ul')).find_all('li')
+    genres: list[str] = []
+    for genre in genres_tags:
+        genres.append(cast(str, cast(Tag, genre.find('a'))['title']))
+    season = cast(str, cast(Tag, soup.select_one(
+        'a[href*="/anime/season/"]'))['title'])
+    release_year = int(season.split(' ')[-1])
     page_link = f'{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_desc'
     response = network_error_retry_wrapper(
         lambda: requests.get(page_link).content)
     episode_count = json.loads(response)['total']
-    return (poster_link, summary, int(episode_count))
+    return AnimeMetadata(poster_link, summary, int(episode_count), is_ongoing, genres, release_year)
 
 
 def test_getting_direct_download_links(anime_title: str, start_episode: int, end_episode: int, quality: str, sub_or_dub='sub') -> list[str]:
     result = search(anime_title)[0]
     anime_id, _, anime_page_link = extract_anime_id_title_and_page_link(
         result)
-    _, _, _ = extract_poster_summary_and_episode_count(anime_id)
+    get_anime_metadata(anime_id)
     episode_page_links = GetEpisodePageLinks().get_episode_page_links(
         start_episode, end_episode, anime_page_link, anime_id)
     download_page_links, download_info = GetPahewinDownloadPage().get_pahewin_download_page_links_and_info(
@@ -257,7 +268,8 @@ def test_getting_direct_download_links(anime_title: str, start_episode: int, end
         quality, *bind_sub_or_dub_to_link_info(sub_or_dub, download_page_links, download_info))
     direct_download_links = GetDirectDownloadLinks(
     ).get_direct_download_links(bound_links)
-    list(map(print, direct_download_links))
+    for d in direct_download_links:
+        print(d)
     return direct_download_links
 
 

@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QGuiApplication, QIcon
 from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout
-from PyQt6.QtCore import Qt, pyqtSlot
-from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, settings, KEY_ANIME_TO_AUTO
+from PyQt6.QtCore import Qt, pyqtSlot, QTimer
+from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton
 from typing import Callable, cast
 
@@ -14,6 +14,7 @@ class MainWindow(QMainWindow):
         self.center_window()
         self.tray_icon = QSystemTrayIcon(QIcon(SENPWAI_ICON_PATH), self)
         self.tray_icon.show()
+        self.task_complete_icon = QIcon(task_complete_icon_path)
         self.download_window = DownloadWindow(self)
         self.search_window = SearchWindow(self)
         self.settings_window = SettingsWindow(self)
@@ -30,11 +31,14 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
 
-        # For testing purposes comment out on deployment
-        # self.search_window.search_anime('Senyuu', 'gogo')
-        # For testing purposes, the anime id changes after a while so check on animepahe if it doesn't work
-        # self.setup_and_switch_to_chosen_anime_wi  ndow(Anime("Senyuu.", "https://animepahe.ru/api?m=release&id=37d42404-faa1-9362-64e2-975d2d8aa797", "37d42404-faa1-9362-64e2-975d2d8aa797"), "pahe")
-        # self.setup_and_switch_to_chosen_anime_window(Anime("Blue Lock", "https://gogoanime.hu/category/blue-lock", None), gogo_name)
+    def make_notification(self, title: str, msg: str, sth_completed: bool, onclick: Callable=lambda: None):
+        if settings[KEY_ALLOW_NOTIFICATIONS]:
+            QTimer(self).singleShot(6000, lambda: self.tray_icon.messageClicked.disconnect(onclick))
+            self.tray_icon.messageClicked.connect(onclick)
+            if sth_completed:
+                return self.tray_icon.showMessage(title, msg, self.task_complete_icon, 5000)
+            self.tray_icon.showMessage(title, msg)
+
 
     @pyqtSlot(tuple)
     def handle_update_check_result(self, result: tuple[bool, str, str, int]):
@@ -47,6 +51,7 @@ class MainWindow(QMainWindow):
         update_icon = NavBarButton(
             update_icon_path, self.switch_to_update_window)
         self.search_window.nav_bar_layout.addWidget(update_icon)
+        self.make_notification("New Senpwai version is available", "", False, self.switch_to_update_window)
 
     def switch_to_update_window(self):
         self.switch_to_window(self.update_window)
@@ -62,13 +67,14 @@ class MainWindow(QMainWindow):
             self.search_window.loading.start()
             self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
                 self.search_window.loading)
-            self.setup_chosen_anime_window_thread = SetupChosenAnimeWindowThread(
+            self.setup_chosen_anime_window_thread = MakeAnimeDetailsThread(
                 self, anime, site)
             self.setup_chosen_anime_window_thread.finished.connect(
-                lambda anime_details: self.handle_finished_drawing_window_widgets(anime_details))
+                lambda anime_details: self.make_chosen_anime_window(anime_details))
             self.setup_chosen_anime_window_thread.start()
 
-    def handle_finished_drawing_window_widgets(self, anime_details: AnimeDetails):
+    @pyqtSlot(AnimeDetails)
+    def make_chosen_anime_window(self, anime_details: AnimeDetails):
         self.setup_chosen_anime_window_thread = None
         self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
             self.search_window.results_widget)
@@ -179,5 +185,5 @@ from windows.about_window import AboutWindow
 from windows.search_window import SearchWindow
 from windows.download_window import DownloadWindow
 from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow, UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
-from windows.chosen_anime_window import ChosenAnimeWindow, SetupChosenAnimeWindowThread
+from windows.chosen_anime_window import ChosenAnimeWindow, MakeAnimeDetailsThread
 from windows.settings_window import SettingsWindow

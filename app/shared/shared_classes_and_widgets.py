@@ -5,11 +5,10 @@ from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import SETTINGS_TYPES, PAHE, GOGO
 from time import time
 from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE
-from shared.global_vars_and_funcs import folder_icon_path, RED_NORMAL_COLOR, RED_PRESSED_COLOR, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, open_folder, GOGO_HLS_MODE
-from shared.app_and_scraper_shared import sanitise_title, network_error_retry_wrapper
+from shared.global_vars_and_funcs import folder_icon_path, RED_NORMAL_COLOR, RED_PRESSED_COLOR, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, open_folder, GOGO_HLS_MODE, set_minimum_size_policy, GOGO_NORM_MODE
+from shared.app_and_scraper_shared import sanitise_title, AnimeMetadata
 from pathlib import Path
 from typing import cast
-import requests
 import anitopy
 import os
 from scrapers import pahe
@@ -97,11 +96,13 @@ class StyledButton(QPushButton):
 
 
 class DualStateButton(StyledButton):
-    def __init__(self, parent: QWidget | None, font_size: int, font_color: str, hover_color: str, set_color: str, text: str, unset_color="rgba(128, 128, 128, 255)", border_radius=12):
+    def __init__(self, parent: QWidget | None, font_size: int, font_color: str, hover_color: str, set_color: str, on_text: str, off_text: str, unset_color="rgba(128, 128, 128, 255)", border_radius=12):
         super().__init__(parent, font_size, font_color,
                          unset_color, hover_color, set_color, border_radius)
         self.on = False
-        self.setText(text)
+        self.on_text = on_text
+        self.off_text = off_text
+        self.setText(on_text)
         self.off_stylesheet = self.styleSheet()
         styles_to_overwride = f"""
             QPushButton {{
@@ -119,8 +120,11 @@ class DualStateButton(StyledButton):
         self.on = not self.on
         if self.on:
             self.setStyleSheet(self.on_stylesheet)
+            self.setText(self.off_text)
         else:
             self.setStyleSheet(self.off_stylesheet)
+            self.setText(self.on_text)
+        set_minimum_size_policy(self)
 
 
 class OptionButton(StyledButton):
@@ -275,7 +279,9 @@ class ErrorLabel(StyledLabel):
         self.shown_duration_in_secs = shown_duration_in_secs
 
     def show(self):
-        QTimer().singleShot(self.shown_duration_in_secs * 1000, self.hide)
+        timer = QTimer(self)
+        timer.timeout.connect(self.hide)
+        timer.start(self.shown_duration_in_secs  * 1000)
         return super().show()
 
 
@@ -289,8 +295,8 @@ class VirtualProgressBar(QWidget):
         self.mutex = QMutex()
         self.items_layout = QHBoxLayout(self)  # type: ignore
         self.delete_on_completion = delete_on_completion
-        self.deleteTimer = lambda: QTimer(
-            self).singleShot(60000, self.deleteLater)
+        self.destructLater = lambda: QTimer(
+            self).singleShot(40000, self.destruct)
         self.setLayout(self.items_layout)
 
         self.bar = QProgressBar(self)
@@ -355,6 +361,10 @@ class VirtualProgressBar(QWidget):
         self.items_layout.addWidget(self.current_against_max_values)
         self.prev_time = time()
 
+    def destruct(self):
+        self.deleteLater()
+        del self
+
     @pyqtSlot(int)
     def update_bar(self, added_value: int):
         self.mutex.lock()
@@ -388,7 +398,7 @@ class VirtualProgressBar(QWidget):
             self.prev_time = curr_time
         self.mutex.unlock()
         if complete and self.delete_on_completion:
-            self.deleteTimer()
+            self.destructLater()
 
 
 class ProgressBar(VirtualProgressBar):
@@ -420,14 +430,14 @@ class ProgressBar(VirtualProgressBar):
                 }
             """
         if has_icon_buttons:
-            self.pause_button = IconButton(40, 40, pause_icon_path, 1.3)
+            self.pause_button = IconButton(40, 40, pause_icon_path, 1.3, self)
             self.pause_icon = self.pause_button.icon()
             resume_icon_pixmap = QPixmap(resume_icon_path)
             resume_icon_pixmap.scaled(
                 40, 40, Qt.AspectRatioMode.IgnoreAspectRatio)
             self.resume_icon = QIcon(resume_icon_pixmap)
             self.cancel_button: IconButton = IconButton(
-                35, 35, cancel_icon_path, 1.3)
+                35, 35, cancel_icon_path, 1.3, self)
             self.pause_button.clicked.connect(self.pause_or_resume)
             self.cancel_button.clicked.connect(self.cancel)
 
@@ -459,7 +469,7 @@ class ProgressBar(VirtualProgressBar):
                 }
             """)
             if self.delete_on_completion:
-                self.deleteTimer()
+                self.destructLater()
 
     def pause_or_resume(self):
         if not self.cancelled and not self.is_complete():
@@ -492,9 +502,8 @@ class AnimeDetails():
         self.haved_episodes: list[int] = []
         self.haved_start, self.haved_end, self.haved_count = self.get_start_end_and_count_of_haved_episodes()
         self.dub_available = self.get_dub_availablilty_status()
-        self.poster, self.summary, self.episode_count = self.get_poster_image_summary_and_episode_count()
-        self.start_download_episode = 0
-        self.end_download_episode = 0
+        self.metadata = self.get_metadata()
+        self.episode_count = self.metadata.episode_count
         self.quality = cast(str, settings[KEY_QUALITY])
         self.sub_or_dub = cast(str, settings[KEY_SUB_OR_DUB])
         self.direct_download_links: list[str] = []
@@ -583,21 +592,14 @@ class AnimeDetails():
             dub_available = gogo.dub_available(self.anime.title)
         return dub_available
 
-    def get_poster_image_summary_and_episode_count(self) -> tuple[bytes, str, int]:
-        poster_image: bytes = b''
-        summary: str = ''
-        episode_count: int = 0
+    def get_metadata(self) -> AnimeMetadata:
         if self.site == PAHE:
-            poster_url, summary, episode_count = pahe.extract_poster_summary_and_episode_count(
+            metadata = pahe.get_anime_metadata(
                 cast(str, self.anime.id))
-            poster_image = network_error_retry_wrapper(
-                lambda: requests.get(poster_url).content)
-        elif self.site == GOGO:
-            poster_url, summary, episode_count = gogo.extract_poster_summary_and_episode_count(
+        else:
+            metadata = gogo.get_anime_metadata(
                 self.anime.page_link)
-            poster_image = network_error_retry_wrapper(
-                lambda: requests.get(poster_url).content)
-        return (poster_image, summary, episode_count)
+        return metadata
 
 
 class ScrollableSection(QScrollArea):
@@ -676,6 +678,10 @@ class GogoNormOrHlsButton(OptionButton):
         super().__init__(window, norm_or_hls, norm_or_hls.upper(),
                          font_size, RED_NORMAL_COLOR, RED_PRESSED_COLOR)
         self.norm_or_hls = norm_or_hls
+        if self.norm_or_hls == GOGO_NORM_MODE:
+            return self.setToolTip("In Normal mode you may occasionally encounter Captcha block.\nAlso you must have either Chrome, Edge or Firefox installed")
+        self.setToolTip("HLS mode guarantees Gogoanime downloads will go through, zettaini, but in order for it to work\nyou must have FFmpeg installed. Also, you can't pause ongoing downloads while in HLS mode")
+
 
 
 class HorizontalLine(QFrame):

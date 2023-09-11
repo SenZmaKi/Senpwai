@@ -13,7 +13,7 @@ from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions
 
 import subprocess
 from typing import Callable, cast
-from shared.app_and_scraper_shared import PARSER, network_error_retry_wrapper, test_downloading, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction
+from shared.app_and_scraper_shared import PARSER, network_error_retry_wrapper, test_downloading, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction, AnimeMetadata
 
 # Hls mode imports
 import json
@@ -105,9 +105,32 @@ def setup_headless_browser(browser: str = EDGE) -> Chrome | Edge | Firefox:
         return setup_firefox_driver()
 
 
-def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | Firefox, max_load_wait_time: int, load_wait_time=1) -> tuple[list[str], list[str]]:
+class GetDirectDownloadLinks(PausableAndCancellableFunction):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def get_direct_download_link_as_per_quality(self, download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda update: None, max_load_wait_time=10) -> list[str]:
+        # For testing purposes
+        # raise TimeoutError
+        download_links: list[str] = []
+        download_links: list[str] = []
+        for page_link in download_page_links:
+            links, quality_infos = get_links_and_quality_info(
+                page_link, driver, max_load_wait_time, self)
+            quality_idx = match_quality(quality_infos, quality)
+            download_links.append(links[quality_idx])
+            self.resume.wait()
+            if self.cancelled:
+                return []
+            progress_update_call_back(1)
+        return download_links
+
+
+def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | Firefox, max_load_wait_time: int, get_ddl: GetDirectDownloadLinks, load_wait_time=1) -> tuple[list[str], list[str]]:
     def network_error_retry():
         while True:
+            if get_ddl.cancelled:
+                return [], []
             try:
                 return driver.get(download_page_link)
             except WebDriverException:
@@ -120,33 +143,14 @@ def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | 
              for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
     quality_infos = [link_and_info.text.replace(
         'P', 'p') for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
+    if get_ddl.cancelled:
+        return [], []
     if (len(links) == 0):
         if load_wait_time >= max_load_wait_time:
             raise TimeoutError
         else:
-            return get_links_and_quality_info(download_page_link, driver, max_load_wait_time, load_wait_time+1)
+            return get_links_and_quality_info(download_page_link, driver, max_load_wait_time, get_ddl, load_wait_time+1)
     return (links, quality_infos)
-
-
-class GetDirectDownloadLinks(PausableAndCancellableFunction):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def get_direct_download_link_as_per_quality(self, download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda update: None, max_load_wait_time=6) -> list[str]:
-        # For testing purposes
-        # raise TimeoutError
-        download_links: list[str] = []
-        download_links: list[str] = []
-        for page_link in download_page_links:
-            links, quality_infos = get_links_and_quality_info(
-                page_link, driver, max_load_wait_time)
-            quality_idx = match_quality(quality_infos, quality)
-            download_links.append(links[quality_idx])
-            self.resume.wait()
-            if self.cancelled:
-                return []
-            progress_update_call_back(1)
-        return download_links
 
 
 class GetDownloadPageLinks(PausableAndCancellableFunction):
@@ -210,17 +214,25 @@ def open_browser_with_links(download_links: str) -> None:
         webbrowser.open_new_tab(link)
 
 
-def extract_poster_summary_and_episode_count(anime_page_link: str) -> tuple[str, str, int]:
+def get_anime_metadata(anime_page_link: str) -> AnimeMetadata:
     response = network_error_retry_wrapper(
         lambda: requests.get(anime_page_link).content)
     soup = BeautifulSoup(response, PARSER)
     poster_link = cast(str, cast(Tag, cast(Tag, soup.find(
         class_='anime_info_body_bg')).find('img'))['src'])
-    summary = soup.find_all('p', class_='type')[
-        1].get_text().replace('Plot Summary: ', '')
+    metadata_tags = soup.find_all('p', class_='type')
+    summary = metadata_tags[1].get_text().replace('Plot Summary: ', '')
+    genre_tags = cast(ResultSet[Tag], metadata_tags[2].find_all('a'))
+    genres = cast(list[str], [g['title'] for g in genre_tags])
+    release_year = int(metadata_tags[3].get_text().replace('Released: ', ''))
     episode_count = cast(Tag, cast(ResultSet[Tag], cast(Tag, soup.find(
         'ul', id='episode_page')).find_all('li'))[-1].find('a')).get_text().split('-')[-1]
-    return (poster_link, summary, int(episode_count))
+    tag = soup.find('a', title="Ongoing Anime")
+    is_ongoing = False
+    if tag:
+        is_ongoing = True
+
+    return AnimeMetadata(poster_link, summary, int(episode_count), is_ongoing, genres, release_year)
 
 
 def dub_available(anime_title: str) -> bool:
@@ -262,7 +274,7 @@ def get_embed_url(episode_page_link: str) -> str:
         response = cast(requests.Response, network_error_retry_wrapper(
             lambda: requests.get(episode_page_link)))
     soup = BeautifulSoup(response.content, PARSER)
-    return cast(str, soup.select('iframe')[0]['src'])
+    return cast(str, cast(Tag, soup.select_one('iframe'))['src'])
 
 
 def aes_encrypt(data: str, *, key, iv) -> bytes:
@@ -345,10 +357,11 @@ def test_getting_episode_page_links(anime_title: str, start_episode: int, end_ep
         tuple[str, str], extract_anime_title_and_page_link(result))
     if sub_or_dub == 'dub' and dub_available(anime_title):
         anime_page_link = cast(str, dub_available(anime_title))
-    extract_poster_summary_and_episode_count(anime_page_link)
+    get_anime_metadata(anime_page_link)
     episode_page_links = generate_episode_page_links(
         start_episode, end_episode, anime_page_link)
-    list(map(print, episode_page_links))
+    for p in episode_page_links:
+        print(p)
     return episode_page_links
 
 
@@ -361,13 +374,15 @@ def test_getting_direct_download_links(episode_page_links: list[str], quality: s
     CalculateTotalDowloadSize().calculate_total_download_size(
         direct_download_links)
     driver.quit()
-    list(map(print, direct_download_links))
+    for p in direct_download_links:
+        print(p)
     return direct_download_links
 
 
 def test_getting_hls_links(episode_page_links: list[str]) -> list[str]:
     hls_links = GetHlsLinks().get_hls_links(episode_page_links)
-    list(map(print, hls_links))
+    for h in hls_links:
+        print(h)
     return hls_links
 
 

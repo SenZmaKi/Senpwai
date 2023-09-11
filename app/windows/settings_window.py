@@ -1,10 +1,11 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
-from PyQt6.QtCore import Qt
-from shared.global_vars_and_funcs import SETTINGS_TYPES, validate_settings_json, settings_file_path, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR
-from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_ANIME_TO_AUTO, KEY_AUTO_DOWNLOAD_SITE
-from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, CHROME, EDGE, FIREFOX, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO
-from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel
+from PyQt6.QtCore import Qt, QFile
+from shared.global_vars_and_funcs import SETTINGS_TYPES, validate_settings_json, settings_file_path, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR
+from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_START_MINIMISED, KEY_RUN_ON_STARTUP
+from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, CHROME, EDGE, FIREFOX, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME
+from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
+from sys import platform as sysplatform
 import json
 import os
 from typing import cast
@@ -29,14 +30,17 @@ class SettingsWindow(Window):
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(
             self)
         self.gogo_default_browser_setting = GogoDefaultBrowserSetting(self)
-        self.make_download_complete_notification_setting = MakeDownloadCompleteNotificationSetting(
+        self.make_download_complete_notification_setting = AllowNotificationsSetting(
             self)
         self.start_in_fullscreen = StartInFullscreenSetting(self)
         self.download_folder_setting = DownloadFoldersSetting(
             self, main_window)
         self.gogo_norm_or_hls_mode_setting = GogoNormOrHlsSetting(self)
-        self.anime_to_auto_download = AnimeToAutoDownload(self,)
-        self.auto_download_pahe_or_gogo = AutoDownloadSite(self)
+        self.tracked_anime = TrackedAnime(self,)
+        self.auto_download_site = AutoDownloadSite(self)
+        self.start_minimsed = StartMinimisedSetting(self)
+        if sysplatform == "win32":
+            self.run_on_startup = RunOnStartUp(self)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
@@ -45,9 +49,12 @@ class SettingsWindow(Window):
         left_layout.addWidget(
             self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_in_fullscreen)
+        left_layout.addWidget(self.start_minimsed)
+        if sysplatform == "win32":
+            left_layout.addWidget(self.run_on_startup)
         right_layout.addWidget(self.download_folder_setting)
-        right_layout.addWidget(self.auto_download_pahe_or_gogo)
-        right_layout.addWidget(self.anime_to_auto_download)
+        right_layout.addWidget(self.auto_download_site)
+        right_layout.addWidget(self.tracked_anime)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
 
@@ -88,10 +95,13 @@ class FolderSetting(QWidget):
             settings_label_and_add_button_layout)
         self.main_layout.addWidget(self.error_label)
         self.main_layout.addWidget(settings_label_and_add_button_widget)
+        line = HorizontalLine()
+        line.setFixedHeight(7)
+        self.main_layout.addWidget(line)
         self.folder_widgets_layout = QVBoxLayout()
         for idx, folder in enumerate(cast(list[str], settings[self.setting_key])):
             self.folder_widgets_layout.addWidget(FolderWidget(
-                main_window, self, self.font_size - 2, folder, idx), alignment=Qt.AlignmentFlag.AlignTop)
+                main_window, self, 14, folder, idx), alignment=Qt.AlignmentFlag.AlignTop)
         folder_widgets_widget = ScrollableSection(self.folder_widgets_layout)
         self.main_layout.addWidget(folder_widgets_widget)
         self.setLayout(self.main_layout)
@@ -152,7 +162,7 @@ class FolderSetting(QWidget):
         if not self.is_valid_new_folder(added_folder_path):
             return
         self.folder_widgets_layout.addWidget(FolderWidget(
-            self.main_window, self, self.font_size - 5, added_folder_path, self.folder_widgets_layout.count()), alignment=Qt.AlignmentFlag.AlignTop)
+            self.main_window, self, 14, added_folder_path, self.folder_widgets_layout.count()), alignment=Qt.AlignmentFlag.AlignTop)
         self.settings_window.update_settings_json(
             self.setting_key, cast(list[str], settings[self.setting_key]) + [added_folder_path])
 
@@ -245,45 +255,47 @@ class RemovableWidget(QWidget):
         self.setLayout(main_layout)
 
 
-class AnimeToAutoDownload(SettingWidget):
+class TrackedAnime(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
         self.main_layout = QVBoxLayout()
         self.settings_window = settings_window
         main_widget = ScrollableSection(self.main_layout)
         self.anime_buttons: list[RemovableWidget] = []
-        for anime in cast(list[str], settings[KEY_ANIME_TO_AUTO]):
-            wid = RemovableWidget(anime, font_size=16)
+        for anime in cast(list[str], settings[KEY_TRACKED_ANIME]):
+            wid = RemovableWidget(anime, font_size=14)
             self.setup_anime_widget(wid)
-            # clicked signal seems to pass some bool automatically
+        line = HorizontalLine()
+        line.setFixedHeight(7)
         super().__init__(settings_window,
-                         "Anime to auto download", [main_widget], False)
+                         "Anime to track and auto download new episodes", [line, main_widget], False)
+        self.setting_label.setToolTip("When you start the app, Senpwai will check for new episodes\nof these anime then download them automatically")
 
     def setup_anime_widget(self, wid: RemovableWidget):
         wid.remove_button.clicked.connect(lambda garbage_bool, txt=wid.text: cast(
-            list[str], settings[KEY_ANIME_TO_AUTO]).remove(txt))
+            list[str], settings[KEY_TRACKED_ANIME]).remove(txt))
         wid.remove_button.clicked.connect(lambda: self.settings_window.update_settings_json(
-            KEY_ANIME_TO_AUTO, settings[KEY_ANIME_TO_AUTO]))
+            KEY_TRACKED_ANIME, settings[KEY_TRACKED_ANIME]))
         wid.remove_button.clicked.connect(
             lambda: self.anime_buttons.remove(wid))
         set_minimum_size_policy(wid)
-        self.main_layout.addWidget(wid)
+        self.main_layout.addWidget(wid, alignment=Qt.AlignmentFlag.AlignTop)
         self.anime_buttons.append(wid)
 
-    def remove_anime(self, sanitised_title: str):
+    def remove_anime(self, title: str):
         for anime in self.anime_buttons:
-            if anime.text == sanitised_title:
+            if anime.text == title:
                 anime.remove_button.click()
 
-    def add_anime(self, sanitised_title: str):
+    def add_anime(self, title: str):
         for anime in self.anime_buttons:
-            if anime.text == sanitised_title:
+            if anime.text == title:
                 return
-        wid = RemovableWidget(sanitised_title, 16)
+        wid = RemovableWidget(title, 16)
         self.setup_anime_widget(wid)
         new_setting = cast(
-            list[str], settings[KEY_ANIME_TO_AUTO]) + [sanitised_title]
+            list[str], settings[KEY_TRACKED_ANIME]) + [title]
         self.settings_window.update_settings_json(
-            KEY_ANIME_TO_AUTO, new_setting)
+            KEY_TRACKED_ANIME, new_setting)
 
 
 class AutoDownloadSite(SettingWidget):
@@ -308,24 +320,24 @@ class AutoDownloadSite(SettingWidget):
 
         super().__init__(settings_window,
                          "Auto download site", [pahe_button, gogo_button])
-
+        self.setting_label.setToolTip("If Senpwai can't find the anime in the specified site it will try the other")
 
 class YesOrNoSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow, setting_info: str, setting_key_in_json: str, tooltip: str | None = None):
-        yes_button = YesOrNoButton(True, settings_window.font_size)
-        no_button = YesOrNoButton(False, settings_window.font_size)
-        yes_button.clicked.connect(lambda: no_button.set_picked_status(False))
-        no_button.clicked.connect(lambda: yes_button.set_picked_status(False))
-        yes_button.clicked.connect(lambda: settings_window.update_settings_json(
+        self.yes_button = YesOrNoButton(True, settings_window.font_size)
+        self.no_button = YesOrNoButton(False, settings_window.font_size)
+        self.yes_button.clicked.connect(lambda: self.no_button.set_picked_status(False))
+        self.no_button.clicked.connect(lambda: self.yes_button.set_picked_status(False))
+        self.yes_button.clicked.connect(lambda: settings_window.update_settings_json(
             setting_key_in_json, True))
-        no_button.clicked.connect(lambda: settings_window.update_settings_json(
+        self.no_button.clicked.connect(lambda: settings_window.update_settings_json(
             setting_key_in_json, False))
-        yes_button.set_picked_status(
-            True) if settings[setting_key_in_json] else no_button.set_picked_status(True)
-        set_minimum_size_policy(yes_button)
-        set_minimum_size_policy(no_button)
+        self.yes_button.set_picked_status(
+            True) if settings[setting_key_in_json] else self.no_button.set_picked_status(True)
+        set_minimum_size_policy(self.yes_button)
+        set_minimum_size_policy(self.no_button)
         super().__init__(settings_window,
-                         setting_info, [yes_button, no_button])
+                         setting_info, [self.yes_button, self.no_button])
 
         if tooltip:
             self.setting_label.setToolTip(tooltip)
@@ -335,11 +347,35 @@ class StartInFullscreenSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Start app in fullscreen?", KEY_START_IN_FULLSCREEN)
 
-
-class MakeDownloadCompleteNotificationSetting(YesOrNoSetting):
+class StartMinimisedSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Notify you when download completes uWu?",
-                         KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION)
+        super().__init__(settings_window, "Start app minimised?", KEY_START_MINIMISED)
+        if sysplatform == "win32":
+            return self.setting_label.setToolTip("You can combine this setting with Run on start up such that every day you start your PC\nSenpwai will look for new episodes of your tracked anime in the background")
+        self.setting_label.setToolTip("You can combine this setting with making Senpwai to run on start up such that every day\nyou start your PC Senpwai will look for new episodes of your tracked anime in the background")
+
+class RunOnStartUp(YesOrNoSetting):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__(settings_window, "Run on start up?", KEY_RUN_ON_STARTUP)
+        appdata_folder = cast(str, os.environ.get('APPDATA'))
+        self.lnk_name = f"{APP_NAME}.lnk"
+        self.lnk_path = os.path.join(appdata_folder, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', self.lnk_name)
+        self.yes_button.clicked.connect(self.make_startup_lnk)
+        self.no_button.clicked.connect(self.remove_startup_lnk)
+
+    def make_startup_lnk(self):
+        if not os.path.isfile(self.lnk_path):
+            QFile.link(f"{APP_NAME}.exe", self.lnk_name)
+            QFile.copy(self.lnk_name, self.lnk_path)
+
+    def remove_startup_lnk(self):
+        if os.path.isfile(self.lnk_path):
+            os.unlink(self.lnk_path)
+
+class AllowNotificationsSetting(YesOrNoSetting):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__(settings_window, "Allow notifications uWu?",
+                         KEY_ALLOW_NOTIFICATIONS)
 
 
 class GogoDefaultBrowserSetting(SettingWidget):
@@ -363,7 +399,7 @@ class GogoDefaultBrowserSetting(SettingWidget):
         super().__init__(settings_window,
                          "Gogo default scraping browser", self.browser_buttons_list)
         self.setting_label.setToolTip(
-            "The selected browser will be used for scraping if you download from Gogoanime in Normal mode.")
+            "The selected browser will be used for scraping if you download from Gogoanime in Normal mode")
 
     def update_browser(self, browser: str):
         self.settings_window.update_settings_json(
@@ -387,19 +423,15 @@ class GogoNormOrHlsSetting(SettingWidget):
             norm_button.set_picked_status(True)
         norm_button.clicked.connect(
             lambda: hls_button.set_picked_status(False))
-        norm_button.setToolTip(
-            "In Normal mode you may occasionally encounter Captcha block.\nAlso you must have either Chrome, Edge or Firefox installed.")
-        hls_info_text = "HLS mode guarantees Gogoanime downloads will go through, zettaini, but in order for it to work\nyou must have FFmpeg installed. Also, you can't pause ongoing downloads while in HLS mode"
         hls_button.clicked.connect(
             lambda: norm_button.set_picked_status(False))
-        hls_button.setToolTip(hls_info_text)
         norm_button.clicked.connect(
             lambda: settings_window.update_settings_json(KEY_GOGO_NORM_OR_HLS_MODE, GOGO_NORM_MODE))
         hls_button.clicked.connect(
             lambda: settings_window.update_settings_json(KEY_GOGO_NORM_OR_HLS_MODE, GOGO_HLS_MODE))
         super().__init__(settings_window,
                          "Gogo Normal or HLS mode?", [norm_button, hls_button])
-        self.setting_label.setToolTip(hls_info_text)
+        self.setting_label.setToolTip(hls_button.toolTip())
 
 
 class MaxSimultaneousDownloadsSetting(SettingWidget):
@@ -412,7 +444,7 @@ class MaxSimultaneousDownloadsSetting(SettingWidget):
             str(cast(int, settings[KEY_MAX_SIMULTANEOUS_DOWNLOADS])))
         number_input.textChanged.connect(self.text_changed)
         zero_error = ErrorLabel(18, 4)
-        zero_error.setText("Bruh, max simultaneous downloads can't be zero.")
+        zero_error.setText("Bruh, max simultaneous downloads can't be zero")
         set_minimum_size_policy(zero_error)
         zero_error.hide()
         main_layout = QVBoxLayout()
@@ -424,7 +456,7 @@ class MaxSimultaneousDownloadsSetting(SettingWidget):
         super().__init__(settings_window,
                          "Max simultaneous downloads", [main_widget])
         self.setting_label.setToolTip(
-            "The maximum number of downloads allowed to occur at the same time.")
+            "The maximum number of downloads allowed to occur at the same time")
 
     def text_changed(self, text: str):
         if not text.isdigit():

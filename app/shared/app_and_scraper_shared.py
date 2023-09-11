@@ -19,6 +19,17 @@ class QualityAndIndices:
         self.quality = quality
         self.index = index
 
+class AnimeMetadata:
+    def __init__(self, poster_url: str, summary: str, episode_count: int, is_ongoing: bool, genres: list[str], release_year: int):
+        self.poster_url = poster_url
+        self.summary = summary
+        self.episode_count = episode_count
+        self.is_ongoing = is_ongoing
+        self.genres = genres
+        self.release_year = release_year
+
+    def get_poster_bytes(self) -> bytes:
+        return cast(bytes, network_error_retry_wrapper(lambda: requests.get(self.poster_url).content))
 
 def match_quality(potential_qualities: list[str], user_quality: str) -> int:
     detected_qualities: list[QualityAndIndices] = []

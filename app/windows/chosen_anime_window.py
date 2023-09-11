@@ -1,9 +1,9 @@
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, GogoNormOrHlsButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection, DualStateButton
 from shared.global_vars_and_funcs import GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, RED_NORMAL_COLOR, RED_PRESSED_COLOR, settings, KEY_SUB_OR_DUB, Q_1080, Q_720, Q_480, Q_360, chosen_anime_window_bckg_image_path
-from shared.global_vars_and_funcs import SUB, DUB, set_minimum_size_policy, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_ANIME_TO_AUTO, GOGO, CHROME, EDGE, FIREFOX
+from shared.global_vars_and_funcs import SUB, DUB, set_minimum_size_policy, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_TRACKED_ANIME, GOGO, CHROME, EDGE, FIREFOX
 from windows.download_window import DownloadWindow
 from windows.settings_window import SettingsWindow
 from shared.app_and_scraper_shared import dynamic_episodes_predictor_initialiser_pro_turboencapsulator
@@ -34,7 +34,7 @@ class HavedEpisodes(StyledLabel):
                 f"You have {haved_count} episode from {start} to {end}.")
 
 
-class SetupChosenAnimeWindowThread(QThread):
+class MakeAnimeDetailsThread(QThread):
     finished = pyqtSignal(AnimeDetails)
 
     def __init__(self, window: MainWindow, anime: Anime, site: str):
@@ -54,16 +54,50 @@ class ChosenAnimeWindow(TemporaryWindow):
         self.anime_details = anime_details
 
         main_layout = QHBoxLayout()
-        poster = Poster(self.anime_details.poster)
-        main_layout.addWidget(poster)
+        left_widgets_widget = QWidget()
+        left_widgets_layout = QVBoxLayout()
+        poster = Poster(self.anime_details.metadata.get_poster_bytes())
+        left_widgets_layout.addWidget(poster)
+        left_widgets_widget.setLayout(left_widgets_layout)
+        bottom_widgets = QWidget()
+        bottom_layout = QVBoxLayout()
+        bottom_widgets.setLayout(bottom_layout)
+        bottom_top_widget = QWidget()
+        bottom_top_layout = QHBoxLayout()
+        bottom_top_widget.setLayout(bottom_top_layout)
+        release_year = StyledLabel(None, 21, "black")
+        release_year.setText(str(anime_details.metadata.release_year))
+        set_minimum_size_policy(release_year)
+        bottom_top_layout.addWidget(release_year)
+        airing_text = "ONGOING" if anime_details.metadata.is_ongoing else "FINISHED"
+        airing_status = StyledLabel(None, 21, "blue")
+        airing_status.setText(airing_text)
+        set_minimum_size_policy(airing_status)
+        bottom_top_layout.addWidget(airing_status)
+        self.episode_count = EpisodeCount(
+            str(self.anime_details.episode_count))
+        set_minimum_size_policy(self.episode_count)
+        bottom_top_layout.addWidget(self.episode_count)
+        bottom_bottom_widget = QWidget()
+        bottom_bottom_layout = QHBoxLayout()
+        bottom_bottom_widget.setLayout(bottom_bottom_layout)
+        for genre in anime_details.metadata.genres[:3]:
+            g_wid = StyledLabel(None, 21, "orange")
+            g_wid.setText(genre)
+            set_minimum_size_policy(g_wid)
+            bottom_bottom_layout.addWidget(g_wid)
+        left_widgets_layout.addWidget(bottom_top_widget)
+        left_widgets_layout.addWidget(bottom_bottom_widget)
+        set_minimum_size_policy(left_widgets_widget)
+        main_layout.addWidget(left_widgets_widget)
         right_widgets_widget = QWidget()
         right_widgets_layout = QVBoxLayout()
         title = Title(self.anime_details.anime.title)
         right_widgets_layout.addWidget(title)
-        line_under_title = HorizontalLine()
+        line_under_title = HorizontalLine(parent=self)
         line_under_title.setFixedHeight(10)
         right_widgets_layout.addWidget(line_under_title)
-        summary_label = SummaryLabel(self.anime_details.summary)
+        summary_label = SummaryLabel(self.anime_details.metadata.summary)
         summary_layout = QVBoxLayout()
         summary_layout.addWidget(summary_label)
         summary_widget = ScrollableSection(summary_layout)
@@ -183,21 +217,17 @@ class ChosenAnimeWindow(TemporaryWindow):
         haved_episodes = HavedEpisodes(
             self.anime_details.haved_start, self.anime_details.haved_end, self.anime_details.haved_count, self.anime_details.episode_count)
         set_minimum_size_policy(haved_episodes)
-        self.episode_count = EpisodeCount(
-            str(self.anime_details.episode_count))
-        set_minimum_size_policy(self.episode_count)
-        third_row_of_labels_layout.addWidget(self.episode_count)
         third_row_of_labels_layout.addWidget(haved_episodes)
         if self.anime_details.anime_folder_path:
             folder_button = FolderButton(
                 self.anime_details.anime_folder_path, 120, 120)
             third_row_of_labels_layout.addWidget(folder_button)
-        auto_download_button = AutoDownloadButton(
-            anime_details.sanitised_title, self, self.main_window.settings_window)
-        if anime_details.sanitised_title in cast(list[str], settings[KEY_ANIME_TO_AUTO]):
-            auto_download_button.change_status()
-        set_minimum_size_policy(auto_download_button)
-        third_row_of_labels_layout.addWidget(auto_download_button)
+        track_button = TrackButton(
+            anime_details.anime.title, self, self.main_window.settings_window)
+        if anime_details.sanitised_title in cast(list[str], settings[KEY_TRACKED_ANIME]):
+            track_button.change_status()
+        set_minimum_size_policy(track_button)
+        third_row_of_labels_layout.addWidget(track_button)
         third_row_of_labels_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         third_row_of_labels_widget.setLayout(third_row_of_labels_layout)
         right_widgets_layout.addWidget(third_row_of_labels_widget)
@@ -246,21 +276,27 @@ class ChosenAnimeWindow(TemporaryWindow):
         self.error_label.show()
 
 
-class AutoDownloadButton(DualStateButton):
-    def __init__(self, sanitised_anime_title: str, chosen_anime_window: ChosenAnimeWindow, settings: SettingsWindow):
-        self.add_to_settings = lambda: settings.anime_to_auto_download.add_anime(
-            sanitised_anime_title)
-        self.remove_from_settings = lambda: settings.anime_to_auto_download.remove_anime(
-            sanitised_anime_title)
+class TrackButton(DualStateButton):
+    def __init__(self, anime_title: str, chosen_anime_window: ChosenAnimeWindow, settings: SettingsWindow):
+        self.anime_title = anime_title
+        self.off_tooltip = f"Add {self.anime_title} to your tracked anime list\nfor automatic downloading of new episodes"
+        self.add_to_settings = lambda: settings.tracked_anime.add_anime(
+            anime_title)
+        self.remove_from_settings = lambda: settings.tracked_anime.remove_anime(
+            anime_title)
         self.set = False
         super().__init__(chosen_anime_window, 18, "white",
-                         RED_PRESSED_COLOR, RED_NORMAL_COLOR, "AUTO")
+                         RED_PRESSED_COLOR, RED_NORMAL_COLOR, "TRACK", "UNTRACK")
+        self.setToolTip(self.off_tooltip)
 
     def change_status(self):
         super().change_status()
         if self.on:
+            self.setToolTip(
+                f"Remove {self.anime_title} from your tracked anime list")
             return self.add_to_settings()
         self.remove_from_settings()
+        self.setToolTip(self.off_tooltip)
 
 
 class DownloadButton(StyledButton):
@@ -327,11 +363,8 @@ class DownloadButton(StyledButton):
             invalid_input = True
 
         if invalid_input:
-            self.chosen_anime_window.episode_count.setStyleSheet(
-                self.chosen_anime_window.episode_count.invalid_input_style_sheet)
+            self.chosen_anime_window.episode_count.brighten()
             return
-        self.anime_details.start_download_episode = start_episode
-        self.anime_details.end_download_episode = end_episode
         self.main_window.stacked_windows.setCurrentWidget(
             self.main_window.download_window)
         self.download_window.initiate_download_pipeline(self.anime_details)
@@ -341,16 +374,24 @@ class DownloadButton(StyledButton):
 
 class EpisodeCount(StyledLabel):
     def __init__(self, count: str):
-        super().__init__(None, 21, "rgba(255, 50, 0, 230)")
+        super().__init__(None, 21, "rgba(255, 50, 0, 250)")
         self.setText(f"{count} episodes")
         self.normal_style_sheet = self.styleSheet()
         self.setWordWrap(True)
-        self.invalid_input_style_sheet = self.normal_style_sheet+"""
+        self.bright_stylesheet = self.normal_style_sheet+"""
             QLabel {
+                color: black;
                 background-color: rgba(255, 0, 0, 255);
-                border: 1px solid black;
+                border: 2px solid black;
                     }
                     """
+
+    def brighten(self):
+        self.setStyleSheet(self.bright_stylesheet)
+        def revert_styles(): return self.setStyleSheet(self.normal_style_sheet)
+        timer = QTimer(self)
+        timer.timeout.connect(revert_styles)
+        timer.start(6 * 1000)
 
 
 class Poster(QLabel):

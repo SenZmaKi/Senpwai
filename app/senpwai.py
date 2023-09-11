@@ -3,11 +3,9 @@ from PyQt6.QtGui import QColor, QPalette, QIcon
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt, QCoreApplication
 from windows.main_actual_window import MainWindow
-from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, PAHE_NORMAL_COLOR, APP_NAME, settings, KEY_START_IN_FULLSCREEN, log_error
+from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, PAHE_NORMAL_COLOR, APP_NAME, settings, KEY_START_IN_FULLSCREEN, log_error, KEY_START_MINIMISED
 from types import TracebackType
 from typing import cast
-
-
 def custom_exception_handler(type_: type[BaseException], value: BaseException, traceback: TracebackType | None):
     log_error(f"Unhandled exception: {type_.__name__}: {value}")
     sys.__excepthook__(type_, value, traceback)
@@ -24,14 +22,12 @@ def main():
     app.setPalette(palette)
 
     window = MainWindow()
-    if cast(bool, settings[KEY_START_IN_FULLSCREEN]):
-        if sys.platform == "win32":
+    if cast(bool, settings[KEY_START_MINIMISED]):
+         window.showMinimized()
+    elif cast(bool, settings[KEY_START_IN_FULLSCREEN]):
             window.showMaximized()
-        else:
-            # TO-DO: Fix bug where window.showMaxmized() does not work on Linux, also maximize window button does not work
-            window.showFullScreen()
     else:
-        window.show()
+        window.showNormal()
         window.center_window()
 
     sys.excepthook = custom_exception_handler

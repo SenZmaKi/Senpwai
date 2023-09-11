@@ -41,6 +41,8 @@ GOGO_NORM_MODE = "norm"
 GOGO_HLS_MODE = "hls"
 DEFAULT_GOGO_NORM_OR_HLS = GOGO_NORM_MODE
 default_auto_download_site = PAHE
+default_start_minimised = False
+default_run_on_startup = False
 
 error_logs_file_path = os.path.join(config_dir, "errors.log")
 if not os.path.exists(error_logs_file_path):
@@ -77,7 +79,7 @@ default_download_folder_paths = [downloads_folder]
 
 default_max_simutaneous_downloads = 2
 default_gogo_browser = CHROME
-default_make_download_complete_notification = True
+default_allow_notifications = True
 default_start_in_fullscreen = True
 default_gogo_hls_mode = False
 
@@ -86,6 +88,7 @@ def join_from_assets(file): return os.path.join(assets_path, file)
 
 
 SENPWAI_ICON_PATH = join_from_assets("senpwai-icon.ico")
+task_complete_icon_path = join_from_assets("task-complete.png")
 loading_animation_path = join_from_assets("loading.gif")
 sadge_piece_path = join_from_assets("sadge-piece.gif")
 folder_icon_path = join_from_assets("folder.png")
@@ -136,7 +139,6 @@ cancel_icon_path = join_from_download_icons("cancel.png")
 remove_from_queue_icon_path = join_from_download_icons("trash.png")
 move_up_queue_icon_path = join_from_download_icons("up.png")
 move_down_queue_icon_path = join_from_download_icons("down.png")
-download_complete_icon_path = join_from_download_icons("download-complete.png")
 
 audio_folder_path = join_from_assets("audio")
 
@@ -194,11 +196,14 @@ KEY_QUALITY = "quality"
 KEY_DOWNLOAD_FOLDER_PATHS = "download_folder_paths"
 KEY_MAX_SIMULTANEOUS_DOWNLOADS = "max_simultaneous_downloads"
 KEY_GOGO_DEFAULT_BROWSER = "gogo_default_browser"
-KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION = "make_download_complete_notification"
+KEY_ALLOW_NOTIFICATIONS = "allow_notifcations"
+deprecated_key_make_download_complete_notifications = "make_download_complete_notifications"
 KEY_START_IN_FULLSCREEN = "start_in_fullscreen"
+KEY_START_MINIMISED = "start_minimised"
+KEY_RUN_ON_STARTUP = "run_on_startup"
 KEY_GOGO_NORM_OR_HLS_MODE = "gogo_hls_mode"
-KEY_ANIME_TO_AUTO = "anime_to_auto_download"
-KEY_AUTO_DOWNLOAD_SITE = "auto_download_pahe_or_gogo"
+KEY_TRACKED_ANIME = "tracked_anime"
+KEY_AUTO_DOWNLOAD_SITE = "auto_download_site"
 
 
 settings_file_path = os.path.join(
@@ -274,12 +279,15 @@ def validate_settings_json(settings_json: dict) -> dict:
     except KeyError:
         clean_settings[KEY_GOGO_DEFAULT_BROWSER] = default_gogo_browser
     try:
-        make_download_complete_notification = settings_json[KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION]
-        if not isinstance(make_download_complete_notification, bool):
+        try:
+            allow_notifications = settings_json[KEY_ALLOW_NOTIFICATIONS]
+        except KeyError:
+            allow_notifications = settings_json[deprecated_key_make_download_complete_notifications]
+        if not isinstance(allow_notifications, bool):
             raise KeyError
-        clean_settings[KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION] = make_download_complete_notification
+        clean_settings[KEY_ALLOW_NOTIFICATIONS] = allow_notifications
     except KeyError:
-        clean_settings[KEY_MAKE_DOWNLOAD_COMPLETE_NOTIFICATION] = default_make_download_complete_notification
+        clean_settings[KEY_ALLOW_NOTIFICATIONS] = default_allow_notifications
     try:
         start_in_fullscreen = settings_json[KEY_START_IN_FULLSCREEN]
         if not isinstance(start_in_fullscreen, bool):
@@ -295,17 +303,17 @@ def validate_settings_json(settings_json: dict) -> dict:
     except KeyError:
         clean_settings[KEY_GOGO_NORM_OR_HLS_MODE] = DEFAULT_GOGO_NORM_OR_HLS
     try:
-        anime_to_auto_download = cast(
-            list[str], list(set(settings_json[KEY_ANIME_TO_AUTO])))
-        if not isinstance(anime_to_auto_download, list):
+        tracked_anime = cast(
+            list[str], list(set(settings_json[KEY_TRACKED_ANIME])))
+        if not isinstance(tracked_anime, list):
             raise KeyError
         valid = []
-        for anime in anime_to_auto_download:
+        for anime in tracked_anime:
             if isinstance(anime, str):
                 valid.append(anime)
-        clean_settings[KEY_ANIME_TO_AUTO] = valid
+        clean_settings[KEY_TRACKED_ANIME] = valid
     except KeyError:
-        clean_settings[KEY_ANIME_TO_AUTO] = []
+        clean_settings[KEY_TRACKED_ANIME] = []
     try:
         pahe_or_gogo_auto = settings_json[KEY_AUTO_DOWNLOAD_SITE]
         if pahe_or_gogo_auto not in (PAHE, GOGO):
@@ -313,6 +321,21 @@ def validate_settings_json(settings_json: dict) -> dict:
         clean_settings[KEY_AUTO_DOWNLOAD_SITE] = pahe_or_gogo_auto
     except KeyError:
         clean_settings[KEY_AUTO_DOWNLOAD_SITE] = default_auto_download_site
+    try:
+        start_minimsed = settings_json[KEY_START_MINIMISED]
+        if not isinstance(start_minimsed, bool):
+            raise KeyError
+        clean_settings[KEY_START_MINIMISED] = start_minimsed
+    except KeyError:
+        clean_settings[KEY_START_MINIMISED] = default_start_minimised
+    try:
+        run_on_startup = settings_json[KEY_RUN_ON_STARTUP]
+        if not isinstance(run_on_startup, bool):
+            raise KeyError
+        clean_settings[KEY_RUN_ON_STARTUP] = run_on_startup
+    except KeyError:
+        clean_settings[KEY_RUN_ON_STARTUP]  = default_run_on_startup
+
     return clean_settings
 
 
