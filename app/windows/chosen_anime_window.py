@@ -1,5 +1,5 @@
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpacerItem
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, GogoNormOrHlsButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection, DualStateButton
 from shared.global_vars_and_funcs import GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, RED_NORMAL_COLOR, RED_PRESSED_COLOR, settings, KEY_SUB_OR_DUB, Q_1080, Q_720, Q_480, Q_360, chosen_anime_window_bckg_image_path
@@ -124,13 +124,13 @@ class ChosenAnimeWindow(TemporaryWindow):
         else:
             self.sub_button.set_picked_status(True)
             self.anime_details.sub_or_dub = SUB
-
+        space = QSpacerItem(30, 0)
         first_row_of_buttons_widget = QWidget()
         first_row_of_buttons_layout = QHBoxLayout()
         first_row_of_buttons_layout.addWidget(self.sub_button)
         if self.dub_button:
             first_row_of_buttons_layout.addWidget(self.dub_button)
-
+        first_row_of_buttons_layout.addSpacerItem(space)
         self.button_1080 = QualityButton(self, Q_1080, 18)
         self.button_720 = QualityButton(self, Q_720, 18)
         self.button_480 = QualityButton(self, Q_480, 18)
@@ -146,6 +146,7 @@ class ChosenAnimeWindow(TemporaryWindow):
                 lambda garbage_bool, quality=quality: self.update_quality(quality))
             if quality == cast(str, settings[KEY_QUALITY]):
                 button.set_picked_status(True)
+        first_row_of_buttons_layout.addSpacerItem(space)
         if anime_details.site == GOGO:
             self.norm_button = GogoNormOrHlsButton(self, "norm", 18)
             self.hls_button = GogoNormOrHlsButton(self, "hls", 18)

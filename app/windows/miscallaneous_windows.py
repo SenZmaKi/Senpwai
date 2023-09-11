@@ -3,10 +3,10 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot
 from windows.main_actual_window import MainWindow, TemporaryWindow, Window
 from shared.global_vars_and_funcs import chopper_crying_path, PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, GITHUB_REPO_URL, github_api_releases_entry_point, APP_NAME, github_icon_path, update_bckg_image_path
 from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, settings, KEY_GOGO_DEFAULT_BROWSER, CHROME, EDGE, chopper_crying_path, VERSION, KEY_DOWNLOAD_FOLDER_PATHS, open_folder
-from shared.shared_classes_and_widgets import StyledButton, StyledLabel, FolderButton, IconButton
+from shared.shared_classes_and_widgets import StyledButton, StyledLabel, FolderButton, IconButton, AnimeDetails
 from shared.app_and_scraper_shared import ffmpeg_is_installed, network_error_retry_wrapper
 from windows.download_window import ProgressBar
-from typing import cast, Callable
+from typing import cast, Callable, Any
 from webbrowser import open_new_tab
 from shared.app_and_scraper_shared import IBYTES_TO_MBS_DIVISOR, Download
 import requests
@@ -26,7 +26,8 @@ class SthCrashedWindow(TemporaryWindow):
         self.main_layout.addWidget(
             info_label, alignment=Qt.AlignmentFlag.AlignCenter)
         self.buttons_layout = QHBoxLayout()
-        for w in widgets_to_add: self.buttons_layout.addWidget(w)
+        for w in widgets_to_add:
+            self.buttons_layout.addWidget(w)
         buttons_widget = QWidget()
         buttons_widget.setLayout(self.buttons_layout)
         self.main_layout.addWidget(buttons_widget)
@@ -36,29 +37,10 @@ class SthCrashedWindow(TemporaryWindow):
         self.setLayout(self.full_layout)
 
 
-class FailedGettingDirectDownloadLinksWindow(SthCrashedWindow):
-    def __init__(self, main_window: MainWindow, anime_title: str, info_text: str, widgets_to_add: list[QWidget]) -> None:
-        switch_to_anime_pahe_button = StyledButton(
-            None, 25, "black", PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR)
-        switch_to_anime_pahe_button.setText("Switch to Animepahe")
-        set_minimum_size_policy(switch_to_anime_pahe_button)
-        switch_to_anime_pahe_button.clicked.connect(
-            lambda: main_window.switch_to_pahe(anime_title, self))
-        switch_to_anime_pahe_button.clicked.connect(
-            lambda: main_window.stacked_windows.removeWidget(self)
-        )
-        change_default_browser_button = SwitchToSettingsWindowButton(
-            "Change Gogo default browser", self, main_window)
-        switch_to_hls_mode_button = SwitchToSettingsWindowButton(
-            "Switch to HLS mode", self, main_window)
-        super().__init__(main_window, info_text, [
-            switch_to_anime_pahe_button, change_default_browser_button, switch_to_hls_mode_button, *widgets_to_add])
-
-
 class SwitchToSettingsWindowButton(StyledButton):
     def __init__(self, button_text: str, window: SthCrashedWindow, main_window: MainWindow):
-        super().__init__(None, 25, "black", RED_NORMAL_COLOR,
-                         RED_HOVER_COLOR, RED_PRESSED_COLOR)
+        super().__init__(None, 25, "black", GOGO_NORMAL_COLOR,
+                         GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
         self.clicked.connect(main_window.switch_to_settings_window)
         self.clicked.connect(
             lambda: main_window.stacked_windows.removeWidget(window))
@@ -67,25 +49,11 @@ class SwitchToSettingsWindowButton(StyledButton):
         set_minimum_size_policy(self)
 
 
-class CaptchaBlockWindow(FailedGettingDirectDownloadLinksWindow):
-    def __init__(self, main_window: MainWindow, anime_title: str, download_page_links: list[str]) -> None:
-        main_window.set_bckg_img(chopper_crying_path)
-        info_text = (
-            f"Captcha block detected, this only ever happens with Gogoanime in Normal mode.\nChanging your Gogo default browser setting may help.\nYour current Gogo default browser is {cast(str, settings[KEY_GOGO_DEFAULT_BROWSER]).capitalize()}.\nYou can also try using HLS mode instead of Normal mode.")
-        open_browser_with_links_button = StyledButton(
-            None, 25, "black", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
-        open_browser_with_links_button.setText("Download in browser")
-        open_browser_with_links_button.clicked.connect(lambda: list(
-            map(open_new_tab, download_page_links)))  # type: ignore
-        set_minimum_size_policy(open_browser_with_links_button)
-        super().__init__(main_window, anime_title,
-                         info_text, [open_browser_with_links_button])
-
-
-class NoDefaultBrowserWindow(FailedGettingDirectDownloadLinksWindow):
-    def __init__(self, main_window: MainWindow, anime_title: str):
+class NoDefaultBrowserWindow(SthCrashedWindow):
+    def __init__(self, main_window: MainWindow, anime_details: AnimeDetails) -> None:
+        change_default_browser_button = SwitchToSettingsWindowButton(
+            "Change Gogo default browser", self, main_window)
         gogo_default_browser = cast(str, settings[KEY_GOGO_DEFAULT_BROWSER])
-        info_text = f"Sumimasen, downloaading from Gogoanime in Normal mode requires you have either: \n\t\tChrome, Edge or Firefox installed.\nYour current Gogo default browser is {gogo_default_browser.capitalize()} but I couldn't find it installed.\nYou can also try using HLS mode instead of Normal mode."
         download_browser_button = StyledButton(
             None, 25, "black", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
         if gogo_default_browser == CHROME:
@@ -100,35 +68,99 @@ class NoDefaultBrowserWindow(FailedGettingDirectDownloadLinksWindow):
             download_browser_button.setText("Download Firefox")
             download_browser_button.clicked.connect(lambda: open_new_tab(
                 "https://www.mozilla.org/firefox"))  # type: ignore
+        hls_mode_details = anime_details
+        hls_mode_details.is_hls_download = True
+        download_in_hls_mode_button = RetryDownloadButton(
+            None,  main_window, "Download in HLS mode", hls_mode_details, ffmpeg_is_installed, main_window.create_and_switch_to_no_ffmpeg_window)
         set_minimum_size_policy(download_browser_button)
-        super().__init__(main_window, anime_title,
-                         info_text, [download_browser_button])
+        set_minimum_size_policy(download_in_hls_mode_button)
+        super().__init__(main_window, f"Sumimasen, downloaading from Gogoanime in Normal mode requires you have either: \n\t\tChrome, Edge or Firefox installed\nYour current Gogo default browser is {gogo_default_browser.capitalize()} but I couldn't find it installed\nYou can also try using HLS mode instead of Normal mode",
+                         [change_default_browser_button, download_in_hls_mode_button])
+        download_in_hls_mode_button.parent_window = self
 
 
 class NoFFmpegWindow(SthCrashedWindow):
-    def __init__(self, main_window: MainWindow):
-        self.switch_to_search_window = main_window.switch_to_search_window
-        info_text = "Sumanai, in order to use HLS mode you need to have FFmpeg\ninstalled and properly added to path."
+    def __init__(self, main_window: MainWindow, anime_details: AnimeDetails):
+        self.main_window = main_window
+        info_text = "Sumanai, in order to use HLS mode you need to have\nFFmpeg installed and properly added to path"
         install_ffmepg_button = StyledButton(
             None, 25, "black", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
         install_ffmepg_button.setText("Install FFmpeg")
         set_minimum_size_policy(install_ffmepg_button)
         install_ffmepg_button.clicked.connect(
-            lambda: TryInstallingFFmpegThread(self).start())
-        switch_to_normal_mode = SwitchToSettingsWindowButton(
-            "Switch to Normal mode", self, main_window)
-        self.make_notification = main_window.make_notification
+            lambda: TryInstallingFFmpegThread(self, main_window, anime_details).start())
+        norm_mode_details = anime_details
+        norm_mode_details.is_hls_download = False
+        download_in_normal_mode = RetryDownloadButton(
+            None, main_window, "Download in Normal mode", norm_mode_details, None)
+        set_minimum_size_policy(download_in_normal_mode)
         super().__init__(main_window, info_text, [
-            install_ffmepg_button, switch_to_normal_mode])
+            install_ffmepg_button, download_in_normal_mode])
+        download_in_normal_mode.parent_window = self
+
+
+class RetryDownloadButton(StyledButton):
+    initiate_download_pipeline = pyqtSignal(AnimeDetails)
+    switch_to_download_window = pyqtSignal()
+    remove_parent_window_from_stacked_windows_signal = pyqtSignal()
+    switch_to_alt_window_signal = pyqtSignal()
+    delete_parent_window_signal = pyqtSignal()
+
+    def __init__(self, parent_window: NoDefaultBrowserWindow | NoFFmpegWindow | None, main_window: MainWindow, button_text: str, anime_details: AnimeDetails, is_downloadable: Callable[[], bool] | None, alt_window_switcher: Callable[[AnimeDetails], Any] = lambda a: None):
+        super().__init__(parent_window, 25, "black",
+                         RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR)
+        self.parent_window = parent_window
+        self.setText(button_text)
+        self.main_window = main_window
+        self.anime_details = anime_details
+        self.initiate_download_pipeline.connect(
+            main_window.download_window.initiate_download_pipeline)
+        self.switch_to_download_window.connect(
+            main_window.switch_to_download_window)
+        self.is_downloadable = is_downloadable
+        self.switch_to_alt_window_signal.connect(lambda: alt_window_switcher(anime_details))
+        self.remove_parent_window_from_stacked_windows_signal.connect(
+            lambda: main_window.stacked_windows.removeWidget(self.parent_window))  # type: ignore
+        self.clicked.connect(self.start_download)
+
+    def clean_out_parent_window(self, switch_to_down: bool=True):
+        self.delete_parent_window_signal.connect(self.parent_window.deleteLater) #type: ignore
+        if switch_to_down:
+            self.switch_to_download_window.emit()
+        self.remove_parent_window_from_stacked_windows_signal.emit()
+        self.delete_parent_window_signal.emit()
+
+    def start_download(self):
+        if self.is_downloadable and not self.is_downloadable():
+            self.switch_to_alt_window_signal.emit()
+            return self.clean_out_parent_window(False)
+        self.initiate_download_pipeline.emit(self.anime_details)
+        self.switch_to_download_window.emit()
 
 
 class TryInstallingFFmpegThread(QThread):
-    def __init__(self, no_ffmpeg_window: NoFFmpegWindow):
+    initiate_download_pipeline = pyqtSignal(AnimeDetails)
+    switch_to_download_window = pyqtSignal()
+    remove_noffmpeg_from_stacked_windows_signal = pyqtSignal()
+    delete_noffmpeg_signal = pyqtSignal()
+
+    def __init__(self, no_ffmpeg_window: NoFFmpegWindow, main_window: MainWindow, anime_details: AnimeDetails):
         super().__init__(no_ffmpeg_window)
-        # WARNING if you ever change order of navigation buttons update this too
-        # Click search window button on navigation bar
-        self.switch_to_search_window = no_ffmpeg_window.nav_bar_buttons[0].click
+        self.initiate_download_pipeline.connect(
+            no_ffmpeg_window.main_window.download_window.initiate_download_pipeline)
+        self.anime_details = anime_details
+        self.switch_to_download_window.connect(
+            main_window.switch_to_download_window)
+        self.remove_noffmpeg_from_stacked_windows_signal.connect(
+            lambda: main_window.stacked_windows.removeWidget(no_ffmpeg_window))
         self.no_ffmpeg_window = no_ffmpeg_window
+        self.delete_noffmpeg_signal.connect(no_ffmpeg_window.deleteLater)
+
+    def start_download(self):
+        self.initiate_download_pipeline.emit(self.anime_details)
+        self.switch_to_download_window.emit()
+        self.remove_noffmpeg_from_stacked_windows_signal.emit()
+        self.delete_noffmpeg_signal.emit()
 
     def run(self):
         if sys.platform == "win32":
@@ -138,8 +170,9 @@ class TryInstallingFFmpegThread(QThread):
             except:
                 pass
             if ffmpeg_is_installed():
-                self.no_ffmpeg_window.make_notification("Successfully Installed", "FFmpeg", True)
-                self.switch_to_search_window()
+                self.no_ffmpeg_window.main_window.make_notification(
+                    "Successfully Installed", "FFmpeg", True)
+                self.start_download()
             else:
                 open_new_tab(
                     "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Windows")
@@ -150,8 +183,9 @@ class TryInstallingFFmpegThread(QThread):
             except:
                 pass
             if ffmpeg_is_installed():
-                self.no_ffmpeg_window.make_notification("Successfully Installed", "FFmpeg", True)
-                self.switch_to_search_window()
+                self.no_ffmpeg_window.main_window.make_notification(
+                    "Successfully Installed", "FFmpeg", True)
+                self.start_download()
             else:
                 open_new_tab(
                     "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Linux")
@@ -256,8 +290,9 @@ class DownloadUpdateThread(QThread):
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
         if not download.cancelled:
-            o = lambda: open_folder(self.download_folder)
-            self.make_notification("Download Complete", "New Senpwai version setup", True, o)
+            def o(): return open_folder(self.download_folder)
+            self.make_notification("Download Complete",
+                                   "New Senpwai version setup", True, o)
             o()
 
 

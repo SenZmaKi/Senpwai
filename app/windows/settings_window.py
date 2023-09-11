@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtCore import Qt, QFile
 from shared.global_vars_and_funcs import SETTINGS_TYPES, validate_settings_json, settings_file_path, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR
-from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_START_MINIMISED, KEY_RUN_ON_STARTUP
+from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_START_MINIMISED, KEY_RUN_ON_STARTUP, KEY_ON_CAPTCHA_SWITCH_TO
 from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, CHROME, EDGE, FIREFOX, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME
 from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
@@ -41,11 +41,13 @@ class SettingsWindow(Window):
         self.start_minimsed = StartMinimisedSetting(self)
         if sysplatform == "win32":
             self.run_on_startup = RunOnStartUp(self)
+        self.oncaptcha_switch_to = OnCaptchaSwitchToSetting(self)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
         left_layout.addWidget(self.gogo_default_browser_setting)
         left_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
+        left_layout.addWidget(self.oncaptcha_switch_to)
         left_layout.addWidget(
             self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_in_fullscreen)
@@ -351,7 +353,7 @@ class StartMinimisedSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Start app minimised?", KEY_START_MINIMISED)
         if sysplatform == "win32":
-            return self.setting_label.setToolTip("You can combine this setting with Run on start up such that every day you start your PC\nSenpwai will look for new episodes of your tracked anime in the background")
+            return self.setting_label.setToolTip("You can combo this setting with Run on start up such that every day you start your PC\nSenpwai will look for new episodes of your tracked anime in the background")
         self.setting_label.setToolTip("You can combine this setting with making Senpwai to run on start up such that every day\nyou start your PC Senpwai will look for new episodes of your tracked anime in the background")
 
 class RunOnStartUp(YesOrNoSetting):
@@ -408,6 +410,19 @@ class GogoDefaultBrowserSetting(SettingWidget):
             if button.browser != browser:
                 button.set_picked_status(False)
 
+class OnCaptchaSwitchToSetting(SettingWidget):
+    def __init__(self, settings_window: SettingsWindow):
+        pahe_button = OptionButton(None, PAHE, "PAHE", settings_window.font_size, PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR)
+        hls_button = OptionButton(None, GOGO_HLS_MODE, "HLS", settings_window.font_size, RED_NORMAL_COLOR, RED_HOVER_COLOR)
+        pahe_button.clicked.connect(lambda: hls_button.set_picked_status(False))
+        pahe_button.clicked.connect(lambda: settings_window.update_settings_json(KEY_ON_CAPTCHA_SWITCH_TO, pahe_button.option))
+        hls_button.clicked.connect(lambda: pahe_button.set_picked_status(False))
+        hls_button.clicked.connect(lambda: settings_window.update_settings_json(KEY_ON_CAPTCHA_SWITCH_TO, hls_button.option))
+        if settings[KEY_ON_CAPTCHA_SWITCH_TO] == PAHE:
+            pahe_button.set_picked_status(True)
+        else:
+            hls_button.set_picked_status(True)
+        super().__init__(settings_window, "On Captcha block switch to", [pahe_button, hls_button])
 
 class GogoNormOrHlsSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):

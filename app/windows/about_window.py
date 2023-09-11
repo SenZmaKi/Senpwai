@@ -38,7 +38,7 @@ class AboutWindow(Window):
         set_minimum_size_policy(support_title)
         donations_label = StyledLabel()
         donations_label.setText(
-            "Konnichiwa 👋🏿 it's Sen, the creator of Senpwai, I'm a goofy ahh ahh college student from Kenya.\nWifi is kinda expensive in my country, so donations help me pay for internet to keep developing new features and fixing bugs.")
+            "Konnichiwa 👋🏿 it's Sen, the creator of Senpwai, I'm a goofy ahh ahh college student from Kenya.\nWifi is kinda expensive in my country, so donations help me pay for internet to keep developing new features and fixing bugs")
         set_minimum_size_policy(donations_label)
         github_sponsors_button = IconButton(
             120, 120, github_sponsors_icon_path, 1.1)
@@ -59,13 +59,13 @@ class AboutWindow(Window):
         donation_buttons_widget.setLayout(donation_buttons_layout)
         leave_a_star_label = StyledLabel()
         leave_a_star_label.setText(
-            "You can also support Senpwai by leaving a star on the github repo, stars help other weebs like us know about it.")
+            "You can also support Senpwai by leaving a star on the github repo, stars help other weebs like us know about it")
         set_minimum_size_policy(leave_a_star_label)
         social_links_title = Title("Social Links")
         set_minimum_size_policy(social_links_title)
         bug_reports_label = StyledLabel()
         bug_reports_label.setText(
-            "Found a bug or wanna make a feature request? Report it in the github issues, subreddit or discord server.")
+            "Found a bug or wanna make a feature request? Report it in the github issues, subreddit or discord server")
         set_minimum_size_policy(bug_reports_label)
         github_button = IconButton(200, 80, github_icon_path, 1.1)
         github_button.clicked.connect(

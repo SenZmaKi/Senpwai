@@ -110,7 +110,7 @@ class MainWindow(QMainWindow):
         self.search_window.search_bar.setFocus()
         self.search_window.on_focus()
 
-    def switch_to_downloads_window(self):
+    def switch_to_download_window(self):
         self.switch_to_window(self.download_window)
 
     def switch_to_settings_window(self):
@@ -119,19 +119,13 @@ class MainWindow(QMainWindow):
     def switch_to_about_window(self):
         self.switch_to_window(self.about_window)
 
-    def create_and_switch_to_captcha_block_window(self, anime_title: str, download_page_links: list[str]) -> None:
-        captcha_block_window = CaptchaBlockWindow(
-            self, anime_title, download_page_links)
-        self.stacked_windows.addWidget(captcha_block_window)
-        self.switch_to_window(captcha_block_window)
-
-    def create_and_switch_to_no_supported_browser_window(self, anime_title: str):
-        no_supported_browser_window = NoDefaultBrowserWindow(self, anime_title)
+    def create_and_switch_to_no_supported_browser_window(self, anime_details: AnimeDetails):
+        no_supported_browser_window = NoDefaultBrowserWindow(self, anime_details)
         self.stacked_windows.addWidget(no_supported_browser_window)
         self.switch_to_window(no_supported_browser_window)
 
-    def create_and_switch_to_no_ffmpeg_window(self):
-        no_ffmpeg_window = NoFFmpegWindow(self)
+    def create_and_switch_to_no_ffmpeg_window(self, anime_details: AnimeDetails):
+        no_ffmpeg_window = NoFFmpegWindow(self, anime_details)
         self.stacked_windows.addWidget(no_ffmpeg_window)
         self.switch_to_window(no_ffmpeg_window)
 
@@ -157,7 +151,7 @@ class Window(QWidget):
         search_window_button = NavBarButton(
             search_icon_path, main_window.switch_to_search_window)
         download_window_button = NavBarButton(
-            downloads_icon_path, main_window.switch_to_downloads_window)
+            downloads_icon_path, main_window.switch_to_download_window)
         settings_window_button = NavBarButton(
             settings_icon_path, main_window.switch_to_settings_window)
         about_window_button = NavBarButton(
@@ -184,6 +178,6 @@ class TemporaryWindow(Window):
 from windows.about_window import AboutWindow
 from windows.search_window import SearchWindow
 from windows.download_window import DownloadWindow
-from windows.miscallaneous_windows import NoDefaultBrowserWindow, CaptchaBlockWindow, UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
+from windows.miscallaneous_windows import NoDefaultBrowserWindow, UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
 from windows.chosen_anime_window import ChosenAnimeWindow, MakeAnimeDetailsThread
 from windows.settings_window import SettingsWindow
