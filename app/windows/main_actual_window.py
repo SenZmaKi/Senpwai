@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QGuiApplication, QIcon
 from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import Qt, pyqtSlot, QTimer
-from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS
+from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS, KEY_START_IN_FULLSCREEN
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton
 from typing import Callable, cast
 
@@ -14,6 +14,9 @@ class MainWindow(QMainWindow):
         self.center_window()
         self.tray_icon = QSystemTrayIcon(QIcon(SENPWAI_ICON_PATH), self)
         self.tray_icon.show()
+        self.tray_icon.setToolTip("Senpwai")
+        self.tray_icon.activated.connect(self.on_tray_icon_click)
+        self.tray_icon.messageClicked.connect(self.set_active_window)
         self.task_complete_icon = QIcon(task_complete_icon_path)
         self.download_window = DownloadWindow(self)
         self.search_window = SearchWindow(self)
@@ -30,6 +33,21 @@ class MainWindow(QMainWindow):
         self.stacked_windows.addWidget(self.about_window)
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
+    
+    def set_active_window(self):
+        if self.windowState() == Qt.WindowState.WindowNoState:
+            if settings[KEY_START_IN_FULLSCREEN]:
+                 return self.showMaximized()
+            self.showNormal()
+            self.setWindowState(Qt.WindowState.WindowActive)
+
+    
+    def on_tray_icon_click(self):
+        if self.windowState() == Qt.WindowState.WindowNoState:
+            return self.set_active_window()
+        self.set_active_window()
+        self.setWindowState(Qt.WindowState.WindowNoState)
+        self.hide()
 
     def make_notification(self, title: str, msg: str, sth_completed: bool, onclick: Callable=lambda: None):
         if settings[KEY_ALLOW_NOTIFICATIONS]:
@@ -41,8 +59,8 @@ class MainWindow(QMainWindow):
 
 
     @pyqtSlot(tuple)
-    def handle_update_check_result(self, result: tuple[bool, str, str, int]):
-        is_available, download_url, file_name, platform_flag = result
+    def handle_update_check_result(self, result: tuple[bool, str, str, int, str]):
+        is_available, download_url, file_name, platform_flag, version= result
         if not is_available:
             return
         self.update_window = UpdateWindow(
@@ -51,7 +69,7 @@ class MainWindow(QMainWindow):
         update_icon = NavBarButton(
             update_icon_path, self.switch_to_update_window)
         self.search_window.nav_bar_layout.addWidget(update_icon)
-        self.make_notification("New Senpwai version is available", "", False, self.switch_to_update_window)
+        self.make_notification("New Senpwai version is available", f"Version {version}", False, self.switch_to_update_window)
 
     def switch_to_update_window(self):
         self.switch_to_window(self.update_window)

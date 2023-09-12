@@ -299,14 +299,14 @@ class DownloadUpdateThread(QThread):
 class CheckIfUpdateAvailableThread(QThread):
     finished = pyqtSignal(tuple)
 
-    def __init__(self, main_window: MainWindow, finished_callback: Callable):
+    def __init__(self, main_window: MainWindow, finished_callback: Callable[[tuple[bool, str, str, int, str]], Any]):
         super().__init__(main_window)
         self.finished.connect(finished_callback)
 
     def run(self):
         self.finished.emit(self.update_available())
 
-    def update_available(self) -> tuple[bool, str, str, int]:
+    def update_available(self) -> tuple[bool, str, str, int, str]:
         latest_version_json = network_error_retry_wrapper(
             lambda: (requests.get(github_api_releases_entry_point))).json()[0]
         latest_version_tag = latest_version_json["tag_name"]
@@ -330,7 +330,7 @@ class CheckIfUpdateAvailableThread(QThread):
                     download_url = asset["browser_download_url"]
                     asset_name = asset["name"]
                     break
-        return (update_available, download_url, asset_name,  platform_flag)
+        return (update_available, download_url, asset_name,  platform_flag, latest_version)
 
     def check_platform(self) -> int:
         if sys.platform == "win32":

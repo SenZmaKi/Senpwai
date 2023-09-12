@@ -29,6 +29,10 @@ DUB_EXTENSION = ' (Dub)'
 EDGE = 'edge'
 CHROME = 'chrome'
 FIREFOX = 'firefox'
+DRIVER: Chrome | Firefox | Edge | None = None
+"""
+Ensure you call `clean_up_driver` when you're done using the driver
+"""
 
 # Hls mode variables
 load_ep_list_api = 'https://ajax.gogo-load.com/ajax/load-list-episode?ep_start=0&ep_end={}&id={}'
@@ -364,6 +368,10 @@ def test_getting_episode_page_links(anime_title: str, start_episode: int, end_ep
         print(p)
     return episode_page_links
 
+
+def clean_up_driver():
+    if DRIVER:
+        DRIVER.quit()
 
 def test_getting_direct_download_links(episode_page_links: list[str], quality: str):
     download_page_links = GetDownloadPageLinks().get_download_page_links(

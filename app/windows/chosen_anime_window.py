@@ -124,13 +124,12 @@ class ChosenAnimeWindow(TemporaryWindow):
         else:
             self.sub_button.set_picked_status(True)
             self.anime_details.sub_or_dub = SUB
-        space = QSpacerItem(30, 0)
         first_row_of_buttons_widget = QWidget()
         first_row_of_buttons_layout = QHBoxLayout()
         first_row_of_buttons_layout.addWidget(self.sub_button)
         if self.dub_button:
             first_row_of_buttons_layout.addWidget(self.dub_button)
-        first_row_of_buttons_layout.addSpacerItem(space)
+        first_row_of_buttons_layout.addSpacerItem(QSpacerItem(20, 0))
         self.button_1080 = QualityButton(self, Q_1080, 18)
         self.button_720 = QualityButton(self, Q_720, 18)
         self.button_480 = QualityButton(self, Q_480, 18)
@@ -146,7 +145,7 @@ class ChosenAnimeWindow(TemporaryWindow):
                 lambda garbage_bool, quality=quality: self.update_quality(quality))
             if quality == cast(str, settings[KEY_QUALITY]):
                 button.set_picked_status(True)
-        first_row_of_buttons_layout.addSpacerItem(space)
+        first_row_of_buttons_layout.addSpacerItem(QSpacerItem(20, 0))
         if anime_details.site == GOGO:
             self.norm_button = GogoNormOrHlsButton(self, "norm", 18)
             self.hls_button = GogoNormOrHlsButton(self, "hls", 18)
@@ -222,12 +221,14 @@ class ChosenAnimeWindow(TemporaryWindow):
         if self.anime_details.anime_folder_path:
             folder_button = FolderButton(
                 self.anime_details.anime_folder_path, 120, 120)
+            third_row_of_labels_layout.addSpacerItem(QSpacerItem(20, 0))
             third_row_of_labels_layout.addWidget(folder_button)
         track_button = TrackButton(
             anime_details.anime.title, self, self.main_window.settings_window)
         if anime_details.sanitised_title in cast(list[str], settings[KEY_TRACKED_ANIME]):
             track_button.change_status()
         set_minimum_size_policy(track_button)
+        third_row_of_labels_layout.addSpacerItem(QSpacerItem(20, 0))
         third_row_of_labels_layout.addWidget(track_button)
         third_row_of_labels_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         third_row_of_labels_widget.setLayout(third_row_of_labels_layout)

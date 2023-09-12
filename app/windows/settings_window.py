@@ -351,7 +351,7 @@ class StartInFullscreenSetting(YesOrNoSetting):
 
 class StartMinimisedSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Start app minimised?", KEY_START_MINIMISED)
+        super().__init__(settings_window, "Start app minimised to tray?", KEY_START_MINIMISED)
         if sysplatform == "win32":
             return self.setting_label.setToolTip("You can combo this setting with Run on start up such that every day you start your PC\nSenpwai will look for new episodes of your tracked anime in the background")
         self.setting_label.setToolTip("You can combine this setting with making Senpwai to run on start up such that every day\nyou start your PC Senpwai will look for new episodes of your tracked anime in the background")

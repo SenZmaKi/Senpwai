@@ -372,7 +372,7 @@ class DownloadWindow(Window):
             anime_details.is_hls_download = True
             return self.initiate_download_pipeline(anime_details)
         self.main_window.make_notification(
-            "Captcha Block Detected", "Trying on AnimePahe", False)
+            "Captcha Block Detected", "Trying on Animepahe", False)
         PaheAttemptToRecoverThread(self, anime_details).start()
 
     @pyqtSlot(AnimeDetails)
@@ -426,15 +426,14 @@ class DownloadWindow(Window):
             self.cancel_button = CancelAllButton(self)
             set_minimum_size_policy(self.pause_button)
             set_minimum_size_policy(self.cancel_button)
-            space = QSpacerItem(50, 0)
             self.second_row_of_buttons_layout.addWidget(
                 self.downloaded_episode_count)
-            self.second_row_of_buttons_layout.addSpacerItem(space)
+            self.second_row_of_buttons_layout.addSpacerItem(QSpacerItem(50, 0))
             self.second_row_of_buttons_layout.addWidget(self.pause_button)
             self.second_row_of_buttons_layout.addWidget(self.cancel_button)
-            self.second_row_of_buttons_layout.addSpacerItem(space)
+            self.second_row_of_buttons_layout.addSpacerItem(QSpacerItem(50, 0))
             self.second_row_of_buttons_layout.addWidget(self.folder_button)
-            self.second_row_of_buttons_layout.addSpacerItem(space)
+            self.second_row_of_buttons_layout.addSpacerItem(QSpacerItem(50, 0))
             self.second_row_of_buttons_layout.addWidget(self.download_queue)
         if not self.pause_button.download_is_active():
             self.start_download()
@@ -809,27 +808,24 @@ class GetDirectDownloadLinksThread(QThread):
             self.anime_details.direct_download_links = obj.get_direct_download_links(
                 bound_links, lambda x: self.update_bar.emit(x))
         else:
-            driver = None
             try:
                 # For testing purposes
                 # raise WebDriverException
                 # raise TimeoutError
-                driver = gogo.setup_headless_browser(
+                gogo.DRIVER = gogo.setup_headless_browser(
                     self.anime_details.browser)
                 obj = gogo.GetDirectDownloadLinks()
                 self.progress_bar.pause_callback = obj.pause_or_resume
                 self.progress_bar.cancel_callback = obj.cancel
                 self.anime_details.direct_download_links = obj.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality,
-                                                                                                       driver, lambda x: self.update_bar.emit(x))
+                                                                                                       gogo.DRIVER, lambda x: self.update_bar.emit(x))
             except Exception as exception:
                 self.progress_bar.deleteLater()
                 if isinstance(exception, WebDriverException):
                     status = 2
                 elif isinstance(exception, TimeoutError):
                     status = 3
-            finally:
-                if driver:
-                    driver.quit()
+        gogo.clean_up_driver()
         self.finished.emit(self.anime_details, status,
                            self.download_page_links)
 
