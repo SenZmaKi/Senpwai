@@ -269,7 +269,7 @@ class TrackedAnime(SettingWidget):
         line = HorizontalLine()
         line.setFixedHeight(7)
         super().__init__(settings_window,
-                         "Anime to track and auto download new episodes", [line, main_widget], False)
+                         "Track for new episodes then auto download", [line, main_widget], False)
         self.setting_label.setToolTip("When you start the app, Senpwai will check for new episodes\nof these anime then download them automatically")
 
     def setup_anime_widget(self, wid: RemovableWidget):
@@ -347,18 +347,18 @@ class YesOrNoSetting(SettingWidget):
 
 class StartInFullscreenSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Start app in fullscreen?", KEY_START_IN_FULLSCREEN)
+        super().__init__(settings_window, "Start app in fullscreen", KEY_START_IN_FULLSCREEN)
 
 class StartMinimisedSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Start app minimised to tray?", KEY_START_MINIMISED)
+        super().__init__(settings_window, "Start app minimised to tray", KEY_START_MINIMISED)
         if sysplatform == "win32":
             return self.setting_label.setToolTip("You can combo this setting with Run on start up such that every day you start your PC\nSenpwai will look for new episodes of your tracked anime in the background")
         self.setting_label.setToolTip("You can combine this setting with making Senpwai to run on start up such that every day\nyou start your PC Senpwai will look for new episodes of your tracked anime in the background")
 
 class RunOnStartUp(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Run on start up?", KEY_RUN_ON_STARTUP)
+        super().__init__(settings_window, "Run on start up", KEY_RUN_ON_STARTUP)
         appdata_folder = cast(str, os.environ.get('APPDATA'))
         self.lnk_name = f"{APP_NAME}.lnk"
         self.lnk_path = os.path.join(appdata_folder, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', self.lnk_name)
@@ -445,7 +445,7 @@ class GogoNormOrHlsSetting(SettingWidget):
         hls_button.clicked.connect(
             lambda: settings_window.update_settings_json(KEY_GOGO_NORM_OR_HLS_MODE, GOGO_HLS_MODE))
         super().__init__(settings_window,
-                         "Gogo Normal or HLS mode?", [norm_button, hls_button])
+                         "Gogo Normal or HLS mode", [norm_button, hls_button])
         self.setting_label.setToolTip(hls_button.toolTip())
 
 
@@ -529,4 +529,4 @@ class SubDubSetting(SettingWidget):
         dub_button.clicked.connect(
             lambda: settings_window.update_settings_json(KEY_SUB_OR_DUB, DUB))
         super().__init__(settings_window,
-                         "Sub or Dub?", [sub_button, dub_button])
+                         "Sub or Dub", [sub_button, dub_button])

@@ -1,16 +1,18 @@
 from PyQt6.QtGui import QGuiApplication, QIcon
-from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout
+from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout, QApplication
 from PyQt6.QtCore import Qt, pyqtSlot, QTimer
 from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS, KEY_START_IN_FULLSCREEN
-from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton
+from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton, Icon
 from typing import Callable, cast
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, app: QApplication):
         super().__init__()
+        # self.set_bckg_img = lambda x: x
         self.set_bckg_img = lambda img_path: self.setStyleSheet(
             f"QMainWindow{{border-image: url({img_path}) 0 0 0 0 stretch stretch;}}")
+        self.app = app
         self.center_window()
         self.tray_icon = QSystemTrayIcon(QIcon(SENPWAI_ICON_PATH), self)
         self.tray_icon.show()
@@ -18,8 +20,8 @@ class MainWindow(QMainWindow):
         self.tray_icon.activated.connect(self.on_tray_icon_click)
         self.tray_icon.messageClicked.connect(self.set_active_window)
         self.task_complete_icon = QIcon(task_complete_icon_path)
-        self.download_window = DownloadWindow(self)
         self.search_window = SearchWindow(self)
+        self.download_window = DownloadWindow(self)
         self.settings_window = SettingsWindow(self)
         self.about_window = AboutWindow(self)
         CheckIfUpdateAvailableThread(
@@ -150,7 +152,7 @@ class MainWindow(QMainWindow):
 
 class NavBarButton(IconButton):
     def __init__(self, icon_path: str, switch_to_window_callable: Callable):
-        super().__init__(50, 50, icon_path, 1.15)
+        super().__init__(Icon(50, 50, icon_path), 1.15)
         self.clicked.connect(switch_to_window_callable)
         self.setStyleSheet("""
                            QPushButton {
@@ -166,7 +168,7 @@ class Window(QWidget):
         self.full_layout = QHBoxLayout()
         nav_bar_widget = QWidget()
         self.nav_bar_layout = QVBoxLayout()
-        search_window_button = NavBarButton(
+        self.search_window_button = NavBarButton(
             search_icon_path, main_window.switch_to_search_window)
         download_window_button = NavBarButton(
             downloads_icon_path, main_window.switch_to_download_window)
@@ -174,7 +176,7 @@ class Window(QWidget):
             settings_icon_path, main_window.switch_to_settings_window)
         about_window_button = NavBarButton(
             about_icon_path, main_window.switch_to_about_window)
-        self.nav_bar_buttons = [search_window_button, download_window_button,
+        self.nav_bar_buttons = [self.search_window_button, download_window_button,
                                 settings_window_button, about_window_button]
         for button in self.nav_bar_buttons:
             self.nav_bar_layout.addWidget(button)

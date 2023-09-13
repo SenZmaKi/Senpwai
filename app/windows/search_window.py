@@ -3,13 +3,13 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, Q
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QEvent, QTimer
 from shared.global_vars_and_funcs import random_mascot_icon_path, GOGO, PAHE, loading_animation_path, sadge_piece_path, set_minimum_size_policy, sen_anilist_id, anilist_api_entrypoint, one_piece_audio_path
 from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, search_window_bckg_image_path, sen_favourite_audio_path
-from shared.shared_classes_and_widgets import Anime, StyledButton, OutlinedButton, ScrollableSection, AnimationAndText, IconButton, AudioPlayer
+from shared.shared_classes_and_widgets import Anime, StyledButton, OutlinedButton, ScrollableSection, AnimationAndText, IconButton, AudioPlayer, Icon
 from shared.app_and_scraper_shared import network_error_retry_wrapper
 from windows.main_actual_window import MainWindow, Window
 from scrapers import pahe
 from scrapers import gogo
 import requests
-from random import randint
+from random import choice as randomchoice
 from typing import cast
 from time import sleep
 
@@ -21,8 +21,8 @@ class SearchWindow(Window):
         main_widget = QWidget()
         main_layout = QVBoxLayout()
 
-        mascot_button = IconButton(130, 100, random_mascot_icon_path, 1)
-        self.fetch_sen_favourite_audio = AudioPlayer(
+        mascot_button = IconButton(Icon(117, 100, random_mascot_icon_path), 1)
+        self.fetch_sen_favourite_audio: AudioPlayer = AudioPlayer(
             sen_favourite_audio_path, volume=60)
         mascot_button.clicked.connect(self.fetch_sen_favourite_audio.play)
         mascot_button.clicked.connect(FetchFavouriteThread(self).start)
@@ -58,7 +58,7 @@ class SearchWindow(Window):
         self.res_wid_hor_scroll_bar = self.results_widget.horizontalScrollBar()
 
         self.loading = AnimationAndText(
-            loading_animation_path, 600, 300, "Loading.. .", 1, 48, 50)
+            loading_animation_path, 250, 300, "Loading.. .", 1, 48, 50)
         self.anime_not_found = AnimationAndText(
             sadge_piece_path, 400, 300, ":( couldn't find that anime ", 1, 48, 50)
         self.bottom_section_stacked_widgets.addWidget(self.results_widget)
@@ -135,7 +135,7 @@ class FetchFavouriteThread(QThread):
             sleep(0.1)
 
     def get_random_sen_favourite(self) -> str | None:
-        page = randint(1, 2)
+        page = randomchoice((1, 2))
         query = '''
         query getUserFavourite($id: Int, $page: Int){
         User(id: $id) {
@@ -167,7 +167,7 @@ class FetchFavouriteThread(QThread):
         count = len(favourite_anime)
         if count <= 0:
             return None
-        chosen = favourite_anime[randint(0, count-1)]
+        chosen = randomchoice(favourite_anime)
         anime_title = chosen["title"]["romaji"]
         return anime_title
 

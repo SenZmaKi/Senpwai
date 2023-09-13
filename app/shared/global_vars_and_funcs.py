@@ -1,6 +1,6 @@
 import os
 import sys
-from random import randint
+from random import choice as randomchoice
 from appdirs import user_config_dir
 from pathlib import Path
 from scrapers.gogo import EDGE, CHROME, FIREFOX
@@ -16,7 +16,7 @@ else:
     base_directory = os.path.dirname(os.path.realpath('__file__'))
 
 # The general Senpwai naming convention is that if a variable is used in more than one module outside this current module then it is considered a global hence declared in capital
-
+COMPANY_NAME = "AkatsuKi Inc."
 APP_NAME = "Senpwai"
 VERSION = "2.0.1"
 config_dir = os.path.join(user_config_dir(), APP_NAME)
@@ -95,7 +95,7 @@ sadge_piece_path = join_from_assets("sadge-piece.gif")
 folder_icon_path = join_from_assets("folder.png")
 mascots_folder_path = join_from_assets("mascots")
 mascots_files = list(Path(mascots_folder_path).glob("*"))
-random_mascot_icon_path = str(mascots_files[randint(0, len(mascots_files)-1)])
+random_mascot_icon_path = str(randomchoice(mascots_files))
 
 bckg_images_path = join_from_assets("background-images")
 
@@ -153,7 +153,7 @@ gigachad_audio_path = join_from_audio("gigachad.mp3")
 hentai_addict_audio_path = join_from_audio("aqua-crying.mp3")
 morbius_audio_path = join_from_audio("morbin-time.mp3")
 sen_favourite_audio_path = join_from_audio("sen-favourite.wav")
-one_piece_audio_path = join_from_audio(f"one-piece-real-{randint(1, 2)}.mp3")
+one_piece_audio_path = join_from_audio(f"one-piece-real-{randomchoice((1, 2))}.mp3")
 
 reviewer_profile_pics_folder_path = join_from_assets("reviewer-profile-pics")
 

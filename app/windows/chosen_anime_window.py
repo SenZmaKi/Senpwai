@@ -9,6 +9,7 @@ from windows.settings_window import SettingsWindow
 from shared.app_and_scraper_shared import dynamic_episodes_predictor_initialiser_pro_turboencapsulator
 from windows.main_actual_window import MainWindow, TemporaryWindow
 from typing import cast
+from shared.global_vars_and_funcs import pause_icon_path
 
 
 class SummaryLabel(StyledLabel):
@@ -220,7 +221,7 @@ class ChosenAnimeWindow(TemporaryWindow):
         third_row_of_labels_layout.addWidget(haved_episodes)
         if self.anime_details.anime_folder_path:
             folder_button = FolderButton(
-                self.anime_details.anime_folder_path, 120, 120)
+                self.anime_details.anime_folder_path, 100, 100)
             third_row_of_labels_layout.addSpacerItem(QSpacerItem(20, 0))
             third_row_of_labels_layout.addWidget(folder_button)
         track_button = TrackButton(

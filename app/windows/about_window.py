@@ -3,7 +3,7 @@ from PyQt6.QtCore import Qt
 from windows.main_actual_window import MainWindow, Window
 from shared.global_vars_and_funcs import about_bckg_image_path, set_minimum_size_policy, sen_icon_path, morbius_is_peak_icon_path, GITHUB_REPO_URL, gigachad_audio_path, morbius_audio_path, hentai_addict_audio_path
 from shared.global_vars_and_funcs import github_icon_path, reddit_icon_path, discord_icon_path, hentai_addict_icon_path, github_sponsors_icon_path, patreon_icon_path, VERSION
-from shared.shared_classes_and_widgets import StyledLabel, IconButton, ScrollableSection, AudioPlayer
+from shared.shared_classes_and_widgets import StyledLabel, IconButton, ScrollableSection, AudioPlayer, Icon
 from webbrowser import open_new_tab
 
 
@@ -23,11 +23,12 @@ class AboutWindow(Window):
         set_minimum_size_policy(reviews_title)
         reviews_widget = QWidget()
         reviews_layout = QHBoxLayout()
-        sen_review = Review(sen_icon_path, gigachad_audio_path,
+        size = 60
+        sen_review = Review(Icon(size, size, sen_icon_path), gigachad_audio_path,
                             "SenZmaKi", "69/10 Truly one of the apps of all time.")
-        hentai_addict_review = Review(hentai_addict_icon_path, hentai_addict_audio_path,
+        hentai_addict_review = Review(Icon(size, size, hentai_addict_icon_path), hentai_addict_audio_path,
                                       "HentaiAddict01", "0/10 Can't even batch download hentai.. .")
-        morbius_is_peak_review = Review(morbius_is_peak_icon_path, morbius_audio_path,
+        morbius_is_peak_review = Review(Icon(size, size, morbius_is_peak_icon_path), morbius_audio_path,
                                         "MorbiusIsPeak", "4/10 Morbius better + ratio + morbiusless")
         reviews_layout.addWidget(sen_review)
         reviews_layout.addWidget(hentai_addict_review)
@@ -41,12 +42,12 @@ class AboutWindow(Window):
             "Konnichiwa 👋🏿 it's Sen, the creator of Senpwai, I'm a goofy ahh ahh college student from Kenya.\nWifi is kinda expensive in my country, so donations help me pay for internet to keep developing new features and fixing bugs")
         set_minimum_size_policy(donations_label)
         github_sponsors_button = IconButton(
-            120, 120, github_sponsors_icon_path, 1.1)
+            Icon(120, 120, github_sponsors_icon_path), 1.1)
         github_sponsors_button.clicked.connect(lambda: open_new_tab(
             "https://github.com/sponsors/SenZmaKi"))  # type: ignore
         github_sponsors_button.setToolTip(
             "https://github.com/sponsors/SenZmaKi")
-        patreon_button = IconButton(80, 80, patreon_icon_path, 1.1)
+        patreon_button = IconButton(Icon(80, 80, patreon_icon_path), 1.1)
         patreon_button.clicked.connect(lambda: open_new_tab(
             "https://patreon.com/Senpwai"))  # type: ignore
         patreon_button.setToolTip("https://patreon.com/Senpwai")
@@ -67,15 +68,15 @@ class AboutWindow(Window):
         bug_reports_label.setText(
             "Found a bug or wanna make a feature request? Report it in the github issues, subreddit or discord server")
         set_minimum_size_policy(bug_reports_label)
-        github_button = IconButton(200, 80, github_icon_path, 1.1)
+        github_button = IconButton(Icon(200, 80, github_icon_path), 1.1)
         github_button.clicked.connect(
             lambda: open_new_tab(GITHUB_REPO_URL))  # type: ignore
         github_button.setToolTip(GITHUB_REPO_URL)
-        reddit_button = IconButton(80, 80, reddit_icon_path, 1.1)
+        reddit_button = IconButton(Icon(80, 80, reddit_icon_path), 1.1)
         reddit_button.clicked.connect(lambda: open_new_tab(
             "https://reddit.com/r/Senpwai"))  # type: ignore
         reddit_button.setToolTip("https://reddit.com/r/Senpwai")
-        discord_button = IconButton(80, 80, discord_icon_path, 1.1)
+        discord_button = IconButton(Icon(80, 80, discord_icon_path), 1.1)
         discord_button.clicked.connect(lambda: open_new_tab(
             "https://discord.gg/e9UxkuyDX2"))  # type: ignore
         discord_button.setToolTip("https://discord.gg/e9UxkuyDX2")
@@ -109,11 +110,11 @@ class AboutWindow(Window):
 
 
 class Review(QWidget):
-    def __init__(self, icon_path: str, audio_path: str, author: str, text: str):
+    def __init__(self, icon: Icon, audio_path: str, author: str, text: str):
         super().__init__()
         main_layout = QVBoxLayout()
 
-        profile_pic = IconButton(60, 60, icon_path, 1.1)
+        profile_pic = IconButton(icon, 1.1)
         self.player = AudioPlayer(audio_path, volume=60)
         profile_pic.clicked.connect(self.player.play)
         author_name = StyledLabel(None, 15, "orange", font_color="black")

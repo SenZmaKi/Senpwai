@@ -4,16 +4,17 @@ from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl, pyqtSlot
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import SETTINGS_TYPES, PAHE, GOGO
 from time import time
-from shared.global_vars_and_funcs import pause_icon_path, resume_icon_path, cancel_icon_path, settings, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE
+from shared.global_vars_and_funcs import  settings, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE
 from shared.global_vars_and_funcs import folder_icon_path, RED_NORMAL_COLOR, RED_PRESSED_COLOR, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, open_folder, GOGO_HLS_MODE, set_minimum_size_policy, GOGO_NORM_MODE
 from shared.app_and_scraper_shared import sanitise_title, AnimeMetadata
 from pathlib import Path
-from typing import cast
+from typing import cast, Callable
 import anitopy
 import os
 from scrapers import pahe
 from scrapers import gogo
 
+        
 
 class Anime():
     def __init__(self, title: str, page_link: str, anime_id: str | None) -> None:
@@ -153,18 +154,22 @@ class OptionButton(StyledButton):
             self.setStyleSheet(self.not_picked_style_sheet)
 
 
+class Icon(QIcon):
+    def __init__(self, x: int, y: int, icon_path: str):
+        self.x = x
+        self.y = y
+        pixmap = QPixmap(icon_path).scaled(self.x, self.y, Qt.AspectRatioMode.IgnoreAspectRatio)
+        super().__init__(pixmap)
+
 class IconButton(QPushButton):
-    def __init__(self, size_x: int, size_y: int, icon_path: str, size_factor: int | float, parent: QWidget | None = None):
+    def __init__(self, icon: Icon, size_factor: int | float, parent: QWidget | None = None):
         super().__init__(parent)
-        self.setFixedSize(size_x, size_y)
-        self.icon_pixmap = QPixmap(icon_path)
-        self.icon_pixmap.scaled(
-            size_x, size_y, Qt.AspectRatioMode.IgnoreAspectRatio)
-        self.setIcon(QIcon(self.icon_pixmap))
+        self.setFixedSize(icon.x, icon.y)
+        self.setIcon(icon)
         self.setIconSize(self.size()/size_factor)  # type: ignore
-        self.enterEvent = lambda event: self.setIconSize(QSize(size_x, size_y))
+        self.enterEvent = lambda event: self.setIconSize(QSize(icon.x, icon.y))
         self.leaveEvent = lambda a0: self.setIconSize(
-            QSize(size_x, size_y)/size_factor)  # type: ignore
+            QSize(icon.x, icon.y)/size_factor)  # type: ignore
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("""
             QPushButton {
@@ -181,7 +186,6 @@ class IconButton(QPushButton):
                     return True
 
         return super().eventFilter(obj, event)
-
 
 class AnimationAndText(QWidget):
     def __init__(self, animation_path: str, animation_size_x: int, animation_size_y: int, text: str, paint_x: int, paint_y: int, font_size: int, parent: QWidget | None = None):
@@ -285,7 +289,47 @@ class ErrorLabel(StyledLabel):
         return super().show()
 
 
-class VirtualProgressBar(QWidget):
+class ProgressBarWithoutButtons(QWidget):
+    ongoing_stylesheet = f"""
+            QProgressBar {{
+                border: 1px solid black;
+                color: black;
+                text-align: center;
+                border-radius: 10px;
+                background-color: rgba(255, 255, 255, 150);
+                font-size: 22px;
+                font-family: "Berlin Sans FB Demi";
+            }}
+
+            QProgressBar::chunk {{
+                background-color: {PAHE_NORMAL_COLOR};
+                border-radius: 10px;
+            }}
+        """
+    styles_to_overwride = """
+            QProgressBar::chunk {
+                background-color: #FFA756;
+                border-radius: 10px;
+            }
+        """
+    paused_stylesheet = ongoing_stylesheet + styles_to_overwride
+    styles_to_overwride = f"""
+            QProgressBar::chunk {{
+                background-color: {GOGO_NORMAL_COLOR};
+            }}"""
+    completed_stylesheet = s= ongoing_stylesheet + styles_to_overwride
+    styles_to_overwride = f"""
+            QProgressBar::chunk {{
+            background-color: {RED_NORMAL_COLOR}
+            }}"""
+    cancelled_stylesheet = ongoing_stylesheet + styles_to_overwride
+    text_style_sheet = """
+                    OutlinedLabel {
+                    color: white;
+                    font-size: 26px;
+                    font-family: "Berlin Sans FB Demi";
+                        }
+                        """
     def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int, units: str, units_divisor: int = 1, delete_on_completion=True):
         super().__init__(parent)
         self.item_task_is_applied_on = item_task_is_applied_on
@@ -293,66 +337,42 @@ class VirtualProgressBar(QWidget):
         self.units = units
         self.units_divisor = units_divisor
         self.mutex = QMutex()
-        self.items_layout = QHBoxLayout(self)  # type: ignore
+        self.items_layout = QHBoxLayout(self)  
         self.delete_on_completion = delete_on_completion
         self.destructLater = lambda: QTimer(
-            self).singleShot(40000, self.destruct)
+            self).singleShot(40000, self.deleteLater)
         self.setLayout(self.items_layout)
+        self.paused = False
+        self.cancelled = False
 
         self.bar = QProgressBar(self)
         self.bar.setValue(0)
         self.bar.setMaximum(total_value)
+        self.task_title = task_title
         self.bar.setFormat(f"{task_title} {item_task_is_applied_on}")
         self.bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.bar.setStyleSheet("""
-             QProgressBar {
-                 border: 1px solid black;
-                 color: black;
-                 text-align: center;
-                 border-radius: 10px;
-                 background-color: rgba(255, 255, 255, 150);
-                 font-size: 22px;
-                 font-family: "Berlin Sans FB Demi";
-             }
-
-             QProgressBar::chunk {
-                 background-color: orange;
-                 border-radius: 10px;
-             }
-         """)
-        style_to_overwride = f"""
-                QProgressBar::chunk {{
-                 background-color: {GOGO_NORMAL_COLOR};
-                }}"""
-        self.completed_stylesheet = self.bar.styleSheet()+style_to_overwride
-        text_style_sheet = """
-                        OutlinedLabel {
-                        color: white;
-                        font-size: 26px;
-                        font-family: "Berlin Sans FB Demi";
-                            }
-                            """
+        self.bar.setStyleSheet(self.ongoing_stylesheet)
         height = 50
         self.percentage = OutlinedLabel(self, 1, 35)
         self.percentage.setText("0 %")
         self.percentage.setFixedHeight(height)
-        self.percentage.setStyleSheet(text_style_sheet)
+        self.percentage.setStyleSheet(self.text_style_sheet)
 
         self.rate = OutlinedLabel(self, 1, 40)
         self.rate.setText(f" 0 {units}/s")
         self.rate.setFixedHeight(height)
-        self.rate.setStyleSheet(text_style_sheet)
+        self.rate.setStyleSheet(self.text_style_sheet)
 
         self.eta = OutlinedLabel(self, 1, 40)
         self.eta.setText("∞ secs left")
         self.eta.setFixedHeight(height)
-        self.eta.setStyleSheet(text_style_sheet)
+        self.eta.setStyleSheet(self.text_style_sheet)
 
         self.current_against_max_values = OutlinedLabel(self, 1, 40)
         self.current_against_max_values.setText(
             f"0/{round(total_value/units_divisor)} {units}")
         self.current_against_max_values.setFixedHeight(height)
-        self.current_against_max_values.setStyleSheet(text_style_sheet)
+        self.current_against_max_values.setStyleSheet(self.text_style_sheet)
 
         self.items_layout.addWidget(self.percentage)
         self.items_layout.addWidget(self.bar)
@@ -361,9 +381,28 @@ class VirtualProgressBar(QWidget):
         self.items_layout.addWidget(self.current_against_max_values)
         self.prev_time = time()
 
-    def destruct(self):
-        self.deleteLater()
-        del self
+    def is_complete(self) -> bool:
+        return True if self.bar.value() >= self.total_value else False
+
+    def cancel(self):
+        if not self.paused and not self.is_complete() and not self.cancelled:
+            self.bar.setFormat(f"Cancelled {self.item_task_is_applied_on}")
+            self.cancelled = True
+            self.bar.setStyleSheet(self.cancelled_stylesheet)
+            if self.delete_on_completion:
+                self.destructLater()
+
+    def pause_or_resume(self):
+        if not self.cancelled and not self.is_complete():
+            self.paused = not self.paused
+            if self.paused:
+                self.bar.setStyleSheet(self.paused_stylesheet)
+                self.bar.setFormat(f"Paused {self.item_task_is_applied_on}")
+            else:
+                self.bar.setStyleSheet(self.ongoing_stylesheet)
+                self.bar.setFormat(
+                    f"{self.task_title} {self.item_task_is_applied_on}")
+
 
     @pyqtSlot(int)
     def update_bar(self, added_value: int):
@@ -401,93 +440,32 @@ class VirtualProgressBar(QWidget):
             self.destructLater()
 
 
-class ProgressBar(VirtualProgressBar):
+class ProgressBarWithButtons(ProgressBarWithoutButtons):
     def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int,
-                 units: str, units_divisor: int, has_icon_buttons: bool = True, delete_on_completion=True):
+                 units: str, units_divisor: int, pause_icon: Icon, resume_icon: Icon, cancel_icon: Icon, pause_callback: Callable[[], None], cancel_callback: Callable[[], None], delete_on_completion=True):
         super().__init__(parent, task_title, item_task_is_applied_on,
                          total_value, units, units_divisor, delete_on_completion=delete_on_completion)
-        self.has_icon_buttons = has_icon_buttons
-        self.task_title = task_title
-        self.paused = False
-        self.cancelled = False
-        self.pause_callback = lambda: None
-        self.cancel_callback = lambda: None
-        self.not_paused_style_sheet = self.bar.styleSheet()
-        self.paused_style_sheet = """
-                QProgressBar {
-                    border: 1px solid black;
-                    color: black;
-                    text-align: center;
-                    border-radius: 10px;
-                    background-color: rgba(255, 255, 255, 150);
-                    font-size: 22px;
-                    font-family: "Berlin Sans FB Demi";
-                }
-
-                QProgressBar::chunk {
-                    background-color: #FFA756;
-                    border-radius: 10px;
-                }
-            """
-        if has_icon_buttons:
-            self.pause_button = IconButton(40, 40, pause_icon_path, 1.3, self)
-            self.pause_icon = self.pause_button.icon()
-            resume_icon_pixmap = QPixmap(resume_icon_path)
-            resume_icon_pixmap.scaled(
-                40, 40, Qt.AspectRatioMode.IgnoreAspectRatio)
-            self.resume_icon = QIcon(resume_icon_pixmap)
-            self.cancel_button: IconButton = IconButton(
-                35, 35, cancel_icon_path, 1.3, self)
-            self.pause_button.clicked.connect(self.pause_or_resume)
-            self.cancel_button.clicked.connect(self.cancel)
-
-            self.items_layout.addWidget(self.pause_button)
-            self.items_layout.addWidget(self.cancel_button)
-
-    def is_complete(self) -> bool:
-        return True if self.bar.value() >= self.total_value else False
-
-    def cancel(self):
-        if not self.paused and not self.is_complete() and not self.cancelled:
-            self.bar.setFormat(f"Cancelled {self.item_task_is_applied_on}")
-            self.cancel_callback()
-            self.cancelled = True
-            self.bar.setStyleSheet("""
-                QProgressBar {
-                    border: 1px solid black;
-                    color: black;
-                    text-align: center;
-                    border-radius: 10px;
-                    background-color: rgba(255, 255, 255, 150);
-                    font-size: 22px;
-                    font-family: "Berlin Sans FB Demi";
-                }
-
-                QProgressBar::chunk {
-                    background-color: #FF0000;
-                    border-radius: 10px;
-                }
-            """)
-            if self.delete_on_completion:
-                self.destructLater()
+        self.pause_icon = pause_icon
+        self.resume_icon = resume_icon
+        self.pause_callback = pause_callback
+        self.cancel_callback = cancel_callback
+        self.pause_button = IconButton(pause_icon, 1.3, self)
+        self.cancel_button: IconButton = IconButton(cancel_icon, 1.3, self)
+        self.pause_button.clicked.connect(self.pause_or_resume)
+        self.cancel_button.clicked.connect(self.cancel)
+        self.items_layout.addWidget(self.pause_button)
+        self.items_layout.addWidget(self.cancel_button)
 
     def pause_or_resume(self):
-        if not self.cancelled and not self.is_complete():
-            self.pause_callback()
-            self.paused = not self.paused
-            if self.paused:
-                self.bar.setStyleSheet(self.paused_style_sheet)
-                self.bar.setFormat(f"Paused {self.item_task_is_applied_on}")
-                if self.has_icon_buttons:
-                    self.pause_button.setIcon(self.resume_icon)
-            else:
-                self.bar.setStyleSheet(self.not_paused_style_sheet)
-                self.bar.setFormat(
-                    f"{self.task_title} {self.item_task_is_applied_on}")
-                if self.has_icon_buttons:
-                    self.pause_button.setIcon(self.pause_icon)
+        self.pause_callback() 
+        super().pause_or_resume()
+        if self.paused:
+            return self.pause_button.setIcon(self.resume_icon)
+        self.pause_button.setIcon(self.pause_icon)
 
-
+    def cancel(self):
+        self.cancel_callback()
+        super().cancel()
 class AnimeDetails():
     def __init__(self, anime: Anime, site: str):
         self.anime = anime
@@ -619,7 +597,7 @@ class ScrollableSection(QScrollArea):
 
 class FolderButton(IconButton):
     def __init__(self, path: str, size_x: int, size_y: int, parent: QWidget | None = None):
-        super().__init__(size_x, size_y, folder_icon_path, 1.3, parent)
+        super().__init__(Icon(size_x, size_y, folder_icon_path), 1.3, parent)
         self.folder_path = path
         self.clicked.connect(lambda: open_folder(
             self.folder_path))  # type: ignore

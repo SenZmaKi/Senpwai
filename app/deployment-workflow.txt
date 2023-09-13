@@ -1,6 +1,9 @@
 to-dos: 
         ensure all http requests have been wrapped around network_error_retry_wrapper
+        check all app windows
         remove testing crap, search string "for testing" 
+        uncomment our # type: ignore comments and confirm that they you dont ignore unexpected errors
+        ensure all changes have been committed and pushed to github
         update VERSION in global variable and metadata.yml
         remove all modules to avoid shipping modules used during devt and testing
         generate clean requirements.txt
