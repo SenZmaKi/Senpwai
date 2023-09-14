@@ -1,0 +1,40 @@
+to-dos: 
+        ensure all http requests have been wrapped around network_error_retry_wrapper
+        check and test all app windows
+        remove testing crap, search string "for testing" 
+        uncomment our # type: ignore comments and confirm that they you dont ignore unexpected errors
+        confirm all comments are in the right place
+        ensure all changes have been committed and pushed to github
+        update VERSION in global variable and metadata.yml
+        generate clean requirements.txt
+        build main exe:
+              - command: cargo build --release; rm .\Senpwai.exe; mv ..\target\release\Senpwai.exe .\Senpwai.exe; .\Senpwai.exe
+        compile to installer     
+        delete install directory for a clean install
+        test installer
+        ensure all changes have been committed and pushed to github
+        publish release on github
+
+
+requirements.txt-gen: directory: src/ 
+                       command: pigar generate
+
+file_version_info.txt-gen: directory: src/
+                           command: create-version-file metadata.yml --outfile file_version_info.txt
+
+remove-all-modules: command: pip freeze | % {pip uninstall -y $_.split('==')[0]}
+
+install-modules: directory: src/
+                command: pip install -r requirements.txt
+
+test-exe: 
+       - check memory usage    
+       - check cpu usage
+       - check disk usage
+       - check network usage
+
+compile-installer: directory: src/
+                   command: ./inno-setup.iss
+                   tasks: 
+                   - update version, !!! MyAppversion, VersionInfoVersion
+                   - remove unnecessary dirs e.g __pychache__ 

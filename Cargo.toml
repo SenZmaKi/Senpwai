@@ -1,0 +1,13 @@
+[package]
+name = "Senpwai"
+version = "2.0.2"
+edition = "2021"
+author = "SenZmaKi"
+description = "A desktop app for batch downloading anime"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+winres = "0.1"
+[dependencies]
+native-dialog = "0.6.4"
