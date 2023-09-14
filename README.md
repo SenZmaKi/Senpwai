@@ -100,6 +100,8 @@ In HLS mode Gogoanime downloads are guaranteed to work, though with a few downsi
 One person can only do so much, I only plan on adding another source if something ever happens to Animepahe or Gogoanime.
 More sources means more writing more code which in turn means fixing more bugs.
 
+</details>
+
 
 ## Links
 
