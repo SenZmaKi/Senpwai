@@ -1,15 +1,18 @@
-# Senpwai - Batch Anime Downloader
+# Senpwai - Anime Tracker & Batch Downloder
 
-![senpwai-icon](https://github.com/SenZmaKi/Senpwai/blob/master/app/senpwai-icon.png)
+![senpwai-icon](https://github.com/SenZmaKi/Senpwai/blob/master/src/senpwai-icon.png)
 
-**Senpwai** is a free and open-source desktop app designed for conveniently batch downloading anime. Ever thought, "Damn, I really wish there was a way to download all the One Piece episodes in a few clicks," well, that's exactly what Senpwai is built for, ignoring the occasional crashes *cough* *cough*.
+**Senpwai** is a blazingly fast and extremely convenient desktop app for batch downloading anime or tracking then automatically downloading new episodes of an anime as they come out. 
+
 
 <p>
  <a href="https://github.com/SenZmaKi/Senpwai/releases"><img  height="30px" src="https://img.shields.io/github/downloads/SenZmaKi/Senpwai/total" alt="Downloads"></a>
   <a href="https://discord.gg/invite/e9UxkuyDX2" target="_blank"><img height="30px" alt="Discord" src="https://img.shields.io/discord/1131981618777702540?label=Discord&logo=discord"></a>
   <a href="https://www.reddit.com/r/Senpwai" target="_blank"><img height="30px" alt="Subreddit subscribers" src="https://img.shields.io/reddit/subreddit-subscribers/senpwai?label=Reddit&style=social"></a>
 
-![download-page](https://github.com/SenZmaKi/Senpwai/assets/90490506/4a376a4f-bcaa-4f76-b3a3-68782580e4ed)
+
+![image](https://github.com/SenZmaKi/Senpwai/assets/90490506/04a9cfba-7961-48b8-b8ff-392aaef5b4d4)
+
 
 ## Table of Contents
 1. [Installation](#installation)
@@ -38,6 +41,7 @@ Download the setup from the [releases page](https://github.com/SenZmaKi/Senpwai/
 - Choose between video qualities: 360p, 480p (Gogoanime only), 720p, or 1080p.
 - Download in sub or dub (if available) depending on the user's preference.
 - Automatically detects episodes you already have and avoids re-downloading them.
+- Keep track of an anime and automatically download new episodes when they come out.
 - Robust and graceful download error management.
 - Goofy aah ahh GUI and Amogus.
 
@@ -57,30 +61,14 @@ git clone https://github.com/SenZmaKi/Senpwai
 
 ```
 cd Senpwai
-cd app
+cd src
 pip install -r requirements.txt
 ```
 
-3. Run the app as a normal script.
+3. Run the app.
 
 ```
 python senpwai.py
-```
-
-4. Alternatively, you can build it into an executable and then run it.
-
-- **Linux and Mac**
-
-```
-pyinstaller --windowed --name=Senpwai --icon=assets/senpwai-icon.ico --add-data "assets:assets" senpwai.py
-dist/Senpwai/Senpwai
-```
-
-- **Windows**
-
-```
-pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --add-data "assets;assets" --version-file=file_version_info.txt senpwai.py
-dist\Senpwai\Senpwai
 ```
 
 
@@ -97,13 +85,13 @@ dist\Senpwai\Senpwai
 HLS mode attempts to fix the problem of Captcha block with Gogoanime Normal mode. 
 In HLS mode Gogoanime downloads are guaranteed to work, though with a few downsides:
 
-- Requires [FFmpeg](https://www.hostinger.com/tutorials/how-to-install-ffmpeg) to be installed.
+- Requires [FFmpeg](https://www.hostinger.com/tutorials/how-to-install-ffmpeg) to be installed, though Senpwai can attempt to automatically install it for you.
   
 - Ongoing downloads can't be paused.
   
 - No download progress indication, the progress bars only indicate the completion of downloading each episode.
   
-- May occasionally crash if you don't have a stable internet connection.
+- May occasionally crash if you don't have an unstable internet connection.
 
 </details>
 
@@ -112,13 +100,6 @@ In HLS mode Gogoanime downloads are guaranteed to work, though with a few downsi
 One person can only do so much, I only plan on adding another source if something ever happens to Animepahe or Gogoanime.
 More sources means more writing more code which in turn means fixing more bugs.
 
-</details>
-
-<details> <summary> Why does it use so much memory? </summary>
-
-Senpwai is written in Python which is one of the most developer-friendly but unoptimised languages.
-
-</details>
 
 ## Links
 
