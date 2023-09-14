@@ -10,22 +10,13 @@ const CREATE_NO_WINDOW_FLAG: u32 = 0x08000000;
 const HELP_MESSAGE: &str = "Help: Reinstall and run the setup from https:://github.com/SenZmaKi/Senpwai.\nIf the error persists report it in either the\nDiscord Server: https://discord.gg/invite/e9UxkuyDX2\nSubreddit: https://www.reddit.com/r/Senpwai\nGithub Issues: https://github.com/SenZmaKi/Senpwai/issues";
 
 fn main() {
-    let output = Command::new(PYTHON_PATH)
+    let result = Command::new(PYTHON_PATH)
         .arg(MAIN_SCRIPT_PATH)
         .current_dir(SRC_DIR)
         .creation_flags(CREATE_NO_WINDOW_FLAG)
-        .output();
+        .spawn();
 
-    match output {
-        Ok(output) => {
-            if !output.status.success() {
-                let o = String::from_utf8_lossy(&output.stderr);
-                if !o.is_empty() {
-                    let error_message = format!("Error: {}\n{}", o, HELP_MESSAGE);
-                    show_error_message(&error_message);
-                }
-            }
-        }
+    match result {
         Err(e) => {
             let err = e.to_string();
             if !err.is_empty() {
@@ -35,7 +26,8 @@ fn main() {
                     HELP_MESSAGE
                 ));
             }
-        }
+        } 
+        _ => {}
     }
 }
 

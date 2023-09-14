@@ -17,7 +17,7 @@ else:
 
 COMPANY_NAME = "AkatsuKi Inc."
 APP_NAME = "Senpwai"
-VERSION = "2.0.1"
+VERSION = "2.0.2"
 base_config_dir = user_config_dir()
 if sys.platform == "win32":
     config_dir = os.path.join(base_config_dir, "Programs", APP_NAME)
