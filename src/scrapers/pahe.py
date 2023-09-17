@@ -32,9 +32,9 @@ def extract_anime_id_title_and_page_link(result: dict[str, str]) -> tuple[str, s
 
 def get_total_episode_page_count(anime_page_link: str) -> int:
     page_url = f'{anime_page_link}&page={1}'
-    response = network_error_retry_wrapper(
+    page_content = network_error_retry_wrapper(
         lambda: requests.get(page_url, headers=REQUEST_HEADERS).content)
-    decoded_anime_page = json.loads(response.decode('UTF-8'))
+    decoded_anime_page = json.loads(page_content.decode('UTF-8'))
     total_episode_page_count: int = decoded_anime_page['last_page']
     return total_episode_page_count
 
@@ -50,9 +50,9 @@ class GetEpisodePageLinks(PausableAndCancellableFunction):
         page_no = 1
         while page_url != None:
             page_url = f'{anime_page_link}&page={page_no}'
-            response = network_error_retry_wrapper(
+            page_content = network_error_retry_wrapper(
                 lambda page_url=page_url: requests.get(page_url, headers=REQUEST_HEADERS).content)
-            decoded_anime_page = json.loads(response.decode('UTF-8'))
+            decoded_anime_page = json.loads(page_content.decode('UTF-8'))
             episodes_data += decoded_anime_page['data']
             page_url = decoded_anime_page["next_page_url"]
             page_no += 1
@@ -78,9 +78,9 @@ class GetPahewinDownloadPage(PausableAndCancellableFunction):
     def get_pahewin_download_page_links_and_info(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> tuple[list[list[str]], list[list[str]]]:
         download_data: list[ResultSet[BeautifulSoup]] = []
         for idx, episode_page_link in enumerate(episode_page_links):
-            episode_page = network_error_retry_wrapper(
+            page_content = network_error_retry_wrapper(
                 lambda episode_page_link=episode_page_link: requests.get(episode_page_link, headers=REQUEST_HEADERS).content)
-            soup = BeautifulSoup(episode_page, PARSER)
+            soup = BeautifulSoup(page_content, PARSER)
             download_data.append(soup.find_all(
                 'a', class_='dropdown-item', target='_blank'))
             self.resume.wait()
@@ -98,9 +98,9 @@ class GetPahewinDownloadPage(PausableAndCancellableFunction):
 
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
     page_url = f'{anime_page_link}&page={1}'
-    response = network_error_retry_wrapper(
+    page_content = network_error_retry_wrapper(
         lambda: requests.get(page_url, headers=REQUEST_HEADERS).content)
-    decoded_anime_page = json.loads(response.decode('UTF-8'))
+    decoded_anime_page = json.loads(page_content.decode('UTF-8'))
     episodes_data = decoded_anime_page['data']
     episode_sessions = [episode['session'] for episode in episodes_data]
     episode_links = [
@@ -200,9 +200,9 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
         param_regex = re.compile(
             r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""")
         for idx, pahewin_link in enumerate(pahewin_download_page_links):
-            kwik_download_page = network_error_retry_wrapper(
+            page_content = network_error_retry_wrapper(
                 lambda pahewin_link=pahewin_link: requests.get(pahewin_link, headers=REQUEST_HEADERS).content)
-            soup = BeautifulSoup(kwik_download_page, PARSER)
+            soup = BeautifulSoup(page_content, PARSER)
             download_link = cast(str, cast(Tag, soup.find(
                 "a", class_="btn btn-primary btn-block redirect"))["href"])
 
@@ -230,9 +230,9 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
 
 def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     page_link = f'{PAHE_HOME_URL}/anime/{anime_id}'
-    response = network_error_retry_wrapper(
+    page_content = network_error_retry_wrapper(
         lambda: requests.get(page_link, headers=REQUEST_HEADERS).content)
-    soup = BeautifulSoup(response, PARSER)
+    soup = BeautifulSoup(page_content, PARSER)
     poster = soup.find(class_='youtube-preview')
     if not isinstance(poster, Tag):
         poster = cast(Tag, soup.find(class_='poster-image'))
@@ -251,9 +251,9 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
         'a[href*="/anime/season/"]'))['title'])
     release_year = int(season.split(' ')[-1])
     page_link = f'{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_desc'
-    response = network_error_retry_wrapper(
+    page_content = network_error_retry_wrapper(
         lambda: requests.get(page_link, headers=REQUEST_HEADERS).content)
-    episode_count = json.loads(response)['total']
+    episode_count = json.loads(page_content)['total']
     return AnimeMetadata(poster_link, summary, int(episode_count), is_ongoing, genres, release_year)
 
 

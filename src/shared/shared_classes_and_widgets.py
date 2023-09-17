@@ -576,10 +576,9 @@ class AnimeDetails():
             metadata = pahe.get_anime_metadata(
                 cast(str, self.anime.id))
         else:
-            metadata = gogo.get_anime_metadata(
-                self.anime.page_link)
+            page_content = gogo.get_anime_page_content(self.anime.page_link)
+            metadata = gogo.extract_anime_metadata(page_content)
         return metadata
-
 
 class ScrollableSection(QScrollArea):
     def __init__(self, layout: QHBoxLayout | QVBoxLayout):

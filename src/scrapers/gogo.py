@@ -32,14 +32,12 @@ CHROME = 'chrome'
 FIREFOX = 'firefox'
 
 # Hls mode constants
-# LOAD_EP_LIST_API = 'https://ajax.gogo-load.com/ajax/load-list-episode?ep_start=0&ep_end={}&id={}'
 KEYS_REGEX = re.compile(rb'(?:container|videocontent)-(\d+)')
 ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
 
 
 def search(keyword: str) -> list[BeautifulSoup]:
     global GOGO_HOME_URL
-    print(GOGO_HOME_URL)
     url_extension = '/search.html?keyword='
     search_url = GOGO_HOME_URL + url_extension + quote(keyword)
     response = cast(requests.Response, network_error_retry_wrapper(
@@ -63,11 +61,23 @@ def extract_anime_title_and_page_link(result: BeautifulSoup) -> tuple[str, str] 
     return (title, page_link)
 
 
-def generate_episode_page_links(start_episode: int, end_episode: int, anime_page_link: str) -> list[str]:
+def extract_anime_id(anime_page_content: bytes) -> int:
+    soup = BeautifulSoup(anime_page_content, PARSER)
+    anime_id = cast(str, cast(Tag, soup.find(
+        'input', id='movie_id'))['value'])
+    return int(anime_id)
+
+
+def get_episode_page_links(start_episode: int, end_episode: int, anime_id: int) -> list[str]:
+    content = network_error_retry_wrapper(lambda: requests.get(
+        f'https://ajax.gogo-load.com/ajax/load-list-episode?ep_start={start_episode}&ep_end={end_episode}&id={anime_id}').content)
+    soup = BeautifulSoup(content, PARSER)
+    a_tags = soup.find_all('a')
     episode_page_links: list[str] = []
-    for episode_num in range(start_episode, end_episode+1):
-        episode_page_links.append(
-            f'{GOGO_HOME_URL}{anime_page_link.split("/category")[1]}-episode-{episode_num}')
+    for a in a_tags:
+        resource = cast(str, a['href']).strip()
+        episode_page_links.append(GOGO_HOME_URL + resource)
+    print(episode_page_links)
     return episode_page_links
 
 
@@ -142,7 +152,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def get_direct_download_link_as_per_quality(self, download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda update: None, max_load_wait_time=7) -> list[str]:
+    def get_direct_download_links(self, download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda added: None, max_load_wait_time=6) -> list[str]:
         # For testing purposes
         # raise TimeoutError
         download_links: list[str] = []
@@ -209,11 +219,7 @@ class GetDownloadPageLinks(PausableAndCancellableFunction):
             return link
 
         for eps_pg_link in episode_page_links:
-            try:
-                link = extract_link(eps_pg_link)
-            except AttributeError:
-                link = fix_dead_episode_page_link(eps_pg_link)
-                link = extract_link(eps_pg_link.replace('-tv', ''))
+            link = extract_link(eps_pg_link)
             download_page_links.append(link)
             self.resume.wait()
             if self.cancelled:
@@ -248,10 +254,12 @@ def open_browser_with_links(download_links: str) -> None:
         webbrowser.open_new_tab(link)
 
 
-def get_anime_metadata(anime_page_link: str) -> AnimeMetadata:
-    response = network_error_retry_wrapper(
-        lambda: requests.get(anime_page_link, headers=REQUEST_HEADERS).content)
-    soup = BeautifulSoup(response, PARSER)
+def get_anime_page_content(anime_page_link: str) -> bytes:
+    return network_error_retry_wrapper(lambda: requests.get(anime_page_link).content)
+
+
+def extract_anime_metadata(anime_page: bytes) -> AnimeMetadata:
+    soup = BeautifulSoup(anime_page, PARSER)
     poster_link = cast(str, cast(Tag, cast(Tag, soup.find(
         class_='anime_info_body_bg')).find('img'))['src'])
     metadata_tags = soup.find_all('p', class_='type')
@@ -291,22 +299,12 @@ def get_dub_anime_page_link(anime_title: str) -> str:
             break
     return page_link
 
-# To handle a case like for Jujutsu Kaisen 2nd Season where when there is TV in the anime page link it misses in the episode page links
-
-
-def fix_dead_episode_page_link(episode_page_link: str) -> str:
-    return episode_page_link.replace('-tv', '')
 
 # Hls mode functions start here
-
 
 def get_embed_url(episode_page_link: str) -> str:
     response = cast(requests.Response, network_error_retry_wrapper(
         lambda: requests.get(episode_page_link, headers=REQUEST_HEADERS)))
-    if response.status_code != 200:
-        episode_page_link = fix_dead_episode_page_link(episode_page_link)
-        response = cast(requests.Response, network_error_retry_wrapper(
-            lambda: requests.get(episode_page_link, headers=REQUEST_HEADERS)))
     soup = BeautifulSoup(response.content, PARSER)
     return cast(str, cast(Tag, soup.select_one('iframe'))['src'])
 
@@ -392,9 +390,11 @@ def test_getting_episode_page_links(anime_title: str, start_episode: int, end_ep
         tuple[str, str], extract_anime_title_and_page_link(result))
     if sub_or_dub == 'dub' and dub_available(anime_title):
         anime_page_link = cast(str, dub_available(anime_title))
-    get_anime_metadata(anime_page_link)
-    episode_page_links = generate_episode_page_links(
-        start_episode, end_episode, anime_page_link)
+    page_content = get_anime_page_content(anime_page_link)
+    extract_anime_metadata(page_content)
+    anime_id = extract_anime_id(page_content)
+    episode_page_links = get_episode_page_links(
+        start_episode, end_episode, anime_id)
     for p in episode_page_links:
         print(p)
     return episode_page_links
@@ -405,7 +405,7 @@ def test_getting_direct_download_links(episode_page_links: list[str], quality: s
         episode_page_links)
     driver_manager = DriverManager()
     driver = driver_manager.setup_driver()
-    direct_download_links = GetDirectDownloadLinks().get_direct_download_link_as_per_quality(
+    direct_download_links = GetDirectDownloadLinks().get_direct_download_links(
         download_page_links, quality, driver, max_load_wait_time=50)
     CalculateTotalDowloadSize().calculate_total_download_size(
         direct_download_links)

@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup, Tag
 
 PARSER = 'html.parser'
 IBYTES_TO_MBS_DIVISOR = 1024*1024
-QUALITY_PATTERN = re.compile(r'\b(\d{3,4}p)\b')
+QUALITY_REGEX = re.compile(r'\b(\d{3,4}p)\b')
 NETWORK_RETRY_WAIT_TIME = 5
 GITHUB_README_URL = "https://github.com/SenZmaKi/Senpwai/blob/master/README.md"
 
@@ -28,8 +28,8 @@ def extract_new_domain_name_from_readme(site_name: str) -> str:
 
     :param site_name: Can be either Animepahe or Gogoanime.
     """
-    content = network_error_retry_wrapper(lambda: requests.get(GITHUB_README_URL).content)
-    soup = BeautifulSoup(content, PARSER)
+    page_content = network_error_retry_wrapper(lambda: requests.get(GITHUB_README_URL).content)
+    soup = BeautifulSoup(page_content, PARSER)
     new_domain_name =  cast(str, cast(Tag, soup.find('a', text=site_name))['href']).replace("\"", "").replace("\\", "")
     return new_domain_name
     
@@ -80,7 +80,7 @@ class AnimeMetadata:
 def match_quality(potential_qualities: list[str], user_quality: str) -> int:
     detected_qualities: list[QualityAndIndices] = []
     for idx, potential_quality in enumerate(potential_qualities):
-        match = QUALITY_PATTERN.search(potential_quality)
+        match = QUALITY_REGEX.search(potential_quality)
         if match:
             quality = cast(str, match.group(1))
             if quality == user_quality:

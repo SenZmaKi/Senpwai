@@ -313,7 +313,7 @@ class DownloadWindow(Window):
 
         if anime_details.site == PAHE:
             return PaheGetTotalPageCountThread(self, anime_details, self.pahe_get_episode_page_links).start()
-        self.gogo_generate_episode_page_links(anime_details)
+        self.gogo_get_episode_page_links(anime_details)
 
     @pyqtSlot(AnimeDetails, int)
     def pahe_get_episode_page_links(self, anime_details: AnimeDetails, page_count: int):
@@ -324,15 +324,9 @@ class DownloadWindow(Window):
         PaheGetEpisodePageLinksThread(self, anime_details, anime_details.predicted_episodes_to_download[0], anime_details.predicted_episodes_to_download[-1],
                                       self.get_download_page_links, episode_page_progress_bar).start()
 
-    def gogo_generate_episode_page_links(self, anime_details: AnimeDetails):
+    def gogo_get_episode_page_links(self, anime_details: AnimeDetails):
         next_func = self.get_hls_links if anime_details.is_hls_download else self.get_download_page_links
-        episode_page_links = gogo.generate_episode_page_links(
-            anime_details.predicted_episodes_to_download[0], anime_details.predicted_episodes_to_download[-1], anime_details.anime.page_link)
-
-        def callback(): return next_func(anime_details, episode_page_links)
-        if anime_details.sub_or_dub == DUB and anime_details.dub_available:
-            return GogoGetDubPageLinkThread(self, anime_details, callback).start()
-        callback()
+        return GogoGetEpisodePageLinksThread(self, anime_details, next_func).start()
 
     @pyqtSlot(AnimeDetails, list)
     def get_download_page_links(self, anime_details: AnimeDetails, episode_page_links: list[str]):
@@ -696,18 +690,20 @@ class DownloadThread(QThread):
         self.mutex.unlock()
 
 
-class GogoGetDubPageLinkThread(QThread):
-    finished = pyqtSignal(AnimeDetails)
+class GogoGetEpisodePageLinksThread(QThread):
+    finished = pyqtSignal(AnimeDetails, list)
 
-    def __init__(self, download_window: DownloadWindow, anime_details: AnimeDetails, callback: Callable[[], Any]):
+    def __init__(self, download_window: DownloadWindow, anime_details: AnimeDetails, callback: Callable[[AnimeDetails, list[str]], Any]):
         super().__init__(download_window)
         self.anime_details = anime_details
         self.finished.connect(callback)
 
     def run(self):
-        self.anime_details.anime.page_link = gogo.get_dub_anime_page_link(
-            self.anime_details.anime.title)
-        self.finished.emit(self.anime_details)
+        if self.anime_details.sub_or_dub == DUB:
+            self.anime_details.anime.page_link = gogo.get_dub_anime_page_link(self.anime_details.anime.title)
+        anime_id = gogo.extract_anime_id(gogo.get_anime_page_content(self.anime_details.anime.page_link))
+        episode_page_links = gogo.get_episode_page_links(self.anime_details.predicted_episodes_to_download[0], self.anime_details.predicted_episodes_to_download[-1], anime_id)
+        self.finished.emit(self.anime_details, episode_page_links)
 
 
 class PaheGetTotalPageCountThread(QThread):
@@ -835,7 +831,7 @@ class GetDirectDownloadLinksThread(QThread):
                 obj = gogo.GetDirectDownloadLinks()
                 self.progress_bar.pause_callback = obj.pause_or_resume
                 self.progress_bar.cancel_callback = obj.cancel
-                self.anime_details.direct_download_links = obj.get_direct_download_link_as_per_quality(cast(list[str], self.download_page_links), self.anime_details.quality,
+                self.anime_details.direct_download_links = obj.get_direct_download_links(cast(list[str], self.download_page_links), self.anime_details.quality,
                                                                                                        driver, lambda x: self.update_bar.emit(x))
             except Exception as exception:
                 self.progress_bar.deleteLater()
