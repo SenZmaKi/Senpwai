@@ -4,7 +4,7 @@ import json
 import re
 from typing import Callable, cast
 from math import pow
-from shared.app_and_scraper_shared import network_error_retry_wrapper, PARSER, test_downloading, match_quality, PausableAndCancellableFunction, AnimeMetadata
+from shared.app_and_scraper_shared import network_error_retry_wrapper, PARSER, test_downloading, match_quality, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS
 
 PAHE_HOME_URL = 'https://animepahe.ru'
 API_URL_EXTENSION = '/api?m='
@@ -13,12 +13,16 @@ API_URL_EXTENSION = '/api?m='
 def search(keyword: str) -> list[dict[str, str]]:
     search_url = PAHE_HOME_URL+API_URL_EXTENSION+'search&q='+keyword
     response = network_error_retry_wrapper(
-        lambda: requests.get(search_url).content)
-    try:
-        decoded = json.loads(response.decode('UTF-8'))
-        return decoded['data']
-    except (json.decoder.JSONDecodeError, KeyError):
-        return []
+        lambda: requests.get(search_url, headers=REQUEST_HEADERS).content)
+    decoded = json.loads(response.decode('UTF-8'))
+    return decoded['data']
+    # It seemed like 1 in 100 times the request would fail resulting to a json.decoder.JSONDecodeError
+    # Turns out it was animepahe registering the request as a bot request hence returning a bot response
+    # The bot response didn't have the json content we need hence the error
+    # To fix it I implemented the random user agent module to mimic a browser request
+    # But as to the random nature of the error I can't be 100 sure that being registered as a bot is what caused the decode error so I've left this here just incase
+    # except (json.decoder.JSONDecodeError, KeyError):
+    #     return []
 
 
 def extract_anime_id_title_and_page_link(result: dict[str, str]) -> tuple[str, str, str]:
@@ -31,7 +35,7 @@ def extract_anime_id_title_and_page_link(result: dict[str, str]) -> tuple[str, s
 def get_total_episode_page_count(anime_page_link: str) -> int:
     page_url = f'{anime_page_link}&page={1}'
     response = network_error_retry_wrapper(
-        lambda: requests.get(page_url).content)
+        lambda: requests.get(page_url, headers=REQUEST_HEADERS).content)
     decoded_anime_page = json.loads(response.decode('UTF-8'))
     total_episode_page_count: int = decoded_anime_page['last_page']
     return total_episode_page_count
@@ -49,7 +53,7 @@ class GetEpisodePageLinks(PausableAndCancellableFunction):
         while page_url != None:
             page_url = f'{anime_page_link}&page={page_no}'
             response = network_error_retry_wrapper(
-                lambda page_url=page_url: requests.get(page_url).content)
+                lambda page_url=page_url: requests.get(page_url, headers=REQUEST_HEADERS).content)
             decoded_anime_page = json.loads(response.decode('UTF-8'))
             episodes_data += decoded_anime_page['data']
             page_url = decoded_anime_page["next_page_url"]
@@ -59,7 +63,8 @@ class GetEpisodePageLinks(PausableAndCancellableFunction):
                 return []
             progress_update_callback(1)
         # To avoid episodes like 7.5 and 5.5 cause they're usually just recaps
-        episodes_data = list(filter(lambda episode: not isinstance(episode['episode'], float), episodes_data))
+        episodes_data = list(filter(lambda episode: not isinstance(
+            episode['episode'], float), episodes_data))
         # Take note cause indices work differently from episode numbers
         episodes_data = episodes_data[start_episode-1: end_episode]
         episode_sessions = [episode['session'] for episode in episodes_data]
@@ -76,7 +81,7 @@ class GetPahewinDownloadPage(PausableAndCancellableFunction):
         download_data: list[ResultSet[BeautifulSoup]] = []
         for idx, episode_page_link in enumerate(episode_page_links):
             episode_page = network_error_retry_wrapper(
-                lambda episode_page_link=episode_page_link: requests.get(episode_page_link).content)
+                lambda episode_page_link=episode_page_link: requests.get(episode_page_link, headers=REQUEST_HEADERS).content)
             soup = BeautifulSoup(episode_page, PARSER)
             download_data.append(soup.find_all(
                 'a', class_='dropdown-item', target='_blank'))
@@ -96,7 +101,7 @@ class GetPahewinDownloadPage(PausableAndCancellableFunction):
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
     page_url = f'{anime_page_link}&page={1}'
     response = network_error_retry_wrapper(
-        lambda: requests.get(page_url).content)
+        lambda: requests.get(page_url, headers=REQUEST_HEADERS).content)
     decoded_anime_page = json.loads(response.decode('UTF-8'))
     episodes_data = decoded_anime_page['data']
     episode_sessions = [episode['session'] for episode in episodes_data]
@@ -198,13 +203,13 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
             r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""")
         for idx, pahewin_link in enumerate(pahewin_download_page_links):
             kwik_download_page = network_error_retry_wrapper(
-                lambda pahewin_link=pahewin_link: requests.get(pahewin_link).content)
+                lambda pahewin_link=pahewin_link: requests.get(pahewin_link, headers=REQUEST_HEADERS).content)
             soup = BeautifulSoup(kwik_download_page, PARSER)
             download_link = cast(str, cast(Tag, soup.find(
                 "a", class_="btn btn-primary btn-block redirect"))["href"])
 
             response = network_error_retry_wrapper(
-                lambda download_link=download_link: requests.get(download_link))
+                lambda download_link=download_link: requests.get(download_link, headers=REQUEST_HEADERS))
             cookies = response.cookies
             match = cast(re.Match, param_regex.search(response.text))
             full_key, key, v1, v2 = match.group(1), match.group(
@@ -214,7 +219,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
             soup = BeautifulSoup(decrypted, PARSER)
             post_url = cast(str, cast(Tag, soup.form)['action'])
             token_value = cast(str, cast(Tag, soup.input)['value'])
-            response = network_error_retry_wrapper(lambda post_url=post_url, download_link=download_link, cookies=cookies, token_value=token_value: requests.post(post_url, headers={'Referer': download_link}, cookies=cookies, data={
+            response = network_error_retry_wrapper(lambda post_url=post_url, download_link=download_link, cookies=cookies, token_value=token_value: requests.post(post_url, headers={'Referer': download_link, 'User-Agent': REQUEST_HEADERS['User-Agent']}, cookies=cookies, data={
                 '_token': token_value}, allow_redirects=False))
             direct_download_link = response.headers['location']
             direct_download_links.append(direct_download_link)
@@ -228,7 +233,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
 def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     page_link = f'{PAHE_HOME_URL}/anime/{anime_id}'
     response = network_error_retry_wrapper(
-        lambda: requests.get(page_link).content)
+        lambda: requests.get(page_link, headers=REQUEST_HEADERS).content)
     soup = BeautifulSoup(response, PARSER)
     poster = soup.find(class_='youtube-preview')
     if not isinstance(poster, Tag):
@@ -249,7 +254,7 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     release_year = int(season.split(' ')[-1])
     page_link = f'{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_desc'
     response = network_error_retry_wrapper(
-        lambda: requests.get(page_link).content)
+        lambda: requests.get(page_link, headers=REQUEST_HEADERS).content)
     episode_count = json.loads(response)['total']
     return AnimeMetadata(poster_link, summary, int(episode_count), is_ongoing, genres, release_year)
 

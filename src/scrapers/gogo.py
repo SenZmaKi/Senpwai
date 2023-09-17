@@ -13,7 +13,7 @@ from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions
 
 import subprocess
 from typing import Callable, cast
-from shared.app_and_scraper_shared import PARSER, network_error_retry_wrapper, test_downloading, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction, AnimeMetadata
+from shared.app_and_scraper_shared import PARSER, network_error_retry_wrapper, test_downloading, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS
 
 # Hls mode imports
 import json
@@ -41,7 +41,7 @@ def search(keyword: str) -> list[BeautifulSoup]:
     search_url = '/search.html?keyword='
     search = GOGO_HOME_URL + search_url + quote(keyword)
     response = network_error_retry_wrapper(
-        lambda: requests.get(search).content)
+        lambda: requests.get(search, headers=REQUEST_HEADERS).content)
     soup = BeautifulSoup(response, PARSER)
     results_page = cast(Tag, soup.find('ul', class_="items"))
     results = results_page.find_all('li')
@@ -189,12 +189,12 @@ class GetDownloadPageLinks(PausableAndCancellableFunction):
 
         def extract_link(episode_page_link: str) -> str:
             response = cast(requests.Response, network_error_retry_wrapper(
-                lambda page=episode_page_link: requests.get(page)))
+                lambda page=episode_page_link: requests.get(page, headers=REQUEST_HEADERS)))
             if response.status_code != 200:
                 # To handle a case like for Jujutsu Kaisen 2nd Season where when there is TV in the anime page link it misses in the episode page links
                 episode_page_link = episode_page_link.replace('-tv', '')
                 response = cast(requests.Response, network_error_retry_wrapper(
-                    lambda page=episode_page_link: requests.get(page)))
+                    lambda page=episode_page_link: requests.get(page, headers=REQUEST_HEADERS)))
             soup = BeautifulSoup(response.content, PARSER)
             soup = cast(Tag, soup.find('li', class_='dowloads'))
             link = cast(str, cast(Tag, soup.find(
@@ -223,7 +223,7 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
         total_size = 0
         for idx, link in enumerate(download_links):
             response = network_error_retry_wrapper(
-                lambda link=link: requests.get(link, stream=True))
+                lambda link=link: requests.get(link, stream=True, headers=REQUEST_HEADERS))
             size = response.headers.get('content-length', 0)
             if in_megabytes:
                 total_size += round(int(size) / IBYTES_TO_MBS_DIVISOR)
@@ -243,7 +243,7 @@ def open_browser_with_links(download_links: str) -> None:
 
 def get_anime_metadata(anime_page_link: str) -> AnimeMetadata:
     response = network_error_retry_wrapper(
-        lambda: requests.get(anime_page_link).content)
+        lambda: requests.get(anime_page_link, headers=REQUEST_HEADERS).content)
     soup = BeautifulSoup(response, PARSER)
     poster_link = cast(str, cast(Tag, cast(Tag, soup.find(
         class_='anime_info_body_bg')).find('img'))['src'])
@@ -295,11 +295,11 @@ def fix_dead_episode_page_link(episode_page_link: str) -> str:
 
 def get_embed_url(episode_page_link: str) -> str:
     response = cast(requests.Response, network_error_retry_wrapper(
-        lambda: requests.get(episode_page_link)))
+        lambda: requests.get(episode_page_link, headers=REQUEST_HEADERS)))
     if response.status_code != 200:
         episode_page_link = fix_dead_episode_page_link(episode_page_link)
         response = cast(requests.Response, network_error_retry_wrapper(
-            lambda: requests.get(episode_page_link)))
+            lambda: requests.get(episode_page_link, headers=REQUEST_HEADERS)))
     soup = BeautifulSoup(response.content, PARSER)
     return cast(str, cast(Tag, soup.select_one('iframe'))['src'])
 
@@ -329,7 +329,7 @@ def extract_stream_url(embed_url: str) -> str:
     content_id = parsed_url.query['id']
     streaming_page_host = f'https://{parsed_url.host}/'
     streaming_page = cast(bytes, network_error_retry_wrapper(
-        lambda: requests.get(embed_url).content))
+        lambda: requests.get(embed_url, headers=REQUEST_HEADERS).content))
 
     encryption_key, iv, decryption_key = (
         _.group(1) for _ in KEYS_REGEX.finditer(streaming_page)
@@ -347,7 +347,8 @@ def extract_stream_url(embed_url: str) -> str:
     component = component.split("&", 1)[1]
     ajax_response = cast(requests.Response, network_error_retry_wrapper(lambda: requests.get(
         streaming_page_host + "encrypt-ajax.php?" + component,
-        headers={"x-requested-with": "XMLHttpRequest"},
+        headers={"x-requested-with": "XMLHttpRequest",
+                 'User-Agent': REQUEST_HEADERS['User-Agent']},
     )))
     content = json.loads(
         aes_decrypt(ajax_response.json()[

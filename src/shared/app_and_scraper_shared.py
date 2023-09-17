@@ -7,6 +7,9 @@ from string import printable
 import re
 import subprocess
 from threading import Event
+from random_user_agent.user_agent import UserAgent
+from random_user_agent.params import OperatingSystem, SoftwareName, SoftwareType, HardwareType
+from random import choice as randomchoice
 
 PARSER = 'html.parser'
 IBYTES_TO_MBS_DIVISOR = 1024*1024
@@ -14,10 +17,34 @@ QUALITY_PATTERN = re.compile(r'\b(\d{3,4}p)\b')
 NETWORK_RETRY_WAIT_TIME = 5
 
 
+def setup_request_headers() -> dict[str, str]:
+    if platform == "win32":
+        operating_systems = [OperatingSystem.WINDOWS.value]
+    elif platform == "linux":
+        operating_systems = [OperatingSystem.LINUX.value]
+    else:
+        operating_systems = [OperatingSystem.DARWIN.value]
+    software_names = [SoftwareName.CHROME.value, SoftwareName.FIREFOX.value,
+                      SoftwareName.EDGE.value, SoftwareName.OPERA.value]
+    software_types = [SoftwareType.WEB_BROWSER.value]
+    hardware_types = [HardwareType.COMPUTER.value]
+    if platform == "darwin":
+        software_types.append(SoftwareName.SAFARI.value)
+    user_agent = randomchoice(UserAgent(limit=1000, software_names=software_names,
+                              operating_systems=operating_systems, software_types=software_types,
+                              hardware_types=hardware_types).get_user_agents())
+    headers = {"User-Agent": user_agent['user_agent']}
+    return headers
+
+
+REQUEST_HEADERS = setup_request_headers()
+
+
 class QualityAndIndices:
     def __init__(self, quality: int, index: int):
         self.quality = quality
         self.index = index
+
 
 class AnimeMetadata:
     def __init__(self, poster_url: str, summary: str, episode_count: int, is_ongoing: bool, genres: list[str], release_year: int):
@@ -29,7 +56,8 @@ class AnimeMetadata:
         self.release_year = release_year
 
     def get_poster_bytes(self) -> bytes:
-        return cast(bytes, network_error_retry_wrapper(lambda: requests.get(self.poster_url).content))
+        return cast(bytes, network_error_retry_wrapper(lambda: requests.get(self.poster_url, headers=REQUEST_HEADERS).content))
+
 
 def match_quality(potential_qualities: list[str], user_quality: str) -> int:
     detected_qualities: list[QualityAndIndices] = []
@@ -60,7 +88,7 @@ def match_quality(potential_qualities: list[str], user_quality: str) -> int:
 
 
 def sanitise_title(title: str, all=False):
-    strip = lambda x: re.sub(r'[^a-zA-Z0-9]', '', x)
+    def strip(x): return re.sub(r'[^a-zA-Z0-9]', '', x)
     if all:
         sanitised = strip(title)
     else:
@@ -68,9 +96,11 @@ def sanitise_title(title: str, all=False):
         title = title.replace(':', ' -')
         sanitised = ''.join(filter(lambda char: char in valid_chars, title))
         # If the first/last character is a special symbol (some not all e.g . ,) windows seems to ignore the character i.e someFolder == someFolder,
-        sanitised = strip(sanitised[0]) + sanitised[1:-1] + strip(sanitised[-1])
+        sanitised = strip(sanitised[0]) + \
+            sanitised[1:-1] + strip(sanitised[-1])
 
     return sanitised[:255].rstrip()
+
 
 def network_error_retry_wrapper(function: Callable) -> Any:
     while True:
@@ -164,7 +194,7 @@ class Download(PausableAndCancellableFunction):
     def hls_download(self) -> bool:
         def get_potential_qualities(master_playlist_url: str) -> list[str]:
             response = cast(requests.Response, network_error_retry_wrapper(
-                lambda: requests.get(master_playlist_url)))
+                lambda: requests.get(master_playlist_url, headers=REQUEST_HEADERS)))
             lines = response.text.split(',')
             qualities = [line for line in lines if "NAME=" in line]
             return qualities
@@ -191,10 +221,10 @@ class Download(PausableAndCancellableFunction):
 
     def normal_download(self) -> bool:
         response = cast(requests.Response, network_error_retry_wrapper(lambda: requests.get(
-            self.link, stream=True, timeout=30)))
+            self.link, stream=True, timeout=30, headers=REQUEST_HEADERS)))
 
         def response_ranged(start_byte): return requests.get(
-            self.link, stream=True, headers={'Range': f'bytes={start_byte}-'}, timeout=30)
+            self.link, stream=True, headers={'Range': f'bytes={start_byte}-', 'User-Agent': REQUEST_HEADERS['User-Agent']}, timeout=30)
 
         total = int(response.headers.get('content-length', 0))
 
@@ -218,3 +248,7 @@ class Download(PausableAndCancellableFunction):
             file_size = os.path.getsize(self.temporary_file_path)
             return True if file_size >= total else download(file_size)
         return download()
+
+
+if __name__ == "__main__":
+    print(REQUEST_HEADERS)
