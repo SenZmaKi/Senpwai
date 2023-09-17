@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSystemTrayIcon, QSpacerItem
-from PyQt6.QtCore import Qt, QThread, QMutex, pyqtSignal, pyqtSlot
-from shared.global_vars_and_funcs import settings, KEY_ALLOW_NOTIFICATIONS, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_ON_CAPTCHA_SWITCH_TO, PAHE, GOGO_HLS_MODE
+from PyQt6.QtCore import Qt, QThread, QMutex, pyqtSignal, pyqtSlot, QTimer
+from shared.global_vars_and_funcs import settings, KEY_ALLOW_NOTIFICATIONS, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_ON_CAPTCHA_SWITCH_TO, PAHE, GOGO_HLS_MODE, KEY_CHECK_FOR_NEW_EPS_AFTER
 from shared.global_vars_and_funcs import set_minimum_size_policy, remove_from_queue_icon_path, move_up_queue_icon_path, move_down_queue_icon_path
 from shared.global_vars_and_funcs import PAHE, GOGO, DUB, downlaod_window_bckg_image_path, open_folder, pause_icon_path, resume_icon_path, cancel_icon_path
 from shared.app_and_scraper_shared import Download, IBYTES_TO_MBS_DIVISOR, network_error_retry_wrapper, PausableAndCancellableFunction, ffmpeg_is_installed, dynamic_episodes_predictor_initialiser_pro_turboencapsulator, sanitise_title
@@ -242,7 +242,6 @@ class DownloadQueue(QWidget):
         count = self.queued_downloads_layout.count()
         return [cast(QueuedDownload, self.queued_downloads_layout.itemAt(index).widget()) for index in range(count)]
 
-
 class DownloadWindow(Window):
     def __init__(self, main_window: MainWindow):
         super().__init__(main_window, downlaod_window_bckg_image_path)
@@ -278,10 +277,31 @@ class DownloadWindow(Window):
         self.cancel_button: CancelAllButton
         self.folder_button: FolderButton
         self.downloaded_episode_count: DownloadedEpisodeCount
+        self.auto_download_timer = QTimer(self)
+        self.auto_download_timer.timeout.connect(self.start_auto_download)
+        self.setup_auto_download_timer()
+        self.auto_download_thread: AutoDownloadThread | None = None
+        self.start_auto_download()
+
+    @pyqtSlot()
+    def setup_auto_download_timer(self):
+        self.auto_download_timer.stop()
+        self.auto_download_timer.start(
+            cast(int, settings[KEY_CHECK_FOR_NEW_EPS_AFTER]) * 1000 * 60 * 60)
+
+    @pyqtSlot()
+    # To avoid overwriding the thread if it's running hence killing it
+    def clean_out_auto_download_thread(self):
+        self.auto_download_thread = None
+
+    @pyqtSlot()
+    def start_auto_download(self):
         tracked_anime = cast(list[str], settings[KEY_TRACKED_ANIME])
-        if tracked_anime != []:
-            AutoDownload(self, tracked_anime,
-                         self.main_window.tray_icon).start()
+
+        if tracked_anime != [] and not self.auto_download_thread:
+            self.auto_download_thread = AutoDownloadThread(self, tracked_anime,
+                                                        self.main_window.tray_icon, self.clean_out_auto_download_thread)
+            self.auto_download_thread.start()
 
     @pyqtSlot(AnimeDetails)
     def initiate_download_pipeline(self, anime_details: AnimeDetails):
@@ -810,7 +830,8 @@ class GetDirectDownloadLinksThread(QThread):
                 # raise WebDriverException
                 # raise TimeoutError
 
-                driver = gogo.DRIVER_MANAGER.setup_driver(self.anime_details.browser)
+                driver = gogo.DRIVER_MANAGER.setup_driver(
+                    self.anime_details.browser)
                 obj = gogo.GetDirectDownloadLinks()
                 self.progress_bar.pause_callback = obj.pause_or_resume
                 self.progress_bar.cancel_callback = obj.cancel
@@ -848,10 +869,11 @@ class GogoCalculateDownloadSizes(QThread):
         self.finished.emit(self.anime_details)
 
 
-class AutoDownload(QThread):
+class AutoDownloadThread(QThread):
     initate_download_pipeline = pyqtSignal(AnimeDetails)
+    clean_out_auto_download_thread_signal = pyqtSignal()
 
-    def __init__(self, download_window: DownloadWindow, titles: list[str], tray_icon: QSystemTrayIcon):
+    def __init__(self, download_window: DownloadWindow, titles: list[str], tray_icon: QSystemTrayIcon, clean_out_auto_download_thread_slot: Callable[[], None]):
         super().__init__(download_window)
         self.anime_titles = titles
         self.download_window = download_window
@@ -860,6 +882,8 @@ class AutoDownload(QThread):
         self.tray_icon = tray_icon
         self.tray_icon.messageClicked.connect(
             download_window.main_window.switch_to_download_window)
+        self.clean_out_auto_download_thread_signal.connect(
+            clean_out_auto_download_thread_slot)
 
     def run(self):
         queued: list[str] = []
@@ -892,7 +916,8 @@ class AutoDownload(QThread):
                         anime_details.anime.title)
                 continue
             if anime_details.sub_or_dub == DUB and not anime_details.dub_available:
-                self.download_window.main_window.make_notification("Couldn't find Dub", f"Couldn't find dub for {anime_details.sanitised_title}", False)
+                self.download_window.main_window.make_notification(
+                    "Couldn't find Dub", f"Couldn't find dub for {anime_details.sanitised_title}", False)
                 continue
             queued.append(anime_details.sanitised_title)
             self.initate_download_pipeline.emit(anime_details)
@@ -900,6 +925,7 @@ class AutoDownload(QThread):
             all_str = ', '.join(queued)
             self.download_window.main_window.make_notification(
                 "Queued new episodes", all_str, False, self.download_window.main_window.switch_to_download_window)
+        self.clean_out_auto_download_thread_signal.emit()
 
     def pahe_fetch_anime_obj(self, title: str) -> Anime | None:
         results = pahe.search(title)
@@ -913,7 +939,8 @@ class AutoDownload(QThread):
     def gogo_fetch_anime_obj(self, title: str) -> Anime | None:
         results = gogo.search(title)
         for result in results:
-            res_title, page_link = gogo.extract_anime_title_and_page_link(result)
+            res_title, page_link = gogo.extract_anime_title_and_page_link(
+                result)
             if (res_title and page_link) and (sanitise_title(res_title.lower(), True) == sanitise_title(title.lower(), True)):
                 return Anime(title, page_link, None)
         return None

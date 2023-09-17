@@ -281,12 +281,13 @@ class ErrorLabel(StyledLabel):
     def __init__(self, font_size: int, shown_duration_in_secs: int = 3, parent: QWidget | None = None):
         super().__init__(parent, font_size, font_color="red")
         self.shown_duration_in_secs = shown_duration_in_secs
-
+        self.timer = QTimer(self)
     def show(self):
-        timer = QTimer(self)
-        timer.timeout.connect(self.hide)
-        timer.start(self.shown_duration_in_secs  * 1000)
-        return super().show()
+        if not self.timer.isActive():
+            self.timer.setSingleShot(True)
+            self.timer.timeout.connect(self.hide)
+            self.timer.start(self.shown_duration_in_secs  * 1000)
+            return super().show()
 
 
 class ProgressBarWithoutButtons(QWidget):

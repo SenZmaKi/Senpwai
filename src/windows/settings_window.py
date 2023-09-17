@@ -1,10 +1,11 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtCore import Qt, QFile
 from shared.global_vars_and_funcs import SETTINGS_TYPES, validate_settings_json, SETTINGS_JSON_PATH, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR
-from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_START_MINIMISED, KEY_RUN_ON_STARTUP, KEY_ON_CAPTCHA_SWITCH_TO
+from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_START_MINIMISED, KEY_RUN_ON_STARTUP, KEY_ON_CAPTCHA_SWITCH_TO, KEY_CHECK_FOR_NEW_EPS_AFTER
 from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, CHROME, EDGE, FIREFOX, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME
 from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
+from windows.download_window import DownloadWindow
 from sys import platform as sysplatform
 import json
 import os
@@ -13,7 +14,7 @@ from typing import cast
 class SettingsWindow(Window):
     def __init__(self, main_window: MainWindow) -> None:
         super().__init__(main_window, settings_window_bckg_image_path)
-        self.font_size = 17
+        self.font_size = 15
         main_layout = QHBoxLayout()
         main_widget = ScrollableSection(main_layout)
         left_layout = QVBoxLayout()
@@ -36,9 +37,10 @@ class SettingsWindow(Window):
         self.download_folder_setting = DownloadFoldersSetting(
             self, main_window)
         self.gogo_norm_or_hls_mode_setting = GogoNormOrHlsSetting(self)
-        self.tracked_anime = TrackedAnime(self,)
+        self.tracked_anime = TrackedAnimeListSetting(self,)
         self.auto_download_site = AutoDownloadSite(self)
         self.start_minimsed = StartMinimisedSetting(self)
+        self.check_for_new_eps_after = CheckForNewEpsAfterSetting(self, main_window.download_window)
         if sysplatform == "win32":
             self.run_on_startup = RunOnStartUp(self)
         self.oncaptcha_switch_to = OnCaptchaSwitchToSetting(self)
@@ -51,11 +53,12 @@ class SettingsWindow(Window):
         left_layout.addWidget(
             self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_in_fullscreen)
-        left_layout.addWidget(self.start_minimsed)
-        if sysplatform == "win32":
-            left_layout.addWidget(self.run_on_startup)
         right_layout.addWidget(self.download_folder_setting)
+        right_layout.addWidget(self.start_minimsed)
+        if sysplatform == "win32":
+            right_layout.addWidget(self.run_on_startup)
         right_layout.addWidget(self.auto_download_site)
+        right_layout.addWidget(self.check_for_new_eps_after)
         right_layout.addWidget(self.tracked_anime)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
@@ -224,12 +227,12 @@ class YesOrNoButton(OptionButton):
 
 
 class SettingWidget(QWidget):
-    def __init__(self, settings_window: SettingsWindow, setting_info: str, widgets_to_add: list, horizintal_layout=True):
+    def __init__(self, settings_window: SettingsWindow, setting_info: str, widgets_to_add: list, horizontal_layout=True, all_on_one_line=False):
         super().__init__()
         self.setting_label = StyledLabel(font_size=settings_window.font_size+5)
         self.setting_label.setText(setting_info)
         set_minimum_size_policy(self.setting_label)
-        if horizintal_layout:
+        if horizontal_layout:
             main_layout = QHBoxLayout()
         else:
             main_layout = QVBoxLayout()
@@ -257,7 +260,7 @@ class RemovableWidget(QWidget):
         self.setLayout(main_layout)
 
 
-class TrackedAnime(SettingWidget):
+class TrackedAnimeListSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
         self.main_layout = QVBoxLayout()
         self.settings_window = settings_window
@@ -449,39 +452,67 @@ class GogoNormOrHlsSetting(SettingWidget):
         self.setting_label.setToolTip(hls_button.toolTip())
 
 
-class MaxSimultaneousDownloadsSetting(SettingWidget):
-    def __init__(self, settings_window: SettingsWindow):
+class NonZeroNumberInputSetting(SettingWidget):
+    def __init__(self, settings_window: SettingsWindow, setting_key: str, setting_info: str, error_on_zero_text: str, units: str | None, tooltip: str | None = None):
         self.settings_window = settings_window
-        number_input = NumberInput(font_size=settings_window.font_size)
-        number_input.setFixedWidth(60)
-        number_input.setPlaceholderText(amogus_easter_egg)
-        number_input.setText(
-            str(cast(int, settings[KEY_MAX_SIMULTANEOUS_DOWNLOADS])))
-        number_input.textChanged.connect(self.text_changed)
-        zero_error = ErrorLabel(18, 4)
-        zero_error.setText("Bruh, max simultaneous downloads can't be zero")
-        set_minimum_size_policy(zero_error)
-        zero_error.hide()
+        self.setting_key = setting_key
+        self.number_input = NumberInput(font_size=settings_window.font_size)
+        self.number_input.setFixedWidth(60)
+        self.number_input.setPlaceholderText(amogus_easter_egg)
+        self.number_input.setText(
+            str(cast(int, settings[setting_key])))
+        self.input_layout = QHBoxLayout()
+        input_widget = QWidget()
+        input_widget.setLayout(self.input_layout)
+        self.input_layout.addWidget(self.number_input, alignment=Qt.AlignmentFlag.AlignLeft)
+        if units:
+            units_label = StyledLabel(None, settings_window.font_size)
+            units_label.setText(units)
+            set_minimum_size_policy(units_label)
+            self.input_layout.addWidget(units_label, alignment=Qt.AlignmentFlag.AlignLeft)
         main_layout = QVBoxLayout()
-        main_layout.addWidget(zero_error)
-        self.zero_error = zero_error.show
-        main_layout.addWidget(number_input)
+        self.error = ErrorLabel(settings_window.font_size)
+        self.error.setText(error_on_zero_text)
+        set_minimum_size_policy(self.error)
+        self.error.hide()
+
         main_widget = QWidget()
         main_widget.setLayout(main_layout)
+        main_layout.addWidget(self.error)
+        main_layout.addWidget(input_widget)
         super().__init__(settings_window,
-                         "Max simultaneous downloads", [main_widget])
-        self.setting_label.setToolTip(
-            "The maximum number of downloads allowed to occur at the same time")
+                         setting_info, [main_widget])
+        self.number_input.textChanged.connect(self.text_changed)
+        if tooltip:
+            self.setting_label.setToolTip(tooltip)
+            if units:
+                units_label.setToolTip(tooltip) # type: ignore
 
     def text_changed(self, text: str):
         if not text.isdigit():
             return
         new_setting = int(text)
         if new_setting == 0:
-            self.zero_error()
+            self.error.show()
+            self.number_input.setText("")
             return
         self.settings_window.update_settings_json(
-            KEY_MAX_SIMULTANEOUS_DOWNLOADS, new_setting)
+            self.setting_key, new_setting)
+
+class MaxSimultaneousDownloadsSetting(NonZeroNumberInputSetting):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__(settings_window, KEY_MAX_SIMULTANEOUS_DOWNLOADS, "Only allow", "Bruh, max simultaneous downloads cannot be zero", "simultaneous downloads", "The maximum number of downloads allowed to occur at the same time")
+
+
+class CheckForNewEpsAfterSetting(NonZeroNumberInputSetting):
+    def __init__(self, settings_window: SettingsWindow, download_window: DownloadWindow):
+        self.download_window = download_window
+        super().__init__(settings_window, KEY_CHECK_FOR_NEW_EPS_AFTER, "Check for new episodes after", "Bruh, time intervals can't be zero", "hours", "Senpwai will check for new episodes of your tracked anime when you start the app\nthen in intervals of the hours you specify so long as it is running")
+    
+    def text_changed(self, text: str):
+        super().text_changed(text)
+        self.download_window.setup_auto_download_timer()
+        self.download_window.start_auto_download()
 
 
 class QualitySetting(SettingWidget):

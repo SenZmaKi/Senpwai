@@ -47,6 +47,7 @@ default_auto_download_site = PAHE
 default_start_minimised = False
 default_run_on_startup = False
 default_on_captcha_switch_to = PAHE
+default_check_for_new_eps_after = 24
 
 error_logs_file_path = os.path.join(config_dir, "errors.log")
 if not os.path.exists(error_logs_file_path):
@@ -207,6 +208,7 @@ KEY_GOGO_NORM_OR_HLS_MODE = "gogo_hls_mode"
 KEY_TRACKED_ANIME = "tracked_anime"
 KEY_AUTO_DOWNLOAD_SITE = "auto_download_site"
 KEY_ON_CAPTCHA_SWITCH_TO = "on_captcha_switch_to"
+KEY_CHECK_FOR_NEW_EPS_AFTER = "check_for_new_episodes_after"
 
 
 
@@ -344,6 +346,14 @@ def validate_settings_json(settings_json: dict) -> dict:
         clean_settings[KEY_ON_CAPTCHA_SWITCH_TO] = oncaptcha
     except KeyError:
         clean_settings[KEY_ON_CAPTCHA_SWITCH_TO] = default_on_captcha_switch_to
+
+    try:
+        intervals = settings_json[KEY_CHECK_FOR_NEW_EPS_AFTER]
+        if not isinstance(intervals, int):
+            raise KeyError
+        clean_settings[KEY_CHECK_FOR_NEW_EPS_AFTER] = intervals
+    except KeyError:
+        clean_settings[KEY_CHECK_FOR_NEW_EPS_AFTER] = default_check_for_new_eps_after
 
     return clean_settings
 
