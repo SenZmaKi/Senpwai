@@ -36,7 +36,7 @@ Download the setup from the [releases page](https://github.com/SenZmaKi/Senpwai/
 
 ## Features
 
-- Download any anime from Animepahe or Gogoanime.
+- Download any anime from [Animepahe](https://animepahe.ru) or [Gogoanime](https://gggoanimehd.io).
 - Download a complete season or episodes within a range (e.g., 69-420).
 - Choose between video qualities: 360p, 480p (Gogoanime only), 720p, or 1080p.
 - Download in sub or dub (if available) depending on the user's preference.
