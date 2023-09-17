@@ -10,11 +10,29 @@ from threading import Event
 from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import OperatingSystem, SoftwareName, SoftwareType, HardwareType
 from random import choice as randomchoice
+from bs4 import BeautifulSoup, Tag
 
 PARSER = 'html.parser'
 IBYTES_TO_MBS_DIVISOR = 1024*1024
 QUALITY_PATTERN = re.compile(r'\b(\d{3,4}p)\b')
 NETWORK_RETRY_WAIT_TIME = 5
+GITHUB_README_URL = "https://github.com/SenZmaKi/Senpwai/blob/master/README.md"
+
+
+def extract_new_domain_name_from_readme(site_name: str) -> str:
+    """
+    Say Animepahe or Gogoanime change their domain name, now Senpwai makes an anime search but it gets a none 200 status code, 
+    then it'll assume they changed their domain name. It'll try to extract the new domain name from the readme.
+    So if the domain name changes be sure to update it in the readme, specifically in the hyperlinks i.e., [Animepahe](https://animepahe.ru)
+    and without an ending / i.e., https://animepahe.ru instead of https://animepahe.ru/. Also test if Senpwai is properly extracting it incase you made a mistake.
+
+    :param site_name: Can be either Animepahe or Gogoanime.
+    """
+    content = network_error_retry_wrapper(lambda: requests.get(GITHUB_README_URL).content)
+    soup = BeautifulSoup(content, PARSER)
+    new_domain_name =  cast(str, cast(Tag, soup.find('a', text=site_name))['href']).replace("\"", "").replace("\\", "")
+    return new_domain_name
+    
 
 
 def setup_request_headers() -> dict[str, str]:
@@ -102,7 +120,7 @@ def sanitise_title(title: str, all=False):
     return sanitised[:255].rstrip()
 
 
-def network_error_retry_wrapper(function: Callable) -> Any:
+def network_error_retry_wrapper(function: Callable[..., Any]) -> Any:
     while True:
         try:
             return function()

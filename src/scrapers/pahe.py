@@ -4,26 +4,24 @@ import json
 import re
 from typing import Callable, cast
 from math import pow
-from shared.app_and_scraper_shared import network_error_retry_wrapper, PARSER, test_downloading, match_quality, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS
+from shared.app_and_scraper_shared import network_error_retry_wrapper, PARSER, test_downloading, match_quality, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS, extract_new_domain_name_from_readme
 
 PAHE_HOME_URL = 'https://animepahe.ru'
 API_URL_EXTENSION = '/api?m='
 
 
 def search(keyword: str) -> list[dict[str, str]]:
+    global PAHE_HOME_URL
     search_url = PAHE_HOME_URL+API_URL_EXTENSION+'search&q='+keyword
-    response = network_error_retry_wrapper(
-        lambda: requests.get(search_url, headers=REQUEST_HEADERS).content)
-    decoded = json.loads(response.decode('UTF-8'))
-    return decoded['data']
-    # It seemed like 1 in 100 times the request would fail resulting to a json.decoder.JSONDecodeError
-    # Turns out it was animepahe registering the request as a bot request hence returning a bot response
-    # The bot response didn't have the json content we need hence the error
-    # To fix it I implemented the random user agent module to mimic a browser request
-    # But as to the random nature of the error I can't be 100 sure that being registered as a bot is what caused the decode error so I've left this here just incase
-    # except (json.decoder.JSONDecodeError, KeyError):
-    #     return []
-
+    response = cast(requests.Response, network_error_retry_wrapper(
+        lambda: requests.get(search_url, headers=REQUEST_HEADERS)))
+    # If the status code isn't 200 we assume they changed their domain name
+    if response.status_code != 200:
+        PAHE_HOME_URL = extract_new_domain_name_from_readme("Animepahe")
+        return search(keyword)
+    content = response.content
+    decoded = json.loads(content.decode('UTF-8'))
+    return decoded['data']  
 
 def extract_anime_id_title_and_page_link(result: dict[str, str]) -> tuple[str, str, str]:
     anime_id = result['session']

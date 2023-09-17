@@ -13,7 +13,7 @@ from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions
 
 import subprocess
 from typing import Callable, cast
-from shared.app_and_scraper_shared import PARSER, network_error_retry_wrapper, test_downloading, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS
+from shared.app_and_scraper_shared import PARSER, network_error_retry_wrapper, test_downloading, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS, extract_new_domain_name_from_readme
 
 # Hls mode imports
 import json
@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.backends import default_backend
 from threading import Event
 
-GOGO_HOME_URL = 'https://gogoanime.cl'
+GOGO_HOME_URL = 'https://gogoanimehd.io'
 DUB_EXTENSION = ' (Dub)'
 EDGE = 'edge'
 CHROME = 'chrome'
@@ -38,11 +38,18 @@ ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
 
 
 def search(keyword: str) -> list[BeautifulSoup]:
-    search_url = '/search.html?keyword='
-    search = GOGO_HOME_URL + search_url + quote(keyword)
-    response = network_error_retry_wrapper(
-        lambda: requests.get(search, headers=REQUEST_HEADERS).content)
-    soup = BeautifulSoup(response, PARSER)
+    global GOGO_HOME_URL
+    print(GOGO_HOME_URL)
+    url_extension = '/search.html?keyword='
+    search_url = GOGO_HOME_URL + url_extension + quote(keyword)
+    response = cast(requests.Response, network_error_retry_wrapper(
+        lambda: requests.get(search_url, headers=REQUEST_HEADERS)))
+    # If the status code isn't 200 we assume they changed their domain name
+    if response.status_code != 200:
+        GOGO_HOME_URL = extract_new_domain_name_from_readme("Gogoanime")
+        return search(keyword)
+    content = response.content
+    soup = BeautifulSoup(content, PARSER)
     results_page = cast(Tag, soup.find('ul', class_="items"))
     results = results_page.find_all('li')
     return results
