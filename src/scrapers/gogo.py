@@ -77,7 +77,6 @@ def get_episode_page_links(start_episode: int, end_episode: int, anime_id: int) 
     for a in a_tags:
         resource = cast(str, a['href']).strip()
         episode_page_links.append(GOGO_HOME_URL + resource)
-    print(episode_page_links)
     return episode_page_links
 
 
@@ -152,7 +151,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def get_direct_download_links(self, download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda added: None, max_load_wait_time=6) -> list[str]:
+    def get_direct_download_links(self, download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda added: None, max_load_wait_time=5) -> list[str]:
         # For testing purposes
         # raise TimeoutError
         download_links: list[str] = []
@@ -406,7 +405,7 @@ def test_getting_direct_download_links(episode_page_links: list[str], quality: s
     driver_manager = DriverManager()
     driver = driver_manager.setup_driver()
     direct_download_links = GetDirectDownloadLinks().get_direct_download_links(
-        download_page_links, quality, driver, max_load_wait_time=50)
+        download_page_links, quality, driver, max_load_wait_time=5)
     CalculateTotalDowloadSize().calculate_total_download_size(
         direct_download_links)
     driver_manager.close_driver()

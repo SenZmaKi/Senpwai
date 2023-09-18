@@ -24,14 +24,14 @@ def main():
     QCoreApplication.setApplicationName(APP_NAME)
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
-    app.setWindowIcon(QIcon(SENPWAI_ICON_PATH))
     palette = app.palette()
-    palette.setColor(QPalette.ColorRole.Window, QColor(PAHE_NORMAL_COLOR))
     palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
     app.setPalette(palette)
 
     window = MainWindow(app)
+    app.setWindowIcon(window.senpwai_icon)
     app.aboutToQuit.connect(DRIVER_MANAGER.close_driver)
+    app.aboutToQuit.connect(window.tray_icon.hide)
     if cast(bool, settings[KEY_START_MINIMISED]):
          window.hide()
     elif cast(bool, settings[KEY_START_IN_FULLSCREEN]):

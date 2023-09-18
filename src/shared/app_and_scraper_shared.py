@@ -241,8 +241,8 @@ class Download(PausableAndCancellableFunction):
         response = cast(requests.Response, network_error_retry_wrapper(lambda: requests.get(
             self.link, stream=True, timeout=30, headers=REQUEST_HEADERS)))
 
-        def response_ranged(start_byte): return requests.get(
-            self.link, stream=True, headers={'Range': f'bytes={start_byte}-', 'User-Agent': REQUEST_HEADERS['User-Agent']}, timeout=30)
+        def response_ranged(start_byte): return cast(requests.Response, network_error_retry_wrapper(lambda: requests.get(
+            self.link, stream=True, headers={'Range': f'bytes={start_byte}-', 'User-Agent': REQUEST_HEADERS['User-Agent']}, timeout=30)))
 
         total = int(response.headers.get('content-length', 0))
 
@@ -269,4 +269,4 @@ class Download(PausableAndCancellableFunction):
 
 
 if __name__ == "__main__":
-    print(REQUEST_HEADERS)
+    pass

@@ -405,7 +405,6 @@ class ProgressBarWithoutButtons(QWidget):
                     f"{self.task_title} {self.item_task_is_applied_on}")
 
 
-    @pyqtSlot(int)
     def update_bar(self, added_value: int):
         self.mutex.lock()
         new_value = self.bar.value() + added_value

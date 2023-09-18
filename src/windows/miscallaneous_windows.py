@@ -172,8 +172,8 @@ class TryInstallingFFmpegThread(QThread):
             except:
                 pass
             if ffmpeg_is_installed():
-                self.no_ffmpeg_window.main_window.make_notification(
-                    "Successfully Installed", "FFmpeg", True)
+                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
+                    "Successfully Installed", "FFmpeg", True, None)
                 self.start_download()
             else:
                 open_new_tab(
@@ -185,8 +185,8 @@ class TryInstallingFFmpegThread(QThread):
             except:
                 pass
             if ffmpeg_is_installed():
-                self.no_ffmpeg_window.main_window.make_notification(
-                    "Successfully Installed", "FFmpeg", True)
+                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
+                    "Successfully Installed", "FFmpeg", True, None)
                 self.start_download()
             else:
                 open_new_tab(
@@ -253,7 +253,6 @@ class UpdateWindow(Window):
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignHCenter)
         self.setLayout(self.full_layout)
 
-    @pyqtSlot(int)
     def receive_total_size(self, size: int):
         pause_icon = Icon(40, 40, pause_icon_path)
         resume_icon = Icon(40, 40, resume_icon_path)
@@ -278,11 +277,11 @@ class DownloadUpdateThread(QThread):
         self.update_window = update_window
         self.download_folder = download_folder
         self.file_name = file_name
-        self.make_notification = main_window.make_notification
+        self.make_notification = main_window.tray_icon.make_notification
 
     def run(self):
-        total_size = int(cast(str, requests.get(
-            self.download_url, stream=True).headers["content-length"]))
+        total_size = int(network_error_retry_wrapper(lambda: (str, requests.get(
+            self.download_url, stream=True).headers["content-length"])))
         self.total_size.emit(total_size)
         self.update_window.progress_bar
         while not self.update_window.progress_bar:
