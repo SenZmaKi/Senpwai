@@ -1,9 +1,10 @@
 from PyQt6.QtGui import QGuiApplication, QIcon, QAction
 from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout, QApplication, QMenu
-from PyQt6.QtCore import Qt, pyqtSlot, QTimer
-from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS, KEY_START_IN_FULLSCREEN
+from PyQt6.QtCore import Qt
+from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS, KEY_START_IN_FULLSCREEN, KEY_START_MINIMISED
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton, Icon
 from typing import Callable, cast
+from scrapers.gogo import DRIVER_MANAGER
 
 
 class MainWindow(QMainWindow):
@@ -33,6 +34,21 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
         self.download_window.start_auto_download()
+        self.app.aboutToQuit.connect(DRIVER_MANAGER.close_driver)
+        self.app.aboutToQuit.connect(self.tray_icon.hide)
+
+    def quit_app(self):
+        self.app.quit()
+
+    def show_with_settings(self):
+        if cast(bool, settings[KEY_START_MINIMISED]):
+            self.hide()
+        elif cast(bool, settings[KEY_START_IN_FULLSCREEN]):
+                self.showMaximized()
+        else:
+            self.showNormal()
+            self.center_window()
+            self.setWindowState(Qt.WindowState.WindowActive)
 
     def show(self):
         self.activateWindow()
@@ -51,7 +67,7 @@ class MainWindow(QMainWindow):
         update_icon = NavBarButton(
             update_icon_path, self.switch_to_update_window)
         self.search_window.nav_bar_layout.addWidget(update_icon)
-        self.tray_icon.make_notification("New Senpwai version is available",
+        self.tray_icon.make_notification("Update Available",
                                          f"Version {version}", False, self.switch_to_update_window)
 
     def switch_to_update_window(self):
@@ -151,8 +167,7 @@ class TrayIcon(QSystemTrayIcon):
             main_window.switch_to_download_window)
         downloads_action.triggered.connect(main_window.show)
         quit_action = QAction("Quit", self.context_menu)
-        quit_action.triggered.connect(
-            main_window.app.quit)
+        quit_action.triggered.connect(main_window.quit_app)
         self.context_menu.addAction(check_for_new_episodes_action)
         self.context_menu.addAction(search_action)
         self.context_menu.addAction(downloads_action)

@@ -9,7 +9,6 @@ from windows.settings_window import SettingsWindow
 from shared.app_and_scraper_shared import dynamic_episodes_predictor_initialiser_pro_turboencapsulator
 from windows.main_actual_window import MainWindow, TemporaryWindow
 from typing import cast
-from shared.global_vars_and_funcs import pause_icon_path
 
 
 class SummaryLabel(StyledLabel):

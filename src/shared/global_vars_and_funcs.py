@@ -18,6 +18,14 @@ else:
 COMPANY_NAME = "AkatsuKi Inc."
 APP_NAME = "Senpwai"
 VERSION = "2.0.2"
+UPDATE_INSTALLER_NAMES = [f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
+                              f"{APP_NAME}-installer.exe", f"{APP_NAME}-installer.msi"]
+
+for name in UPDATE_INSTALLER_NAMES:
+    full_path = os.path.join(base_directory, name)
+    if os.path.exists(full_path):
+        os.unlink(full_path)
+
 base_config_dir = user_config_dir()
 if sys.platform == "win32":
     config_dir = os.path.join(base_config_dir, "Programs", APP_NAME)
