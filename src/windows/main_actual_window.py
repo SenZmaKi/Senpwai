@@ -5,6 +5,7 @@ from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, do
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton, Icon
 from typing import Callable, cast
 from scrapers.gogo import DRIVER_MANAGER
+from sys import exit as sysexit
 
 
 class MainWindow(QMainWindow):
@@ -39,11 +40,15 @@ class MainWindow(QMainWindow):
 
     def quit_app(self):
         self.app.quit()
+        sysexit(0)
 
     def show_with_settings(self):
+        in_fullscreen = cast(bool, settings[KEY_START_IN_FULLSCREEN])
         if cast(bool, settings[KEY_START_MINIMISED]):
-            self.hide()
-        elif cast(bool, settings[KEY_START_IN_FULLSCREEN]):
+            if in_fullscreen:
+                self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
+            return self.hide()
+        elif in_fullscreen:
                 self.showMaximized()
         else:
             self.showNormal()

@@ -164,6 +164,10 @@ morbius_audio_path = join_from_audio("morbin-time.mp3")
 sen_favourite_audio_path = join_from_audio("sen-favourite.wav")
 one_piece_audio_path = join_from_audio(f"one-piece-real-{randomchoice((1, 2))}.mp3")
 kage_bunshin_audio_path = join_from_audio("kage-bunshin-no-jutsu.mp3")
+bunshin_poof_audio_path = join_from_audio("bunshin-poof.mp3")
+za_warudo_audio_path = join_from_audio("za-warudo.mp3")
+toki_wa_ugoki_dasu_audio_path = join_from_audio("toki-wa-ugoki-dasu.mp3")
+what_da_hell_audio_path = join_from_audio("what-da-hell.mp3")
 
 reviewer_profile_pics_folder_path = join_from_assets("reviewer-profile-pics")
 
