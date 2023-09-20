@@ -1,4 +1,5 @@
 to-dos: 
+        run tests in testing module and make sure they all pass, make sure to test both pahe and gogo
         ensure all http requests have been wrapped around network_error_retry_wrapper
         check and test all app windows
         remove testing crap, search string "for testing" 

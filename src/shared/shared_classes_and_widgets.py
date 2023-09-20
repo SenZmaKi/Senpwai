@@ -514,28 +514,54 @@ class AnimeDetails():
             return path
         sanitised_title2 = sanitise_title(self.anime.title.replace(":", ""))
         path = try_path(sanitised_title2)
+        parent_season_path = None
+        season_number = 1
+        title = None
         parsed = anitopy.parse(self.sanitised_title)
         if parsed:
             try:
                 season_number = parsed["anime_season"]
                 title = parsed["anime_title"]
                 parent_season_path = try_path(title)
-                if parent_season_path:
-                    join = os.path.join
-                    season_path = try_path(
-                        join(parent_season_path, self.sanitised_title))
-                    if season_path:
-                        return season_path
-                    season_path = try_path(
-                        join(parent_season_path, f"Season {season_number}"))
-                    if season_path:
-                        return season_path
-                    season_path = try_path(
-                        join(parent_season_path, sanitised_title2))
-                    if season_path:
-                        return season_path
             except KeyError:
-                pass
+                parsed = anitopy.parse(sanitised_title2)
+                if parsed:
+                    try:
+                        season_number = parsed["anime_season"]
+                        title = parsed["anime_title"]
+                        parent_season_path = try_path(title)
+                    except KeyError:
+                        pass
+        if parent_season_path and title:
+            # I know this can be way cleaner if I just used a tuple or some shii, but I need it to be as fast as possible
+            join = os.path.join
+            season_path = try_path(
+                join(parent_season_path, self.sanitised_title))
+            if season_path:
+                return season_path
+            season_path = try_path(
+                join(parent_season_path, f"Season {season_number}"))
+            if season_path:
+                return season_path
+            season_path = try_path(
+                join(parent_season_path, f"SN {season_number}")
+            )
+            if season_path:
+                return season_path
+            season_path = try_path(
+                join(parent_season_path, sanitised_title2))
+            if season_path:
+                    return season_path
+            season_path = try_path(
+                join(parent_season_path, f"{title} Season {season_number}")
+            )
+            if season_path:
+                return season_path
+            season_path = try_path(
+                join(parent_season_path, f"{title} SN {season_number}")
+            )
+            if season_path:
+                return season_path
         return path
 
     def get_potentially_haved_episodes(self) -> list[Path] | None:

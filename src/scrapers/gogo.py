@@ -13,7 +13,7 @@ from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions
 
 import subprocess
 from typing import Callable, cast
-from shared.app_and_scraper_shared import PARSER, network_error_retry_wrapper, test_downloading, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS, extract_new_domain_name_from_readme
+from shared.app_and_scraper_shared import PARSER, network_error_retry_wrapper, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS, extract_new_domain_name_from_readme
 
 # Hls mode imports
 import json
@@ -25,6 +25,7 @@ from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.backends import default_backend
 from threading import Event
 
+GOGO = 'gogo'
 GOGO_HOME_URL = 'https://gogoanimehd.io'
 DUB_EXTENSION = ' (Dub)'
 EDGE = 'edge'
@@ -69,12 +70,13 @@ def extract_anime_id(anime_page_content: bytes) -> int:
 
 
 def get_episode_page_links(start_episode: int, end_episode: int, anime_id: int) -> list[str]:
-    content = network_error_retry_wrapper(lambda: requests.get(
-        f'https://ajax.gogo-load.com/ajax/load-list-episode?ep_start={start_episode}&ep_end={end_episode}&id={anime_id}').content)
+    ajax_url = f'https://ajax.gogo-load.com/ajax/load-list-episode?ep_start={start_episode}&ep_end={end_episode}&id={anime_id}'
+    content = network_error_retry_wrapper(lambda: requests.get(ajax_url).content)
     soup = BeautifulSoup(content, PARSER)
     a_tags = soup.find_all('a')
     episode_page_links: list[str] = []
-    for a in a_tags:
+    # Reversed cause their ajax api returns the episodes in reverse order i.e 3, 2, 1
+    for a in reversed(a_tags):
         resource = cast(str, a['href']).strip()
         episode_page_links.append(GOGO_HOME_URL + resource)
     return episode_page_links
@@ -93,7 +95,7 @@ class DriverManager():
             self.driver = None
             self.is_inactive.set()
 
-    def setup_driver(self, browser: str = EDGE) -> Chrome | Edge | Firefox:
+    def setup_driver(self, browser: str = EDGE, headless: bool=True) -> Chrome | Edge | Firefox:
         """
         Be sure to call `close_driver` once you're done using the driver
         """
@@ -103,14 +105,15 @@ class DriverManager():
             options.add_argument('--disable-extensions')
             options.add_argument('--disable-infobars')
             options.add_argument('--no-sandbox')
-            if isinstance(options, FirefoxOptions):
-                # For testing purposes, when deploying remember to uncomment out
-                options.add_argument("--headless")
-                # pass
-            else:
-                # For testing purposes, when deploying remember to uncomment out
-                options.add_argument("--headless=new")
-                # pass
+            if headless:
+                if isinstance(options, FirefoxOptions):
+                    # For testing purposes, when deploying remember to uncomment out
+                    options.add_argument("--headless")
+                    # pass
+                else:
+                    # For testing purposes, when deploying remember to uncomment out
+                    options.add_argument("--headless=new")
+                    # pass
             return options
 
         def setup_edge_driver():
@@ -231,9 +234,9 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
     def __init__(self):
         super().__init__()
 
-    def calculate_total_download_size(self, download_links: list[str], progress_update_callback: Callable = lambda update: None, in_megabytes=False) -> int:
+    def calculate_total_download_size(self, direct_download_links: list[str], progress_update_callback: Callable = lambda update: None, in_megabytes=False) -> int:
         total_size = 0
-        for idx, link in enumerate(download_links):
+        for idx, link in enumerate(direct_download_links):
             response = network_error_retry_wrapper(
                 lambda link=link: requests.get(link, stream=True, headers=REQUEST_HEADERS))
             size = response.headers.get('content-length', 0)
@@ -257,8 +260,8 @@ def get_anime_page_content(anime_page_link: str) -> bytes:
     return network_error_retry_wrapper(lambda: requests.get(anime_page_link).content)
 
 
-def extract_anime_metadata(anime_page: bytes) -> AnimeMetadata:
-    soup = BeautifulSoup(anime_page, PARSER)
+def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
+    soup = BeautifulSoup(anime_page_content, PARSER)
     poster_link = cast(str, cast(Tag, cast(Tag, soup.find(
         class_='anime_info_body_bg')).find('img'))['src'])
     metadata_tags = soup.find_all('p', class_='type')

@@ -39,7 +39,6 @@ sen_anilist_id = 5363369
 anilist_api_entrypoint = 'https://graphql.anilist.co'
 PAHE = "pahe"
 GOGO = "gogo"
-
 DUB = "dub"
 SUB = "sub"
 default_sub_or_dub = SUB

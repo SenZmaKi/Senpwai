@@ -106,16 +106,13 @@ def match_quality(potential_qualities: list[str], user_quality: str) -> int:
 
 
 def sanitise_title(title: str, all=False):
-    def strip(x): return re.sub(r'[^a-zA-Z0-9]', '', x)
+    def strip_all(x): return re.sub(r'[^a-zA-Z0-9]', '', x)
     if all:
-        sanitised = strip(title)
+        sanitised = strip_all(title)
     else:
         valid_chars = set(printable) - set('\\/:*?"<>|')
         title = title.replace(':', ' -')
         sanitised = ''.join(filter(lambda char: char in valid_chars, title))
-        # If the first/last character is a special symbol (some not all e.g . ,) windows seems to ignore the character i.e someFolder == someFolder,
-        sanitised = strip(sanitised[0]) + \
-            sanitised[1:-1] + strip(sanitised[-1])
 
     return sanitised[:255].rstrip()
 
@@ -126,14 +123,6 @@ def network_error_retry_wrapper(function: Callable[..., Any]) -> Any:
             return function()
         except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
             timesleep(1)
-
-
-def test_downloading(anime_title: str, direct_download_links: list[str], is_hls_download=False, quality=''):
-    for idx, link in enumerate(direct_download_links):
-        eps_number = str(idx+1).zfill(2)
-        Download(link, f'{anime_title}  E{eps_number}',
-                 os.path.abspath("test-downloads"), is_hls_download=is_hls_download, hls_quality=quality).start_download()
-
 
 def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: int, end_episode: int, haved_episodes: list[int]) -> list[int]:
     predicted_episodes_to_download: list[int] = []

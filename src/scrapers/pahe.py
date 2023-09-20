@@ -4,8 +4,9 @@ import json
 import re
 from typing import Callable, cast
 from math import pow
-from shared.app_and_scraper_shared import network_error_retry_wrapper, PARSER, test_downloading, match_quality, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS, extract_new_domain_name_from_readme
+from shared.app_and_scraper_shared import network_error_retry_wrapper, PARSER, match_quality, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS, extract_new_domain_name_from_readme
 
+PAHE = 'pahe'
 PAHE_HOME_URL = 'https://animepahe.ru'
 API_URL_EXTENSION = '/api?m='
 
@@ -23,11 +24,11 @@ def search(keyword: str) -> list[dict[str, str]]:
     decoded = json.loads(content.decode('UTF-8'))
     return decoded['data']  
 
-def extract_anime_id_title_and_page_link(result: dict[str, str]) -> tuple[str, str, str]:
+def extract_anime_title_page_link_and_id(result: dict[str, str]) -> tuple[str, str, str]:
     anime_id = result['session']
     title = result['title']
     page_link = f'{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_asc'
-    return anime_id, title, page_link
+    return title, page_link, anime_id
 
 
 def get_total_episode_page_count(anime_page_link: str) -> int:
@@ -259,7 +260,7 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
 
 def test_getting_direct_download_links(anime_title: str, start_episode: int, end_episode: int, quality: str, sub_or_dub='sub') -> list[str]:
     result = search(anime_title)[0]
-    anime_id, _, anime_page_link = extract_anime_id_title_and_page_link(
+    anime_page_link, _, anime_id = extract_anime_title_page_link_and_id(
         result)
     get_anime_metadata(anime_id)
     episode_page_links = GetEpisodePageLinks().get_episode_page_links(
@@ -285,7 +286,6 @@ def main():
 
     direct_download_links = test_getting_direct_download_links(
         anime_title, start_episode, end_episode, quality, sub_or_dub)
-    test_downloading(anime_title, direct_download_links)
 
 #    test_downloading('Senyuu.', [
 #                     'https://eu-11.files.nextcdn.org/get/11/04/d3185322653a395e921c3f66ada4a12ed482a9b2b77f3edc65c412f4378d9e79?file=AnimePahe_Senyuu._-_03_BD_360p_Final8.mp4&token=-_aOZ9BLRIfTgUw9DNi43A&expires=1688735253'])

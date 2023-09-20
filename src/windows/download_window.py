@@ -905,7 +905,7 @@ class AutoDownloadThread(QThread):
     def pahe_fetch_anime_obj(self, title: str) -> Anime | None:
         results = pahe.search(title)
         for result in results:
-            anime_id, res_title, page_link = pahe.extract_anime_id_title_and_page_link(
+            res_title, page_link, anime_id = pahe.extract_anime_title_page_link_and_id(
                 result)
             if sanitise_title(res_title.lower(), True) == sanitise_title(title.lower(), True):
                 return Anime(title, page_link, anime_id)
@@ -934,7 +934,7 @@ class PaheAttemptToRecoverThread(QThread):
     def run(self):
         results = pahe.search(self.anime_details.anime.title)
         for result in results:
-            anime_id, title, page_link = pahe.extract_anime_id_title_and_page_link(
+            title, page_link, anime_id = pahe.extract_anime_title_page_link_and_id(
                 result)
             if sanitise_title(title.lower(), True) == sanitise_title(self.anime_details.anime.title.lower(), True):
                 anime_details = AnimeDetails(

@@ -90,7 +90,7 @@ class SearchWindow(Window):
             self.results_layout.removeItem(item)
         upper_title = anime_title.upper()
         self.search_thread = SearchThread(self, anime_title, site)
-        w_anime = ("vermeil","golden kamuy", "goblin slayer", "hajime", "megalobox", "kengan ashura", "kengan asura", "kengan", "golden boy", "valkyrie", "dr stone", "dr. stone", "death parade", "death note", "code geass", "attack on titan", "shingeki no kyojin", "daily lives", "danshi koukosei", "daily lives of highshool boys", "arakawa", "haikyuu", "kaguya", "chio", "asobi asobase", "prison school", "grand blue", "mob psycho", "to your eternity", "fire force")
+        w_anime = ("vermeil","golden kamuy", "goblin slayer", "hajime", "megalobox", "kengan ashura", "kengan asura", "kengan", "golden boy", "valkyrie", "dr stone", "dr. stone", "death parade", "death note", "code geass", "attack on titan", "shingeki no kyojin", "daily lives", "danshi koukosei", "daily lives of highshool boys", "arakawa", "haikyuu", "kaguya", "chio", "asobi asobase", "prison school", "grand blue", "mob psycho", "to your eternity", "fire force", "mieruko", "fumetsu")
         l_anime = ("tokyo ghoul", "sword art", "boku no pico", "full metal", "fmab", "fairy tail", "dragon ball", "hunter x hunter", "hunter hunter", "platinum end", "record of ragnarok", "7 deadly sins", "seven deadly sins")
         if "ONE PIECE" in upper_title:
             AudioPlayer(self, one_piece_audio_path, volume=100).play()
@@ -328,7 +328,7 @@ class SearchThread(QThread):
             results = pahe.search(self.anime_title)
 
             for result in results:
-                anime_id, title, page_link = pahe.extract_anime_id_title_and_page_link(
+                title, page_link, anime_id = pahe.extract_anime_title_page_link_and_id(
                     result)
                 extracted_results.append(Anime(title, page_link, anime_id))
         elif self.site == GOGO:
