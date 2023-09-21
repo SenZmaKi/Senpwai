@@ -1,28 +1,26 @@
-# Senpwai - Anime Tracker & Batch Downloder
+<h1 align="center">
+<img align="center" height="80px" width="80px" src="https://github.com/SenZmaKi/Senpwai/blob/master/src/senpwai-icon.png" alt="Senpwai-icon">
+ Senpwai
+</h1>
+<p align="center">
+A blazingly fast desktop app for batch downloading anime and auto-downloading new anime episodes as they release
+</p>
 
-![senpwai-icon](https://github.com/SenZmaKi/Senpwai/blob/master/src/senpwai-icon.png)
-
-**Senpwai** is a blazingly fast and extremely convenient desktop app for batch downloading anime or tracking then automatically downloading new episodes of an anime as they come out. 
-
-
-<p>
+<p align="center">
  <a href="https://github.com/SenZmaKi/Senpwai/releases"><img  height="30px" src="https://img.shields.io/github/downloads/SenZmaKi/Senpwai/total" alt="Downloads"></a>
   <a href="https://discord.gg/invite/e9UxkuyDX2" target="_blank"><img height="30px" alt="Discord" src="https://img.shields.io/discord/1131981618777702540?label=Discord&logo=discord"></a>
-  <a href="https://www.reddit.com/r/Senpwai" target="_blank"><img height="30px" alt="Subreddit subscribers" src="https://img.shields.io/reddit/subreddit-subscribers/senpwai?label=Reddit&style=social"></a>
-
+  <a href="https://www.reddit.com/r/Senpwai" target="_blank"><img height="30px" alt="Subreddit subscribers" src="https://img.shields.io/reddit/subreddit-subscribers/senpwai?label=Reddit&logo=reddit"></a>
+</p>
+<p align="center">
+  <a href="#installation">Installation</a> •
+  <a href="#features">Features</a> •
+  <a href="#building-from-source">Building from source</a> •
+  <a href="#support">Support</a> •
+  <a href="#faq">FAQ</a> •
+  <a href="#links">Links</a>
+</p>
 
 ![image](https://github.com/SenZmaKi/Senpwai/assets/90490506/04a9cfba-7961-48b8-b8ff-392aaef5b4d4)
-
-
-## Table of Contents
-1. [Installation](#installation)
-2. [Features](#features)
-3. [Building from Source](#building-from-source)
-4. [Support](#support)
-5. [FAQ](#faq)
-6. [Links](#links)
-7. [Legal Disclaimer](#legal-disclaimer)
-8. [Epilogue](#epilogue)
 
 ## Installation
 
@@ -91,7 +89,7 @@ In HLS mode Gogoanime downloads are guaranteed to work, though with a few downsi
   
 - No download progress indication, the progress bars only indicate the completion of downloading each episode.
   
-- May occasionally crash if you don't have an unstable internet connection.
+- May occasionally crash if you have an unstable internet connection.
 
 </details>
 
@@ -101,7 +99,6 @@ One person can only do so much, I only plan on adding another source if somethin
 More sources means more writing more code which in turn means fixing more bugs.
 
 </details>
-
 
 ## Links
 
