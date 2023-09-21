@@ -3,7 +3,7 @@
  Senpwai
 </h1>
 <p align="center">
-A blazingly fast desktop app for batch downloading anime and auto-downloading new anime episodes as they release
+A blazingly fast desktop app for batch downloading anime and auto-downloading new episodes upon release
 </p>
 
 <p align="center">
@@ -35,11 +35,11 @@ Download the setup from the [releases page](https://github.com/SenZmaKi/Senpwai/
 ## Features
 
 - Download any anime from [Animepahe](https://animepahe.ru) or [Gogoanime](https://gogoanimehd.io).
+- Keep track of an anime and automatically download new episodes when they release.
 - Download a complete season or episodes within a range (e.g., 69-420).
 - Choose between video qualities: 360p, 480p (Gogoanime only), 720p, or 1080p.
 - Download in sub or dub (if available) depending on the user's preference.
 - Automatically detects episodes you already have and avoids re-downloading them.
-- Keep track of an anime and automatically download new episodes when they come out.
 - Robust and graceful download error management.
 - Goofy aah ahh GUI and Amogus.
 
