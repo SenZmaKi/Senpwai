@@ -286,13 +286,14 @@ class DownloadWindow(Window):
         self.auto_download_timer.start(
             cast(int, settings[KEY_CHECK_FOR_NEW_EPS_AFTER]) * 1000 * 60 * 60)
 
-    # To avoid overwriding the thread if it's running hence killing it
     def clean_out_auto_download_thread(self):
         self.auto_download_thread = None
 
     def start_auto_download(self):
         tracked_anime = cast(list[str], settings[KEY_TRACKED_ANIME])
 
+        # We only spawn a new thread if one wasn't already running to avoid overwriding the reference to the previous one causing it to get garbage collected/destroyed 
+        # Cause it can cause this error "QThread: Destroyed while thread is still running"
         if tracked_anime != [] and not self.auto_download_thread:
             self.auto_download_thread = AutoDownloadThread(self, tracked_anime,
                                                         self.main_window.tray_icon, self.clean_out_auto_download_thread)
@@ -590,6 +591,7 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
                 link, download_size = self.get_exact_episode_size(link)
                 if download_size == 0:
                     continue
+            # This is specifcally at this point instead of at the top cause of the above http request made in self.get_exact_episode_size such that if a user pauses or cancels as the request is in progress the input will be captured
             self.resume.wait()
             if self.cancelled:
                 break
@@ -602,7 +604,6 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
             episode_progress_bar = self.progress_bars[episode_title]
             if self.anime_details.is_hls_download:
                 episode_progress_bar.pause_button.hide()
-            # This is specifcally at this point instead of at the top cause of the above http request made in self.get_exact_episode_size such that if a user pauses or cancels as the request is in progress the pause will be captured
             DownloadThread(self, link, episode_title, download_size, self.anime_details.site, self.anime_details.is_hls_download, self.anime_details.quality, cast(str, self.anime_details.anime_folder_path),
                            episode_progress_bar, self.clean_up_finished_download,
                            self.anime_progress_bar, self.handle_updating_anime_progress_bar, self.update_eps_count_and_size, self.mutex).start()
@@ -941,7 +942,7 @@ class PaheAttemptToRecoverThread(QThread):
                     Anime(title, page_link, anime_id), PAHE)
                 anime_details.predicted_episodes_to_download = self.anime_details.predicted_episodes_to_download
                 return self.iniiate_download_pipeline.emit(anime_details)
-        # This is here cause just before this thread starts Captcha block is detected and a notificaion is displayed to the weeb, so this ensures the notfication plays till completion, kinda hacky but it works so f off
+        # This is here cause just before this thread starts Captcha block is detected and a notification is displayed to the weeb, so this ensures the notfication plays till completion, kinda hacky but it works so f off
         timesleep(5)
         self.make_notificaiton("Failed to find an exact match",
                                f"Failed to find an exact match of {self.anime_details.anime.title} on Animepahe, maybe try searching for it yourself", False, None)

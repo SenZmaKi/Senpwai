@@ -625,7 +625,7 @@ class FolderButton(IconButton):
         super().__init__(Icon(size_x, size_y, folder_icon_path), 1.3, parent)
         self.folder_path = path
         self.clicked.connect(lambda: open_folder(
-            self.folder_path))  # type: ignore
+            self.folder_path))  
 
 
 class NumberInput(QLineEdit):

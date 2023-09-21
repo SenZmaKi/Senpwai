@@ -238,7 +238,6 @@ class ChosenAnimeWindow(TemporaryWindow):
         main_widget = ScrollableSection(main_layout)
         main_widget.horizontalScrollBar().setValue(
             main_widget.horizontalScrollBar().maximum())
-        # main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
         QTimer.singleShot(0, self.download_button.setFocus)

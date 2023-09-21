@@ -9,7 +9,6 @@ from scrapers.gogo import DRIVER_MANAGER
 class MainWindow(QMainWindow):
     def __init__(self, app: QApplication):
         super().__init__()
-        # self.set_bckg_img = lambda x: x
         self.set_bckg_img = lambda img_path: self.setStyleSheet(
             f"QMainWindow{{border-image: url({img_path}) 0 0 0 0 stretch stretch;}}")
         self.app = app
@@ -81,7 +80,8 @@ class MainWindow(QMainWindow):
         self.move(x, 0)
 
     def setup_and_switch_to_chosen_anime_window(self, anime: Anime, site: str):
-        # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned when a set a user clicks more than one ResultButton causing the original thread to be reassigned hence get destroyed
+        # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned 
+        # When a user clicks more than one ResultButton quickly causing the reference to the original thread to be overwridden hence garbage collected/destroyed
         if not self.setup_chosen_anime_window_thread:
             self.search_window.loading.start()
             self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
@@ -241,7 +241,8 @@ class TemporaryWindow(Window):
             button.clicked.connect(self.deleteLater)
 
 
-# These modules imports must be placed here otherwise an ImportError is experienced cause they import MainWindow and Window resulting to a circular import, so we have to define MainWindow and Window first before importing them
+# These modules imports must be placed here otherwise an ImportError is experienced cause 
+# They import MainWindow and Window resulting to a circular import, so we have to define MainWindow and Window first before importing them
 from windows.search_window import SearchWindow
 from windows.download_window import DownloadWindow
 from windows.miscallaneous_windows import NoDefaultBrowserWindow, UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow

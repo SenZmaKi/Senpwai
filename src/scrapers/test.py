@@ -370,7 +370,7 @@ class ArgParser():
             return default
         self.invalid_usage(f'Expected: {target_args}')
 
-def test_dub_available(site: str, target_result: tuple[str, str] | tuple[str, str, str]) -> bool: # type: ignore
+def test_dub_available(site: str, target_result: tuple[str, str] | tuple[str, str, str]) -> bool: 
     test_name = 'Dub availability checking'
     test_start(test_name)
     runtime_getter = get_run_time_later()

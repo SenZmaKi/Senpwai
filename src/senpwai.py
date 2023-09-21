@@ -9,7 +9,7 @@ import ctypes
 
 if sys.platform == "win32":
     # Change App ID to ensure task bar icon is Swnpwai's icon instead of Python
-    # StackOverflow link: https://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon-in-windows-7/1552105#1552105 
+    # StackOverflow Answer link: https://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon-in-windows-7/1552105#1552105 
     myappid = f"{COMPANY_NAME}.{APP_NAME}.{VERSION}"
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 

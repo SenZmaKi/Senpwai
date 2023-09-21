@@ -209,11 +209,6 @@ class GetDownloadPageLinks(PausableAndCancellableFunction):
         def extract_link(episode_page_link: str) -> str:
             response = cast(requests.Response, network_error_retry_wrapper(
                 lambda page=episode_page_link: requests.get(page, headers=REQUEST_HEADERS)))
-            if response.status_code != 200:
-                # To handle a case like for Jujutsu Kaisen 2nd Season where when there is TV in the anime page link it misses in the episode page links
-                episode_page_link = episode_page_link.replace('-tv', '')
-                response = cast(requests.Response, network_error_retry_wrapper(
-                    lambda page=episode_page_link: requests.get(page, headers=REQUEST_HEADERS)))
             soup = BeautifulSoup(response.content, PARSER)
             soup = cast(Tag, soup.find('li', class_='dowloads'))
             link = cast(str, cast(Tag, soup.find(
@@ -384,61 +379,3 @@ class GetHlsLinks(PausableAndCancellableFunction):
                 return []
             progress_update_callback(1)
         return hls_links
-
-
-def test_getting_episode_page_links(anime_title: str, start_episode: int, end_episode: int, sub_or_dub='sub') -> list[str]:
-    result = search(anime_title)[0]
-    anime_title, anime_page_link = cast(
-        tuple[str, str], extract_anime_title_and_page_link(result))
-    if sub_or_dub == 'dub' and dub_available(anime_title):
-        anime_page_link = cast(str, dub_available(anime_title))
-    page_content = get_anime_page_content(anime_page_link)
-    extract_anime_metadata(page_content)
-    anime_id = extract_anime_id(page_content)
-    episode_page_links = get_episode_page_links(
-        start_episode, end_episode, anime_id)
-    for p in episode_page_links:
-        print(p)
-    return episode_page_links
-
-
-def test_getting_direct_download_links(episode_page_links: list[str], quality: str):
-    download_page_links = GetDownloadPageLinks().get_download_page_links(
-        episode_page_links)
-    driver_manager = DriverManager()
-    driver = driver_manager.setup_driver()
-    direct_download_links = GetDirectDownloadLinks().get_direct_download_links(
-        download_page_links, quality, driver, max_load_wait_time=5)
-    CalculateTotalDowloadSize().calculate_total_download_size(
-        direct_download_links)
-    driver_manager.close_driver()
-    for p in direct_download_links:
-        print(p)
-    return direct_download_links
-
-
-def test_getting_hls_links(episode_page_links: list[str]) -> list[str]:
-    hls_links = GetHlsLinks().get_hls_links(episode_page_links)
-    for h in hls_links:
-        print(h)
-    return hls_links
-
-
-def main():
-    # Download settings
-    anime_title = 'Senyuu'
-    quality = '360p'
-    sub_or_dub = 'sub'
-    start_episode = 5
-    end_episode = 5
-
-    episode_page_links = test_getting_episode_page_links(
-        anime_title, start_episode, end_episode, sub_or_dub)
-    # direct_download_links = test_getting_direct_download_links(episode_page_links, quality)
-    # hls_links = test_getting_hls_links(episode_page_links)
-    # test_downloading(anime_title, hls_links, True, quality)
-    # test_downloading(anime_title, direct_download_links)
-
-
-if __name__ == "__main__":
-    main()

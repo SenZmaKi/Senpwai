@@ -8,12 +8,12 @@ to-dos:
         ensure all changes have been committed and pushed to github
         update VERSION in global variable,  metadata.yml and inno-setup(MyAppVersion and VersionInfoVersion)
         generate clean requirements.txt
-        build main exe::
+        build main exe:
               - command: cargo build --release; rm .\Senpwai.exe; mv ..\target\release\Senpwai.exe .\Senpwai.exe; .\Senpwai.exe
         compile to installer     
         delete install directory for a clean install
         test installer
-        ensure all changes have been committed and pushed to github
+        ensure all changes have been committed, pushed and merged to the master branch
         publish release on github
 
 

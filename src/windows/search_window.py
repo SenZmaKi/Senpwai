@@ -68,7 +68,8 @@ class SearchWindow(Window):
         main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
-        # We use a timer instead of calling setFocus normally cause apparently Qt wont really set the widget in focus if the widget isn't shown on screen, so we gotta wait a bit first or sth StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
+        # We use a timer instead of calling setFocus normally cause apparently Qt wont really set the widget in focus if the widget isn't shown on screen/rendered, 
+        # So we gotta wait a bit first till the UI is rendered. StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
         QTimer.singleShot(0, self.search_bar.setFocus)
 
     def on_focus(self):
@@ -96,10 +97,15 @@ class SearchWindow(Window):
             AudioPlayer(self, one_piece_audio_path, volume=100).play()
         elif "JOJO" in upper_title:
             AudioPlayer(self, za_warudo_audio_path, 100).play()
-            self.main_window.app.processEvents()
-            timesleep(5)
-            AudioPlayer(self, toki_wa_ugoki_dasu_audio_path, 100).play()
+            for _ in range(180):
+                self.main_window.app.processEvents()
+                timesleep(0.01)
+            for x in range(20):
+                self.main_window.app.processEvents()
+                timesleep(x * 0.01)
             timesleep(2)
+            AudioPlayer(self, toki_wa_ugoki_dasu_audio_path, 100).play()
+            timesleep(1.8)
         lower = anime_title.lower()
         for w in w_anime:
             if w in lower:
