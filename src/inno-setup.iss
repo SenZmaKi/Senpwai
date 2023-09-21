@@ -47,10 +47,44 @@ Source: "{#ProjectSrcDir}\*"; DestDir: "{app}\src"; Flags: ignoreversion recurse
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
 
-; Remove this in version 2.0.3
 [InstallDelete]
-Type: filesandordirs; Name: "{app}\*"
-
+; Deprecated v2.0.1 crap, I've specified them explicitly instead of just saying "{app}\" cause with the latter say if the user is on v2.0.2
+; Then we've basically lost settings.json when we could have simply only deleted what we actually don't want, which is crap from v2.0.1
+Type: filesandordirs; Name: "{app}\_bz2.pyd"
+Type: filesandordirs; Name: "{app}\_queue.pyd*"
+Type: filesandordirs; Name: "{app}\certifi"
+Type: filesandordirs; Name: "{app}\libssl-1_1.dll*"
+Type: filesandordirs; Name: "{app}\select.pyd"
+Type: filesandordirs; Name: "{app}\VCRUNTIME140.dll*"
+Type: filesandordirs; Name: "{app}\_cffi_backend.cp311-win_amd64.pyd*"
+Type: filesandordirs; Name: "{app}\_socket.pyd"
+Type: filesandordirs; Name: "{app}\charset_normalizer"
+Type: filesandordirs; Name: "{app}\multidict"
+Type: filesandordirs; Name: "{app}\selenium"
+Type: filesandordirs; Name: "{app}\VCRUNTIME140_1.dll*"
+Type: filesandordirs; Name: "{app}\_ctypes.pyd"
+Type: filesandordirs; Name: "{app}\_ssl.pyd"
+Type: filesandordirs; Name: "{app}\cryptography"
+Type: filesandordirs; Name: "{app}\pyexpat.pyd"
+Type: filesandordirs; Name: "{app}\Senpwai.exe"
+Type: filesandordirs; Name: "{app}\yarl"
+Type: filesandordirs; Name: "{app}\_decimal.pyd*"
+Type: filesandordirs; Name: "{app}\_uuid.pyd"
+Type: filesandordirs; Name: "{app}\cryptography-41.0.3.dist-info"
+Type: filesandordirs; Name: "{app}\PyQt6"
+Type: filesandordirs; Name: "{app}\unicodedata.pyd"
+Type: filesandordirs; Name: "{app}\_hashlib.pyd"
+Type: filesandordirs; Name: "{app}\assets"
+Type: filesandordirs; Name: "{app}\libcrypto-1_1.dll"
+Type: filesandordirs; Name: "{app}\python3.dll"
+Type: filesandordirs; Name: "{app}\_lzma.pyd"
+Type: filesandordirs; Name: "{app}\base_library.zip"
+Type: filesandordirs; Name: "{app}\libffi-8.dll"
+Type: filesandordirs; Name: "{app}\python311.dll"
+; The 2 below are in both v2.0.1 and versions that come after it cause they are made by Inno Setup
+; You'd think that Senpwai.exe would be here too but actually in versions after v2.0.1 it's in src\
+Type: filesandordirs; Name: "{app}\unins000.dat"
+Type: filesandordirs; Name: "{app}\unins000.exe*"
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\src\{#MyAppExeName}"
