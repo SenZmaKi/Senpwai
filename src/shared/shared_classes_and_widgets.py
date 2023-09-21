@@ -1,6 +1,6 @@
 from PyQt6.QtGui import QPixmap, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame
-from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl, pyqtSlot
+from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import SETTINGS_TYPES, PAHE, GOGO
 from time import time
@@ -281,12 +281,13 @@ class ErrorLabel(StyledLabel):
     def __init__(self, font_size: int, shown_duration_in_secs: int = 3, parent: QWidget | None = None):
         super().__init__(parent, font_size, font_color="red")
         self.shown_duration_in_secs = shown_duration_in_secs
-
+        self.timer = QTimer(self)
     def show(self):
-        timer = QTimer(self)
-        timer.timeout.connect(self.hide)
-        timer.start(self.shown_duration_in_secs  * 1000)
-        return super().show()
+        if not self.timer.isActive():
+            self.timer.setSingleShot(True)
+            self.timer.timeout.connect(self.hide)
+            self.timer.start(self.shown_duration_in_secs  * 1000)
+            return super().show()
 
 
 class ProgressBarWithoutButtons(QWidget):
@@ -404,7 +405,6 @@ class ProgressBarWithoutButtons(QWidget):
                     f"{self.task_title} {self.item_task_is_applied_on}")
 
 
-    @pyqtSlot(int)
     def update_bar(self, added_value: int):
         self.mutex.lock()
         new_value = self.bar.value() + added_value
@@ -514,28 +514,54 @@ class AnimeDetails():
             return path
         sanitised_title2 = sanitise_title(self.anime.title.replace(":", ""))
         path = try_path(sanitised_title2)
+        parent_season_path = None
+        season_number = 1
+        title = None
         parsed = anitopy.parse(self.sanitised_title)
         if parsed:
             try:
                 season_number = parsed["anime_season"]
                 title = parsed["anime_title"]
                 parent_season_path = try_path(title)
-                if parent_season_path:
-                    join = os.path.join
-                    season_path = try_path(
-                        join(parent_season_path, self.sanitised_title))
-                    if season_path:
-                        return season_path
-                    season_path = try_path(
-                        join(parent_season_path, f"Season {season_number}"))
-                    if season_path:
-                        return season_path
-                    season_path = try_path(
-                        join(parent_season_path, sanitised_title2))
-                    if season_path:
-                        return season_path
             except KeyError:
-                pass
+                parsed = anitopy.parse(sanitised_title2)
+                if parsed:
+                    try:
+                        season_number = parsed["anime_season"]
+                        title = parsed["anime_title"]
+                        parent_season_path = try_path(title)
+                    except KeyError:
+                        pass
+        if parent_season_path and title:
+            # I know this can be way cleaner if I just used a tuple or some shii, but I need it to be as fast as possible
+            join = os.path.join
+            season_path = try_path(
+                join(parent_season_path, self.sanitised_title))
+            if season_path:
+                return season_path
+            season_path = try_path(
+                join(parent_season_path, f"Season {season_number}"))
+            if season_path:
+                return season_path
+            season_path = try_path(
+                join(parent_season_path, f"SN {season_number}")
+            )
+            if season_path:
+                return season_path
+            season_path = try_path(
+                join(parent_season_path, sanitised_title2))
+            if season_path:
+                    return season_path
+            season_path = try_path(
+                join(parent_season_path, f"{title} Season {season_number}")
+            )
+            if season_path:
+                return season_path
+            season_path = try_path(
+                join(parent_season_path, f"{title} SN {season_number}")
+            )
+            if season_path:
+                return season_path
         return path
 
     def get_potentially_haved_episodes(self) -> list[Path] | None:
@@ -575,10 +601,9 @@ class AnimeDetails():
             metadata = pahe.get_anime_metadata(
                 cast(str, self.anime.id))
         else:
-            metadata = gogo.get_anime_metadata(
-                self.anime.page_link)
+            page_content = gogo.get_anime_page_content(self.anime.page_link)
+            metadata = gogo.extract_anime_metadata(page_content)
         return metadata
-
 
 class ScrollableSection(QScrollArea):
     def __init__(self, layout: QHBoxLayout | QVBoxLayout):
@@ -600,7 +625,7 @@ class FolderButton(IconButton):
         super().__init__(Icon(size_x, size_y, folder_icon_path), 1.3, parent)
         self.folder_path = path
         self.clicked.connect(lambda: open_folder(
-            self.folder_path))  # type: ignore
+            self.folder_path))  
 
 
 class NumberInput(QLineEdit):

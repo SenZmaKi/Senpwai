@@ -17,7 +17,15 @@ else:
 
 COMPANY_NAME = "AkatsuKi Inc."
 APP_NAME = "Senpwai"
-VERSION = "2.0.2"
+VERSION = "2.0.3"
+UPDATE_INSTALLER_NAMES = [f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
+                              f"{APP_NAME}-installer.exe", f"{APP_NAME}-installer.msi"]
+
+for name in UPDATE_INSTALLER_NAMES:
+    full_path = os.path.join(base_directory, name)
+    if os.path.exists(full_path):
+        os.unlink(full_path)
+
 base_config_dir = user_config_dir()
 if sys.platform == "win32":
     config_dir = os.path.join(base_config_dir, "Programs", APP_NAME)
@@ -31,7 +39,6 @@ sen_anilist_id = 5363369
 anilist_api_entrypoint = 'https://graphql.anilist.co'
 PAHE = "pahe"
 GOGO = "gogo"
-
 DUB = "dub"
 SUB = "sub"
 default_sub_or_dub = SUB
@@ -47,6 +54,7 @@ default_auto_download_site = PAHE
 default_start_minimised = False
 default_run_on_startup = False
 default_on_captcha_switch_to = PAHE
+default_check_for_new_eps_after = 24
 
 error_logs_file_path = os.path.join(config_dir, "errors.log")
 if not os.path.exists(error_logs_file_path):
@@ -155,6 +163,10 @@ morbius_audio_path = join_from_audio("morbin-time.mp3")
 sen_favourite_audio_path = join_from_audio("sen-favourite.wav")
 one_piece_audio_path = join_from_audio(f"one-piece-real-{randomchoice((1, 2))}.mp3")
 kage_bunshin_audio_path = join_from_audio("kage-bunshin-no-jutsu.mp3")
+bunshin_poof_audio_path = join_from_audio("bunshin-poof.mp3")
+za_warudo_audio_path = join_from_audio("za-warudo.mp3")
+toki_wa_ugoki_dasu_audio_path = join_from_audio("toki-wa-ugoki-dasu.mp3")
+what_da_hell_audio_path = join_from_audio("what-da-hell.mp3")
 
 reviewer_profile_pics_folder_path = join_from_assets("reviewer-profile-pics")
 
@@ -207,6 +219,7 @@ KEY_GOGO_NORM_OR_HLS_MODE = "gogo_hls_mode"
 KEY_TRACKED_ANIME = "tracked_anime"
 KEY_AUTO_DOWNLOAD_SITE = "auto_download_site"
 KEY_ON_CAPTCHA_SWITCH_TO = "on_captcha_switch_to"
+KEY_CHECK_FOR_NEW_EPS_AFTER = "check_for_new_episodes_after"
 
 
 
@@ -344,6 +357,14 @@ def validate_settings_json(settings_json: dict) -> dict:
         clean_settings[KEY_ON_CAPTCHA_SWITCH_TO] = oncaptcha
     except KeyError:
         clean_settings[KEY_ON_CAPTCHA_SWITCH_TO] = default_on_captcha_switch_to
+
+    try:
+        intervals = settings_json[KEY_CHECK_FOR_NEW_EPS_AFTER]
+        if not isinstance(intervals, int):
+            raise KeyError
+        clean_settings[KEY_CHECK_FOR_NEW_EPS_AFTER] = intervals
+    except KeyError:
+        clean_settings[KEY_CHECK_FOR_NEW_EPS_AFTER] = default_check_for_new_eps_after
 
     return clean_settings
 

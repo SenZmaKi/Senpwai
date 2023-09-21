@@ -7,3 +7,4 @@ PyQt6==6.5.1
 requests==2.31.0
 selenium==4.11.2
 yarl==1.9.2
+random-user-agent==1.0.1

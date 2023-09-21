@@ -1,18 +1,19 @@
 to-dos: 
+        run tests in testing module and make sure they all pass, make sure to test both pahe and gogo
         ensure all http requests have been wrapped around network_error_retry_wrapper
         check and test all app windows
         remove testing crap, search string "for testing" 
         uncomment our # type: ignore comments and confirm that they you dont ignore unexpected errors
         confirm all comments are in the right place
         ensure all changes have been committed and pushed to github
-        update VERSION in global variable and metadata.yml
+        update VERSION in global variable,  metadata.yml and inno-setup(MyAppVersion and VersionInfoVersion)
         generate clean requirements.txt
         build main exe:
               - command: cargo build --release; rm .\Senpwai.exe; mv ..\target\release\Senpwai.exe .\Senpwai.exe; .\Senpwai.exe
         compile to installer     
         delete install directory for a clean install
         test installer
-        ensure all changes have been committed and pushed to github
+        ensure all changes have been committed, pushed and merged to the master branch
         publish release on github
 
 

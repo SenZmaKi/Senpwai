@@ -1,8 +1,8 @@
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLineEdit
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QEvent, QTimer
-from shared.global_vars_and_funcs import random_mascot_icon_path, GOGO, PAHE, loading_animation_path, sadge_piece_path, set_minimum_size_policy, sen_anilist_id, anilist_api_entrypoint, one_piece_audio_path, kage_bunshin_audio_path
-from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, search_window_bckg_image_path, sen_favourite_audio_path
+from shared.global_vars_and_funcs import random_mascot_icon_path, GOGO, PAHE, loading_animation_path, sadge_piece_path, set_minimum_size_policy, sen_anilist_id, anilist_api_entrypoint, one_piece_audio_path, kage_bunshin_audio_path, toki_wa_ugoki_dasu_audio_path, za_warudo_audio_path
+from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, search_window_bckg_image_path, sen_favourite_audio_path, bunshin_poof_audio_path, gigachad_audio_path, what_da_hell_audio_path
 from shared.shared_classes_and_widgets import Anime, StyledButton, OutlinedButton, ScrollableSection, AnimationAndText, IconButton, AudioPlayer, Icon
 from shared.app_and_scraper_shared import network_error_retry_wrapper
 from windows.main_actual_window import MainWindow, Window
@@ -68,7 +68,8 @@ class SearchWindow(Window):
         main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
-        # We use a timer instead of calling setFocus normally cause apparently Qt wont really set the widget in focus if the widget isn't shown on screen, so we gotta wait a bit first or sth StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
+        # We use a timer instead of calling setFocus normally cause apparently Qt wont really set the widget in focus if the widget isn't shown on screen/rendered, 
+        # So we gotta wait a bit first till the UI is rendered. StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
         QTimer.singleShot(0, self.search_bar.setFocus)
 
     def on_focus(self):
@@ -88,17 +89,46 @@ class SearchWindow(Window):
             item = self.results_layout.itemAt(idx)
             item.widget().deleteLater()
             self.results_layout.removeItem(item)
-        if "ONE PIECE" in anime_title.upper():
-            AudioPlayer(self, one_piece_audio_path, volume=100).play()
-        elif "NARUTO" in anime_title.upper():
-            AudioPlayer(self, kage_bunshin_audio_path, volume=50).play()
+        upper_title = anime_title.upper()
         self.search_thread = SearchThread(self, anime_title, site)
-        self.search_thread.finished.connect(
-            lambda results: self.handle_finished_search(site, results))
+        w_anime = ("vermeil","golden kamuy", "goblin slayer", "hajime", "megalobox", "kengan ashura", "kengan asura", "kengan", "golden boy", "valkyrie", "dr stone", "dr. stone", "death parade", "death note", "code geass", "attack on titan", "shingeki no kyojin", "daily lives", "danshi koukosei", "daily lives of highshool boys", "arakawa", "haikyuu", "kaguya", "chio", "asobi asobase", "prison school", "grand blue", "mob psycho", "to your eternity", "fire force", "mieruko", "fumetsu")
+        l_anime = ("tokyo ghoul", "sword art", "boku no pico", "full metal", "fmab", "fairy tail", "dragon ball", "hunter x hunter", "hunter hunter", "platinum end", "record of ragnarok", "7 deadly sins", "seven deadly sins")
+        if "ONE PIECE" in upper_title:
+            AudioPlayer(self, one_piece_audio_path, volume=100).play()
+        elif "JOJO" in upper_title:
+            AudioPlayer(self, za_warudo_audio_path, 100).play()
+            for _ in range(180):
+                self.main_window.app.processEvents()
+                timesleep(0.01)
+            for x in range(20):
+                self.main_window.app.processEvents()
+                timesleep(x * 0.01)
+            timesleep(2)
+            AudioPlayer(self, toki_wa_ugoki_dasu_audio_path, 100).play()
+            timesleep(1.8)
+        lower = anime_title.lower()
+        for w in w_anime:
+            if w in lower:
+                AudioPlayer(self, gigachad_audio_path, 50).play()
+        for l in l_anime:
+            if l in lower:
+                AudioPlayer(self, what_da_hell_audio_path, 100).play()
+        if "NARUTO" in upper_title:
+            self.kage_bunshin_no_jutsu = AudioPlayer(self, kage_bunshin_audio_path, volume=50)
+            self.kage_bunshin_no_jutsu.play()
+            self.search_thread.finished.connect(self.start_naruto_results_thread)
+        else:
+            self.search_thread.finished.connect(self.show_results)
         self.search_thread.start()
+    
+    def start_naruto_results_thread(self, site: str, results: list[Anime]):
+        NarutoResultsThread(self, site, results).start()
 
-    def handle_finished_search(self, site: str, results: list[Anime]):
-        if len(results) == 0:
+    def play_bunshin_poof(self):
+        AudioPlayer(self, bunshin_poof_audio_path, 10).play()
+
+    def show_results(self, site: str, results: list[Anime]):
+        if results == []:
             self.anime_not_found.start()
             self.bottom_section_stacked_widgets.setCurrentWidget(
                 self.anime_not_found)
@@ -113,7 +143,45 @@ class SearchWindow(Window):
                 self.results_layout.addWidget(button)
         self.loading.stop()
         self.search_thread = None
+    
+    def make_naruto_result_button(self, result: Anime, site: str):
+        button = ResultButton(result, self.main_window, site, 9, 48)
+        self.results_layout.addWidget(button)
 
+class NarutoResultsThread(QThread):
+    send_result = pyqtSignal(Anime, str)
+    stop_loading_animation = pyqtSignal()
+    start_anime_not_found_animation = pyqtSignal()
+    set_curr_wid = pyqtSignal(QWidget)
+    play_bunshin = pyqtSignal()
+
+    def __init__(self, search_window: SearchWindow, site: str, results: list[Anime]):
+        super().__init__(search_window)
+        self.search_window = search_window
+        self.results = results
+        self.site = site
+        self.bunshin_poof = AudioPlayer(search_window, bunshin_poof_audio_path)
+        self.send_result.connect(search_window.make_naruto_result_button)
+        self.stop_loading_animation.connect(search_window.loading.stop)
+        self.start_anime_not_found_animation.connect(search_window.anime_not_found.start)
+        self.set_curr_wid.connect(search_window.bottom_section_stacked_widgets.setCurrentWidget)
+        self.play_bunshin.connect(search_window.play_bunshin_poof)
+
+    def run(self):
+        while self.search_window.kage_bunshin_no_jutsu.isPlaying():
+            pass
+        if self.results == []:
+            self.start_anime_not_found_animation.emit()
+            self.set_curr_wid.emit(self.search_window.anime_not_found)
+        else:
+            self.stop_loading_animation.emit()
+            self.set_curr_wid.emit(self.search_window.results_widget)
+            for idx, result in enumerate(self.results):
+                self.send_result.emit(result, self.site)
+                if idx <= 5:
+                    self.play_bunshin.emit()
+                    timesleep(0.35)
+            self.search_window.search_thread = None
 
 class FetchFavouriteThread(QThread):
     def __init__(self, search_window: SearchWindow) -> None:
@@ -253,10 +321,10 @@ class ResultButton(OutlinedButton):
 
 
 class SearchThread(QThread):
-    finished = pyqtSignal(list)
+    finished = pyqtSignal(str, list)
 
-    def __init__(self, window: SearchWindow, anime_title: str, site: str):
-        super().__init__(window)
+    def __init__(self, search_window: SearchWindow, anime_title: str, site: str):
+        super().__init__(search_window)
         self.anime_title = anime_title
         self.site = site
 
@@ -266,7 +334,7 @@ class SearchThread(QThread):
             results = pahe.search(self.anime_title)
 
             for result in results:
-                anime_id, title, page_link = pahe.extract_anime_id_title_and_page_link(
+                title, page_link, anime_id = pahe.extract_anime_title_page_link_and_id(
                     result)
                 extracted_results.append(Anime(title, page_link, anime_id))
         elif self.site == GOGO:
@@ -276,4 +344,4 @@ class SearchThread(QThread):
                     result)
                 if title and page_link:
                     extracted_results.append(Anime(title, page_link, None))
-        self.finished.emit(extracted_results)
+        self.finished.emit(self.site, extracted_results)

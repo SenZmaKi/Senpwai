@@ -1,27 +1,23 @@
-from PyQt6.QtGui import QGuiApplication, QIcon
-from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout, QApplication
-from PyQt6.QtCore import Qt, pyqtSlot, QTimer
-from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS, KEY_START_IN_FULLSCREEN
+from PyQt6.QtGui import QGuiApplication, QIcon, QAction
+from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout, QApplication, QMenu
+from PyQt6.QtCore import Qt
+from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS, KEY_START_IN_FULLSCREEN, KEY_START_MINIMISED
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton, Icon
 from typing import Callable, cast
-
+from scrapers.gogo import DRIVER_MANAGER
 
 class MainWindow(QMainWindow):
     def __init__(self, app: QApplication):
         super().__init__()
-        # self.set_bckg_img = lambda x: x
         self.set_bckg_img = lambda img_path: self.setStyleSheet(
             f"QMainWindow{{border-image: url({img_path}) 0 0 0 0 stretch stretch;}}")
         self.app = app
         self.center_window()
-        self.tray_icon = QSystemTrayIcon(QIcon(SENPWAI_ICON_PATH), self)
-        self.tray_icon.show()
-        self.tray_icon.setToolTip("Senpwai")
-        self.tray_icon.activated.connect(self.on_tray_icon_click)
-        self.tray_icon.messageClicked.connect(self.set_active_window)
-        self.task_complete_icon = QIcon(task_complete_icon_path)
+        self.senpwai_icon = QIcon(SENPWAI_ICON_PATH)
         self.search_window = SearchWindow(self)
         self.download_window = DownloadWindow(self)
+        self.tray_icon = TrayIcon(self)
+        self.tray_icon.show()
         self.settings_window = SettingsWindow(self)
         self.about_window = AboutWindow(self)
         CheckIfUpdateAvailableThread(
@@ -35,34 +31,35 @@ class MainWindow(QMainWindow):
         self.stacked_windows.addWidget(self.about_window)
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
-    
-    def set_active_window(self):
-        if self.windowState() == Qt.WindowState.WindowNoState:
-            if settings[KEY_START_IN_FULLSCREEN]:
-                 return self.showMaximized()
+        self.download_window.start_auto_download()
+        self.app.aboutToQuit.connect(DRIVER_MANAGER.close_driver)
+        self.app.aboutToQuit.connect(self.tray_icon.hide)
+
+    def quit_app(self):
+        self.app.quit()
+
+    def show_with_settings(self):
+        in_fullscreen = cast(bool, settings[KEY_START_IN_FULLSCREEN])
+        if cast(bool, settings[KEY_START_MINIMISED]):
+            if in_fullscreen:
+                self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
+            return self.hide()
+        elif in_fullscreen:
+                self.showMaximized()
+        else:
             self.showNormal()
+            self.center_window()
             self.setWindowState(Qt.WindowState.WindowActive)
 
-    
-    def on_tray_icon_click(self):
-        if self.windowState() == Qt.WindowState.WindowNoState:
-            return self.set_active_window()
-        self.set_active_window()
-        self.setWindowState(Qt.WindowState.WindowNoState)
-        self.hide()
+    def show(self):
+        self.activateWindow()
+        if (Qt.WindowState.WindowMaximized in self.windowState()):
+            return self.showMaximized()
+        self.showNormal()
+        self.center_window()
 
-    def make_notification(self, title: str, msg: str, sth_completed: bool, onclick: Callable=lambda: None):
-        if settings[KEY_ALLOW_NOTIFICATIONS]:
-            QTimer(self).singleShot(6000, lambda: self.tray_icon.messageClicked.disconnect(onclick))
-            self.tray_icon.messageClicked.connect(onclick)
-            if sth_completed:
-                return self.tray_icon.showMessage(title, msg, self.task_complete_icon, 5000)
-            self.tray_icon.showMessage(title, msg)
-
-
-    @pyqtSlot(tuple)
     def handle_update_check_result(self, result: tuple[bool, str, str, int, str]):
-        is_available, download_url, file_name, platform_flag, version= result
+        is_available, download_url, file_name, platform_flag, version = result
         if not is_available:
             return
         self.update_window = UpdateWindow(
@@ -71,7 +68,8 @@ class MainWindow(QMainWindow):
         update_icon = NavBarButton(
             update_icon_path, self.switch_to_update_window)
         self.search_window.nav_bar_layout.addWidget(update_icon)
-        self.make_notification("New Senpwai version is available", f"Version {version}", False, self.switch_to_update_window)
+        self.tray_icon.make_notification("Update Available",
+                                         f"Version {version}", False, self.switch_to_update_window)
 
     def switch_to_update_window(self):
         self.switch_to_window(self.update_window)
@@ -82,7 +80,8 @@ class MainWindow(QMainWindow):
         self.move(x, 0)
 
     def setup_and_switch_to_chosen_anime_window(self, anime: Anime, site: str):
-        # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned when a set a user clicks more than one ResultButton causing the original thread to be reassigned hence get destroyed
+        # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned 
+        # When a user clicks more than one ResultButton quickly causing the reference to the original thread to be overwridden hence garbage collected/destroyed
         if not self.setup_chosen_anime_window_thread:
             self.search_window.loading.start()
             self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
@@ -93,7 +92,6 @@ class MainWindow(QMainWindow):
                 lambda anime_details: self.make_chosen_anime_window(anime_details))
             self.setup_chosen_anime_window_thread.start()
 
-    @pyqtSlot(AnimeDetails)
     def make_chosen_anime_window(self, anime_details: AnimeDetails):
         self.setup_chosen_anime_window_thread = None
         self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
@@ -140,7 +138,8 @@ class MainWindow(QMainWindow):
         self.switch_to_window(self.about_window)
 
     def create_and_switch_to_no_supported_browser_window(self, anime_details: AnimeDetails):
-        no_supported_browser_window = NoDefaultBrowserWindow(self, anime_details)
+        no_supported_browser_window = NoDefaultBrowserWindow(
+            self, anime_details)
         self.stacked_windows.addWidget(no_supported_browser_window)
         self.switch_to_window(no_supported_browser_window)
 
@@ -148,6 +147,54 @@ class MainWindow(QMainWindow):
         no_ffmpeg_window = NoFFmpegWindow(self, anime_details)
         self.stacked_windows.addWidget(no_ffmpeg_window)
         self.switch_to_window(no_ffmpeg_window)
+
+
+class TrayIcon(QSystemTrayIcon):
+    def __init__(self, main_window: MainWindow):
+        super().__init__(main_window.senpwai_icon, main_window)
+        self.task_complete_icon = QIcon(task_complete_icon_path)
+        self.main_window = main_window
+        self.setToolTip("Senpwai")
+        self.activated.connect(self.on_tray_icon_click)
+        self.context_menu = QMenu("Senpwai", main_window)
+        check_for_new_episodes_action = QAction(
+            "Check for new episodes", self.context_menu)
+        check_for_new_episodes_action.triggered.connect(
+            main_window.download_window.start_auto_download)
+        search_action = QAction("Search", self.context_menu)
+        search_action.triggered.connect(main_window.switch_to_search_window)
+        search_action.triggered.connect(main_window.show)
+        downloads_action = QAction("Downloads", self.context_menu)
+        downloads_action.triggered.connect(
+            main_window.switch_to_download_window)
+        downloads_action.triggered.connect(main_window.show)
+        quit_action = QAction("Quit", self.context_menu)
+        quit_action.triggered.connect(main_window.quit_app)
+        self.context_menu.addAction(check_for_new_episodes_action)
+        self.context_menu.addAction(search_action)
+        self.context_menu.addAction(downloads_action)
+        self.context_menu.addAction(quit_action)
+        self.messageClicked.connect(main_window.show)
+        self.setContextMenu(self.context_menu)
+
+    def focus_or_hide_window(self):
+        if not self.main_window.isVisible():
+            return self.main_window.show()
+        self.main_window.hide()
+
+    def on_tray_icon_click(self, reason: QSystemTrayIcon.ActivationReason):
+        if reason == QSystemTrayIcon.ActivationReason.Context:
+            self.context_menu.show()
+        elif reason == QSystemTrayIcon.ActivationReason.Trigger:
+            self.focus_or_hide_window()
+
+    def make_notification(self, title: str, msg: str, sth_completed: bool, onclick: Callable[[], None] | None = None):
+        if settings[KEY_ALLOW_NOTIFICATIONS]:
+            if onclick:
+                self.messageClicked.connect(onclick)
+            if sth_completed:
+                return self.showMessage(title, msg, self.task_complete_icon, 5000)
+            self.showMessage(title, msg, msecs=5000)
 
 
 class NavBarButton(IconButton):
@@ -193,11 +240,12 @@ class TemporaryWindow(Window):
                 lambda: main_window.stacked_windows.removeWidget(self))
             button.clicked.connect(self.deleteLater)
 
-# These modules imports must be placed here otherwise an ImportError is experienced cause they import MainWindow and Window resulting to a circular import, so we have to define MainWindow and Window first before importing them
 
-from windows.about_window import AboutWindow
+# These modules imports must be placed here otherwise an ImportError is experienced cause 
+# They import MainWindow and Window resulting to a circular import, so we have to define MainWindow and Window first before importing them
 from windows.search_window import SearchWindow
 from windows.download_window import DownloadWindow
 from windows.miscallaneous_windows import NoDefaultBrowserWindow, UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
 from windows.chosen_anime_window import ChosenAnimeWindow, MakeAnimeDetailsThread
+from windows.about_window import AboutWindow
 from windows.settings_window import SettingsWindow

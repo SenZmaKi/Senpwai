@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from windows.main_actual_window import MainWindow, TemporaryWindow, Window
-from shared.global_vars_and_funcs import chopper_crying_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, GITHUB_REPO_URL, github_api_releases_entry_point, APP_NAME, github_icon_path, update_bckg_image_path
-from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, settings, KEY_GOGO_DEFAULT_BROWSER, CHROME, EDGE, chopper_crying_path, VERSION, KEY_DOWNLOAD_FOLDER_PATHS, open_folder, pause_icon_path, resume_icon_path, cancel_icon_path
-from shared.shared_classes_and_widgets import StyledButton, StyledLabel, FolderButton, IconButton, AnimeDetails, Icon
+from shared.global_vars_and_funcs import chopper_crying_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, GITHUB_REPO_URL, github_api_releases_entry_point, github_icon_path, update_bckg_image_path, UPDATE_INSTALLER_NAMES, base_directory
+from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, settings, KEY_GOGO_DEFAULT_BROWSER, CHROME, EDGE, chopper_crying_path, VERSION, pause_icon_path, resume_icon_path, cancel_icon_path
+from shared.shared_classes_and_widgets import StyledButton, StyledLabel, IconButton, AnimeDetails, Icon
 from shared.app_and_scraper_shared import ffmpeg_is_installed, network_error_retry_wrapper
 from windows.download_window import ProgressBarWithButtons
 from typing import cast, Callable, Any
@@ -119,13 +119,15 @@ class RetryDownloadButton(StyledButton):
         self.switch_to_download_window.connect(
             main_window.switch_to_download_window)
         self.is_downloadable = is_downloadable
-        self.switch_to_alt_window_signal.connect(lambda: alt_window_switcher(anime_details))
+        self.switch_to_alt_window_signal.connect(
+            lambda: alt_window_switcher(anime_details))
         self.remove_parent_window_from_stacked_windows_signal.connect(
             lambda: main_window.stacked_windows.removeWidget(self.parent_window))  # type: ignore
         self.clicked.connect(self.start_download)
 
-    def clean_out_parent_window(self, switch_to_down: bool=True):
-        self.delete_parent_window_signal.connect(self.parent_window.deleteLater) #type: ignore
+    def clean_out_parent_window(self, switch_to_down: bool = True):
+        self.delete_parent_window_signal.connect(
+            self.parent_window.deleteLater)  # type: ignore
         if switch_to_down:
             self.switch_to_download_window.emit()
         self.remove_parent_window_from_stacked_windows_signal.emit()
@@ -172,8 +174,8 @@ class TryInstallingFFmpegThread(QThread):
             except:
                 pass
             if ffmpeg_is_installed():
-                self.no_ffmpeg_window.main_window.make_notification(
-                    "Successfully Installed", "FFmpeg", True)
+                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
+                    "Successfully Installed", "FFmpeg", True, None)
                 self.start_download()
             else:
                 open_new_tab(
@@ -185,8 +187,8 @@ class TryInstallingFFmpegThread(QThread):
             except:
                 pass
             if ffmpeg_is_installed():
-                self.no_ffmpeg_window.main_window.make_notification(
-                    "Successfully Installed", "FFmpeg", True)
+                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
+                    "Successfully Installed", "FFmpeg", True, None)
                 self.start_download()
             else:
                 open_new_tab(
@@ -207,13 +209,13 @@ class UpdateWindow(Window):
         info_label.setWordWrap(True)
         if platform_flag == 1:
             info_label.setText(
-                "\nSenpwai will download the new version then open the folder it's in.\nThen it's up to you to close the current version\nand run the new version setup to install it.\nClick the button below to start the download.\n")
+                "Before you click the update button, ensure you don't have any active downloads cause Senpwai will restart")
             set_minimum_size_policy(info_label)
             main_layout.addWidget(
                 info_label, alignment=Qt.AlignmentFlag.AlignCenter)
             self.update_button = StyledButton(
                 self, 30, "black", RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, 20)
-            self.update_button.setText("UPDATE")
+            self.update_button.setText("START UPDATE")
             set_minimum_size_policy(self.update_button)
             download_widget = QWidget()
             self.download_layout = QVBoxLayout()
@@ -221,16 +223,8 @@ class UpdateWindow(Window):
                 self.update_button, alignment=Qt.AlignmentFlag.AlignCenter)
             main_layout.addWidget(download_widget)
             download_widget.setLayout(self.download_layout)
-            self.download_folder = os.path.join(
-                cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])[0], "New Senpwai-setup")
-            if not os.path.isdir(self.download_folder):
-                os.mkdir(self.download_folder)
-            prev_file_path = os.path.join(
-                self.download_folder, file_name)
-            if os.path.exists(prev_file_path):
-                os.unlink(prev_file_path)
             self.update_button.clicked.connect(DownloadUpdateThread(
-                main_window, self, download_url, self.download_folder, file_name).start)
+                main_window, self, download_url, file_name).start)
 
         else:
             if platform_flag == 3:
@@ -253,16 +247,13 @@ class UpdateWindow(Window):
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignHCenter)
         self.setLayout(self.full_layout)
 
-    @pyqtSlot(int)
     def receive_total_size(self, size: int):
         pause_icon = Icon(40, 40, pause_icon_path)
         resume_icon = Icon(40, 40, resume_icon_path)
         cancel_icon = Icon(40, 40, cancel_icon_path)
         self.progress_bar = ProgressBarWithButtons(
-            self, "Downloading", "new version setup", size, "MB", IBYTES_TO_MBS_DIVISOR, pause_icon, resume_icon, cancel_icon, lambda: None, lambda: None)
+            self, "Downloading", "update", size, "MB", IBYTES_TO_MBS_DIVISOR, pause_icon, resume_icon, cancel_icon, lambda: None, lambda: None)
         self.download_layout.addWidget(self.progress_bar)
-        self.download_layout.addWidget(FolderButton(
-            self.download_folder, 100, 100), alignment=Qt.AlignmentFlag.AlignCenter)
         self.update_button.hide()
         self.update_button.deleteLater()
 
@@ -270,36 +261,35 @@ class UpdateWindow(Window):
 class DownloadUpdateThread(QThread):
     update_bar = pyqtSignal(int)
     total_size = pyqtSignal(int)
+    quit_app = pyqtSignal()
 
-    def __init__(self, main_window: MainWindow, update_window: UpdateWindow, download_url: str, download_folder: str, file_name: str):
+    def __init__(self, main_window: MainWindow, update_window: UpdateWindow, download_url: str, file_name: str):
         super().__init__(main_window)
+        self.quit_app.connect(main_window.quit_app)
         self.download_url = download_url
         self.total_size.connect(update_window.receive_total_size)
         self.update_window = update_window
-        self.download_folder = download_folder
         self.file_name = file_name
-        self.make_notification = main_window.make_notification
+        self.make_notification = main_window.tray_icon.make_notification
 
     def run(self):
-        total_size = int(cast(str, requests.get(
-            self.download_url, stream=True).headers["content-length"]))
+        total_size = int(network_error_retry_wrapper(lambda: cast(str, requests.get(
+            self.download_url, stream=True).headers["content-length"])))
         self.total_size.emit(total_size)
         self.update_window.progress_bar
         while not self.update_window.progress_bar:
             continue
         self.update_bar.connect(self.update_window.progress_bar.update_bar)
-        file_name, ext = self.file_name.split(".")
+        file_name_no_ext, ext = self.file_name.split(".")
         ext = "." + ext
-        download = Download(self.download_url, file_name, self.download_folder,
+        download = Download(self.download_url, file_name_no_ext, base_directory,
                             self.update_bar.emit, ext)
         self.update_window.progress_bar.pause_callback = download.pause_or_resume
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
         if not download.cancelled:
-            def o(): return open_folder(self.download_folder)
-            self.make_notification("Download Complete",
-                                   "New Senpwai version setup", True, o)
-            o()
+            os.startfile(os.path.join(base_directory, self.file_name))
+            self.quit_app.emit()
 
 
 class CheckIfUpdateAvailableThread(QThread):
@@ -320,8 +310,6 @@ class CheckIfUpdateAvailableThread(QThread):
         match = cast(re.Match, ver_regex.search(latest_version_tag))
         latest_version = match.group(1)
         platform_flag = self.check_platform()
-        target_asset_names = [f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
-                              f"{APP_NAME}-installer.exe", f"{APP_NAME}-installer.msi"]
         download_url = ""
         asset_name = ""
         curr_s = VERSION.split(".")
@@ -332,7 +320,7 @@ class CheckIfUpdateAvailableThread(QThread):
                 update_available = True
         if update_available:
             for asset in latest_version_json["assets"]:
-                if asset["name"] in target_asset_names:
+                if asset["name"] in UPDATE_INSTALLER_NAMES:
                     download_url = asset["browser_download_url"]
                     asset_name = asset["name"]
                     break

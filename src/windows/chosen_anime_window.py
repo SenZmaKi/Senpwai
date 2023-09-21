@@ -9,7 +9,6 @@ from windows.settings_window import SettingsWindow
 from shared.app_and_scraper_shared import dynamic_episodes_predictor_initialiser_pro_turboencapsulator
 from windows.main_actual_window import MainWindow, TemporaryWindow
 from typing import cast
-from shared.global_vars_and_funcs import pause_icon_path
 
 
 class SummaryLabel(StyledLabel):
@@ -239,7 +238,6 @@ class ChosenAnimeWindow(TemporaryWindow):
         main_widget = ScrollableSection(main_layout)
         main_widget.horizontalScrollBar().setValue(
             main_widget.horizontalScrollBar().maximum())
-        # main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
         QTimer.singleShot(0, self.download_button.setFocus)
