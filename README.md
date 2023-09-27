@@ -65,16 +65,9 @@ Open a terminal and run the following commands.
 ```
 git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai/src && pip install virtualenv && python3 -m virtualenv ../.venv && source ../.venv/bin/activate && pip install -r requirements.txt
 ```
-- Windows
-  
- Command Prompt
+- Windows (Command Prompt)
 ```
 git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai\src && pip install virtualenv && python -m virtualenv ..\.venv && ..\.venv\Scripts\activate && pip install -r requirements.txt
-```
-
- Powershell
-```
-git clone https://github.com/SenZmaKi/Senpwai ; cd Senpwai\src ; pip install virtualenv ; python -m virtualenv ..\.venv ; ..\.venv\Scripts\activate ; pip install -r requirements.txt
 ```
 
 2. **Run the app.**
