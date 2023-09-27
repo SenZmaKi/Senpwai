@@ -24,13 +24,15 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
 
 ## Installation
 
-**Disclaimer**
+<details> <summary> Disclaimer </summary>
 
 Senpwai prioritizes efficiency and low RAM usage (~60 MBs on average and 15 MBs when minimised to tray), hence It runs directly via Python 3.11 as opposed to being bundled with tools like pyinstaller/cxfreeze/py2exe/nuitka.
 
 During installation Python 3.11 will be automatically installed if not present, as a result Senpwai consumes ~500 MBs of disk space but if you already had Python 3.11 then ~250 MBs. 
 
 Senpwai WON'T work If you were to ever uninstall Python 3.11. Also to completely remove Senpwai (don't know why you would though), post-uninstallation also uninstall Python 3.11 unless you use it outside of Senpwai.
+
+</details>
 
 - **Windows**
   
@@ -58,7 +60,7 @@ Ensure you have [Python 3.11](https://www.python.org/downloads/release/python-31
 
 Open a terminal and run the following commands.
 
-1. Set everything up.
+1. **Set everything up.**
 - Linux/Mac
 ```
 git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai/src && pip install virtualenv && python3 -m virtualenv ../.venv && source ../.venv/bin/activate && pip install -r requirements.txt
@@ -68,8 +70,7 @@ git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai/src && pip install v
 git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai\src && pip install virtualenv && python -m virtualenv ..\.venv && ..\.venv\Scripts\activate && pip install -r requirements.txt
 ```
 
-2. Run the app.
-
+2. **Run the app.**
 ```
 python senpwai.py
 ```
