@@ -36,7 +36,7 @@ Senpwai WON'T work If you were to ever uninstall Python 3.11. Also to completely
 
 - **Windows**
   
-Download the setup from the [releases page](https://github.com/SenZmaKi/Senpwai/releases) and run it.
+Download [the setup](https://github.com/SenZmaKi/Senpwai/releases/download/v2.0.3/Senpwai-setup.exe) then run it.
 
 - **Linux/Mac**
   
