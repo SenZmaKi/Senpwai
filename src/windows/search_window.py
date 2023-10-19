@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QEvent, QTimer
 from shared.global_vars_and_funcs import random_mascot_icon_path, GOGO, PAHE, loading_animation_path, sadge_piece_path, set_minimum_size_policy, sen_anilist_id, anilist_api_entrypoint, one_piece_audio_path, kage_bunshin_audio_path, toki_wa_ugoki_dasu_audio_path, za_warudo_audio_path
 from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, search_window_bckg_image_path, sen_favourite_audio_path, bunshin_poof_audio_path, gigachad_audio_path, what_da_hell_audio_path
 from shared.shared_classes_and_widgets import Anime, StyledButton, OutlinedButton, ScrollableSection, AnimationAndText, IconButton, AudioPlayer, Icon
-from shared.app_and_scraper_shared import network_error_retry_wrapper
+from shared.app_and_scraper_shared import CLIENT
 from windows.main_actual_window import MainWindow, Window
 from scrapers import pahe
 from scrapers import gogo
@@ -222,10 +222,7 @@ class FetchFavouriteThread(QThread):
         }
         }
         '''
-        response = cast(requests.Response, network_error_retry_wrapper(lambda: requests.post(anilist_api_entrypoint,
-                                                                               json={"query": query,
-                                                                                     "variables": {"id": sen_anilist_id, "page": page}},
-                                                                               headers={"Content-Type": "application/json"})))
+        response = CLIENT.post(anilist_api_entrypoint, json={"query": query,"variables": {"id": sen_anilist_id, "page": page}}, headers=CLIENT.append_headers({"Content-Type": "application/json"}))
         if response.status_code != 200:
             return None
         data = response.json()

@@ -28,35 +28,65 @@ def extract_new_domain_name_from_readme(site_name: str) -> str:
 
     :param site_name: Can be either Animepahe or Gogoanime.
     """
-    page_content = network_error_retry_wrapper(lambda: requests.get(GITHUB_README_URL).content)
+    page_content = CLIENT.get(GITHUB_README_URL).content
     soup = BeautifulSoup(page_content, PARSER)
     new_domain_name =  cast(str, cast(Tag, soup.find('a', text=site_name))['href']).replace("\"", "").replace("\\", "")
     return new_domain_name
     
 
 
-def setup_request_headers() -> dict[str, str]:
-    if platform == "win32":
-        operating_systems = [OperatingSystem.WINDOWS.value]
-    elif platform == "linux":
-        operating_systems = [OperatingSystem.LINUX.value]
-    else:
-        operating_systems = [OperatingSystem.DARWIN.value]
-    software_names = [SoftwareName.CHROME.value, SoftwareName.FIREFOX.value,
-                      SoftwareName.EDGE.value, SoftwareName.OPERA.value]
-    software_types = [SoftwareType.WEB_BROWSER.value]
-    hardware_types = [HardwareType.COMPUTER.value]
-    if platform == "darwin":
-        software_types.append(SoftwareName.SAFARI.value)
-    user_agent = randomchoice(UserAgent(limit=1000, software_names=software_names,
-                              operating_systems=operating_systems, software_types=software_types,
-                              hardware_types=hardware_types).get_user_agents())
-    headers = {"User-Agent": user_agent['user_agent']}
-    return headers
+class Client():
 
+    def __init__(self) -> None:
+        self.headers = self.setup_request_headers()
 
-REQUEST_HEADERS = setup_request_headers()
+    def setup_request_headers(self) -> dict[str, str]:
+        if platform == 'win32':
+            operating_systems = [OperatingSystem.WINDOWS.value]
+        elif platform == 'linux':
+            operating_systems = [OperatingSystem.LINUX.value]
+        else:
+            operating_systems = [OperatingSystem.DARWIN.value]
+        software_names = [SoftwareName.CHROME.value, SoftwareName.FIREFOX.value,
+                        SoftwareName.EDGE.value, SoftwareName.OPERA.value]
+        software_types = [SoftwareType.WEB_BROWSER.value]
+        hardware_types = [HardwareType.COMPUTER.value]
+        if platform == 'darwin':
+            software_types.append(SoftwareName.SAFARI.value)
+        user_agent = randomchoice(UserAgent(limit=1000, software_names=software_names,
+                                operating_systems=operating_systems, software_types=software_types,
+                                hardware_types=hardware_types).get_user_agents())
+        headers = {'User-Agent': user_agent['user_agent']}
+        return headers
+    
+    def append_headers(self, to_append: dict) -> dict:
+        new_headers = self.headers
+        new_headers.update(to_append)
+        return new_headers
 
+    def make_request(self, method: str, url: str, headers: dict | None, cookies={}, stream=False, data: dict | bytes | None = None, json: dict | None = None,  allow_redirects=False, timeout: int | None = None) -> requests.Response:
+        if not headers:
+            headers = self.headers
+        if method == 'GET':
+            func = lambda: requests.get(url, headers=headers, stream=stream, cookies=cookies, allow_redirects=allow_redirects, timeout=timeout)
+        else:
+            func = lambda: requests.post(url, headers=headers, cookies=cookies, data=data, json=json, allow_redirects=allow_redirects)
+        return cast(requests.Response, self.network_error_retry_wrapper(func))
+
+    def get(self, url: str, stream=False, headers: dict | None = None, timeout: int | None = None) -> requests.Response:
+        return self.make_request("GET", url, headers, stream=stream, timeout=timeout)
+
+    def post(self, url: str, data: dict | bytes | None = None, json: dict | None = None, headers: dict | None = None, cookies={}, allow_redirects=False) -> requests.Response:
+        return self.make_request('POST', url, headers, data=data, json=json, cookies=cookies, allow_redirects=allow_redirects)
+    
+    def network_error_retry_wrapper(self, callback: Callable[[], Any]) -> Any:
+        while True:
+            try:
+                return callback()
+            except:
+                timesleep(1)
+
+CLIENT = Client()
 
 class QualityAndIndices:
     def __init__(self, quality: int, index: int):
@@ -74,7 +104,7 @@ class AnimeMetadata:
         self.release_year = release_year
 
     def get_poster_bytes(self) -> bytes:
-        return cast(bytes, network_error_retry_wrapper(lambda: requests.get(self.poster_url, headers=REQUEST_HEADERS).content))
+        return CLIENT.get(self.poster_url).content
 
 
 def match_quality(potential_qualities: list[str], user_quality: str) -> int:
@@ -117,12 +147,6 @@ def sanitise_title(title: str, all=False):
     return sanitised[:255].rstrip()
 
 
-def network_error_retry_wrapper(function: Callable[..., Any]) -> Any:
-    while True:
-        try:
-            return function()
-        except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
-            timesleep(1)
 
 def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: int, end_episode: int, haved_episodes: list[int]) -> list[int]:
     predicted_episodes_to_download: list[int] = []
@@ -200,8 +224,7 @@ class Download(PausableAndCancellableFunction):
 
     def hls_download(self) -> bool:
         def get_potential_qualities(master_playlist_url: str) -> list[str]:
-            response = cast(requests.Response, network_error_retry_wrapper(
-                lambda: requests.get(master_playlist_url, headers=REQUEST_HEADERS)))
+            response = CLIENT.get(master_playlist_url)
             lines = response.text.split(',')
             qualities = [line for line in lines if "NAME=" in line]
             return qualities
@@ -227,23 +250,21 @@ class Download(PausableAndCancellableFunction):
         return download(self.link, self.temporary_file_path, self.hls_resolution)
 
     def normal_download(self) -> bool:
-        response = cast(requests.Response, network_error_retry_wrapper(lambda: requests.get(
-            self.link, stream=True, timeout=30, headers=REQUEST_HEADERS)))
+        response = CLIENT.get(self.link, stream=True, timeout=30)
 
-        def response_ranged(start_byte): return cast(requests.Response, network_error_retry_wrapper(lambda: requests.get(
-            self.link, stream=True, headers={'Range': f'bytes={start_byte}-', 'User-Agent': REQUEST_HEADERS['User-Agent']}, timeout=30)))
+        def response_ranged(start_byte): return CLIENT.get(self.link, stream=True, headers=CLIENT.append_headers({'Range': f'bytes={start_byte}-'}), timeout=30)
 
         total = int(response.headers.get('content-length', 0))
 
         def download(start_byte: int = 0) -> bool:
             mode = 'wb' if start_byte == 0 else 'ab'
             with open(self.temporary_file_path, mode) as file:
-                iter_content = cast(Iterator[bytes], response.iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR) if start_byte == 0 else network_error_retry_wrapper(
+                iter_content = cast(Iterator[bytes], response.iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR) if start_byte == 0 else CLIENT.network_error_retry_wrapper(
                     lambda: response_ranged(start_byte).iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR)))
                 while True:
                     try:
-                        data = cast(bytes, network_error_retry_wrapper(
-                            lambda: (next(iter_content))))
+                        get_data = lambda: next(iter_content)
+                        data = cast(bytes, CLIENT.network_error_retry_wrapper(get_data))
                         self.resume.wait()
                         if self.cancelled:
                             return False

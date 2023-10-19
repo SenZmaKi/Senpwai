@@ -1,4 +1,3 @@
-import requests
 from urllib.parse import quote
 from bs4 import BeautifulSoup, ResultSet, Tag
 from time import sleep
@@ -13,7 +12,7 @@ from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions
 
 import subprocess
 from typing import Callable, cast
-from shared.app_and_scraper_shared import PARSER, network_error_retry_wrapper, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS, extract_new_domain_name_from_readme
+from shared.app_and_scraper_shared import PARSER, CLIENT, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction, AnimeMetadata, extract_new_domain_name_from_readme
 
 # Hls mode imports
 import json
@@ -41,8 +40,7 @@ def search(keyword: str) -> list[BeautifulSoup]:
     global GOGO_HOME_URL
     url_extension = '/search.html?keyword='
     search_url = GOGO_HOME_URL + url_extension + quote(keyword)
-    response = cast(requests.Response, network_error_retry_wrapper(
-        lambda: requests.get(search_url, headers=REQUEST_HEADERS)))
+    response = CLIENT.get(search_url)
     # If the status code isn't 200 we assume they changed their domain name
     if response.status_code != 200:
         GOGO_HOME_URL = extract_new_domain_name_from_readme("Gogoanime")
@@ -71,7 +69,7 @@ def extract_anime_id(anime_page_content: bytes) -> int:
 
 def get_episode_page_links(start_episode: int, end_episode: int, anime_id: int) -> list[str]:
     ajax_url = f'https://ajax.gogo-load.com/ajax/load-list-episode?ep_start={start_episode}&ep_end={end_episode}&id={anime_id}'
-    content = network_error_retry_wrapper(lambda: requests.get(ajax_url).content)
+    content = CLIENT.get(ajax_url).content
     soup = BeautifulSoup(content, PARSER)
     a_tags = soup.find_all('a')
     episode_page_links: list[str] = []
@@ -207,8 +205,7 @@ class GetDownloadPageLinks(PausableAndCancellableFunction):
         download_page_links: list[str] = []
 
         def extract_link(episode_page_link: str) -> str:
-            response = cast(requests.Response, network_error_retry_wrapper(
-                lambda page=episode_page_link: requests.get(page, headers=REQUEST_HEADERS)))
+            response = CLIENT.get(episode_page_link)
             soup = BeautifulSoup(response.content, PARSER)
             soup = cast(Tag, soup.find('li', class_='dowloads'))
             link = cast(str, cast(Tag, soup.find(
@@ -231,9 +228,8 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
 
     def calculate_total_download_size(self, direct_download_links: list[str], progress_update_callback: Callable = lambda update: None, in_megabytes=False) -> int:
         total_size = 0
-        for idx, link in enumerate(direct_download_links):
-            response = network_error_retry_wrapper(
-                lambda link=link: requests.get(link, stream=True, headers=REQUEST_HEADERS))
+        for link in (direct_download_links):
+            response = CLIENT.get(link, stream=True)
             size = response.headers.get('content-length', 0)
             if in_megabytes:
                 total_size += round(int(size) / IBYTES_TO_MBS_DIVISOR)
@@ -252,7 +248,7 @@ def open_browser_with_links(download_links: str) -> None:
 
 
 def get_anime_page_content(anime_page_link: str) -> bytes:
-    return network_error_retry_wrapper(lambda: requests.get(anime_page_link).content)
+    return CLIENT.get(anime_page_link).content
 
 
 def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
@@ -296,12 +292,10 @@ def get_dub_anime_page_link(anime_title: str) -> str:
             break
     return page_link
 
-
 # Hls mode functions start here
 
 def get_embed_url(episode_page_link: str) -> str:
-    response = cast(requests.Response, network_error_retry_wrapper(
-        lambda: requests.get(episode_page_link, headers=REQUEST_HEADERS)))
+    response = CLIENT.get(episode_page_link)
     soup = BeautifulSoup(response.content, PARSER)
     return cast(str, cast(Tag, soup.select_one('iframe'))['src'])
 
@@ -330,8 +324,7 @@ def extract_stream_url(embed_url: str) -> str:
     parsed_url = parseUrl(embed_url)
     content_id = parsed_url.query['id']
     streaming_page_host = f'https://{parsed_url.host}/'
-    streaming_page = cast(bytes, network_error_retry_wrapper(
-        lambda: requests.get(embed_url, headers=REQUEST_HEADERS).content))
+    streaming_page = CLIENT.get(embed_url).content
 
     encryption_key, iv, decryption_key = (
         _.group(1) for _ in KEYS_REGEX.finditer(streaming_page)
@@ -347,11 +340,10 @@ def extract_stream_url(embed_url: str) -> str:
     )
 
     component = component.split("&", 1)[1]
-    ajax_response = cast(requests.Response, network_error_retry_wrapper(lambda: requests.get(
+    ajax_response = CLIENT.get(
         streaming_page_host + "encrypt-ajax.php?" + component,
-        headers={"x-requested-with": "XMLHttpRequest",
-                 'User-Agent': REQUEST_HEADERS['User-Agent']},
-    )))
+        headers=CLIENT.append_headers({"x-requested-with": "XMLHttpRequest"}),
+    )
     content = json.loads(
         aes_decrypt(ajax_response.json()[
             'data'], key=decryption_key, iv=iv)

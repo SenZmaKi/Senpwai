@@ -4,7 +4,7 @@ from windows.main_actual_window import MainWindow, TemporaryWindow, Window
 from shared.global_vars_and_funcs import chopper_crying_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, GITHUB_REPO_URL, github_api_releases_entry_point, github_icon_path, update_bckg_image_path, UPDATE_INSTALLER_NAMES, base_directory
 from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, settings, KEY_GOGO_DEFAULT_BROWSER, CHROME, EDGE, chopper_crying_path, VERSION, pause_icon_path, resume_icon_path, cancel_icon_path
 from shared.shared_classes_and_widgets import StyledButton, StyledLabel, IconButton, AnimeDetails, Icon
-from shared.app_and_scraper_shared import ffmpeg_is_installed, network_error_retry_wrapper
+from shared.app_and_scraper_shared import ffmpeg_is_installed, CLIENT
 from windows.download_window import ProgressBarWithButtons
 from typing import cast, Callable, Any
 from webbrowser import open_new_tab
@@ -273,8 +273,7 @@ class DownloadUpdateThread(QThread):
         self.make_notification = main_window.tray_icon.make_notification
 
     def run(self):
-        total_size = int(network_error_retry_wrapper(lambda: cast(str, requests.get(
-            self.download_url, stream=True).headers["content-length"])))
+        total_size = int(CLIENT.get(self.download_url, stream=True).headers["content-length"])
         self.total_size.emit(total_size)
         self.update_window.progress_bar
         while not self.update_window.progress_bar:
@@ -303,8 +302,7 @@ class CheckIfUpdateAvailableThread(QThread):
         self.finished.emit(self.update_available())
 
     def update_available(self) -> tuple[bool, str, str, int, str]:
-        latest_version_json = network_error_retry_wrapper(
-            lambda: (requests.get(github_api_releases_entry_point))).json()[0]
+        latest_version_json = requests.get(github_api_releases_entry_point).json()[0]
         latest_version_tag = latest_version_json["tag_name"]
         ver_regex = re.compile(r'(\d+(\.\d+)*)')
         match = cast(re.Match, ver_regex.search(latest_version_tag))
