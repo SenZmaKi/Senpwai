@@ -213,7 +213,6 @@ KEY_GOGO_DEFAULT_BROWSER = "gogo_default_browser"
 KEY_ALLOW_NOTIFICATIONS = "allow_notifcations"
 deprecated_key_make_download_complete_notifications = "make_download_complete_notifications"
 KEY_START_IN_FULLSCREEN = "start_in_fullscreen"
-KEY_START_MINIMISED = "start_minimised"
 KEY_RUN_ON_STARTUP = "run_on_startup"
 KEY_GOGO_NORM_OR_HLS_MODE = "gogo_hls_mode"
 KEY_TRACKED_ANIME = "tracked_anime"
@@ -335,13 +334,6 @@ def validate_settings_json(settings_json: dict) -> dict:
         clean_settings[KEY_AUTO_DOWNLOAD_SITE] = pahe_or_gogo_auto
     except KeyError:
         clean_settings[KEY_AUTO_DOWNLOAD_SITE] = default_auto_download_site
-    try:
-        start_minimsed = settings_json[KEY_START_MINIMISED]
-        if not isinstance(start_minimsed, bool):
-            raise KeyError
-        clean_settings[KEY_START_MINIMISED] = start_minimsed
-    except KeyError:
-        clean_settings[KEY_START_MINIMISED] = default_start_minimised
     try:
         run_on_startup = settings_json[KEY_RUN_ON_STARTUP]
         if not isinstance(run_on_startup, bool):

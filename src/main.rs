@@ -1,17 +1,20 @@
-#![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"] // Comment this out when debugging/developing cause otherwise you won't see output from print statements
 use ::std::process::Command;
 use native_dialog::{MessageDialog, MessageType};
+use std::env;
 use std::os::windows::process::CommandExt;
 
 const PYTHON_PATH: &str = "..\\.venv\\Scripts\\python.exe";
 const MAIN_SCRIPT_PATH: &str = "senpwai.py";
 const SRC_DIR: &str = "..\\src";
 const CREATE_NO_WINDOW_FLAG: u32 = 0x08000000;
-const HELP_MESSAGE: &str = "Help: Reinstall and run the setup from https:://github.com/SenZmaKi/Senpwai.\nIf the error persists report it in either the\nDiscord Server: https://discord.gg/invite/e9UxkuyDX2\nSubreddit: https://www.reddit.com/r/Senpwai\nGithub Issues: https://github.com/SenZmaKi/Senpwai/issues";
+const HELP_MESSAGE: &str = "Help: Reinstall and run the setup from https:://github.com/SenZmaKi/Senpwai.\nIf the error persists report it in either the\nDiscord Server: https://discord.gg/invite/e9UxkuyDX2\nGithub Issues: https://github.com/SenZmaKi/Senpwai/issues\nSubreddit: https://www.reddit.com/r/Senpwai";
 
 fn main() {
+    let mut args = vec![MAIN_SCRIPT_PATH.to_owned()];
+    args.extend(env::args().skip(1));
     let result = Command::new(PYTHON_PATH)
-        .arg(MAIN_SCRIPT_PATH)
+        .args(args)
         .current_dir(SRC_DIR)
         .creation_flags(CREATE_NO_WINDOW_FLAG)
         .spawn();
@@ -26,7 +29,7 @@ fn main() {
                     HELP_MESSAGE
                 ));
             }
-        } 
+        }
         _ => {}
     }
 }

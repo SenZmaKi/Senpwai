@@ -20,7 +20,8 @@ def custom_exception_handler(type_: type[BaseException], value: BaseException, t
 
 def main():
     QCoreApplication.setApplicationName(APP_NAME)
-    app = QApplication(sys.argv)
+    args = sys.argv
+    app = QApplication(args)
     app.setApplicationName(APP_NAME)
     palette = app.palette()
     palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
@@ -28,7 +29,7 @@ def main():
 
     window = MainWindow(app)
     app.setWindowIcon(window.senpwai_icon)
-    window.show_with_settings()
+    window.show_with_settings(args)
     sys.excepthook = custom_exception_handler
     sys.exit(app.exec())
 

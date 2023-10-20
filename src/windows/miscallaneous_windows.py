@@ -302,7 +302,7 @@ class CheckIfUpdateAvailableThread(QThread):
         self.finished.emit(self.update_available())
 
     def update_available(self) -> tuple[bool, str, str, int, str]:
-        latest_version_json = requests.get(github_api_releases_entry_point).json()[0]
+        latest_version_json = CLIENT.get(github_api_releases_entry_point).json()[0]
         latest_version_tag = latest_version_json["tag_name"]
         ver_regex = re.compile(r'(\d+(\.\d+)*)')
         match = cast(re.Match, ver_regex.search(latest_version_tag))

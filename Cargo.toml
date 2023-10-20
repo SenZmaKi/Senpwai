@@ -1,9 +1,9 @@
 [package]
 name = "Senpwai"
-version = "2.0.2"
+version = "2.0.4"
 edition = "2021"
 author = "SenZmaKi"
-description = "A desktop app for batch downloading anime"
+description = "A desktop app for tracking and batch downloading anime"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
-from PyQt6.QtCore import Qt, QFile
+from PyQt6.QtCore import Qt
 from shared.global_vars_and_funcs import SETTINGS_TYPES, validate_settings_json, SETTINGS_JSON_PATH, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR
-from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_START_MINIMISED, KEY_RUN_ON_STARTUP, KEY_ON_CAPTCHA_SWITCH_TO, KEY_CHECK_FOR_NEW_EPS_AFTER
+from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_RUN_ON_STARTUP, KEY_ON_CAPTCHA_SWITCH_TO, KEY_CHECK_FOR_NEW_EPS_AFTER
 from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, CHROME, EDGE, FIREFOX, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME
 from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
@@ -39,7 +39,6 @@ class SettingsWindow(Window):
         self.gogo_norm_or_hls_mode_setting = GogoNormOrHlsSetting(self)
         self.tracked_anime = TrackedAnimeListSetting(self,)
         self.auto_download_site = AutoDownloadSite(self)
-        self.start_minimsed = StartMinimisedSetting(self)
         self.check_for_new_eps_after = CheckForNewEpsAfterSetting(self, main_window.download_window)
         if sysplatform == "win32":
             self.run_on_startup = RunOnStartUp(self)
@@ -54,7 +53,6 @@ class SettingsWindow(Window):
             self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_in_fullscreen)
         right_layout.addWidget(self.download_folder_setting)
-        right_layout.addWidget(self.start_minimsed)
         if sysplatform == "win32":
             right_layout.addWidget(self.run_on_startup)
         right_layout.addWidget(self.auto_download_site)
@@ -352,26 +350,19 @@ class StartInFullscreenSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Start app in fullscreen", KEY_START_IN_FULLSCREEN)
 
-class StartMinimisedSetting(YesOrNoSetting):
-    def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Start app minimised to tray", KEY_START_MINIMISED)
-        if sysplatform == "win32":
-            return self.setting_label.setToolTip("You can combo this setting with Run on start up such that every day you start your PC\nSenpwai will look for new episodes of your tracked anime in the background")
-        self.setting_label.setToolTip("You can combine this setting with making Senpwai to run on start up such that every day\nyou start your PC Senpwai will look for new episodes of your tracked anime in the background")
-
 class RunOnStartUp(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Run on start up", KEY_RUN_ON_STARTUP)
         appdata_folder = cast(str, os.environ.get('APPDATA'))
-        self.lnk_name = f"{APP_NAME}.lnk"
-        self.lnk_path = os.path.join(appdata_folder, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', self.lnk_name)
+        self.lnk_path = os.path.join(appdata_folder, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', f'{APP_NAME}.lnk')
         self.yes_button.clicked.connect(self.make_startup_lnk)
         self.no_button.clicked.connect(self.remove_startup_lnk)
 
     def make_startup_lnk(self):
-        if not os.path.isfile(self.lnk_path):
-            QFile.link(f"{APP_NAME}.exe", self.lnk_name)
-            QFile.copy(self.lnk_name, self.lnk_path)
+        self.remove_startup_lnk()
+        from pylnk3 import for_file
+        lnk = for_file(os.path.abspath(f"{APP_NAME}.exe"), APP_NAME, "--minimised_to_tray", "Senpwai start up shortcut", work_dir=os.path.abspath("."))
+        lnk.save(self.lnk_path)
 
     def remove_startup_lnk(self):
         if os.path.isfile(self.lnk_path):

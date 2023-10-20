@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QGuiApplication, QIcon, QAction
 from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout, QApplication, QMenu
 from PyQt6.QtCore import Qt
-from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS, KEY_START_IN_FULLSCREEN, KEY_START_MINIMISED
+from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS, KEY_START_IN_FULLSCREEN
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton, Icon
 from typing import Callable, cast
 from scrapers.gogo import DRIVER_MANAGER
@@ -38,9 +38,9 @@ class MainWindow(QMainWindow):
     def quit_app(self):
         self.app.quit()
 
-    def show_with_settings(self):
+    def show_with_settings(self, args: list[str]):
         in_fullscreen = cast(bool, settings[KEY_START_IN_FULLSCREEN])
-        if cast(bool, settings[KEY_START_MINIMISED]):
+        if "--minimised_to_tray" in args:
             if in_fullscreen:
                 self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
             return self.hide()
