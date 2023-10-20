@@ -47,7 +47,8 @@ Source: "{#ProjectSrcDir}\*"; DestDir: "{app}\src"; Flags: ignoreversion recurse
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
 Type: filesandordirs; Name: "{userstartup}\Senpwai.lnk"
-Type: filesandordirs; Name: "{localappdata}\Local\Programs\Senpwai"
+; Incase the user installed Senpwai in a different folder we want to make sure we delete the settings file and error logs file too
+Type: filesandordirs; Name: "{localappdata}\Programs\Senpwai"
 
 [InstallDelete]
 ; Deprecated v2.0.1 crap, I've specified them explicitly instead of just saying "{app}\" cause with the latter say if the user is on v2.0.2

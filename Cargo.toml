@@ -11,3 +11,4 @@ description = "A desktop app for tracking and batch downloading anime"
 winres = "0.1"
 [dependencies]
 native-dialog = "0.6.4"
+winapi = { version = "0.3"}
