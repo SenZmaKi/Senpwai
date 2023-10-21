@@ -3,7 +3,7 @@ from PyQt6.QtCore import Qt, QThread, QMutex, pyqtSignal, QTimer
 from shared.global_vars_and_funcs import settings, KEY_ALLOW_NOTIFICATIONS, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_ON_CAPTCHA_SWITCH_TO, PAHE, GOGO_HLS_MODE, KEY_CHECK_FOR_NEW_EPS_AFTER
 from shared.global_vars_and_funcs import set_minimum_size_policy, remove_from_queue_icon_path, move_up_queue_icon_path, move_down_queue_icon_path
 from shared.global_vars_and_funcs import PAHE, GOGO, DUB, downlaod_window_bckg_image_path, open_folder, pause_icon_path, resume_icon_path, cancel_icon_path
-from shared.app_and_scraper_shared import Download, IBYTES_TO_MBS_DIVISOR, CLIENT, PausableAndCancellableFunction, ffmpeg_is_installed, dynamic_episodes_predictor_initialiser_pro_turboencapsulator, sanitise_title
+from shared.app_and_scraper_shared import Download, IBYTES_TO_MBS_DIVISOR, CLIENT, PausableAndCancellableFunction, ffmpeg_is_installed, dynamic_episodes_predictor_initialiser_pro_turboencapsulator, sanitise_title, RESOURCE_MOVED_STATUS_CODES
 from windows.main_actual_window import MainWindow, Window
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, ScrollableSection, ProgressBarWithoutButtons, ProgressBarWithButtons, AnimeDetails, FolderButton, OutlinedLabel, IconButton, HorizontalLine, Anime, Icon, ProgressBarWithoutButtons
 from typing import Callable, cast, Any
@@ -559,12 +559,12 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
                 eps_size = round(os.path.getsize(
                     eps_file_path) / IBYTES_TO_MBS_DIVISOR)
                 hls_est_size.update_count(eps_size)
-    # Gogo's direct download link sometimes doesn't work, it returns a 302 status code meaning the resource has been moved, this attempts to redirect to that link
+    # Gogo's direct download link sometimes doesn't work, it returns a 301 - 308 status code meaning the resource has been moved, this attempts to redirect to that link
     # It is applied to Pahe too just in case and to make everything streamlined
 
     def gogo_check_if_valid_link(self, link: str) -> tuple[str, requests.Response | None]:
         response = CLIENT.get(link, stream=True)
-        if response.status_code in (301, 302, 307, 308):
+        if response.status_code in RESOURCE_MOVED_STATUS_CODES:
             possible_valid_redirect_link = response.headers.get("location", "")
             return self.gogo_check_if_valid_link(possible_valid_redirect_link) if possible_valid_redirect_link != "" else (link, None)
         try:

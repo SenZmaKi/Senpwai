@@ -17,9 +17,11 @@ else:
 
 COMPANY_NAME = "AkatsuKi Inc."
 APP_NAME = "Senpwai"
-VERSION = "2.0.3"
-UPDATE_INSTALLER_NAMES = [f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
-                              f"{APP_NAME}-installer.exe", f"{APP_NAME}-installer.msi"]
+VERSION = "2.0.2"
+UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe", 
+                          f"{APP_NAME}-updater.msi", f"{APP_NAME}-update.msi",
+                          f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
+                          f"{APP_NAME}-installer.exe", f"{APP_NAME}-installer.msi")
 
 for name in UPDATE_INSTALLER_NAMES:
     full_path = os.path.join(base_directory, name)
@@ -161,7 +163,8 @@ gigachad_audio_path = join_from_audio("gigachad.mp3")
 hentai_addict_audio_path = join_from_audio("aqua-crying.mp3")
 morbius_audio_path = join_from_audio("morbin-time.mp3")
 sen_favourite_audio_path = join_from_audio("sen-favourite.wav")
-one_piece_audio_path = join_from_audio(f"one-piece-real-{randomchoice((1, 2))}.mp3")
+one_piece_audio_path = join_from_audio(
+    f"one-piece-real-{randomchoice((1, 2))}.mp3")
 kage_bunshin_audio_path = join_from_audio("kage-bunshin-no-jutsu.mp3")
 bunshin_poof_audio_path = join_from_audio("bunshin-poof.mp3")
 za_warudo_audio_path = join_from_audio("za-warudo.mp3")
@@ -219,7 +222,6 @@ KEY_TRACKED_ANIME = "tracked_anime"
 KEY_AUTO_DOWNLOAD_SITE = "auto_download_site"
 KEY_ON_CAPTCHA_SWITCH_TO = "on_captcha_switch_to"
 KEY_CHECK_FOR_NEW_EPS_AFTER = "check_for_new_episodes_after"
-
 
 
 amogus_easter_egg = "ඞ"
@@ -340,7 +342,7 @@ def validate_settings_json(settings_json: dict) -> dict:
             raise KeyError
         clean_settings[KEY_RUN_ON_STARTUP] = run_on_startup
     except KeyError:
-        clean_settings[KEY_RUN_ON_STARTUP]  = default_run_on_startup
+        clean_settings[KEY_RUN_ON_STARTUP] = default_run_on_startup
 
     try:
         oncaptcha = settings_json[KEY_ON_CAPTCHA_SWITCH_TO]
@@ -361,13 +363,18 @@ def validate_settings_json(settings_json: dict) -> dict:
     return clean_settings
 
 
-join_to_settings = lambda x: os.path.join(x, "settings.json")
+def join_to_settings(x): return os.path.join(x, "settings.json")
+
+
 SETTINGS_JSON_PATH = join_to_settings(config_dir)
+
+
 def configure_settings() -> dict[str, SETTINGS_TYPES]:
     settings = {}
     s_path = SETTINGS_JSON_PATH
     if sys.platform == "win32":
-        deprecated_settings_json_path = join_to_settings(os.path.join(base_config_dir, APP_NAME))
+        deprecated_settings_json_path = join_to_settings(
+            os.path.join(base_config_dir, APP_NAME))
         if not os.path.isfile(s_path) and os.path.isfile(deprecated_settings_json_path):
             s_path = deprecated_settings_json_path
 

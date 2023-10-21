@@ -1,20 +1,18 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTextEdit
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from windows.main_actual_window import MainWindow, TemporaryWindow, Window
 from shared.global_vars_and_funcs import chopper_crying_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, GITHUB_REPO_URL, github_api_releases_entry_point, github_icon_path, update_bckg_image_path, UPDATE_INSTALLER_NAMES, base_directory
 from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, settings, KEY_GOGO_DEFAULT_BROWSER, CHROME, EDGE, chopper_crying_path, VERSION, pause_icon_path, resume_icon_path, cancel_icon_path
-from shared.shared_classes_and_widgets import StyledButton, StyledLabel, IconButton, AnimeDetails, Icon
-from shared.app_and_scraper_shared import ffmpeg_is_installed, CLIENT
+from shared.shared_classes_and_widgets import StyledButton, StyledLabel, IconButton, AnimeDetails, Icon, StyledTextBrowser
+from shared.app_and_scraper_shared import ffmpeg_is_installed, CLIENT, RESOURCE_MOVED_STATUS_CODES
 from windows.download_window import ProgressBarWithButtons
 from typing import cast, Callable, Any
 from webbrowser import open_new_tab
 from shared.app_and_scraper_shared import IBYTES_TO_MBS_DIVISOR, Download
-import requests
 import sys
 import os
 import subprocess
 import re
-
 
 class SthCrashedWindow(TemporaryWindow):
     def __init__(self, main_window: MainWindow, crash_info_text: str, widgets_to_add: list[QWidget]):
@@ -200,22 +198,27 @@ class TryInstallingFFmpegThread(QThread):
 
 
 class UpdateWindow(Window):
-    def __init__(self, main_window: MainWindow, download_url: str, file_name: str, platform_flag: int):
+    def __init__(self, main_window: MainWindow, download_url: str, file_name: str, update_info: str, platform_flag: int):
         super().__init__(main_window, update_bckg_image_path)
         main_widget = QWidget()
         main_layout = QVBoxLayout()
         self.progress_bar: ProgressBarWithButtons | None = None
-        info_label = StyledLabel(font_size=24)
-        info_label.setWordWrap(True)
+        before_click_label = StyledLabel(font_size=22)
+        before_click_label.setWordWrap(True)
+        update_info_text_browser = StyledTextBrowser(font_size=16)
+        update_info_text_browser.setMarkdown(update_info)
+        update_info_text_browser.setMinimumWidth(500)
+
+        main_layout.addWidget(update_info_text_browser, alignment=Qt.AlignmentFlag.AlignCenter)
         if platform_flag == 1:
-            info_label.setText(
+            before_click_label.setText(
                 "Before you click the update button, ensure you don't have any active downloads cause Senpwai will restart")
-            set_minimum_size_policy(info_label)
+            set_minimum_size_policy(before_click_label)
             main_layout.addWidget(
-                info_label, alignment=Qt.AlignmentFlag.AlignCenter)
+                before_click_label, alignment=Qt.AlignmentFlag.AlignCenter)
             self.update_button = StyledButton(
-                self, 30, "black", RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, 20)
-            self.update_button.setText("START UPDATE")
+                self, 24, "black", RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, 20)
+            self.update_button.setText("DOWNLOAD AND INSTALL UPDATE")
             set_minimum_size_policy(self.update_button)
             download_widget = QWidget()
             self.download_layout = QVBoxLayout()
@@ -231,10 +234,10 @@ class UpdateWindow(Window):
                 os_name = "Mac OS"
             else:
                 os_name = "Linux OS"
-            info_label.setText(
+            before_click_label.setText(
                 f"\n{os_name} detected, you will have to build from source to update to the new version.\nThere is a guide on the README.md in the Github Repository.\n")
-            set_minimum_size_policy(info_label)
-            main_layout.addWidget(info_label)
+            set_minimum_size_policy(before_click_label)
+            main_layout.addWidget(before_click_label)
             github_button = IconButton(Icon(300, 100, github_icon_path), 1.1)
             github_button.clicked.connect(
                 lambda: open_new_tab(GITHUB_REPO_URL))  # type: ignore
@@ -273,7 +276,11 @@ class DownloadUpdateThread(QThread):
         self.make_notification = main_window.tray_icon.make_notification
 
     def run(self):
-        total_size = int(CLIENT.get(self.download_url, stream=True).headers["content-length"])
+        response = (CLIENT.get(self.download_url, stream=True))
+        if response.status_code in RESOURCE_MOVED_STATUS_CODES:
+            self.download_url = response.headers["location"]
+            response = CLIENT.get(self.download_url, stream=True)
+        total_size = int(response.headers["content-length"])
         self.total_size.emit(total_size)
         self.update_window.progress_bar
         while not self.update_window.progress_bar:
@@ -287,7 +294,7 @@ class DownloadUpdateThread(QThread):
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
         if not download.cancelled:
-            os.startfile(os.path.join(base_directory, self.file_name))
+            subprocess.Popen([os.path.join(base_directory, self.file_name), "/silent"])
             self.quit_app.emit()
 
 
@@ -322,7 +329,7 @@ class CheckIfUpdateAvailableThread(QThread):
                     download_url = asset["browser_download_url"]
                     asset_name = asset["name"]
                     break
-        return (update_available, download_url, asset_name,  platform_flag, latest_version)
+        return (update_available, download_url, asset_name,  platform_flag, latest_version_json["body"])
 
     def check_platform(self) -> int:
         if sys.platform == "win32":

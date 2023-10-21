@@ -59,17 +59,15 @@ class MainWindow(QMainWindow):
         self.center_window()
 
     def handle_update_check_result(self, result: tuple[bool, str, str, int, str]):
-        is_available, download_url, file_name, platform_flag, version = result
+        is_available, download_url, file_name, platform_flag, update_info = result
         if not is_available:
             return
         self.update_window = UpdateWindow(
-            self, download_url, file_name, platform_flag)
+            self, download_url, file_name, update_info, platform_flag)
         self.stacked_windows.addWidget(self.update_window)
         update_icon = NavBarButton(
             update_icon_path, self.switch_to_update_window)
         self.search_window.nav_bar_layout.addWidget(update_icon)
-        self.tray_icon.make_notification("Update Available",
-                                         f"Version {version}", False, self.switch_to_update_window)
 
     def switch_to_update_window(self):
         self.switch_to_window(self.update_window)

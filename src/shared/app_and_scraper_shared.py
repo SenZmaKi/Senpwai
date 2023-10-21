@@ -17,6 +17,7 @@ IBYTES_TO_MBS_DIVISOR = 1024*1024
 QUALITY_REGEX = re.compile(r'\b(\d{3,4}p)\b')
 NETWORK_RETRY_WAIT_TIME = 5
 GITHUB_README_URL = "https://github.com/SenZmaKi/Senpwai/blob/master/README.md"
+RESOURCE_MOVED_STATUS_CODES = (301, 302, 307, 308)
 
 
 def extract_new_domain_name_from_readme(site_name: str) -> str:
@@ -78,13 +79,15 @@ class Client():
 
     def post(self, url: str, data: dict | bytes | None = None, json: dict | None = None, headers: dict | None = None, cookies={}, allow_redirects=False) -> requests.Response:
         return self.make_request('POST', url, headers, data=data, json=json, cookies=cookies, allow_redirects=allow_redirects)
-    
+
+
     def network_error_retry_wrapper(self, callback: Callable[[], Any]) -> Any:
         while True:
             try:
                 return callback()
-            except:
-                timesleep(1)
+            except (requests.exceptions.RequestException):
+                    timesleep(1)
+                    print('retrying')
 
 CLIENT = Client()
 
@@ -270,7 +273,7 @@ class Download(PausableAndCancellableFunction):
                             return False
                         size = file.write(data)
                         self.progress_update_callback(size)
-                    except:
+                    except StopIteration:
                         break
 
             file_size = os.path.getsize(self.temporary_file_path)

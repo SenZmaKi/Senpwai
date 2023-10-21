@@ -1,5 +1,5 @@
 from PyQt6.QtGui import QPixmap, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame, QTextBrowser
 from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import SETTINGS_TYPES, PAHE, GOGO
@@ -60,6 +60,21 @@ class StyledLabel(QLabel):
                     }}
                             """)
 
+class StyledTextBrowser(QTextBrowser):
+    def __init__(self, parent=None, font_size: int = 20, bckg_color: str = "rgba(0, 0, 0, 220)", border_radius=10, font_color="white"):
+        super().__init__(parent)
+        self.setOpenExternalLinks(True)
+        self.setStyleSheet(f"""
+                    QTextEdit {{
+                        color: {font_color};
+                        font-size: {font_size}px;
+                        font-family: "Berlin Sans FB Demi";
+                        background-color: {bckg_color};
+                        border-radius: {border_radius}px;
+                        border: 1px solid black;
+                        padding: 5px;
+                    }}
+                            """)
 
 class StyledButton(QPushButton):
     def __init__(self, parent: QWidget | None, font_size: int, font_color: str, normal_color: str, hover_color: str, pressed_color: str, border_radius=12):
