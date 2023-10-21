@@ -176,6 +176,7 @@ class TryInstallingFFmpegThread(QThread):
                     "Successfully Installed", "FFmpeg", True, None)
                 self.start_download()
             else:
+                self.no_ffmpeg_window.main_window.tray_icon.make_notification("Failed to Automatically Install", "FFmpeg", False)
                 open_new_tab(
                     "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Windows")
         elif sys.platform == "linux":
@@ -189,6 +190,7 @@ class TryInstallingFFmpegThread(QThread):
                     "Successfully Installed", "FFmpeg", True, None)
                 self.start_download()
             else:
+                self.no_ffmpeg_window.main_window.tray_icon.make_notification("Failed to Automatically Install", "FFmpeg", False)
                 open_new_tab(
                     "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Linux")
 

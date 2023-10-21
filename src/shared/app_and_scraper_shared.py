@@ -219,11 +219,20 @@ class Download(PausableAndCancellableFunction):
                 download_complete = self.normal_download()
         if self.cancelled:
             if os.path.isfile(self.temporary_file_path):
-                os.unlink(self.temporary_file_path)
+                try:
+                    os.unlink(self.temporary_file_path)
+                except PermissionError:
+                    pass
             return
         if os.path.isfile(self.file_path):
             os.unlink(self.file_path)
-        os.rename(self.temporary_file_path, self.file_path)
+        # Incase the user opened the file before it completed downloading
+        def rename():
+            try:
+                os.rename(self.temporary_file_path, self.file_path)
+            except PermissionError:
+                timesleep(10)
+                return rename()
 
     def hls_download(self) -> bool:
         def get_potential_qualities(master_playlist_url: str) -> list[str]:

@@ -103,10 +103,9 @@ class StyledButton(QPushButton):
 
     def eventFilter(self, obj, event):
         if obj == self:
-            if isinstance(event, QKeyEvent) and event.type() == event.Type.KeyPress and ((event.key() == Qt.Key.Key_Return) or (event.key() == Qt.Key.Key_Enter)):
-                if isinstance(obj, QPushButton):
-                    self.animateClick()
-                    return True
+            if isinstance(event, QKeyEvent) and event.type() == event.Type.KeyPress and (event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)):
+                self.animateClick()
+                return True
 
             return super().eventFilter(obj, event)
 
