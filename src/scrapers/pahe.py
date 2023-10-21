@@ -239,10 +239,10 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     genres: list[str] = []
     for genre in genres_tags:
         genres.append(cast(str, cast(Tag, genre.find('a'))['title']))
-    season = cast(str, cast(Tag, soup.select_one(
+    season_and_year = cast(str, cast(Tag, soup.select_one(
         'a[href*="/anime/season/"]'))['title'])
-    release_year = int(season.split(' ')[-1])
+    _, release_year = season_and_year.split(' ')
     page_link = f'{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_desc'
     page_content = CLIENT.get(page_link).content
     episode_count = json.loads(page_content)['total']
-    return AnimeMetadata(poster_link, summary, int(episode_count), is_ongoing, genres, release_year)
+    return AnimeMetadata(poster_link, summary, int(episode_count), is_ongoing, genres, int(release_year))

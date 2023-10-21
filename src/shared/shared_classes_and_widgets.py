@@ -490,6 +490,8 @@ class AnimeDetails():
         self.sanitised_title = sanitise_title(anime.title)
         self.chosen_default_download_path: str = ''
         self.anime_folder_path = self.get_anime_folder_path()
+        if self.anime_folder_path:
+            os.path.basename(self.anime_folder_path)
         self.potentially_haved_episodes = self.get_potentially_haved_episodes()
         self.haved_episodes: list[int] = []
         self.haved_start, self.haved_end, self.haved_count = self.get_start_end_and_count_of_haved_episodes()
@@ -551,6 +553,10 @@ class AnimeDetails():
             join = os.path.join
             season_path = try_path(
                 join(parent_season_path, self.sanitised_title))
+            season_path = try_path(
+                join(parent_season_path, sanitised_title2))
+            if season_path:
+                    return season_path
             if season_path:
                 return season_path
             season_path = try_path(
@@ -562,10 +568,6 @@ class AnimeDetails():
             )
             if season_path:
                 return season_path
-            season_path = try_path(
-                join(parent_season_path, sanitised_title2))
-            if season_path:
-                    return season_path
             season_path = try_path(
                 join(parent_season_path, f"{title} Season {season_number}")
             )

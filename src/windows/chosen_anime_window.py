@@ -69,7 +69,10 @@ class ChosenAnimeWindow(TemporaryWindow):
         release_year.setText(str(anime_details.metadata.release_year))
         set_minimum_size_policy(release_year)
         bottom_top_layout.addWidget(release_year)
-        airing_text = "ONGOING" if anime_details.metadata.is_ongoing else "FINISHED"
+        if anime_details.metadata.episode_count > 0:
+            airing_text = "ONGOING" if anime_details.metadata.is_ongoing else "FINISHED"
+        else:
+            airing_text = "UPCOMING"
         airing_status = StyledLabel(None, 21, "blue")
         airing_status.setText(airing_text)
         set_minimum_size_policy(airing_status)
