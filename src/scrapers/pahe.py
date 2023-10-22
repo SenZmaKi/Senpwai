@@ -230,10 +230,6 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
         poster = cast(Tag, soup.find(class_='poster-image'))
     poster_link = cast(str, poster['href'])
     summary = cast(Tag, soup.find(class_='anime-synopsis')).get_text()
-    tag = soup.find(title="Currently Airing")
-    is_ongoing = False
-    if tag:
-        is_ongoing = True
     genres_tags = cast(Tag, cast(Tag, soup.find(
         class_="anime-genre font-weight-bold")).find('ul')).find_all('li')
     genres: list[str] = []
@@ -244,5 +240,12 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     _, release_year = season_and_year.split(' ')
     page_link = f'{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_desc'
     page_content = CLIENT.get(page_link).content
-    episode_count = json.loads(page_content)['total']
-    return AnimeMetadata(poster_link, summary, int(episode_count), is_ongoing, genres, int(release_year))
+    episode_count = int(json.loads(page_content)['total'])
+    tag = soup.find(title="Currently Airing")
+    if tag:
+        status = "ONGOING"
+    elif episode_count == 0:
+        status = "UPCOMING"
+    else:
+        status = "FINISHED"
+    return AnimeMetadata(poster_link, summary, episode_count, status, genres, int(release_year))

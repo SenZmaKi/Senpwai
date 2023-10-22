@@ -500,7 +500,7 @@ class AnimeDetails():
         self.episode_count = self.metadata.episode_count
         self.quality = cast(str, settings[KEY_QUALITY])
         self.sub_or_dub = cast(str, settings[KEY_SUB_OR_DUB])
-        self.direct_download_links: list[str] = []
+        self.ddls_or_segs_urls: list[str] | list[list[str]] = []
         self.download_info: list[str] = []
         self.total_download_size: int = 0
         self.predicted_episodes_to_download: list[int] = []

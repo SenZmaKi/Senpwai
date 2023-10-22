@@ -404,7 +404,7 @@ def run_tests(arg: ArgParser):
                 metadata = test_get_metadata(arg.site, target_result)
                 if arg.verbose:
                     print(
-                        f'Metadata:\nPoster Url: {metadata.poster_url}\nSummary: {metadata.summary[:100]}.. .\nEpisode Count: {metadata.episode_count}\nIs Ongoing: {metadata.is_ongoing}\nGenres: {metadata.genres}\nRelease Year: {metadata.release_year}\n')
+                        f'Metadata:\nPoster Url: {metadata.poster_url}\nSummary: {metadata.summary[:100]}.. .\nEpisode Count: {metadata.episode_count}\nIs Ongoing: {metadata.airing_status}\nGenres: {metadata.genres}\nRelease Year: {metadata.release_year}\n')
                 COMMANDS.remove('metadata')
                 if arg.arg_in_group_was_passed(COMMANDS):
                     if (arg.end_eps > metadata.episode_count):

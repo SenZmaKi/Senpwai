@@ -74,8 +74,8 @@ class Client():
             func = lambda: requests.post(url, headers=headers, cookies=cookies, data=data, json=json, allow_redirects=allow_redirects)
         return cast(requests.Response, self.network_error_retry_wrapper(func))
 
-    def get(self, url: str, stream=False, headers: dict | None = None, timeout: int | None = None) -> requests.Response:
-        return self.make_request("GET", url, headers, stream=stream, timeout=timeout)
+    def get(self, url: str, stream=False, headers: dict | None = None, timeout: int | None = None, cookies={}) -> requests.Response:
+        return self.make_request("GET", url, headers, stream=stream, timeout=timeout, cookies=cookies)
 
     def post(self, url: str, data: dict | bytes | None = None, json: dict | None = None, headers: dict | None = None, cookies={}, allow_redirects=False) -> requests.Response:
         return self.make_request('POST', url, headers, data=data, json=json, cookies=cookies, allow_redirects=allow_redirects)
@@ -85,9 +85,8 @@ class Client():
         while True:
             try:
                 return callback()
-            except (requests.exceptions.RequestException):
+            except (requests.exceptions.RequestException) as e:
                     timesleep(1)
-                    print('retrying')
 
 CLIENT = Client()
 
@@ -98,11 +97,11 @@ class QualityAndIndices:
 
 
 class AnimeMetadata:
-    def __init__(self, poster_url: str, summary: str, episode_count: int, is_ongoing: bool, genres: list[str], release_year: int):
+    def __init__(self, poster_url: str, summary: str, episode_count: int, status: str, genres: list[str], release_year: int):
         self.poster_url = poster_url
         self.summary = summary
         self.episode_count = episode_count
-        self.is_ongoing = is_ongoing
+        self.airing_status = status
         self.genres = genres
         self.release_year = release_year
 
@@ -162,7 +161,7 @@ def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: 
 def ffmpeg_is_installed() -> bool:
     try:
         if platform == "win32":
-            subprocess.run("ffmpeg", creationflags=subprocess.CREATE_NO_WINDOW)
+            subprocess.run("ffmpeg")
         else:
             subprocess.run("ffmpeg")
         return True
@@ -187,27 +186,24 @@ class PausableAndCancellableFunction:
 
 
 class Download(PausableAndCancellableFunction):
-    def __init__(self, link: str, episode_title: str, download_folder_path: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', is_hls_download=False, hls_quality='') -> None:
+    def __init__(self, link_or_segment_urls: str | list[str], episode_title: str, download_folder_path: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', is_hls_download=False) -> None:
         super().__init__()
-        self.link = link
+        self.link_or_segment_urls = link_or_segment_urls
         self.episode_title = episode_title
         self.file_extension = file_extension
         self.download_folder_path = download_folder_path
         self.progress_update_callback = progress_update_callback
         self.is_hls_download = is_hls_download
-        self.hls_resolution = hls_quality
-        self.ffmpeg_process: subprocess.Popen
         file_title = f'{self.episode_title}{self.file_extension}'
         self.file_path = os.path.join(self.download_folder_path, file_title)
-        temporary_file_title = f'{self.episode_title} [Downloading]{self.file_extension}'
+        ext = ".ts" if is_hls_download else file_extension
+        temporary_file_title = f'{self.episode_title} [Downloading]{ext}'
         self.temporary_file_path = os.path.join(
             self.download_folder_path, temporary_file_title)
         if os.path.isfile(self.temporary_file_path):
             os.unlink(self.temporary_file_path)
 
     def cancel(self):
-        if self.is_hls_download:
-            self.ffmpeg_process.terminate()
         return super().cancel()
 
     def start_download(self):
@@ -227,44 +223,35 @@ class Download(PausableAndCancellableFunction):
         if os.path.isfile(self.file_path):
             os.unlink(self.file_path)
         # Incase the user opened the file before it completed downloading
-        def rename():
+        def finalise():
             try:
+                if self.is_hls_download:
+                    comp_proc = subprocess.run(['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
+                    return os.unlink(self.temporary_file_path)
                 os.rename(self.temporary_file_path, self.file_path)
             except PermissionError:
                 timesleep(10)
-                return rename()
+                return finalise()
+        finalise()
 
     def hls_download(self) -> bool:
-        def get_potential_qualities(master_playlist_url: str) -> list[str]:
-            response = CLIENT.get(master_playlist_url)
-            lines = response.text.split(',')
-            qualities = [line for line in lines if "NAME=" in line]
-            return qualities
-
-        def generate_ffmpeg_command(hls_link: str, resolution_index: int, file_path: str) -> list[str]:
-            return ['ffmpeg', '-i', hls_link, '-map', f'0:p:{resolution_index}', '-c', 'copy', file_path]
-
-        def download(hls_link: str, file_path: str, quality: str) -> bool:
-            ep_qualities = get_potential_qualities(hls_link)
-            target_quality_idx = match_quality(ep_qualities, quality)
-            command = generate_ffmpeg_command(
-                hls_link, target_quality_idx, file_path)
-            if platform == 'win32':
-                self.ffmpeg_process = subprocess.Popen(
-                    args=command, creationflags=subprocess.CREATE_NO_WINDOW)
-            else:
-                self.ffmpeg_process = subprocess.Popen(
-                    args=command
-                )
-            returncode = self.ffmpeg_process.wait()
-            return True if returncode == 0 else False
-
-        return download(self.link, self.temporary_file_path, self.hls_resolution)
+        with open(self.temporary_file_path, "wb") as f:
+            for seg in self.link_or_segment_urls:
+                response = CLIENT.get(seg)
+                self.resume.wait()
+                if self.cancelled:
+                    return False
+                f.write(response.content)
+                self.progress_update_callback(1)
+            return True
 
     def normal_download(self) -> bool:
-        response = CLIENT.get(self.link, stream=True, timeout=30)
+        self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
+        response = CLIENT.get(self.link_or_segment_urls, stream=True, timeout=30)
 
-        def response_ranged(start_byte): return CLIENT.get(self.link, stream=True, headers=CLIENT.append_headers({'Range': f'bytes={start_byte}-'}), timeout=30)
+        def response_ranged(start_byte): 
+            self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
+            return CLIENT.get(self.link_or_segment_urls, stream=True, headers=CLIENT.append_headers({'Range': f'bytes={start_byte}-'}), timeout=30)
 
         total = int(response.headers.get('content-length', 0))
 

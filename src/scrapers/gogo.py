@@ -16,7 +16,7 @@ from shared.app_and_scraper_shared import PARSER, CLIENT, match_quality, IBYTES_
 
 # Hls mode imports
 import json
-from yarl import URL as parseUrl
+from yarl import URL
 import base64
 import re
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -260,14 +260,17 @@ def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
     genre_tags = cast(ResultSet[Tag], metadata_tags[2].find_all('a'))
     genres = cast(list[str], [g['title'] for g in genre_tags])
     release_year = int(metadata_tags[3].get_text().replace('Released: ', ''))
-    episode_count = cast(Tag, cast(ResultSet[Tag], cast(Tag, soup.find(
-        'ul', id='episode_page')).find_all('li'))[-1].find('a')).get_text().split('-')[-1]
+    episode_count = int(cast(Tag, cast(ResultSet[Tag], cast(Tag, soup.find(
+        'ul', id='episode_page')).find_all('li'))[-1].find('a')).get_text().split('-')[-1])
     tag = soup.find('a', title="Ongoing Anime")
-    is_ongoing = False
     if tag:
-        is_ongoing = True
+        status = "ONGOING"
+    elif episode_count == 0:
+        status = "UPCOMING"
+    else:
+        status = "FINISHED"
 
-    return AnimeMetadata(poster_link, summary, int(episode_count), is_ongoing, genres, release_year)
+    return AnimeMetadata(poster_link, summary, episode_count, status, genres, release_year)
 
 
 def dub_available(anime_title: str) -> bool:
@@ -321,7 +324,7 @@ def aes_decrypt(data: str, *, key, iv) -> str:
 
 
 def extract_stream_url(embed_url: str) -> str:
-    parsed_url = parseUrl(embed_url)
+    parsed_url = URL(embed_url)
     content_id = parsed_url.query['id']
     streaming_page_host = f'https://{parsed_url.host}/'
     streaming_page = CLIENT.get(embed_url).content
@@ -357,7 +360,46 @@ def extract_stream_url(embed_url: str) -> str:
         stream_url = source[0]["file"]
     return stream_url
 
+class GetMatchedQualityLinks(PausableAndCancellableFunction):
+    def __init__(self) -> None:
+        super().__init__()
+        
+    def get_matched_quality_link(self, hls_links: list[str], quality: str, progress_update_callback: Callable[[int], None]) -> list[str]:
+        matched_links: list[str] = []
+        for h in hls_links:
+            response = CLIENT.get(h)
+            self.resume.wait()
+            if self.cancelled:
+                return []
+            lines = response.text.split(',')
+            qualities = [line for line in lines if "NAME=" in line]
+            idx = match_quality(qualities, quality)
+            resource = qualities[idx].splitlines()[1]
+            base_url = URL(h).parent
+            matched_links.append(f"{base_url}/{resource}")
+            progress_update_callback(1)
+        return matched_links
+class GetSegmentsUrls(PausableAndCancellableFunction):
+    def __init__(self) -> None:
+        super().__init__()
 
+    def get_segments_urls(self, matched_links: list[str], progress_update_callback: Callable[[int], None]) -> list[list[str]]:
+        segments_urls: list[list[str]] = []
+        for m in matched_links:
+            response = CLIENT.get(m)
+            self.resume.wait()
+            if self.cancelled:
+                return []
+            segments = response.text.splitlines()
+            base_url = "/".join(m.split("/")[:-1])
+            segment_urls: list[str] = []
+            for seg in segments:
+                if seg.endswith('.ts'):
+                    segment_url = f"{base_url}/{seg}"
+                    segment_urls.append(segment_url)
+            segments_urls.append(segment_urls)
+            progress_update_callback(1)
+        return segments_urls
 class GetHlsLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
@@ -365,8 +407,8 @@ class GetHlsLinks(PausableAndCancellableFunction):
     def get_hls_links(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> list[str]:
         hls_links: list[str] = []
         for eps_url in episode_page_links:
-            self.resume.wait()
             hls_links.append(extract_stream_url(get_embed_url(eps_url)))
+            self.resume.wait()
             if self.cancelled:
                 return []
             progress_update_callback(1)

@@ -69,12 +69,8 @@ class ChosenAnimeWindow(TemporaryWindow):
         release_year.setText(str(anime_details.metadata.release_year))
         set_minimum_size_policy(release_year)
         bottom_top_layout.addWidget(release_year)
-        if anime_details.metadata.episode_count > 0:
-            airing_text = "ONGOING" if anime_details.metadata.is_ongoing else "FINISHED"
-        else:
-            airing_text = "UPCOMING"
         airing_status = StyledLabel(None, 21, "blue")
-        airing_status.setText(airing_text)
+        airing_status.setText(anime_details.metadata.airing_status)
         set_minimum_size_policy(airing_status)
         bottom_top_layout.addWidget(airing_status)
         self.episode_count = EpisodeCount(
@@ -175,20 +171,21 @@ class ChosenAnimeWindow(TemporaryWindow):
         start_episode = str((self.anime_details.haved_end)+1) if (
             self.anime_details.haved_end and self.anime_details.haved_end < self.anime_details.episode_count) else "1"
         input_size = QSize(80, 40)
-        self.start_episode_input = NumberInput(21)
-        self.start_episode_input.setFixedSize(input_size)
-        self.start_episode_input.setPlaceholderText("START")
-        self.start_episode_input.setText(str(start_episode))
-        self.end_episode_input = NumberInput(21)
-        self.end_episode_input.setPlaceholderText("STOP")
-        self.end_episode_input.setFixedSize(input_size)
-        self.download_button = DownloadButton(
-            self, self.main_window.download_window, self.anime_details)
-        set_minimum_size_policy(self.download_button)
-
-        second_row_of_buttons_layout.addWidget(self.start_episode_input)
-        second_row_of_buttons_layout.addWidget(self.end_episode_input)
-        second_row_of_buttons_layout.addWidget(self.download_button)
+        if anime_details.metadata.airing_status != "UPCOMING":
+            self.start_episode_input = NumberInput(21)
+            self.start_episode_input.setFixedSize(input_size)
+            self.start_episode_input.setPlaceholderText("START")
+            self.start_episode_input.setText(str(start_episode))
+            self.end_episode_input = NumberInput(21)
+            self.end_episode_input.setPlaceholderText("STOP")
+            self.end_episode_input.setFixedSize(input_size)
+            self.download_button = DownloadButton(
+                self, self.main_window.download_window, self.anime_details)
+            set_minimum_size_policy(self.download_button)
+            second_row_of_buttons_layout.addWidget(self.start_episode_input)
+            second_row_of_buttons_layout.addWidget(self.end_episode_input)
+            second_row_of_buttons_layout.addWidget(self.download_button)
+            QTimer.singleShot(0, self.download_button.setFocus)
         including_error_label_widget = QWidget()
         including_error_label_layout = QVBoxLayout()
         self.error_label = ErrorLabel(18, 6)
@@ -243,7 +240,6 @@ class ChosenAnimeWindow(TemporaryWindow):
             main_widget.horizontalScrollBar().maximum())
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
-        QTimer.singleShot(0, self.download_button.setFocus)
         # For testing purposes
         # self.download_button.animateClick()
 
