@@ -1,9 +1,9 @@
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpacerItem
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
-from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, GogoNormOrHlsButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection, DualStateButton
+from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, QualityButton, SubDubButton, GogoNormOrHlsButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection, DualStateButton
 from shared.global_vars_and_funcs import GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, RED_NORMAL_COLOR, RED_PRESSED_COLOR, settings, KEY_SUB_OR_DUB, Q_1080, Q_720, Q_480, Q_360, chosen_anime_window_bckg_image_path
-from shared.global_vars_and_funcs import SUB, DUB, set_minimum_size_policy, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_TRACKED_ANIME, GOGO, CHROME, EDGE, FIREFOX
+from shared.global_vars_and_funcs import SUB, DUB, set_minimum_size_policy, KEY_QUALITY, KEY_TRACKED_ANIME, GOGO
 from windows.download_window import DownloadWindow
 from windows.settings_window import SettingsWindow
 from shared.app_and_scraper_shared import dynamic_episodes_predictor_initialiser_pro_turboencapsulator
@@ -191,20 +191,6 @@ class ChosenAnimeWindow(TemporaryWindow):
         self.error_label = ErrorLabel(18, 6)
         self.error_label.hide()
         including_error_label_layout.addWidget(self.error_label)
-        if anime_details.site == GOGO:
-            chrome_browser_button = GogoBrowserButton(self, CHROME, 18)
-            edge_browser_button = GogoBrowserButton(self, EDGE, 18)
-            firefox_browser_button = GogoBrowserButton(self, FIREFOX, 18)
-            self.browser_buttons = [chrome_browser_button,
-                                    edge_browser_button, firefox_browser_button]
-            for button in self.browser_buttons:
-                set_minimum_size_policy(button)
-                second_row_of_buttons_layout.addWidget(button)
-                browser = button.browser
-                button.clicked.connect(
-                    lambda garbage_bool, browser=browser: self.update_browser(browser))
-                if browser == cast(str, settings[KEY_GOGO_DEFAULT_BROWSER]):
-                    button.set_picked_status(True)
         second_row_of_buttons_widget.setLayout(second_row_of_buttons_layout)
         second_row_of_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         including_error_label_layout.addWidget(second_row_of_buttons_widget)
@@ -243,11 +229,6 @@ class ChosenAnimeWindow(TemporaryWindow):
         # For testing purposes
         # self.download_button.animateClick()
 
-    def update_browser(self, browser: str):
-        self.anime_details.browser = browser
-        for button in self.browser_buttons:
-            if button.browser != browser:
-                button.set_picked_status(False)
 
     def update_quality(self, quality: str):
         self.anime_details.quality = quality

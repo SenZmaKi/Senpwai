@@ -8,9 +8,7 @@ from shared.app_and_scraper_shared import CLIENT
 from windows.main_actual_window import MainWindow, Window
 from scrapers import pahe
 from scrapers import gogo
-import requests
 from random import choice as randomchoice
-from typing import cast
 from time import sleep as timesleep
 
 
@@ -22,6 +20,7 @@ class SearchWindow(Window):
         main_layout = QVBoxLayout()
 
         mascot_button = IconButton(Icon(117, 100, random_mascot_icon_path), 1)
+        mascot_button.setToolTip("Goofy 🗿")
 
         mascot_button.clicked.connect(AudioPlayer(
             self, sen_favourite_audio_path, volume=60).play)
@@ -286,12 +285,12 @@ class SearchButton(StyledButton):
             super().__init__(window, 40, "black", PAHE_NORMAL_COLOR,
                              PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR)
             self.setText("Animepahe")
-            self.setToolTip("Recommended")
+            self.setToolTip("Stable 🌲")
         else:
             super().__init__(window, 40, "black", GOGO_NORMAL_COLOR,
                              GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
             self.setText("Gogoanime")
-            self.setToolTip("Unstable")
+            self.setToolTip("Experimental 🧪")
         self.clicked.connect(lambda: window.search_anime(
             window.get_search_bar_text(), site))
 

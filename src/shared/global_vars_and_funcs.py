@@ -3,12 +3,13 @@ import sys
 from random import choice as randomchoice
 from appdirs import user_config_dir
 from pathlib import Path
-from scrapers.gogo import EDGE, CHROME, FIREFOX
 from PyQt6.QtWidgets import QSizePolicy
 import json
 from typing import cast
 from subprocess import Popen
 import logging
+from types import TracebackType
+
 
 if getattr(sys, 'frozen', False):
     base_directory = os.path.dirname(sys.executable)
@@ -23,10 +24,16 @@ UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe",
                           f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
                           f"{APP_NAME}-installer.exe", f"{APP_NAME}-installer.msi")
 
+def delete_file(path: str):
+    if os.path.isfile(path):
+        try:
+            os.unlink(path)
+        except PermissionError:
+            pass
+
 for name in UPDATE_INSTALLER_NAMES:
     full_path = os.path.join(base_directory, name)
-    if os.path.exists(full_path):
-        os.unlink(full_path)
+    delete_file(full_path)
 
 base_config_dir = user_config_dir()
 if sys.platform == "win32":
@@ -57,19 +64,22 @@ default_start_minimised = False
 default_run_on_startup = False
 default_on_captcha_switch_to = PAHE
 default_check_for_new_eps_after = 24
+default_gogo_skip_calculate = False
 
 error_logs_file_path = os.path.join(config_dir, "errors.log")
 if not os.path.exists(error_logs_file_path):
-    with open(error_logs_file_path, "w") as f:
-        f.write("__-- FIRST BOOT --__\n")
+    f = open(error_logs_file_path, "w")
+    f.close()
 
 logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+def log_exception(e: Exception):
+    custom_exception_handler(type(e), e, e.__traceback__)
 
-def log_error(error: str):
-    logging.error(error)
-
+def custom_exception_handler(type_: type[BaseException], value: BaseException, traceback: TracebackType | None):
+    logging.error(f"Unhandled exception: {type_.__name__}: {value}")
+    sys.__excepthook__(type_, value, traceback)
 
 def open_folder(folder_path: str) -> None:
     if sys.platform == "win32":
@@ -89,7 +99,6 @@ if not os.path.isdir(downloads_folder):
 default_download_folder_paths = [downloads_folder]
 
 default_max_simutaneous_downloads = 2
-default_gogo_browser = CHROME
 default_allow_notifications = True
 default_start_in_fullscreen = True
 default_gogo_hls_mode = False
@@ -117,7 +126,7 @@ def join_from_bckg_images(img_title): return os.path.join(
 search_window_bckg_image_path = join_from_bckg_images("search.jpg")
 chosen_anime_window_bckg_image_path = join_from_bckg_images("chosen-anime.jpg")
 settings_window_bckg_image_path = join_from_bckg_images("settings.jpg")
-downlaod_window_bckg_image_path = join_from_bckg_images("downloads.png")
+download_window_bckg_image_path = join_from_bckg_images("downloads.png")
 chopper_crying_path = join_from_bckg_images("chopper-crying.png")
 about_bckg_image_path = join_from_bckg_images("about.jpg")
 update_bckg_image_path = join_from_bckg_images("update.jpg")
@@ -212,7 +221,6 @@ KEY_SUB_OR_DUB = "sub_or_dub"
 KEY_QUALITY = "quality"
 KEY_DOWNLOAD_FOLDER_PATHS = "download_folder_paths"
 KEY_MAX_SIMULTANEOUS_DOWNLOADS = "max_simultaneous_downloads"
-KEY_GOGO_DEFAULT_BROWSER = "gogo_default_browser"
 KEY_ALLOW_NOTIFICATIONS = "allow_notifcations"
 deprecated_key_make_download_complete_notifications = "make_download_complete_notifications"
 KEY_START_IN_FULLSCREEN = "start_in_fullscreen"
@@ -220,8 +228,8 @@ KEY_RUN_ON_STARTUP = "run_on_startup"
 KEY_GOGO_NORM_OR_HLS_MODE = "gogo_hls_mode"
 KEY_TRACKED_ANIME = "tracked_anime"
 KEY_AUTO_DOWNLOAD_SITE = "auto_download_site"
-KEY_ON_CAPTCHA_SWITCH_TO = "on_captcha_switch_to"
 KEY_CHECK_FOR_NEW_EPS_AFTER = "check_for_new_episodes_after"
+KEY_GOGO_SKIP_CALCULATE = "gogo_skip_calculating_total_download_size"
 
 
 amogus_easter_egg = "ඞ"
@@ -232,7 +240,7 @@ def requires_admin_access(folder_path):
     try:
         temp_file = os.path.join(folder_path, 'temp.txt')
         open(temp_file, 'w').close()
-        os.unlink(temp_file)
+        delete_file(temp_file)
         return False
     except PermissionError:
         return True
@@ -287,13 +295,6 @@ def validate_settings_json(settings_json: dict) -> dict:
     except KeyError:
         clean_settings[KEY_MAX_SIMULTANEOUS_DOWNLOADS] = default_max_simutaneous_downloads
     try:
-        gogo_default_browser = settings_json[KEY_GOGO_DEFAULT_BROWSER]
-        if gogo_default_browser not in (CHROME, EDGE, FIREFOX):
-            raise KeyError
-        clean_settings[KEY_GOGO_DEFAULT_BROWSER] = gogo_default_browser
-    except KeyError:
-        clean_settings[KEY_GOGO_DEFAULT_BROWSER] = default_gogo_browser
-    try:
         try:
             allow_notifications = settings_json[KEY_ALLOW_NOTIFICATIONS]
         except KeyError:
@@ -345,12 +346,12 @@ def validate_settings_json(settings_json: dict) -> dict:
         clean_settings[KEY_RUN_ON_STARTUP] = default_run_on_startup
 
     try:
-        oncaptcha = settings_json[KEY_ON_CAPTCHA_SWITCH_TO]
-        if oncaptcha not in (PAHE, GOGO_HLS_MODE):
+        skip = settings_json[KEY_GOGO_SKIP_CALCULATE]
+        if not isinstance(skip, bool):
             raise KeyError
-        clean_settings[KEY_ON_CAPTCHA_SWITCH_TO] = oncaptcha
+        clean_settings[KEY_GOGO_SKIP_CALCULATE] = skip
     except KeyError:
-        clean_settings[KEY_ON_CAPTCHA_SWITCH_TO] = default_on_captcha_switch_to
+        clean_settings[KEY_GOGO_SKIP_CALCULATE] = default_gogo_skip_calculate
 
     try:
         intervals = settings_json[KEY_CHECK_FOR_NEW_EPS_AFTER]

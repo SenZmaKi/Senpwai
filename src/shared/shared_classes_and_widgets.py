@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import SETTINGS_TYPES, PAHE, GOGO
 from time import time
-from shared.global_vars_and_funcs import  settings, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE
+from shared.global_vars_and_funcs import  settings, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE, KEY_GOGO_SKIP_CALCULATE
 from shared.global_vars_and_funcs import folder_icon_path, RED_NORMAL_COLOR, RED_PRESSED_COLOR, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, open_folder, GOGO_HLS_MODE, set_minimum_size_policy, GOGO_NORM_MODE
 from shared.app_and_scraper_shared import sanitise_title, AnimeMetadata
 from pathlib import Path
@@ -486,7 +486,6 @@ class AnimeDetails():
         self.site = site
         self.is_hls_download = True if (site == GOGO) and cast(
             str, settings[KEY_GOGO_NORM_OR_HLS_MODE]) == GOGO_HLS_MODE else False
-        self.browser = cast(str, settings[KEY_GOGO_DEFAULT_BROWSER])
         self.sanitised_title = sanitise_title(anime.title)
         self.chosen_default_download_path: str = ''
         self.anime_folder_path = self.get_anime_folder_path()
@@ -504,6 +503,7 @@ class AnimeDetails():
         self.download_info: list[str] = []
         self.total_download_size: int = 0
         self.predicted_episodes_to_download: list[int] = []
+        self.skip_calculating_size = True if site == GOGO and settings[KEY_GOGO_SKIP_CALCULATE] else False
 
     def get_anime_folder_path(self) -> str | None:
         def try_path(title: str) -> str | None:
@@ -671,13 +671,6 @@ class NumberInput(QLineEdit):
         return super().eventFilter(obj, event)
 
 
-class GogoBrowserButton(OptionButton):
-    def __init__(self, window: QWidget, browser: str, font_size: int):
-        super().__init__(window, browser, browser.upper(),
-                         font_size, RED_NORMAL_COLOR, RED_PRESSED_COLOR)
-        self.browser = browser
-
-
 class QualityButton(OptionButton):
     def __init__(self, window: QWidget, quality: str, font_size: int):
         super().__init__(window, quality, quality, font_size,
@@ -698,8 +691,8 @@ class GogoNormOrHlsButton(OptionButton):
                          font_size, RED_NORMAL_COLOR, RED_PRESSED_COLOR)
         self.norm_or_hls = norm_or_hls
         if self.norm_or_hls == GOGO_NORM_MODE:
-            return self.setToolTip("In Normal mode you may occasionally encounter Captcha block.\nAlso you must have either Chrome, Edge or Firefox installed")
-        self.setToolTip("HLS mode guarantees Gogoanime downloads will go through, zettaini, but in order for it to work you must have FFmpeg installed.\nThough Senpwai can try to automatically install it for you. Also, you can't pause ongoing downloads while in HLS mode")
+            return self.setToolTip("Normal download functionality, similar to Animepahe but may occassionally fail")
+        self.setToolTip("Guaranteed to work, it's like downloading a live stream as opposed to a file\nYou need to install FFmpeg for it to work but Senpwai will try to automatically install it")
 
 
 

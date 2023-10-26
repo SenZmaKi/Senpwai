@@ -212,7 +212,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
             post_url = cast(str, cast(Tag, soup.form)['action'])
             token_value = cast(str, cast(Tag, soup.input)['value'])
             response = CLIENT.post(post_url, headers= CLIENT.append_headers({'Referer': download_link}), cookies=cookies, data={'_token': token_value}, allow_redirects=False)
-            direct_download_link = response.headers['location']
+            direct_download_link = response.headers['Location']
             direct_download_links.append(direct_download_link)
             self.resume.wait()
             if self.cancelled:

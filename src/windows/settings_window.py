@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
 from PyQt6.QtCore import Qt
 from shared.global_vars_and_funcs import SETTINGS_TYPES, validate_settings_json, SETTINGS_JSON_PATH, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR
-from shared.global_vars_and_funcs import settings, KEY_GOGO_DEFAULT_BROWSER, KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_RUN_ON_STARTUP, KEY_ON_CAPTCHA_SWITCH_TO, KEY_CHECK_FOR_NEW_EPS_AFTER
-from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, CHROME, EDGE, FIREFOX, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME
-from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoBrowserButton, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
+from shared.global_vars_and_funcs import settings,  KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_RUN_ON_STARTUP, KEY_CHECK_FOR_NEW_EPS_AFTER, KEY_GOGO_SKIP_CALCULATE
+from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME, delete_file
+from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
 from windows.download_window import DownloadWindow
 from sys import platform as sysplatform
@@ -30,7 +30,6 @@ class SettingsWindow(Window):
         self.quality_setting = QualitySetting(self)
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(
             self)
-        self.gogo_default_browser_setting = GogoDefaultBrowserSetting(self)
         self.make_download_complete_notification_setting = AllowNotificationsSetting(
             self)
         self.start_in_fullscreen = StartInFullscreenSetting(self)
@@ -40,21 +39,20 @@ class SettingsWindow(Window):
         self.tracked_anime = TrackedAnimeListSetting(self,)
         self.auto_download_site = AutoDownloadSite(self)
         self.check_for_new_eps_after = CheckForNewEpsAfterSetting(self, main_window.download_window)
+        self.gogo_skip_calculate = GogoSkipCalculate(self)
         if sysplatform == "win32":
             self.run_on_startup = RunOnStartUp(self)
-        self.oncaptcha_switch_to = OnCaptchaSwitchToSetting(self)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
-        left_layout.addWidget(self.gogo_default_browser_setting)
         left_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
-        left_layout.addWidget(self.oncaptcha_switch_to)
+        left_layout.addWidget(self.gogo_skip_calculate)
         left_layout.addWidget(
             self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_in_fullscreen)
-        right_layout.addWidget(self.download_folder_setting)
         if sysplatform == "win32":
-            right_layout.addWidget(self.run_on_startup)
+            left_layout.addWidget(self.run_on_startup)
+        right_layout.addWidget(self.download_folder_setting)
         right_layout.addWidget(self.auto_download_site)
         right_layout.addWidget(self.check_for_new_eps_after)
         right_layout.addWidget(self.tracked_anime)
@@ -66,7 +64,6 @@ class SettingsWindow(Window):
         validated = validate_settings_json(settings)
         with open(SETTINGS_JSON_PATH, "w") as f:
             json.dump(validated, f, indent=4)
-
 
 class FolderSetting(QWidget):
     def __init__(self, settings_window: SettingsWindow, main_window: MainWindow, setting_info: str, setting_key: str, setting_tool_tip: str | None):
@@ -345,6 +342,9 @@ class YesOrNoSetting(SettingWidget):
         if tooltip:
             self.setting_label.setToolTip(tooltip)
 
+class GogoSkipCalculate(YesOrNoSetting):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__(settings_window, "Skip calculating download size for Gogo", KEY_GOGO_SKIP_CALCULATE)
 
 class StartInFullscreenSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
@@ -366,57 +366,13 @@ class RunOnStartUp(YesOrNoSetting):
 
     def remove_startup_lnk(self):
         if os.path.isfile(self.lnk_path):
-            os.unlink(self.lnk_path)
+            delete_file(self.lnk_path)
 
 class AllowNotificationsSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Allow notifications uWu?",
                          KEY_ALLOW_NOTIFICATIONS)
 
-
-class GogoDefaultBrowserSetting(SettingWidget):
-    def __init__(self, settings_window: SettingsWindow):
-        font_size = settings_window.font_size
-        self.settings_window = settings_window
-        button_chrome = GogoBrowserButton(
-            settings_window, CHROME, font_size)
-        button_edge = GogoBrowserButton(settings_window, EDGE, font_size)
-        button_firefox = GogoBrowserButton(
-            settings_window, FIREFOX, font_size)
-        self.browser_buttons_list = [
-            button_chrome, button_edge, button_firefox]
-        for button in self.browser_buttons_list:
-            set_minimum_size_policy(button)
-            browser = button.browser
-            button.clicked.connect(
-                lambda garbage_bool, browser=browser: self.update_browser(browser))
-            if button.browser == cast(str, settings[KEY_GOGO_DEFAULT_BROWSER]):
-                button.set_picked_status(True)
-        super().__init__(settings_window,
-                         "Gogo default scraping browser", self.browser_buttons_list)
-        self.setting_label.setToolTip(
-            "The selected browser will be used for scraping if you download from Gogoanime in Normal mode")
-
-    def update_browser(self, browser: str):
-        self.settings_window.update_settings_json(
-            KEY_GOGO_DEFAULT_BROWSER, browser)
-        for button in self.browser_buttons_list:
-            if button.browser != browser:
-                button.set_picked_status(False)
-
-class OnCaptchaSwitchToSetting(SettingWidget):
-    def __init__(self, settings_window: SettingsWindow):
-        pahe_button = OptionButton(None, PAHE, "PAHE", settings_window.font_size, PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR)
-        hls_button = GogoNormOrHlsButton(None, GOGO_HLS_MODE, settings_window.font_size)
-        pahe_button.clicked.connect(lambda: hls_button.set_picked_status(False))
-        pahe_button.clicked.connect(lambda: settings_window.update_settings_json(KEY_ON_CAPTCHA_SWITCH_TO, pahe_button.option))
-        hls_button.clicked.connect(lambda: pahe_button.set_picked_status(False))
-        hls_button.clicked.connect(lambda: settings_window.update_settings_json(KEY_ON_CAPTCHA_SWITCH_TO, hls_button.option))
-        if settings[KEY_ON_CAPTCHA_SWITCH_TO] == PAHE:
-            pahe_button.set_picked_status(True)
-        else:
-            hls_button.set_picked_status(True)
-        super().__init__(settings_window, "On Captcha block switch to", [pahe_button, hls_button])
 
 class GogoNormOrHlsSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
@@ -441,7 +397,6 @@ class GogoNormOrHlsSetting(SettingWidget):
         super().__init__(settings_window,
                          "Gogo Normal or HLS mode", [norm_button, hls_button])
         self.setting_label.setToolTip(hls_button.toolTip())
-
 
 class NonZeroNumberInputSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow, setting_key: str, setting_info: str, error_on_zero_text: str, units: str | None, tooltip: str | None = None):

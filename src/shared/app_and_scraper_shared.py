@@ -11,10 +11,12 @@ from random_user_agent.user_agent import UserAgent
 from random_user_agent.params import OperatingSystem, SoftwareName, SoftwareType, HardwareType
 from random import choice as randomchoice
 from bs4 import BeautifulSoup, Tag
+from shared.global_vars_and_funcs import log_exception, delete_file
 
 PARSER = 'html.parser'
 IBYTES_TO_MBS_DIVISOR = 1024*1024
-QUALITY_REGEX = re.compile(r'\b(\d{3,4}p)\b')
+QUALITY_REGEX = re.compile(r'\b(\d{3,4})p\b')
+QUALITY_REGEX2 = re.compile(r'\b\d+x(\d+)\b')
 NETWORK_RETRY_WAIT_TIME = 5
 GITHUB_README_URL = "https://github.com/SenZmaKi/Senpwai/blob/master/README.md"
 RESOURCE_MOVED_STATUS_CODES = (301, 302, 307, 308)
@@ -85,7 +87,8 @@ class Client():
         while True:
             try:
                 return callback()
-            except (requests.exceptions.RequestException) as e:
+            except requests.exceptions.RequestException as e:
+                    log_exception(e)
                     timesleep(1)
 
 CLIENT = Client()
@@ -111,18 +114,21 @@ class AnimeMetadata:
 
 def match_quality(potential_qualities: list[str], user_quality: str) -> int:
     detected_qualities: list[QualityAndIndices] = []
+    user_quality = user_quality.replace('p', '')
     for idx, potential_quality in enumerate(potential_qualities):
         match = QUALITY_REGEX.search(potential_quality)
+        if not match:
+            match = QUALITY_REGEX2.search(potential_quality)
+
         if match:
             quality = cast(str, match.group(1))
             if quality == user_quality:
                 return idx
             else:
-                quality = quality.replace('p', '')
                 if quality.isdigit():
                     detected_qualities.append(
                         QualityAndIndices(int(quality), idx))
-    int_user_quality = int(user_quality.replace('p', ''))
+    int_user_quality = int(user_quality)
     if len(detected_qualities) <= 0:
         if int_user_quality <= 480:
             return 0
@@ -184,9 +190,8 @@ class PausableAndCancellableFunction:
         if self.resume.is_set():
             self.cancelled = True
 
-
 class Download(PausableAndCancellableFunction):
-    def __init__(self, link_or_segment_urls: str | list[str], episode_title: str, download_folder_path: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', is_hls_download=False) -> None:
+    def __init__(self, link_or_segment_urls: str | list[str], episode_title: str, download_folder_path: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', is_hls_download=False, cookies = requests.sessions.RequestsCookieJar()) -> None:
         super().__init__()
         self.link_or_segment_urls = link_or_segment_urls
         self.episode_title = episode_title
@@ -194,6 +199,7 @@ class Download(PausableAndCancellableFunction):
         self.download_folder_path = download_folder_path
         self.progress_update_callback = progress_update_callback
         self.is_hls_download = is_hls_download
+        self.cookies = cookies
         file_title = f'{self.episode_title}{self.file_extension}'
         self.file_path = os.path.join(self.download_folder_path, file_title)
         ext = ".ts" if is_hls_download else file_extension
@@ -201,7 +207,7 @@ class Download(PausableAndCancellableFunction):
         self.temporary_file_path = os.path.join(
             self.download_folder_path, temporary_file_title)
         if os.path.isfile(self.temporary_file_path):
-            os.unlink(self.temporary_file_path)
+            delete_file(self.temporary_file_path)
 
     def cancel(self):
         return super().cancel()
@@ -214,24 +220,19 @@ class Download(PausableAndCancellableFunction):
             else:
                 download_complete = self.normal_download()
         if self.cancelled:
-            if os.path.isfile(self.temporary_file_path):
-                try:
-                    os.unlink(self.temporary_file_path)
-                except PermissionError:
-                    pass
+            delete_file(self.temporary_file_path)
             return
-        if os.path.isfile(self.file_path):
-            os.unlink(self.file_path)
+        delete_file(self.file_path)
         # Incase the user opened the file before it completed downloading
         def finalise():
-            try:
-                if self.is_hls_download:
-                    comp_proc = subprocess.run(['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
-                    return os.unlink(self.temporary_file_path)
-                os.rename(self.temporary_file_path, self.file_path)
-            except PermissionError:
-                timesleep(10)
-                return finalise()
+            if self.is_hls_download:
+                subprocess.run(['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
+                delete_file(self.temporary_file_path)
+            while True:
+                try:
+                    return os.rename(self.temporary_file_path, self.file_path)
+                except PermissionError: # Maybe they started watching the episode on VLC before it finished downloading now VLC has a handle to the file hence PermissionDenied
+                    timesleep(10)
         finalise()
 
     def hls_download(self) -> bool:
@@ -247,11 +248,11 @@ class Download(PausableAndCancellableFunction):
 
     def normal_download(self) -> bool:
         self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
-        response = CLIENT.get(self.link_or_segment_urls, stream=True, timeout=30)
+        response = CLIENT.get(self.link_or_segment_urls, stream=True, timeout=30, cookies=self.cookies)
 
         def response_ranged(start_byte): 
             self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
-            return CLIENT.get(self.link_or_segment_urls, stream=True, headers=CLIENT.append_headers({'Range': f'bytes={start_byte}-'}), timeout=30)
+            return CLIENT.get(self.link_or_segment_urls, stream=True, headers=CLIENT.append_headers({'Range': f'bytes={start_byte}-'}), timeout=30, cookies=self.cookies)
 
         total = int(response.headers.get('content-length', 0))
 

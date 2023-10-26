@@ -7,5 +7,4 @@ bs4==0.0.1
 yarl==1.9.2
 requests==2.31.0
 cryptography==41.0.3
-selenium==4.11.2
 PyQt6==6.5.1

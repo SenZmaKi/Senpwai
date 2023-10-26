@@ -1,18 +1,10 @@
 from urllib.parse import quote
 from bs4 import BeautifulSoup, ResultSet, Tag
-from time import sleep
-import webbrowser
-from sys import platform
+from requests.cookies import RequestsCookieJar
+from random import choice as randomchoice
 
-from selenium.common.exceptions import WebDriverException
-from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.edge.service import Service as EdgeService
-from selenium.webdriver.firefox.service import Service as FirefoxService
-from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions, FirefoxOptions
-
-import subprocess
-from typing import Callable, cast
-from shared.app_and_scraper_shared import PARSER, CLIENT, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction, AnimeMetadata, extract_new_domain_name_from_readme
+from typing import Callable, cast, Optional
+from shared.app_and_scraper_shared import PARSER, CLIENT, match_quality, IBYTES_TO_MBS_DIVISOR, PausableAndCancellableFunction, AnimeMetadata, extract_new_domain_name_from_readme
 
 # Hls mode imports
 import json
@@ -22,18 +14,20 @@ import re
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.backends import default_backend
-from threading import Event
 
 GOGO = 'gogo'
 GOGO_HOME_URL = 'https://gogoanimehd.io'
 DUB_EXTENSION = ' (Dub)'
-EDGE = 'edge'
-CHROME = 'chrome'
-FIREFOX = 'firefox'
+REGISTERED_ACCOUNT_EMAILS = ['benida7218@weirby.com', 'hareki4411@wisnick.com' ,'nanab67795@weirby.com', 'xener53725@weirby.com', 'nenado3105@weirby.com', 
+                             'yaridod257@weirby.com', 'ketoh33964@weirby.com', 'kajade1254@wisnick.com', 'nakofe3005@weirby.com', 'gedidij506@weirby.com',
+                             'sihaci1525@undewp.com', 'lorimob952@soebing.com', 'nigeha6048@undewp.com', 'goriwij739@undewp.com', 'pekivik280@soebing.com'
+                             'hapas66158@undewp.com', 'wepajof522@undewp.com', 'semigo1458@undewp.com', 'xojecog864@undewp.com', 'lobik97135@wanbeiz.com' ]
 
+SESSION_COOKIES: RequestsCookieJar | None = None
 # Hls mode constants
 KEYS_REGEX = re.compile(rb'(?:container|videocontent)-(\d+)')
 ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
+
 
 
 def search(keyword: str) -> list[BeautifulSoup]:
@@ -67,7 +61,7 @@ def extract_anime_id(anime_page_content: bytes) -> int:
     return int(anime_id)
 
 
-def get_episode_page_links(start_episode: int, end_episode: int, anime_id: int) -> list[str]:
+def get_download_page_links(start_episode: int, end_episode: int, anime_id: int) -> list[str]:
     ajax_url = f'https://ajax.gogo-load.com/ajax/load-list-episode?ep_start={start_episode}&ep_end={end_episode}&id={anime_id}'
     content = CLIENT.get(ajax_url).content
     soup = BeautifulSoup(content, PARSER)
@@ -79,147 +73,28 @@ def get_episode_page_links(start_episode: int, end_episode: int, anime_id: int) 
         episode_page_links.append(GOGO_HOME_URL + resource)
     return episode_page_links
 
-
-class DriverManager():
-    def __init__(self):
-        self.is_inactive = Event()
-        self.browser: str = EDGE
-        self.driver: Chrome | Edge | Firefox | None = None
-        self.is_inactive.set()
-
-    def close_driver(self):
-        if self.driver:
-            self.driver.quit()
-            self.driver = None
-            self.is_inactive.set()
-
-    def setup_driver(self, browser: str = EDGE, headless: bool=True) -> Chrome | Edge | Firefox:
-        """
-        Be sure to call `close_driver` once you're done using the driver
-        """
-        self.is_inactive.wait()
-
-        def setup_options(options: ChromeOptions | EdgeOptions | FirefoxOptions) -> ChromeOptions | EdgeOptions | FirefoxOptions:
-            options.add_argument('--disable-extensions')
-            options.add_argument('--disable-infobars')
-            options.add_argument('--no-sandbox')
-            if headless:
-                if isinstance(options, FirefoxOptions):
-                    # For testing purposes, when deploying remember to uncomment out
-                    options.add_argument("--headless")
-                    # pass
-                else:
-                    # For testing purposes, when deploying remember to uncomment out
-                    options.add_argument("--headless=new")
-                    # pass
-            return options
-
-        def setup_edge_driver():
-            service_edge = EdgeService()
-            if platform == "win32":
-                service_edge.creation_flags = subprocess.CREATE_NO_WINDOW
-            options = cast(EdgeOptions, setup_options(EdgeOptions()))
-            return Edge(service=service_edge, options=options)
-
-        def setup_chrome_driver():
-            service_chrome = ChromeService()
-            service_chrome.creation_flags = subprocess.CREATE_NO_WINDOW
-            options = cast(ChromeOptions, setup_options(ChromeOptions()))
-            return Chrome(service=service_chrome, options=options)
-
-        def setup_firefox_driver():
-            service_firefox = FirefoxService()
-            if platform == "win32":
-                service_firefox.creation_flags = subprocess.CREATE_NO_WINDOW
-            options = cast(FirefoxOptions, setup_options(FirefoxOptions()))
-            return Firefox(service=service_firefox, options=options)
-
-        if browser == EDGE:
-            self.driver = setup_edge_driver()
-        elif browser == CHROME:
-            self.driver = setup_chrome_driver()
-        else:
-            self.driver = setup_firefox_driver()
-        self.browser = browser
-        self.is_inactive.clear()
-        return self.driver
-
-
-DRIVER_MANAGER = DriverManager()
-
-
 class GetDirectDownloadLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def get_direct_download_links(self, download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda added: None, max_load_wait_time=5) -> list[str]:
-        # For testing purposes
-        # raise TimeoutError
-        download_links: list[str] = []
-        download_links: list[str] = []
-        for page_link in download_page_links:
-            links, quality_infos = get_links_and_quality_info(
-                page_link, driver, max_load_wait_time, self)
-            if self.cancelled:
-                return []
-            quality_idx = match_quality(quality_infos, quality)
-            download_links.append(links[quality_idx])
-            self.resume.wait()
-            progress_update_call_back(1)
-        return download_links
-
-
-def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | Firefox, max_load_wait_time: int, get_ddl: GetDirectDownloadLinks, load_wait_time=1) -> tuple[list[str], list[str]]:
-    def network_error_retry():
-        while True:
-            if get_ddl.cancelled:
-                return [], []
-            try:
-                return driver.get(download_page_link)
-            except WebDriverException:
-                sleep(NETWORK_RETRY_WAIT_TIME)
-    network_error_retry()
-    sleep(load_wait_time)
-    soup = BeautifulSoup(driver.page_source, PARSER)
-    links_and_infos = soup.find_all('a')
-    links = [link_and_info['href']
-             for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
-    quality_infos = [link_and_info.text.replace(
-        'P', 'p') for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
-    get_ddl.resume.wait()
-    if get_ddl.cancelled:
-        return [], []
-    if (len(links) == 0):
-        if load_wait_time >= max_load_wait_time:
-            raise TimeoutError
-        else:
-            return get_links_and_quality_info(download_page_link, driver, max_load_wait_time, get_ddl, load_wait_time+1)
-    return (links, quality_infos)
-
-
-class GetDownloadPageLinks(PausableAndCancellableFunction):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def get_download_page_links(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> list[str]:
-        download_page_links: list[str] = []
-
-        def extract_link(episode_page_link: str) -> str:
-            response = CLIENT.get(episode_page_link)
-            soup = BeautifulSoup(response.content, PARSER)
-            soup = cast(Tag, soup.find('li', class_='dowloads'))
-            link = cast(str, cast(Tag, soup.find(
-                'a', target='_blank'))['href'])
-            return link
-
-        for eps_pg_link in episode_page_links:
-            link = extract_link(eps_pg_link)
-            download_page_links.append(link)
+    def get_direct_download_links(self, download_page_links: list[str], user_quality: str, progress_update_callback: Callable = lambda x: None) -> list[str]:
+        direct_download_links: list[str] = []
+        for eps_pg_link in download_page_links:
+            link = ''
+            while link == '':
+                response = CLIENT.get(eps_pg_link, cookies=get_session_cookies())
+                soup = BeautifulSoup(response.content, PARSER)
+                a_tags = cast(ResultSet[Tag], cast(Tag, soup.find('div', class_='cf-download')).find_all('a'))
+                qualities = [a.text for a in a_tags]
+                idx = match_quality(qualities, user_quality)
+                redirect_link = cast(str, a_tags[idx]['href'])
+                link = CLIENT.get(redirect_link, cookies=get_session_cookies()).headers.get('Location', redirect_link)
+            direct_download_links.append(link)
             self.resume.wait()
             if self.cancelled:
                 return []
             progress_update_callback(1)
-        return download_page_links
+        return direct_download_links
 
 
 class CalculateTotalDowloadSize(PausableAndCancellableFunction):
@@ -229,8 +104,8 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
     def calculate_total_download_size(self, direct_download_links: list[str], progress_update_callback: Callable = lambda update: None, in_megabytes=False) -> int:
         total_size = 0
         for link in (direct_download_links):
-            response = CLIENT.get(link, stream=True)
-            size = response.headers.get('content-length', 0)
+            response = CLIENT.get(link, stream=True, cookies=get_session_cookies())
+            size = response.headers.get('Content-Length', 0)
             if in_megabytes:
                 total_size += round(int(size) / IBYTES_TO_MBS_DIVISOR)
             else:
@@ -240,12 +115,6 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
                 return 0
             progress_update_callback(1)
         return total_size
-
-
-def open_browser_with_links(download_links: str) -> None:
-    for link in download_links:
-        webbrowser.open_new_tab(link)
-
 
 def get_anime_page_content(anime_page_link: str) -> bytes:
     return CLIENT.get(anime_page_link).content
@@ -364,7 +233,7 @@ class GetMatchedQualityLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
         
-    def get_matched_quality_link(self, hls_links: list[str], quality: str, progress_update_callback: Callable[[int], None]) -> list[str]:
+    def get_matched_quality_link(self, hls_links: list[str], quality: str, progress_update_callback: Callable[[int], None] = lambda x: None) -> list[str]:
         matched_links: list[str] = []
         for h in hls_links:
             response = CLIENT.get(h)
@@ -383,7 +252,7 @@ class GetSegmentsUrls(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def get_segments_urls(self, matched_links: list[str], progress_update_callback: Callable[[int], None]) -> list[list[str]]:
+    def get_segments_urls(self, matched_links: list[str], progress_update_callback: Callable[[int], None] = lambda x: None) -> list[list[str]]:
         segments_urls: list[list[str]] = []
         for m in matched_links:
             response = CLIENT.get(m)
@@ -404,12 +273,29 @@ class GetHlsLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def get_hls_links(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> list[str]:
+    def get_hls_links(self, download_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> list[str]:
         hls_links: list[str] = []
-        for eps_url in episode_page_links:
+        for eps_url in download_page_links:
             hls_links.append(extract_stream_url(get_embed_url(eps_url)))
             self.resume.wait()
             if self.cancelled:
                 return []
             progress_update_callback(1)
         return hls_links
+
+def get_session_cookies(fresh=False) -> RequestsCookieJar:
+    global SESSION_COOKIES
+    if SESSION_COOKIES and not fresh:
+        return SESSION_COOKIES
+    login_url = f'{GOGO_HOME_URL}/login.html'
+    response = CLIENT.get(login_url)
+    soup = BeautifulSoup(response.content, PARSER)
+    form_div = cast(Tag, soup.find('div', class_='form-login'))
+    csrf_token = cast(Tag, form_div.find('input', {'name': '_csrf'}))['value']
+    form_data = {"email": randomchoice(REGISTERED_ACCOUNT_EMAILS), 'password': 'amogus69420', "_csrf": csrf_token}
+    # A valid User-Agent is required during this post request hence the CLIENT is technically only necessary here
+    response = CLIENT.post(login_url, form_data, cookies=response.cookies)
+    SESSION_COOKIES = response.cookies
+    if len(SESSION_COOKIES) == 0:
+        return get_session_cookies()
+    return SESSION_COOKIES

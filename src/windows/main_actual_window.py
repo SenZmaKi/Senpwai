@@ -4,7 +4,6 @@ from PyQt6.QtCore import Qt
 from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS, KEY_START_IN_FULLSCREEN
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton, Icon
 from typing import Callable, cast
-from scrapers.gogo import DRIVER_MANAGER
 
 class MainWindow(QMainWindow):
     def __init__(self, app: QApplication):
@@ -32,7 +31,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.stacked_windows)
         self.setup_chosen_anime_window_thread = None
         self.download_window.start_auto_download()
-        self.app.aboutToQuit.connect(DRIVER_MANAGER.close_driver)
         self.app.aboutToQuit.connect(self.tray_icon.hide)
 
     def quit_app(self):
@@ -135,12 +133,6 @@ class MainWindow(QMainWindow):
     def switch_to_about_window(self):
         self.switch_to_window(self.about_window)
 
-    def create_and_switch_to_no_supported_browser_window(self, anime_details: AnimeDetails):
-        no_supported_browser_window = NoDefaultBrowserWindow(
-            self, anime_details)
-        self.stacked_windows.addWidget(no_supported_browser_window)
-        self.switch_to_window(no_supported_browser_window)
-
     def create_and_switch_to_no_ffmpeg_window(self, anime_details: AnimeDetails):
         no_ffmpeg_window = NoFFmpegWindow(self, anime_details)
         self.stacked_windows.addWidget(no_ffmpeg_window)
@@ -215,14 +207,14 @@ class Window(QWidget):
         self.nav_bar_layout = QVBoxLayout()
         self.search_window_button = NavBarButton(
             search_icon_path, main_window.switch_to_search_window)
-        download_window_button = NavBarButton(
+        self.download_window_button = NavBarButton(
             downloads_icon_path, main_window.switch_to_download_window)
-        settings_window_button = NavBarButton(
+        self.settings_window_button = NavBarButton(
             settings_icon_path, main_window.switch_to_settings_window)
-        about_window_button = NavBarButton(
+        self.about_window_button = NavBarButton(
             about_icon_path, main_window.switch_to_about_window)
-        self.nav_bar_buttons = [self.search_window_button, download_window_button,
-                                settings_window_button, about_window_button]
+        self.nav_bar_buttons = [self.search_window_button, self.download_window_button,
+                                self.settings_window_button, self.about_window_button]
         for button in self.nav_bar_buttons:
             self.nav_bar_layout.addWidget(button)
         self.nav_bar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -243,7 +235,7 @@ class TemporaryWindow(Window):
 # They import MainWindow and Window resulting to a circular import, so we have to define MainWindow and Window first before importing them
 from windows.search_window import SearchWindow
 from windows.download_window import DownloadWindow
-from windows.miscallaneous_windows import NoDefaultBrowserWindow, UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
+from windows.miscallaneous_windows import UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
 from windows.chosen_anime_window import ChosenAnimeWindow, MakeAnimeDetailsThread
 from windows.about_window import AboutWindow
 from windows.settings_window import SettingsWindow
