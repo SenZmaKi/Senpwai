@@ -86,7 +86,7 @@ python senpwai.py
 
 <details> <summary> What is HLS mode? </summary>
  
-HLS mode attempts to fix the problem of Captcha block with Gogoanime Normal mode. 
+HLS mode attempts to fix the unstability of Gogoanime normal mode. 
 In HLS mode Gogoanime downloads are guaranteed to work, though with a few downsides:
 
 - Requires [FFmpeg](https://www.hostinger.com/tutorials/how-to-install-ffmpeg) to be installed, though Senpwai can attempt to automatically install it for you.
