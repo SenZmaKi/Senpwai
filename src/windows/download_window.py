@@ -303,7 +303,9 @@ class DownloadWindow(Window):
             self.resume_icon = Icon(30, 30, resume_icon_path)
             self.cancel_icon = Icon(30, 30, cancel_icon_path)
             self.download_queue = DownloadQueue(self)
-
+        
+        if anime_details.sub_or_dub == DUB:
+            anime_details.anime.page_link = anime_details.dub_page_link
         if anime_details.site == PAHE:
             return PaheGetTotalPageCountThread(self, anime_details, self.pahe_get_episode_page_links).start()
         self.gogo_get_download_page_links(anime_details)
@@ -512,7 +514,7 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
         self.cancelled = False
 
     def pause_or_resume(self):
-        if not self.anime_details.is_hls_download and not self.cancelled:
+        if not self.cancelled:
             for bar in self.progress_bars.values():
                 bar.pause_button.click()
             self.anime_progress_bar.pause_or_resume()
@@ -527,7 +529,6 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
             PausableAndCancellableFunction.cancel(self)
 
     def update_anime_progress_bar(self, added: int):
-        # Rounded cause download size is accurate to MBs in animepahe but the same is applied to gogoanime to make everything more streamlined
         if self.anime_details.is_hls_download:
             self.update_anime_progress_bar_signal.emit(added)
         elif self.anime_details.skip_calculating_size:
@@ -626,12 +627,12 @@ class DownloadThread(QThread):
         self.is_hls_download = is_hls_download
         self.progress_bar = progress_bar
         self.anime_progress_bar = anime_progress_bar
+        self.update_bars.connect(self.progress_bar.update_bar)
         if skipped_calculating_total_download_size:
             self.update_bar_if_skipped_calculating_total_size.connect(update_anime_progress_bar)
         else:
             self.update_bars.connect(update_anime_progress_bar)
         self.finished.connect(finished_callback)
-        self.update_bars.connect(self.progress_bar.update_bar)
         self.update_eps_count_and_hls_sizes.connect(
             update_eps_count_and_hls_sizes)
         self.mutex = mutex
@@ -686,11 +687,8 @@ class GogoGetDownloadPageLinksThread(QThread):
         self.finished.connect(callback)
 
     def run(self):
-        if self.anime_details.sub_or_dub == DUB:
-            self.anime_details.anime.page_link = gogo.get_dub_anime_page_link(
-                self.anime_details.anime.title)
-        anime_id = gogo.extract_anime_id(
-            gogo.get_anime_page_content(self.anime_details.anime.page_link))
+        page_content, self.anime_details.anime.page_link  = gogo.get_anime_page_content(self.anime_details.anime.page_link)
+        anime_id = gogo.extract_anime_id(page_content)
         episode_page_links = gogo.get_download_page_links(
             self.anime_details.predicted_episodes_to_download[0], self.anime_details.predicted_episodes_to_download[-1], anime_id)
         if self.anime_details.is_hls_download:
@@ -944,9 +942,7 @@ class AutoDownloadThread(QThread):
 
     def gogo_fetch_anime_obj(self, title: str) -> Anime | None:
         results = gogo.search(title)
-        for result in results:
-            res_title, page_link = gogo.extract_anime_title_and_page_link(
-                result)
-            if (res_title and page_link) and (sanitise_title(res_title.lower(), True) == sanitise_title(title.lower(), True)):
+        for res_title, page_link in results:
+            if sanitise_title(res_title.lower(), True) == sanitise_title(title.lower(), True):
                 return Anime(title, page_link, None)
         return None

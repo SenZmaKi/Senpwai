@@ -96,7 +96,7 @@ class SearchWindow(Window):
             self.results_layout.removeItem(item)
         upper_title = anime_title.upper()
         self.search_thread = SearchThread(self, anime_title, site)
-        w_anime = ("vermeil", "golden kamuy", "goblin slayer", "hajime", "megalobox", "kengan ashura", "kengan asura", "kengan", "golden boy", "valkyrie", "dr stone", "dr. stone", "death parade", "death note", "code geass", "attack on titan",
+        w_anime = ("vermeil", "golden kamuy", "goblin slayer", "hajime", "megalobox", "kengan ashura", "kengan asura", "kengan", "golden boy", "valkyrie", "dr stone", "dr. stone", "death parade", "death note", "code geass", "attack on titan", "kaiji"
                    "shingeki no kyojin", "daily lives", "danshi koukosei", "daily lives of highshool boys", "arakawa", "haikyuu", "kaguya", "chio", "asobi asobase", "prison school", "grand blue", "mob psycho", "to your eternity", "fire force", "mieruko", "fumetsu")
         l_anime = ("tokyo ghoul", "sword art", "boku no pico", "full metal", "fmab", "fairy tail", "dragon ball",
                    "hunter x hunter", "hunter hunter", "platinum end", "record of ragnarok", "7 deadly sins", "seven deadly sins")
@@ -353,9 +353,6 @@ class SearchThread(QThread):
                 extracted_results.append(Anime(title, page_link, anime_id))
         elif self.site == GOGO:
             results = gogo.search(self.anime_title)
-            for result in results:
-                title, page_link = gogo.extract_anime_title_and_page_link(
-                    result)
-                if title and page_link:
-                    extracted_results.append(Anime(title, page_link, None))
+            for title, page_link in results:
+                extracted_results.append(Anime(title, page_link, None))
         self.finished.emit(self.site, extracted_results)

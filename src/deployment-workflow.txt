@@ -5,7 +5,7 @@ to-dos:
         uncomment our # type: ignore comments and confirm that they you dont ignore unexpected errors
         confirm all comments are in the right place
         ensure all changes have been committed and pushed to github
-        update VERSION in global variable,  metadata.yml and setup.iss (MyAppVersion and VersionInfoVersion)
+        update VERSION in global variable, Cargo.toml, metadata.yml and setup.iss (MyAppVersion and VersionInfoVersion)
         generate clean requirements.txt
         build main exe:
               - command: cargo build --release; rm .\Senpwai.exe; mv ..\target\release\Senpwai.exe .\Senpwai.exe; .\Senpwai.exe

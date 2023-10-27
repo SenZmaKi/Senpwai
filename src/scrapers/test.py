@@ -64,11 +64,8 @@ def test_search(anime_title: str, site: str) -> list[tuple[str, str]] | list[tup
             r) for r in cast(list[dict[str, str]], results)]
     else:
         parsed_results = cast(list[tuple[str, str]], parsed_results)
-        for r in cast(list[BeautifulSoup], results):
-            if r:
-                t, p = gogo.extract_anime_title_and_page_link(r)
-                if t and p:
-                    parsed_results.append((t, p))
+        for title, page_link in cast(list[tuple[str, str]], results):
+            parsed_results.append((title, page_link))
     run_timer = current_time() - c
     if parsed_results == []:
         fail_test(test_name, 'List of parsed results',
@@ -105,7 +102,7 @@ def test_get_metadata(site: str, target_result: tuple[str, str] | tuple[str, str
         target_result = cast(tuple[str, str, str], target_result)
         metadata = pahe.get_anime_metadata(target_result[2])
     else:
-        page_content = gogo.get_anime_page_content(target_result[1])
+        page_content, _ = gogo.get_anime_page_content(target_result[1])
         metadata = gogo.extract_anime_metadata(page_content)
     pass_test(test_name, run_time())
     return metadata, page_content
@@ -376,7 +373,7 @@ def test_dub_available(site: str, target_result: tuple[str, str] | tuple[str, st
         target_result = cast(tuple[str, str, str], target_result)
         dub_available = pahe.dub_available(target_result[1], target_result[2])
     else:
-        dub_available = gogo.dub_available(target_result[0])
+        dub_available, _ = gogo.dub_availability_and_link(target_result[0])
     rt = runtime_getter()
     if not isinstance(dub_available, bool):
         fail_test(test_name, 'Boolean value', type(dub_available), rt, 90, f'The returned value was: {dub_available}' )

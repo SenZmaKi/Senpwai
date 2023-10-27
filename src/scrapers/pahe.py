@@ -3,7 +3,7 @@ import json
 import re
 from typing import Callable, cast
 from math import pow
-from shared.app_and_scraper_shared import CLIENT, PARSER, match_quality, PausableAndCancellableFunction, AnimeMetadata, extract_new_domain_name_from_readme
+from shared.app_and_scraper_shared import CLIENT, PARSER, match_quality, PausableAndCancellableFunction, AnimeMetadata, get_new_domain_name_from_readme
 
 PAHE = 'pahe'
 PAHE_HOME_URL = 'https://animepahe.ru'
@@ -16,7 +16,7 @@ def search(keyword: str) -> list[dict[str, str]]:
     response = CLIENT.get(search_url)
     # If the status code isn't 200 we assume they changed their domain name
     if response.status_code != 200:
-        PAHE_HOME_URL = extract_new_domain_name_from_readme("Animepahe")
+        PAHE_HOME_URL = get_new_domain_name_from_readme("Animepahe")
         return search(keyword)
     content = response.content
     decoded = cast(dict, json.loads(content.decode('UTF-8')))
@@ -195,7 +195,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
         direct_download_links: list[str] = []
         param_regex = re.compile(
             r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""")
-        for idx, pahewin_link in enumerate(pahewin_download_page_links):
+        for pahewin_link in pahewin_download_page_links:
             page_content = CLIENT.get(pahewin_link).content
             soup = BeautifulSoup(page_content, PARSER)
             download_link = cast(str, cast(Tag, soup.find(
@@ -212,6 +212,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
             post_url = cast(str, cast(Tag, soup.form)['action'])
             token_value = cast(str, cast(Tag, soup.input)['value'])
             response = CLIENT.post(post_url, headers= CLIENT.append_headers({'Referer': download_link}), cookies=cookies, data={'_token': token_value}, allow_redirects=False)
+            print(CLIENT.headers)
             direct_download_link = response.headers['Location']
             direct_download_links.append(direct_download_link)
             self.resume.wait()

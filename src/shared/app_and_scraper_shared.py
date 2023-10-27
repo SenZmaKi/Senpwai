@@ -3,7 +3,7 @@ from sys import platform
 from time import sleep as timesleep
 from typing import Callable, Any, cast, Iterator
 import requests
-from string import printable
+from string import printable, digits, ascii_letters
 import re
 import subprocess
 from threading import Event
@@ -22,12 +22,12 @@ GITHUB_README_URL = "https://github.com/SenZmaKi/Senpwai/blob/master/README.md"
 RESOURCE_MOVED_STATUS_CODES = (301, 302, 307, 308)
 
 
-def extract_new_domain_name_from_readme(site_name: str) -> str:
+def get_new_domain_name_from_readme(site_name: str) -> str:
     """
     Say Animepahe or Gogoanime change their domain name, now Senpwai makes an anime search but it gets a none 200 status code, 
     then it'll assume they changed their domain name. It'll try to extract the new domain name from the readme.
     So if the domain name changes be sure to update it in the readme, specifically in the hyperlinks i.e., [Animepahe](https://animepahe.ru)
-    and without an ending / i.e., https://animepahe.ru instead of https://animepahe.ru/. Also test if Senpwai is properly extracting it incase you made a mistake.
+    and without an ending / i.e., https://animepahe.ru instead of https://animepahe.ru/ Also test if Senpwai is properly extracting it incase you made a mistake.
 
     :param site_name: Can be either Animepahe or Gogoanime.
     """
@@ -63,9 +63,8 @@ class Client():
         return headers
     
     def append_headers(self, to_append: dict) -> dict:
-        new_headers = self.headers
-        new_headers.update(to_append)
-        return new_headers
+        to_append.update(self.headers)
+        return to_append
 
     def make_request(self, method: str, url: str, headers: dict | None, cookies={}, stream=False, data: dict | bytes | None = None, json: dict | None = None,  allow_redirects=False, timeout: int | None = None) -> requests.Response:
         if not headers:
@@ -78,7 +77,7 @@ class Client():
 
     def get(self, url: str, stream=False, headers: dict | None = None, timeout: int | None = None, cookies={}) -> requests.Response:
         return self.make_request("GET", url, headers, stream=stream, timeout=timeout, cookies=cookies)
-
+    
     def post(self, url: str, data: dict | bytes | None = None, json: dict | None = None, headers: dict | None = None, cookies={}, allow_redirects=False) -> requests.Response:
         return self.make_request('POST', url, headers, data=data, json=json, cookies=cookies, allow_redirects=allow_redirects)
 
@@ -109,7 +108,8 @@ class AnimeMetadata:
         self.release_year = release_year
 
     def get_poster_bytes(self) -> bytes:
-        return CLIENT.get(self.poster_url).content
+        response = CLIENT.get(self.poster_url)
+        return response.content
 
 
 def match_quality(potential_qualities: list[str], user_quality: str) -> int:
@@ -143,18 +143,15 @@ def match_quality(potential_qualities: list[str], user_quality: str) -> int:
     return closest.index
 
 
-def sanitise_title(title: str, all=False):
-    def strip_all(x): return re.sub(r'[^a-zA-Z0-9]', '', x)
+def sanitise_title(title: str, all=False, exclude='') -> str:
     if all:
-        sanitised = strip_all(title)
+        allowed_chars = set(ascii_letters + digits + exclude)
     else:
-        valid_chars = set(printable) - set('\\/:*?"<>|')
+        allowed_chars = set(printable) - set('\\/:*?"<>|')
         title = title.replace(':', ' -')
-        sanitised = ''.join(filter(lambda char: char in valid_chars, title))
+    sanitised = ''.join(filter(lambda char: char in allowed_chars, title))
 
     return sanitised[:255].rstrip()
-
-
 
 def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: int, end_episode: int, haved_episodes: list[int]) -> list[int]:
     predicted_episodes_to_download: list[int] = []
@@ -223,18 +220,13 @@ class Download(PausableAndCancellableFunction):
             delete_file(self.temporary_file_path)
             return
         delete_file(self.file_path)
-        # Incase the user opened the file before it completed downloading
-        def finalise():
-            if self.is_hls_download:
-                subprocess.run(['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
-                delete_file(self.temporary_file_path)
-                return
-            while True:
-                try:
-                    return os.rename(self.temporary_file_path, self.file_path)
-                except PermissionError: # Maybe they started watching the episode on VLC before it finished downloading now VLC has a handle to the file hence PermissionDenied
-                    timesleep(10)
-        finalise()
+        if self.is_hls_download:
+            subprocess.run(['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
+            return delete_file(self.temporary_file_path)
+        try:
+            return os.rename(self.temporary_file_path, self.file_path)
+        except PermissionError: # Maybe they started watching the episode on VLC before it finished downloading now VLC has a handle to the file hence PermissionDenied
+            pass
 
     def hls_download(self) -> bool:
         with open(self.temporary_file_path, "wb") as f:
@@ -255,7 +247,7 @@ class Download(PausableAndCancellableFunction):
             self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
             return CLIENT.get(self.link_or_segment_urls, stream=True, headers=CLIENT.append_headers({'Range': f'bytes={start_byte}-'}), timeout=30, cookies=self.cookies)
 
-        total = int(response.headers.get('content-length', 0))
+        total = int(response.headers.get('Content-Length', 0))
 
         def download(start_byte: int = 0) -> bool:
             mode = 'wb' if start_byte == 0 else 'ab'

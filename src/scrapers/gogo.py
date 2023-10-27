@@ -3,8 +3,8 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 from requests.cookies import RequestsCookieJar
 from random import choice as randomchoice
 
-from typing import Callable, cast, Optional
-from shared.app_and_scraper_shared import PARSER, CLIENT, match_quality, IBYTES_TO_MBS_DIVISOR, PausableAndCancellableFunction, AnimeMetadata, extract_new_domain_name_from_readme
+from typing import Callable, cast, Any
+from shared.app_and_scraper_shared import PARSER, CLIENT, match_quality, IBYTES_TO_MBS_DIVISOR, PausableAndCancellableFunction, AnimeMetadata, get_new_domain_name_from_readme, sanitise_title
 
 # Hls mode imports
 import json
@@ -29,29 +29,20 @@ KEYS_REGEX = re.compile(rb'(?:container|videocontent)-(\d+)')
 ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
 
 
-
-def search(keyword: str) -> list[BeautifulSoup]:
-    global GOGO_HOME_URL
-    url_extension = '/search.html?keyword='
-    search_url = GOGO_HOME_URL + url_extension + quote(keyword)
-    response = CLIENT.get(search_url)
-    # If the status code isn't 200 we assume they changed their domain name
-    if response.status_code != 200:
-        GOGO_HOME_URL = extract_new_domain_name_from_readme("Gogoanime")
-        return search(keyword)
-    content = response.content
+def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
+    ajax_search_url = 'https://ajax.gogo-load.com/site/loadAjaxSearch?keyword='+keyword
+    response = CLIENT.get(ajax_search_url)
+    content = response.json()['content']
     soup = BeautifulSoup(content, PARSER)
-    results_page = cast(Tag, soup.find('ul', class_="items"))
-    results = results_page.find_all('li')
-    return results
-
-
-def extract_anime_title_and_page_link(result: BeautifulSoup) -> tuple[str, str] | tuple[None, None]:
-    title = cast(str, cast(Tag, result.find('a'))['title'])
-    page_link = GOGO_HOME_URL + cast(str, cast(Tag, result.find('a'))['href'])
-    if DUB_EXTENSION in title:
-        return (None, None)
-    return (title, page_link)
+    a_tags = cast(list[Tag], soup.find_all('a'))
+    title_and_link: list[tuple[str, str]] = []
+    for a in a_tags:
+        title = a.text
+        link = f'{GOGO_HOME_URL}/{a["href"]}'
+        if DUB_EXTENSION in title and ignore_dub:
+            continue
+        title_and_link.append((title, link))
+    return title_and_link
 
 
 def extract_anime_id(anime_page_content: bytes) -> int:
@@ -116,8 +107,20 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
             progress_update_callback(1)
         return total_size
 
-def get_anime_page_content(anime_page_link: str) -> bytes:
-    return CLIENT.get(anime_page_link).content
+def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
+    """
+    Returns a string too which is the new anime_page_link if there was a change in Gogo's domain name
+    """
+    response = CLIENT.get(anime_page_link)
+    # we assume they changed domain names if the status code isn't 200
+    if response.status_code != 200:
+        global GOGO_HOME_URL
+        prev_home_url = GOGO_HOME_URL
+        GOGO_HOME_URL = get_new_domain_name_from_readme(GOGO)
+        anime_page_link.replace(prev_home_url, GOGO_HOME_URL)
+        return CLIENT.get(anime_page_link).content, anime_page_link
+    return response.content, anime_page_link
+
 
 
 def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
@@ -142,27 +145,13 @@ def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
     return AnimeMetadata(poster_link, summary, episode_count, status, genres, release_year)
 
 
-def dub_available(anime_title: str) -> bool:
+def dub_availability_and_link(anime_title: str) -> tuple[bool, str]:
     dub_title = f'{anime_title}{DUB_EXTENSION}'
-    results = search(dub_title)
-    for result in results:
-        title = cast(str, cast(Tag, result.find('a'))['title'])
-        if dub_title == title:
-            return True
-    return False
-
-
-def get_dub_anime_page_link(anime_title: str) -> str:
-    dub_title = f'{anime_title}{DUB_EXTENSION}'
-    results = search(dub_title)
-    page_link = ''
-    for result in results:
-        title = cast(str, cast(Tag, result.find('a'))['title'])
-        if dub_title == title:
-            page_link = GOGO_HOME_URL + \
-                cast(str, cast(Tag, result.find('a'))['href'])
-            break
-    return page_link
+    results = search(dub_title, False)
+    for res_title, link in results:
+        if dub_title == res_title:
+            return True, link 
+    return False, ''
 
 # Hls mode functions start here
 

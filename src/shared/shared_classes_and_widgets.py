@@ -484,8 +484,7 @@ class AnimeDetails():
     def __init__(self, anime: Anime, site: str):
         self.anime = anime
         self.site = site
-        self.is_hls_download = True if (site == GOGO) and cast(
-            str, settings[KEY_GOGO_NORM_OR_HLS_MODE]) == GOGO_HLS_MODE else False
+        self.is_hls_download = True if site == GOGO and settings[KEY_GOGO_NORM_OR_HLS_MODE] == GOGO_HLS_MODE else False
         self.sanitised_title = sanitise_title(anime.title)
         self.chosen_default_download_path: str = ''
         self.anime_folder_path = self.get_anime_folder_path()
@@ -494,7 +493,7 @@ class AnimeDetails():
         self.potentially_haved_episodes = self.get_potentially_haved_episodes()
         self.haved_episodes: list[int] = []
         self.haved_start, self.haved_end, self.haved_count = self.get_start_end_and_count_of_haved_episodes()
-        self.dub_available = self.get_dub_availablilty_status()
+        self.dub_available, self.dub_page_link = self.get_dub_availablilty_status()
         self.metadata = self.get_metadata()
         self.episode_count = self.metadata.episode_count
         self.quality = cast(str, settings[KEY_QUALITY])
@@ -503,7 +502,7 @@ class AnimeDetails():
         self.download_info: list[str] = []
         self.total_download_size: int = 0
         self.predicted_episodes_to_download: list[int] = []
-        self.skip_calculating_size = True if site == GOGO and settings[KEY_GOGO_SKIP_CALCULATE] else False
+        self.skip_calculating_size = True if site == GOGO and not self.is_hls_download and settings[KEY_GOGO_SKIP_CALCULATE] else False
 
     def get_anime_folder_path(self) -> str | None:
         def try_path(title: str) -> str | None:
@@ -603,21 +602,21 @@ class AnimeDetails():
             self.haved_episodes.sort()
         return (self.haved_episodes[0], self.haved_episodes[-1], len(self.haved_episodes)) if len(self.haved_episodes) > 0 else (None, None, None)
 
-    def get_dub_availablilty_status(self) -> bool:
-        dub_available = False
+    def get_dub_availablilty_status(self) -> tuple[bool, str]:
         if self.site == PAHE:
             dub_available = pahe.dub_available(
                 self.anime.page_link, cast(str, self.anime.id))
-        elif self.site == GOGO:
-            dub_available = gogo.dub_available(self.anime.title)
-        return dub_available
+            link = self.anime.page_link
+        else:
+            dub_available, link = gogo.dub_availability_and_link(self.anime.title)
+        return dub_available, link
 
     def get_metadata(self) -> AnimeMetadata:
         if self.site == PAHE:
             metadata = pahe.get_anime_metadata(
                 cast(str, self.anime.id))
         else:
-            page_content = gogo.get_anime_page_content(self.anime.page_link)
+            page_content, self.anime.page_link = gogo.get_anime_page_content(self.anime.page_link)
             metadata = gogo.extract_anime_metadata(page_content)
         return metadata
 
