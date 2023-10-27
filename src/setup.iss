@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Senpwai"
-#define MyAppVersion "2.0.3"
+#define MyAppVersion "2.0.4"
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
 #define MyAppExeName "Senpwai.exe"
@@ -15,7 +15,7 @@
 AppId={{B1AC746D-A6F0-44EF-B812-0D93F4571B51}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-VersionInfoVersion=2.0.3.0
+VersionInfoVersion=2.0.4.0
 ;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
@@ -90,6 +90,9 @@ Type: filesandordirs; Name: "{app}\unins000.dat"
 Type: filesandordirs; Name: "{app}\unins000.exe*"
 ; Starting from v2.0.4 I renamed inno-setup.iss to setup.iss
 Type: filesandordirs; Name: "{app}\src\inno-setup.iss"
+; Clean up the previous errors.log file cause it can get quite big
+Type: filesandordirs; Name: "{app}\errors.log"
+
 
 
 [Icons]
@@ -98,8 +101,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\src\{#MyAppExeName}"; Tasks
 
 [Run]
 Filename: "{tmp}\python-3.11.1-amd64.exe"; Parameters: "/quiet"; StatusMsg: "Downloading Python 3.11.1.. ."; Flags: waituntilterminated
-Filename: "{localappdata}\Programs\Python\Python311\python.exe";Parameters: "-m pip install virtualenv --no-input --retries 690000000000000"; StatusMsg: "Downloading Python 3.11.1.. ."; Flags: waituntilterminated runhidden
-Filename: "{localappdata}\Programs\Python\Python311\python.exe"; Parameters: "-m virtualenv .venv"; WorkingDir: "{app}"; StatusMsg: "Creating virtual environment, ryoiki tenkai.. ."; Flags: waituntilterminated runhidden
+Filename: "{localappdata}\Programs\Python\Python311\python.exe"; Parameters: "-m venv .venv"; WorkingDir: "{app}"; StatusMsg: "Creating virtual environment, ryoiki tenkai.. ."; Flags: waituntilterminated runhidden
 ; As of v2.0.4 selenium is no longer required
 Filename: "{localappdata}\Programs\Python\Python311\python.exe";Parameters: "-m pip uninstall selenium --no-input"; StatusMsg: "Uninstalling selenium from virtual environment.. ."; Flags: waituntilterminated runhidden
 Filename: "{app}\.venv\Scripts\python.exe"; Parameters: "-m pip install -r requirements.txt --no-input --retries 690000000000000"; WorkingDir: "{app}\src"; StatusMsg: "Downloading dependencies using pip.. ."; Flags: waituntilterminated runhidden

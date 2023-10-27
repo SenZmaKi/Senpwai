@@ -228,6 +228,7 @@ class Download(PausableAndCancellableFunction):
             if self.is_hls_download:
                 subprocess.run(['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
                 delete_file(self.temporary_file_path)
+                return
             while True:
                 try:
                     return os.rename(self.temporary_file_path, self.file_path)

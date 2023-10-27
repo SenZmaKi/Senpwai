@@ -235,7 +235,7 @@ class TemporaryWindow(Window):
 # They import MainWindow and Window resulting to a circular import, so we have to define MainWindow and Window first before importing them
 from windows.search_window import SearchWindow
 from windows.download_window import DownloadWindow
-from windows.miscallaneous_windows import UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow
+from windows.miscallaneous_windows import UpdateWindow, CheckIfUpdateAvailableThread, NoFFmpegWindow, NewVersionInfoWindow
 from windows.chosen_anime_window import ChosenAnimeWindow, MakeAnimeDetailsThread
 from windows.about_window import AboutWindow
 from windows.settings_window import SettingsWindow

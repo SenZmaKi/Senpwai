@@ -1,9 +1,9 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTextEdit
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from windows.main_actual_window import MainWindow, TemporaryWindow, Window
 from shared.global_vars_and_funcs import chopper_crying_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, GITHUB_REPO_URL, github_api_releases_entry_point, github_icon_path, update_bckg_image_path, UPDATE_INSTALLER_NAMES, base_directory
-from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, settings, chopper_crying_path, VERSION, pause_icon_path, resume_icon_path, cancel_icon_path
-from shared.shared_classes_and_widgets import StyledButton, StyledLabel, IconButton, AnimeDetails, Icon, StyledTextBrowser
+from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, chopper_crying_path, VERSION, pause_icon_path, resume_icon_path, cancel_icon_path
+from shared.shared_classes_and_widgets import StyledButton, StyledLabel, IconButton, AnimeDetails, Icon, StyledTextBrowser, Title
 from shared.app_and_scraper_shared import ffmpeg_is_installed, CLIENT, RESOURCE_MOVED_STATUS_CODES
 from windows.download_window import ProgressBarWithButtons
 from typing import cast, Callable, Any
@@ -15,15 +15,15 @@ import subprocess
 import re
 
 
-class SthCrashedWindow(TemporaryWindow):
-    def __init__(self, main_window: MainWindow, crash_info_text: str, widgets_to_add: list[QWidget]):
+class MiscWindow(TemporaryWindow):
+    def __init__(self, main_window: MainWindow, misc_info_text: str, widgets_to_add: list[QWidget]):
         super().__init__(main_window, chopper_crying_path)
-        info_label = StyledLabel(font_size=25)
-        info_label.setText(crash_info_text)
-        set_minimum_size_policy(info_label)
+        self.info_label = StyledLabel(font_size=25)
+        self.info_label.setText(misc_info_text)
+        set_minimum_size_policy(self.info_label)
         self.main_layout = QVBoxLayout()
         self.main_layout.addWidget(
-            info_label, alignment=Qt.AlignmentFlag.AlignCenter)
+            self.info_label, alignment=Qt.AlignmentFlag.AlignCenter)
         self.buttons_layout = QHBoxLayout()
         for w in widgets_to_add:
             self.buttons_layout.addWidget(w)
@@ -35,7 +35,14 @@ class SthCrashedWindow(TemporaryWindow):
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignHCenter)
         self.setLayout(self.full_layout)
 
-class NoFFmpegWindow(SthCrashedWindow):
+class NewVersionInfoWindow(MiscWindow):
+    def __init__(self, main_window: MainWindow, info_text: str):
+        super().__init__(main_window, info_text, [])
+        title = Title(f"Version {VERSION} Changes")
+        set_minimum_size_policy(title)
+        self.main_layout.insertWidget(0, title, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+class NoFFmpegWindow(MiscWindow):
     def __init__(self, main_window: MainWindow, anime_details: AnimeDetails):
         self.main_window = main_window
         info_text = "Sumanai, in order to use HLS mode you need to have\nFFmpeg installed and properly added to path"

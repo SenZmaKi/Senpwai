@@ -18,7 +18,7 @@ else:
 
 COMPANY_NAME = "AkatsuKi Inc."
 APP_NAME = "Senpwai"
-VERSION = "2.0.3"
+VERSION = "2.0.4"
 UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe", 
                           f"{APP_NAME}-updater.msi", f"{APP_NAME}-update.msi",
                           f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
@@ -70,6 +70,11 @@ error_logs_file_path = os.path.join(config_dir, "errors.log")
 if not os.path.exists(error_logs_file_path):
     f = open(error_logs_file_path, "w")
     f.close()
+
+version_file_path = os.path.join(config_dir, "version.txt")
+if not os.path.exists(version_file_path):
+    with open(version_file_path, "w") as f:
+        f.write(VERSION)
 
 logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')

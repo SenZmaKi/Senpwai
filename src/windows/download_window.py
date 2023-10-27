@@ -306,7 +306,7 @@ class DownloadWindow(Window):
 
         if anime_details.site == PAHE:
             return PaheGetTotalPageCountThread(self, anime_details, self.pahe_get_episode_page_links).start()
-        self.gogo_get_episode_page_links(anime_details)
+        self.gogo_get_download_page_links(anime_details)
 
     def pahe_get_episode_page_links(self, anime_details: AnimeDetails, page_count: int):
         episode_page_progress_bar = ProgressBarWithButtons(
@@ -316,7 +316,7 @@ class DownloadWindow(Window):
         PaheGetEpisodePageLinksThread(self, anime_details, anime_details.predicted_episodes_to_download[0], anime_details.predicted_episodes_to_download[-1],
                                       self.pahe_get_download_page_links, episode_page_progress_bar).start()
 
-    def gogo_get_episode_page_links(self, anime_details: AnimeDetails):
+    def gogo_get_download_page_links(self, anime_details: AnimeDetails):
         next_func = self.get_hls_links if anime_details.is_hls_download else self.get_direct_download_links
         return GogoGetDownloadPageLinksThread(self, anime_details, next_func).start()
 

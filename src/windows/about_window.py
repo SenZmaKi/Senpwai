@@ -3,17 +3,9 @@ from PyQt6.QtCore import Qt
 from windows.main_actual_window import MainWindow, Window
 from shared.global_vars_and_funcs import about_bckg_image_path, set_minimum_size_policy, sen_icon_path, morbius_is_peak_icon_path, GITHUB_REPO_URL, gigachad_audio_path, morbius_audio_path, hentai_addict_audio_path
 from shared.global_vars_and_funcs import github_icon_path, reddit_icon_path, discord_icon_path, hentai_addict_icon_path, github_sponsors_icon_path, patreon_icon_path, VERSION
-from shared.shared_classes_and_widgets import StyledLabel, IconButton, ScrollableSection, AudioPlayer, Icon
+from shared.shared_classes_and_widgets import StyledLabel, IconButton, ScrollableSection, AudioPlayer, Icon, Title
 from webbrowser import open_new_tab
 from sys import platform as sysplatform
-
-
-class Title(StyledLabel):
-    def __init__(self, text: str):
-        super().__init__(None, 33, "orange", font_color="black")
-        set_minimum_size_policy(self)
-        self.setText(text)
-
 
 class AboutWindow(Window):
     def __init__(self, main_window: MainWindow):
