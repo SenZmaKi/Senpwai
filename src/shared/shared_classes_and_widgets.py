@@ -1,10 +1,10 @@
 from PyQt6.QtGui import QPixmap, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame, QTextBrowser
 from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import SETTINGS_TYPES, PAHE, GOGO
 from time import time
-from shared.global_vars_and_funcs import  settings, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE
+from shared.global_vars_and_funcs import  settings, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE, KEY_GOGO_SKIP_CALCULATE
 from shared.global_vars_and_funcs import folder_icon_path, RED_NORMAL_COLOR, RED_PRESSED_COLOR, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, open_folder, GOGO_HLS_MODE, set_minimum_size_policy, GOGO_NORM_MODE
 from shared.app_and_scraper_shared import sanitise_title, AnimeMetadata
 from pathlib import Path
@@ -60,6 +60,21 @@ class StyledLabel(QLabel):
                     }}
                             """)
 
+class StyledTextBrowser(QTextBrowser):
+    def __init__(self, parent=None, font_size: int = 20, bckg_color: str = "rgba(0, 0, 0, 220)", border_radius=10, font_color="white"):
+        super().__init__(parent)
+        self.setOpenExternalLinks(True)
+        self.setStyleSheet(f"""
+                    QTextEdit {{
+                        color: {font_color};
+                        font-size: {font_size}px;
+                        font-family: "Berlin Sans FB Demi";
+                        background-color: {bckg_color};
+                        border-radius: {border_radius}px;
+                        border: 1px solid black;
+                        padding: 5px;
+                    }}
+                            """)
 
 class StyledButton(QPushButton):
     def __init__(self, parent: QWidget | None, font_size: int, font_color: str, normal_color: str, hover_color: str, pressed_color: str, border_radius=12):
@@ -88,10 +103,9 @@ class StyledButton(QPushButton):
 
     def eventFilter(self, obj, event):
         if obj == self:
-            if isinstance(event, QKeyEvent) and event.type() == event.Type.KeyPress and ((event.key() == Qt.Key.Key_Return) or (event.key() == Qt.Key.Key_Enter)):
-                if isinstance(obj, QPushButton):
-                    self.animateClick()
-                    return True
+            if isinstance(event, QKeyEvent) and event.type() == event.Type.KeyPress and (event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)):
+                self.animateClick()
+                return True
 
             return super().eventFilter(obj, event)
 
@@ -470,24 +484,25 @@ class AnimeDetails():
     def __init__(self, anime: Anime, site: str):
         self.anime = anime
         self.site = site
-        self.is_hls_download = True if (site == GOGO) and cast(
-            str, settings[KEY_GOGO_NORM_OR_HLS_MODE]) == GOGO_HLS_MODE else False
-        self.browser = cast(str, settings[KEY_GOGO_DEFAULT_BROWSER])
+        self.is_hls_download = True if site == GOGO and settings[KEY_GOGO_NORM_OR_HLS_MODE] == GOGO_HLS_MODE else False
         self.sanitised_title = sanitise_title(anime.title)
         self.chosen_default_download_path: str = ''
         self.anime_folder_path = self.get_anime_folder_path()
+        if self.anime_folder_path:
+            os.path.basename(self.anime_folder_path)
         self.potentially_haved_episodes = self.get_potentially_haved_episodes()
         self.haved_episodes: list[int] = []
         self.haved_start, self.haved_end, self.haved_count = self.get_start_end_and_count_of_haved_episodes()
-        self.dub_available = self.get_dub_availablilty_status()
+        self.dub_available, self.dub_page_link = self.get_dub_availablilty_status()
         self.metadata = self.get_metadata()
         self.episode_count = self.metadata.episode_count
         self.quality = cast(str, settings[KEY_QUALITY])
         self.sub_or_dub = cast(str, settings[KEY_SUB_OR_DUB])
-        self.direct_download_links: list[str] = []
+        self.ddls_or_segs_urls: list[str] | list[list[str]] = []
         self.download_info: list[str] = []
         self.total_download_size: int = 0
         self.predicted_episodes_to_download: list[int] = []
+        self.skip_calculating_size = True if site == GOGO and not self.is_hls_download and settings[KEY_GOGO_SKIP_CALCULATE] else False
 
     def get_anime_folder_path(self) -> str | None:
         def try_path(title: str) -> str | None:
@@ -537,6 +552,10 @@ class AnimeDetails():
             join = os.path.join
             season_path = try_path(
                 join(parent_season_path, self.sanitised_title))
+            season_path = try_path(
+                join(parent_season_path, sanitised_title2))
+            if season_path:
+                    return season_path
             if season_path:
                 return season_path
             season_path = try_path(
@@ -548,10 +567,6 @@ class AnimeDetails():
             )
             if season_path:
                 return season_path
-            season_path = try_path(
-                join(parent_season_path, sanitised_title2))
-            if season_path:
-                    return season_path
             season_path = try_path(
                 join(parent_season_path, f"{title} Season {season_number}")
             )
@@ -587,21 +602,21 @@ class AnimeDetails():
             self.haved_episodes.sort()
         return (self.haved_episodes[0], self.haved_episodes[-1], len(self.haved_episodes)) if len(self.haved_episodes) > 0 else (None, None, None)
 
-    def get_dub_availablilty_status(self) -> bool:
-        dub_available = False
+    def get_dub_availablilty_status(self) -> tuple[bool, str]:
         if self.site == PAHE:
             dub_available = pahe.dub_available(
                 self.anime.page_link, cast(str, self.anime.id))
-        elif self.site == GOGO:
-            dub_available = gogo.dub_available(self.anime.title)
-        return dub_available
+            link = self.anime.page_link
+        else:
+            dub_available, link = gogo.dub_availability_and_link(self.anime.title)
+        return dub_available, link
 
     def get_metadata(self) -> AnimeMetadata:
         if self.site == PAHE:
             metadata = pahe.get_anime_metadata(
                 cast(str, self.anime.id))
         else:
-            page_content = gogo.get_anime_page_content(self.anime.page_link)
+            page_content, self.anime.page_link = gogo.get_anime_page_content(self.anime.page_link)
             metadata = gogo.extract_anime_metadata(page_content)
         return metadata
 
@@ -655,13 +670,6 @@ class NumberInput(QLineEdit):
         return super().eventFilter(obj, event)
 
 
-class GogoBrowserButton(OptionButton):
-    def __init__(self, window: QWidget, browser: str, font_size: int):
-        super().__init__(window, browser, browser.upper(),
-                         font_size, RED_NORMAL_COLOR, RED_PRESSED_COLOR)
-        self.browser = browser
-
-
 class QualityButton(OptionButton):
     def __init__(self, window: QWidget, quality: str, font_size: int):
         super().__init__(window, quality, quality, font_size,
@@ -682,8 +690,8 @@ class GogoNormOrHlsButton(OptionButton):
                          font_size, RED_NORMAL_COLOR, RED_PRESSED_COLOR)
         self.norm_or_hls = norm_or_hls
         if self.norm_or_hls == GOGO_NORM_MODE:
-            return self.setToolTip("In Normal mode you may occasionally encounter Captcha block.\nAlso you must have either Chrome, Edge or Firefox installed")
-        self.setToolTip("HLS mode guarantees Gogoanime downloads will go through, zettaini, but in order for it to work you must have FFmpeg installed.\nThough Senpwai can try to automatically install it for you. Also, you can't pause ongoing downloads while in HLS mode")
+            return self.setToolTip("Normal download functionality, similar to Animepahe but may occassionally fail")
+        self.setToolTip("Guaranteed to work, it's like downloading a live stream as opposed to a file\nYou need to install FFmpeg for it to work but Senpwai will try to automatically install it")
 
 
 
@@ -696,3 +704,9 @@ class HorizontalLine(QFrame):
                             background-color: {color}; 
                             }}
                             """)
+
+class Title(StyledLabel):
+    def __init__(self, text: str, font=33):
+        super().__init__(None, font, "orange", font_color="black")
+        set_minimum_size_policy(self)
+        self.setText(text)

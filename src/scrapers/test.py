@@ -5,7 +5,6 @@ from typing import cast, Callable, Any
 from time import time as current_time
 import sys
 from bs4 import BeautifulSoup
-from selenium.common.exceptions import WebDriverException
 
 if getattr(sys, 'frozen', False):
     base_directory = os.path.dirname(sys.executable)
@@ -22,10 +21,9 @@ DEFAULT_END_EPISODE = '2'
 DEFAULT_SUB_OR_DUB = 'sub'
 DEFAULT_SITE = 'pahe'
 DEFAULT_DOWNLOAD_FOLDER_PATH = os.path.join(base_directory, 'test-downloads')
-DEFAULT_BROWSER = gogo.CHROME
 DEFAULT_VERBOSE = False
 COMMANDS = ['search', 'dub_available', 'metadata', 'episode_page', 'download_page', 'download_size',
-            'direct_links', 'hls_links', 'download', 'all']
+            'direct_links', 'hls_links', 'match_links', 'segments_urls', 'download', 'all']
 
 
 def test_start(name: str):
@@ -66,11 +64,8 @@ def test_search(anime_title: str, site: str) -> list[tuple[str, str]] | list[tup
             r) for r in cast(list[dict[str, str]], results)]
     else:
         parsed_results = cast(list[tuple[str, str]], parsed_results)
-        for r in cast(list[BeautifulSoup], results):
-            if r:
-                t, p = gogo.extract_anime_title_and_page_link(r)
-                if t and p:
-                    parsed_results.append((t, p))
+        for title, page_link in cast(list[tuple[str, str]], results):
+            parsed_results.append((title, page_link))
     run_timer = current_time() - c
     if parsed_results == []:
         fail_test(test_name, 'List of parsed results',
@@ -98,35 +93,29 @@ def test_check_results_for_anime(anime_title: str, results: list[tuple[str, str]
     ), 3, f'Anime title was: {anime_title}\nSearch results were: {results}')
 
 
-def test_get_metadata(site: str, target_result: tuple[str, str] | tuple[str, str, str]) -> AnimeMetadata:
+def test_get_metadata(site: str, target_result: tuple[str, str] | tuple[str, str, str]) -> tuple[AnimeMetadata, bytes]:
     test_name = 'Get Metadata'
     test_start(test_name)
     run_time = get_run_time_later()
+    page_content = b''
     if site == PAHE:
         target_result = cast(tuple[str, str, str], target_result)
         metadata = pahe.get_anime_metadata(target_result[2])
     else:
-        page_content = gogo.get_anime_page_content(target_result[1])
+        page_content, _ = gogo.get_anime_page_content(target_result[1])
         metadata = gogo.extract_anime_metadata(page_content)
     pass_test(test_name, run_time())
-    return metadata
+    return metadata, page_content
 
 
-def test_get_episode_page_links(site: str, anime_id: str | None, anime_page_link: str, start_episode: int, end_episode: int) -> list[str]:
+def test_get_episode_page_links(anime_id: str, anime_page_link: str, start_episode: int, end_episode: int) -> list[str]:
     test_name = 'Get Episode page links'
     test_start(test_name)
     run_time = get_run_time_later()
-    if site == PAHE:
-        test_variables = f'Anime ID: {anime_id}'
-        anime_id = cast(str, anime_id)
-        episode_page_links = pahe.GetEpisodePageLinks().get_episode_page_links(
-            start_episode, end_episode, anime_page_link, anime_id)
-    else:
-        gogo_anime_id = gogo.extract_anime_id(
-            gogo.get_anime_page_content(anime_page_link))
-        test_variables = f'Anime ID: {anime_id}\nAnime page link: {anime_page_link}'
-        episode_page_links = gogo.get_episode_page_links(
-            start_episode, end_episode, gogo_anime_id)
+    test_variables = f'Anime ID: {anime_id}'
+    anime_id = cast(str, anime_id)
+    episode_page_links = pahe.GetEpisodePageLinks().get_episode_page_links(
+        start_episode, end_episode, anime_page_link, anime_id)
     rt = run_time()
     fail_if_list_is_empty(episode_page_links, test_name,
                           'Episode page links', rt, 4, test_variables)
@@ -134,7 +123,7 @@ def test_get_episode_page_links(site: str, anime_id: str | None, anime_page_link
     return episode_page_links
 
 
-def test_get_download_page_links(site: str, quality: str, sub_or_dub: str, eps_page_links: list[str]) -> tuple[list[str], list[str]]:
+def test_get_download_page_links(site: str, quality: str, sub_or_dub: str, eps_page_links: list[str], start_episode: int, end_episode: int, anime_id: int) -> tuple[list[str], list[str]]:
     test_name = 'Get Download page links'
     test_start(test_name)
     run_time_getter = get_run_time_later()
@@ -147,13 +136,14 @@ def test_get_download_page_links(site: str, quality: str, sub_or_dub: str, eps_p
         ), 69, f'Episode page links were: {eps_page_links}\nPahewin page links were: {pahewin_page}')
         download_page_links, download_info = pahe.bind_quality_to_link_info(
             quality, download_page_links, download_info)
+        rt = run_time_getter()
+        fail_if_list_is_empty(download_page_links, test_name, 'Download page links',
+                            rt, 7, f'Episode page links were: {eps_page_links}')
     else:
-        download_page_links = gogo.GetDownloadPageLinks(
-        ).get_download_page_links(eps_page_links)
+        download_page_links = gogo.get_download_page_links(start_episode, end_episode, anime_id)
         download_info = []
-    rt = run_time_getter()
-    fail_if_list_is_empty(download_page_links, test_name, 'Download page links',
-                          rt, 7, f'Episode page links were: {eps_page_links}')
+        rt = run_time_getter()
+        fail_if_list_is_empty(download_page_links, test_name, 'Download page links', rt, 7, f'Anime ID was: {anime_id}\nStart Episode was: {start_episode}\nEnd Episode was: {end_episode}')
     pass_test(test_name, run_time_getter())
     return download_page_links, download_info
 
@@ -168,7 +158,7 @@ def fail_status(msg: str):
     print(f'Fail status: {msg}')
 
 
-def test_getting_direct_download_links(site: str, download_page_links: list[str], quality: str, browser: str) -> list[str]:
+def test_getting_direct_download_links(site: str, download_page_links: list[str], quality: str) -> list[str]:
     test_name = 'Get Direct download links'
     test_start(test_name)
     run_time_getter = get_run_time_later()
@@ -176,18 +166,7 @@ def test_getting_direct_download_links(site: str, download_page_links: list[str]
     if site == PAHE:
         ddls = pahe.GetDirectDownloadLinks().get_direct_download_links(download_page_links)
     else:
-        gogo.DRIVER_MANAGER = gogo.DriverManager()
-        try:
-            ddls = gogo.GetDirectDownloadLinks().get_direct_download_links(
-                download_page_links, quality, gogo.DRIVER_MANAGER.setup_driver(browser, False))
-            gogo.DRIVER_MANAGER.close_driver()
-        except Exception as e:
-            if isinstance(e, TimeoutError):
-                fail_status('Captcha block detected')
-            elif isinstance(e, WebDriverException):
-                fail_status(f'{browser.capitalize} not found on the system')
-            else:
-                raise e
+        ddls = gogo.GetDirectDownloadLinks().get_direct_download_links(download_page_links, quality)
     rt = run_time_getter()
     fail_if_list_is_empty(ddls, test_name, 'direct download links',
                           rt, 8, f'Download page links were: {download_page_links}')
@@ -206,29 +185,50 @@ def test_getting_hls_links(episode_page_links: list[str]) -> list[str]:
     pass_test(test_name, rt)
     return hls_links
 
+def test_matching_quality_to_hls_links(hls_links: list[str], quality: str) -> list[str]:
+    test_name = 'Match Quality to HLS links'
+    test_start(test_name)
+    runtime_getter = get_run_time_later()
+    hls_links = gogo.GetMatchedQualityLinks().get_matched_quality_link(hls_links, quality)
+    rt = runtime_getter()
+    fail_if_list_is_empty(hls_links, test_name, 'Matched HLS links', rt, 11, f'Original HLS links were: {hls_links}')
+    pass_test(test_name, rt)
+    return hls_links
 
-def test_downloading(anime_title: str, direct_download_links: list[str], is_hls_download: bool, quality: str, start_eps: int, end_eps: int, path: str):
+def test_getting_segments_urls(matched_hls_links: list[str]) -> list[list[str]]:
+    test_name = 'Get Segments URLs'
+    test_start(test_name)
+    runtime_getter = get_run_time_later()
+    segs_urls = gogo.GetSegmentsUrls().get_segments_urls(matched_hls_links)
+    rt = runtime_getter()
+    fail_if_list_is_empty(segs_urls, test_name, 'List containing List of Segment URLs', rt, 12, f'Matched HLS links were: {matched_hls_links}')
+    fail_if_list_is_empty(segs_urls[0], test_name, 'Segment URLs', rt, 12, f'Matched HLS links were: {matched_hls_links}')
+    pass_test(test_name, runtime_getter())
+    return segs_urls
+
+
+def test_downloading(anime_title: str, ddls_or_segs_urls: list[str] | list[list[str]], is_hls_download: bool, start_eps: int, end_eps: int, path: str):
     test_name = 'Downloading'
     test_start(test_name)
     if not os.path.isdir(path):
         os.makedirs(path)
     runtime_getter = get_run_time_later()
     print(f'Folder: {path}')
-    for eps_no, link in zip(range(start_eps, end_eps+1), direct_download_links):
+    for eps_no, ddl_or_seg_urls in zip(range(start_eps, end_eps+1), ddls_or_segs_urls):
         runtime_getter = get_run_time_later()
         eps_number = str(eps_no).zfill(2)
         eps_title = f'{anime_title} E{eps_number}'
-        test_name = f'Downloading {eps_title}'
+        inner_test_name = f'Downloading {eps_title}'
         test_start(test_name)
-        Download(link, eps_title,
-                 path, is_hls_download=is_hls_download, hls_quality=quality).start_download()
+        Download(ddl_or_seg_urls, eps_title,
+                 path, is_hls_download=is_hls_download).start_download()
         full_name = f'{eps_title}.mp4'
         rt = runtime_getter()
         if os.path.isfile(os.path.join(path, full_name)):
-            pass_test(test_name, rt)
+            pass_test(inner_test_name, rt)
             continue
-        test_variables = f'HLS links were: {direct_download_links}' if is_hls_download else f'DDLs were: {direct_download_links}'
-        fail_test(test_name, f'{full_name} file in {path}',
+        test_variables = f'HLS links were: {ddls_or_segs_urls}' if is_hls_download else f'DDLs were: {ddls_or_segs_urls}'
+        fail_test(inner_test_name, f'{full_name} file in {path}',
                   'Didn\'t find the file', rt, 10, test_variables)
 
     rt = runtime_getter()
@@ -242,7 +242,6 @@ class ArgParser():
     arg_quality = ('--quality', '-q')
     arg_sub_or_dub = ('--sub_or_dub', '-sd')
     arg_path = ('--path', '-p')
-    arg_browser = ('--browser', '-b')
     arg_help = ('--help', '-h')
 
     def __init__(self, args: list[str]):
@@ -280,11 +279,6 @@ class ArgParser():
         self.path = self.arg_value_finder(
             args, self.arg_path, DEFAULT_DOWNLOAD_FOLDER_PATH)
 
-        self.browser = self.arg_value_finder(
-            args, self.arg_browser, DEFAULT_BROWSER)
-        self.validate_arg_value(
-            self.arg_browser, (gogo.CHROME, gogo.EDGE, gogo.FIREFOX), self.browser)
-
     def print_usage(self):
         usage = """
         Usage: scrapers.test [COMMAND/TEST] [OPTIONS]
@@ -293,13 +287,15 @@ class ArgParser():
         search                  Test searching
         dub_available           Test dub availablity checking
         metadata                Test getting metadata
-        episode_page            Test getting episode page links
+        episode_page            Test getting episode page links (pahe only)
         download_page           Test getting download page links
         download_size           Test extraction (pahe)/ getting (gogo) of total download size
         direct_links            Test getting direct download links
         hls_links               Test getting hls links
+        match_links             Test matching hls links to user quality
+        segments_urls           Test getting segments urls
         download                Test downloading (Implicitly performs all tests)
-        all                     Perform all test (alias to download). Only performs all tests for one site, defaults to pahe
+        all                     Perform all tests (alias to download). Only performs all tests for one site, defaults to pahe
         
 
         Options:
@@ -308,7 +304,6 @@ class ArgParser():
         --quality, -q           Specify the video quality (i.e., 360p, 480p, 720p, 1080p). Default: 360p
         --sub_or_dub, -sd       Specify sub or dub. Default: sub
         --path, -p              Specify the download folder path. Default: ./src/test-downloads
-        --browser, -b           Specify the ddl scraping browser (i.e., chrome, edge, firefox). Default: chrome
         --start_episode, -se    Specify the starting episode number. Default: 1
         --end_episode, -ee      Specify the ending episode number. Default: 2
         --verbose, -v           Enable verbose mode for more detailed explanations of test results
@@ -378,59 +373,57 @@ def test_dub_available(site: str, target_result: tuple[str, str] | tuple[str, st
         target_result = cast(tuple[str, str, str], target_result)
         dub_available = pahe.dub_available(target_result[1], target_result[2])
     else:
-        dub_available = gogo.dub_available(target_result[0])
+        dub_available, _ = gogo.dub_availability_and_link(target_result[0])
     rt = runtime_getter()
     if not isinstance(dub_available, bool):
         fail_test(test_name, 'Boolean value', type(dub_available), rt, 90, f'The returned value was: {dub_available}' )
     pass_test(test_name, rt)
     return dub_available
 
-def run_tests(arg: ArgParser):
-    if arg.arg_in_group_was_passed(COMMANDS):
-        results = test_search(arg.anime_title, arg.site)
-        if arg.verbose:
+def run_tests(args: ArgParser):
+    if args.arg_in_group_was_passed(COMMANDS):
+        results = test_search(args.anime_title, args.site)
+        if args.verbose:
             print(f'Search Results: {results}\n')
         target_result = cast(tuple[str, str] | tuple[str, str, str], test_check_results_for_anime(
-            arg.anime_title, results, arg.site))
-        if arg.verbose:
+            args.anime_title, results, args.site))
+        if args.verbose:
             print(f'Target Result: {target_result}\n')
         COMMANDS.remove('search')
-        if arg.arg_in_group_was_passed(COMMANDS):
-            dub_available = test_dub_available(arg.site, target_result)
-            if arg.verbose:
+        if args.arg_in_group_was_passed(COMMANDS):
+            dub_available = test_dub_available(args.site, target_result)
+            if args.verbose:
                 print('Dub available') if dub_available else print('No Dub available')
             COMMANDS.remove('dub_available')
-            if arg.arg_in_group_was_passed(COMMANDS):
-                metadata = test_get_metadata(arg.site, target_result)
-                if arg.verbose:
+            if args.arg_in_group_was_passed(COMMANDS):
+                metadata, page_content = test_get_metadata(args.site, target_result)
+                if args.verbose:
                     print(
-                        f'Metadata:\nPoster Url: {metadata.poster_url}\nSummary: {metadata.summary[:100]}.. .\nEpisode Count: {metadata.episode_count}\nIs Ongoing: {metadata.is_ongoing}\nGenres: {metadata.genres}\nRelease Year: {metadata.release_year}\n')
+                        f'Metadata:\nPoster Url: {metadata.poster_url}\nSummary: {metadata.summary[:100]}.. .\nEpisode Count: {metadata.episode_count}\nAiring Status: {metadata.airing_status}\nGenres: {metadata.genres}\nRelease Year: {metadata.release_year}\n')
                 COMMANDS.remove('metadata')
-                if arg.arg_in_group_was_passed(COMMANDS):
-                    if (arg.end_eps > metadata.episode_count):
+                if args.arg_in_group_was_passed(COMMANDS):
+                    if (args.end_eps > metadata.episode_count):
                         print(
-                            f'The chosen target anime has {metadata.episode_count} episodes yet you specified the (\'--end_episode\', \'-ee\') as {arg.end_eps}')
+                            f'The chosen target anime has {metadata.episode_count} episodes yet you specified the (\'--end_episode\', \'-ee\') as {args.end_eps}')
                         sys.exit()
                     if args.sub_or_dub == 'dub' and not dub_available:
                         return print('Couldn\'t find Dub for the anime on the specified site')
-                    if arg.site == PAHE:
+                    if args.site == PAHE:
                         target_result = cast(tuple[str, str, str], target_result)
-                        episode_page_links = test_get_episode_page_links(
-                            arg.site, target_result[2], target_result[1], arg.start_eps, arg.end_eps)
+                        episode_page_links = test_get_episode_page_links(target_result[2], target_result[1], args.start_eps, args.end_eps)
+                        if args.verbose:
+                            print(f'Episode page links: {episode_page_links}\n')
                     else:
-                        target_result = cast(tuple[str, str], target_result)
-                        episode_page_links = test_get_episode_page_links(
-                            arg.site, '', target_result[1], arg.start_eps, arg.end_eps)
-                    if arg.verbose:
-                        print(f'Episode page links: {episode_page_links}\n')
+                        episode_page_links = []
                     COMMANDS.remove('episode_page')
-                    if arg.arg_in_group_was_passed(COMMANDS):
+                    if args.arg_in_group_was_passed(COMMANDS):
+                        anime_id = gogo.extract_anime_id(page_content) if args.site == GOGO else 0
                         download_page_links, download_info = test_get_download_page_links(
-                            arg.site, arg.quality, arg.sub_or_dub, episode_page_links)
-                        if arg.verbose:
+                            args.site, args.quality, args.sub_or_dub, episode_page_links, args.start_eps, args.end_eps, anime_id)
+                        if args.verbose:
                             print(f'Download page links: {download_page_links}\n')
                         COMMANDS.remove('download_page')
-                        if arg.site == PAHE and arg.arg_in_group_was_passed(['download_size']):
+                        if args.site == PAHE and args.arg_in_group_was_passed(['download_size']):
                             test_name = 'Total Download size'
                             test_start(test_name)
                             runtime_getter = get_run_time_later()
@@ -442,21 +435,32 @@ def run_tests(arg: ArgParser):
                             if args.verbose:
                                 print(f'Total download size is: {total_download_size}')
                             COMMANDS.remove('download_size')
-                        if arg.site == GOGO and arg.arg_in_group_was_passed(['hls_links', 'all']):
-                            hls_links = test_getting_hls_links(episode_page_links)
-                            if arg.verbose:
+                        # HLS testing pipeine
+                        if args.site == GOGO and args.arg_in_group_was_passed(['hls_links', 'match_links', 'segments_urls', 'all']):
+                            hls_links = test_getting_hls_links(download_page_links)
+                            if args.verbose:
                                 print(f'HLS links: {hls_links}\n')
                             COMMANDS.remove('hls_links')
-                            if arg.arg_in_group_was_passed(COMMANDS):
-                                test_downloading(arg.anime_title, hls_links,
-                                                True, arg.quality, arg.start_eps, arg.end_eps, arg.path)
-                        if arg.arg_in_group_was_passed(COMMANDS):
+                            if args.arg_in_group_was_passed(['segments_urls', 'match_links', 'all']):
+                                matched_links = test_matching_quality_to_hls_links(hls_links, args.quality)
+                                if args.verbose:
+                                    print(f'Matched Quality links: {matched_links}\n')
+                                COMMANDS.remove('match_links')
+                                if args.arg_in_group_was_passed(['segments_urls', 'all']):
+                                    segs_urls = test_getting_segments_urls(matched_links)
+                                    if args.verbose:
+                                        print(f'Segments URLs: {segs_urls}\n')
+                                    COMMANDS.remove('segments_urls')
+                                    if args.arg_in_group_was_passed(COMMANDS):
+                                        test_downloading(args.anime_title, segs_urls,
+                                                        True, args.start_eps, args.end_eps, args.path)
+                        if args.arg_in_group_was_passed(COMMANDS):
                             direct_download_links = test_getting_direct_download_links(
-                                arg.site, download_page_links, arg.quality, arg.browser)
-                            if arg.verbose:
+                                args.site, download_page_links, args.quality)
+                            if args.verbose:
                                 print(f'DDLs: {direct_download_links}\n')
                             COMMANDS.remove('direct_links')
-                            if arg.site == GOGO:
+                            if args.site == GOGO and args.arg_in_group_was_passed(['download_size']):
                                 test_name = 'Download size'
                                 test_start(test_name)
                                 runtime_getter = get_run_time_later()
@@ -467,10 +471,11 @@ def run_tests(arg: ArgParser):
                                 pass_test(test_name, rt)
                                 if args.verbose:
                                     print(f'Total download size is: {total_download_size}')
+                                COMMANDS.remove('download_size')
 
-                            if arg.arg_in_group_was_passed(COMMANDS):
+                            if args.arg_in_group_was_passed(COMMANDS):
                                 test_downloading(
-                                    arg.anime_title, direct_download_links, False, arg.quality, arg.start_eps, arg.end_eps, arg.path)
+                                    args.anime_title, direct_download_links, False, args.start_eps, args.end_eps, args.path)
 
 
 if __name__ == '__main__':

@@ -2,29 +2,28 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from windows.main_actual_window import MainWindow, TemporaryWindow, Window
 from shared.global_vars_and_funcs import chopper_crying_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, GITHUB_REPO_URL, github_api_releases_entry_point, github_icon_path, update_bckg_image_path, UPDATE_INSTALLER_NAMES, base_directory
-from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, settings, KEY_GOGO_DEFAULT_BROWSER, CHROME, EDGE, chopper_crying_path, VERSION, pause_icon_path, resume_icon_path, cancel_icon_path
-from shared.shared_classes_and_widgets import StyledButton, StyledLabel, IconButton, AnimeDetails, Icon
-from shared.app_and_scraper_shared import ffmpeg_is_installed, network_error_retry_wrapper
+from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, chopper_crying_path, VERSION, pause_icon_path, resume_icon_path, cancel_icon_path
+from shared.shared_classes_and_widgets import StyledButton, StyledLabel, IconButton, AnimeDetails, Icon, StyledTextBrowser, Title
+from shared.app_and_scraper_shared import ffmpeg_is_installed, CLIENT, RESOURCE_MOVED_STATUS_CODES
 from windows.download_window import ProgressBarWithButtons
 from typing import cast, Callable, Any
 from webbrowser import open_new_tab
 from shared.app_and_scraper_shared import IBYTES_TO_MBS_DIVISOR, Download
-import requests
 import sys
 import os
 import subprocess
 import re
 
 
-class SthCrashedWindow(TemporaryWindow):
-    def __init__(self, main_window: MainWindow, crash_info_text: str, widgets_to_add: list[QWidget]):
+class MiscWindow(TemporaryWindow):
+    def __init__(self, main_window: MainWindow, misc_info_text: str, widgets_to_add: list[QWidget]):
         super().__init__(main_window, chopper_crying_path)
-        info_label = StyledLabel(font_size=25)
-        info_label.setText(crash_info_text)
-        set_minimum_size_policy(info_label)
+        self.info_label = StyledLabel(font_size=25)
+        self.info_label.setText(misc_info_text)
+        set_minimum_size_policy(self.info_label)
         self.main_layout = QVBoxLayout()
         self.main_layout.addWidget(
-            info_label, alignment=Qt.AlignmentFlag.AlignCenter)
+            self.info_label, alignment=Qt.AlignmentFlag.AlignCenter)
         self.buttons_layout = QHBoxLayout()
         for w in widgets_to_add:
             self.buttons_layout.addWidget(w)
@@ -36,49 +35,14 @@ class SthCrashedWindow(TemporaryWindow):
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignHCenter)
         self.setLayout(self.full_layout)
 
+class NewVersionInfoWindow(MiscWindow):
+    def __init__(self, main_window: MainWindow, info_text: str):
+        super().__init__(main_window, info_text, [])
+        title = Title(f"Version {VERSION} Changes")
+        set_minimum_size_policy(title)
+        self.main_layout.insertWidget(0, title, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-class SwitchToSettingsWindowButton(StyledButton):
-    def __init__(self, button_text: str, window: SthCrashedWindow, main_window: MainWindow):
-        super().__init__(None, 25, "black", GOGO_NORMAL_COLOR,
-                         GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
-        self.clicked.connect(main_window.switch_to_settings_window)
-        self.clicked.connect(
-            lambda: main_window.stacked_windows.removeWidget(window))
-        self.clicked.connect(window.deleteLater)
-        self.setText(button_text)
-        set_minimum_size_policy(self)
-
-
-class NoDefaultBrowserWindow(SthCrashedWindow):
-    def __init__(self, main_window: MainWindow, anime_details: AnimeDetails) -> None:
-        change_default_browser_button = SwitchToSettingsWindowButton(
-            "Change Gogo default browser", self, main_window)
-        gogo_default_browser = cast(str, settings[KEY_GOGO_DEFAULT_BROWSER])
-        download_browser_button = StyledButton(
-            None, 25, "black", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
-        if gogo_default_browser == CHROME:
-            download_browser_button.setText("Download Chrome")
-            download_browser_button.clicked.connect(lambda: open_new_tab(
-                "https://www.google.com/chrome"))  # type: ignore
-        elif gogo_default_browser == EDGE:
-            download_browser_button.setText("Download Edge")
-            download_browser_button.clicked.connect(lambda: open_new_tab(
-                "https://www.microsoft.com/edge/download"))  # type: ignore
-        else:
-            download_browser_button.setText("Download Firefox")
-            download_browser_button.clicked.connect(lambda: open_new_tab(
-                "https://www.mozilla.org/firefox"))  # type: ignore
-        anime_details.is_hls_download = True
-        download_in_hls_mode_button = RetryDownloadButton(
-            None,  main_window, "Download in HLS mode", anime_details, ffmpeg_is_installed, main_window.create_and_switch_to_no_ffmpeg_window)
-        set_minimum_size_policy(download_browser_button)
-        set_minimum_size_policy(download_in_hls_mode_button)
-        super().__init__(main_window, f"Sumimasen, downloaading from Gogoanime in Normal mode requires you have either: \n\t\tChrome, Edge or Firefox installed\nYour current Gogo default browser is {gogo_default_browser.capitalize()} but I couldn't find it installed\nYou can also try using HLS mode instead of Normal mode",
-                         [change_default_browser_button, download_in_hls_mode_button])
-        download_in_hls_mode_button.parent_window = self
-
-
-class NoFFmpegWindow(SthCrashedWindow):
+class NoFFmpegWindow(MiscWindow):
     def __init__(self, main_window: MainWindow, anime_details: AnimeDetails):
         self.main_window = main_window
         info_text = "Sumanai, in order to use HLS mode you need to have\nFFmpeg installed and properly added to path"
@@ -90,81 +54,36 @@ class NoFFmpegWindow(SthCrashedWindow):
             install_ffmepg_button.setText("Install FFmpeg")
         set_minimum_size_policy(install_ffmepg_button)
         install_ffmepg_button.clicked.connect(
-            lambda: TryInstallingFFmpegThread(self, main_window, anime_details).start())
+            lambda: TryInstallingFFmpegThread(self, anime_details).start())
         anime_details.is_hls_download = False
-        download_in_normal_mode = RetryDownloadButton(
-            None, main_window, "Download in Normal mode", anime_details, None)
+        download_in_normal_mode = StyledButton(
+            None, 25, "black", RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR)
+        download_in_normal_mode.clicked.connect(
+            lambda: main_window.download_window.initiate_download_pipeline(anime_details))
+        download_in_normal_mode.clicked.connect(
+            self.download_window_button.click)
         set_minimum_size_policy(download_in_normal_mode)
         super().__init__(main_window, info_text, [
             install_ffmepg_button, download_in_normal_mode])
-        download_in_normal_mode.parent_window = self
-
-
-class RetryDownloadButton(StyledButton):
-    initiate_download_pipeline = pyqtSignal(AnimeDetails)
-    switch_to_download_window = pyqtSignal()
-    remove_parent_window_from_stacked_windows_signal = pyqtSignal()
-    switch_to_alt_window_signal = pyqtSignal()
-    delete_parent_window_signal = pyqtSignal()
-
-    def __init__(self, parent_window: NoDefaultBrowserWindow | NoFFmpegWindow | None, main_window: MainWindow, button_text: str, anime_details: AnimeDetails, is_downloadable: Callable[[], bool] | None, alt_window_switcher: Callable[[AnimeDetails], Any] = lambda a: None):
-        super().__init__(parent_window, 25, "black",
-                         RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR)
-        self.parent_window = parent_window
-        self.setText(button_text)
-        self.main_window = main_window
-        self.anime_details = anime_details
-        self.initiate_download_pipeline.connect(
-            main_window.download_window.initiate_download_pipeline)
-        self.switch_to_download_window.connect(
-            main_window.switch_to_download_window)
-        self.is_downloadable = is_downloadable
-        self.switch_to_alt_window_signal.connect(
-            lambda: alt_window_switcher(anime_details))
-        self.remove_parent_window_from_stacked_windows_signal.connect(
-            lambda: main_window.stacked_windows.removeWidget(self.parent_window))  # type: ignore
-        self.clicked.connect(self.start_download)
-
-    def clean_out_parent_window(self, switch_to_down: bool = True):
-        self.delete_parent_window_signal.connect(
-            self.parent_window.deleteLater)  # type: ignore
-        if switch_to_down:
-            self.switch_to_download_window.emit()
-        self.remove_parent_window_from_stacked_windows_signal.emit()
-        self.delete_parent_window_signal.emit()
-
-    def start_download(self):
-        if self.is_downloadable and not self.is_downloadable():
-            self.switch_to_alt_window_signal.emit()
-            return self.clean_out_parent_window(False)
-        self.initiate_download_pipeline.emit(self.anime_details)
-        self.switch_to_download_window.emit()
 
 
 class TryInstallingFFmpegThread(QThread):
     initiate_download_pipeline = pyqtSignal(AnimeDetails)
     switch_to_download_window = pyqtSignal()
-    remove_noffmpeg_from_stacked_windows_signal = pyqtSignal()
-    delete_noffmpeg_signal = pyqtSignal()
 
-    def __init__(self, no_ffmpeg_window: NoFFmpegWindow, main_window: MainWindow, anime_details: AnimeDetails):
+    def __init__(self, no_ffmpeg_window: NoFFmpegWindow, anime_details: AnimeDetails):
         super().__init__(no_ffmpeg_window)
         self.initiate_download_pipeline.connect(
             no_ffmpeg_window.main_window.download_window.initiate_download_pipeline)
         self.anime_details = anime_details
         self.switch_to_download_window.connect(
-            main_window.switch_to_download_window)
-        self.remove_noffmpeg_from_stacked_windows_signal.connect(
-            lambda: main_window.stacked_windows.removeWidget(no_ffmpeg_window))
+            no_ffmpeg_window.download_window_button.click)
         self.no_ffmpeg_window = no_ffmpeg_window
-        self.delete_noffmpeg_signal.connect(no_ffmpeg_window.deleteLater)
 
     def start_download(self):
         self.anime_details.is_hls_download = True
         self.initiate_download_pipeline.emit(self.anime_details)
         self.switch_to_download_window.emit()
-        self.remove_noffmpeg_from_stacked_windows_signal.emit()
-        self.delete_noffmpeg_signal.emit()
 
     def run(self):
         if sys.platform == "win32":
@@ -178,6 +97,8 @@ class TryInstallingFFmpegThread(QThread):
                     "Successfully Installed", "FFmpeg", True, None)
                 self.start_download()
             else:
+                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
+                    "Failed to Automatically Install", "FFmpeg", False)
                 open_new_tab(
                     "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Windows")
         elif sys.platform == "linux":
@@ -191,6 +112,8 @@ class TryInstallingFFmpegThread(QThread):
                     "Successfully Installed", "FFmpeg", True, None)
                 self.start_download()
             else:
+                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
+                    "Failed to Automatically Install", "FFmpeg", False)
                 open_new_tab(
                     "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Linux")
 
@@ -200,22 +123,28 @@ class TryInstallingFFmpegThread(QThread):
 
 
 class UpdateWindow(Window):
-    def __init__(self, main_window: MainWindow, download_url: str, file_name: str, platform_flag: int):
+    def __init__(self, main_window: MainWindow, download_url: str, file_name: str, update_info: str, platform_flag: int):
         super().__init__(main_window, update_bckg_image_path)
         main_widget = QWidget()
         main_layout = QVBoxLayout()
         self.progress_bar: ProgressBarWithButtons | None = None
-        info_label = StyledLabel(font_size=24)
-        info_label.setWordWrap(True)
+        before_click_label = StyledLabel(font_size=22)
+        before_click_label.setWordWrap(True)
+        update_info_text_browser = StyledTextBrowser(font_size=16)
+        update_info_text_browser.setMarkdown(update_info)
+        update_info_text_browser.setMinimumWidth(500)
+
+        main_layout.addWidget(update_info_text_browser,
+                              alignment=Qt.AlignmentFlag.AlignCenter)
         if platform_flag == 1:
-            info_label.setText(
+            before_click_label.setText(
                 "Before you click the update button, ensure you don't have any active downloads cause Senpwai will restart")
-            set_minimum_size_policy(info_label)
+            set_minimum_size_policy(before_click_label)
             main_layout.addWidget(
-                info_label, alignment=Qt.AlignmentFlag.AlignCenter)
+                before_click_label, alignment=Qt.AlignmentFlag.AlignCenter)
             self.update_button = StyledButton(
-                self, 30, "black", RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, 20)
-            self.update_button.setText("START UPDATE")
+                self, 24, "black", RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, 20)
+            self.update_button.setText("DOWNLOAD AND INSTALL UPDATE")
             set_minimum_size_policy(self.update_button)
             download_widget = QWidget()
             self.download_layout = QVBoxLayout()
@@ -231,10 +160,10 @@ class UpdateWindow(Window):
                 os_name = "Mac OS"
             else:
                 os_name = "Linux OS"
-            info_label.setText(
+            before_click_label.setText(
                 f"\n{os_name} detected, you will have to build from source to update to the new version.\nThere is a guide on the README.md in the Github Repository.\n")
-            set_minimum_size_policy(info_label)
-            main_layout.addWidget(info_label)
+            set_minimum_size_policy(before_click_label)
+            main_layout.addWidget(before_click_label)
             github_button = IconButton(Icon(300, 100, github_icon_path), 1.1)
             github_button.clicked.connect(
                 lambda: open_new_tab(GITHUB_REPO_URL))  # type: ignore
@@ -273,8 +202,11 @@ class DownloadUpdateThread(QThread):
         self.make_notification = main_window.tray_icon.make_notification
 
     def run(self):
-        total_size = int(network_error_retry_wrapper(lambda: cast(str, requests.get(
-            self.download_url, stream=True).headers["content-length"])))
+        response = (CLIENT.get(self.download_url, stream=True))
+        if response.status_code in RESOURCE_MOVED_STATUS_CODES:
+            self.download_url = response.headers["Location"]
+            response = CLIENT.get(self.download_url, stream=True)
+        total_size = int(response.headers["Content-Length"])
         self.total_size.emit(total_size)
         self.update_window.progress_bar
         while not self.update_window.progress_bar:
@@ -288,7 +220,8 @@ class DownloadUpdateThread(QThread):
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
         if not download.cancelled:
-            os.startfile(os.path.join(base_directory, self.file_name))
+            subprocess.Popen(
+                [os.path.join(base_directory, self.file_name), "/silent"])
             self.quit_app.emit()
 
 
@@ -303,8 +236,8 @@ class CheckIfUpdateAvailableThread(QThread):
         self.finished.emit(self.update_available())
 
     def update_available(self) -> tuple[bool, str, str, int, str]:
-        latest_version_json = network_error_retry_wrapper(
-            lambda: (requests.get(github_api_releases_entry_point))).json()[0]
+        latest_version_json = CLIENT.get(
+            github_api_releases_entry_point).json()[0]
         latest_version_tag = latest_version_json["tag_name"]
         ver_regex = re.compile(r'(\d+(\.\d+)*)')
         match = cast(re.Match, ver_regex.search(latest_version_tag))
@@ -324,7 +257,7 @@ class CheckIfUpdateAvailableThread(QThread):
                     download_url = asset["browser_download_url"]
                     asset_name = asset["name"]
                     break
-        return (update_available, download_url, asset_name,  platform_flag, latest_version)
+        return (update_available, download_url, asset_name,  platform_flag, latest_version_json["body"])
 
     def check_platform(self) -> int:
         if sys.platform == "win32":

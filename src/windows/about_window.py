@@ -3,16 +3,9 @@ from PyQt6.QtCore import Qt
 from windows.main_actual_window import MainWindow, Window
 from shared.global_vars_and_funcs import about_bckg_image_path, set_minimum_size_policy, sen_icon_path, morbius_is_peak_icon_path, GITHUB_REPO_URL, gigachad_audio_path, morbius_audio_path, hentai_addict_audio_path
 from shared.global_vars_and_funcs import github_icon_path, reddit_icon_path, discord_icon_path, hentai_addict_icon_path, github_sponsors_icon_path, patreon_icon_path, VERSION
-from shared.shared_classes_and_widgets import StyledLabel, IconButton, ScrollableSection, AudioPlayer, Icon
+from shared.shared_classes_and_widgets import StyledLabel, IconButton, ScrollableSection, AudioPlayer, Icon, Title
 from webbrowser import open_new_tab
-
-
-class Title(StyledLabel):
-    def __init__(self, text: str):
-        super().__init__(None, 33, "orange", font_color="black")
-        set_minimum_size_policy(self)
-        self.setText(text)
-
+from sys import platform as sysplatform
 
 class AboutWindow(Window):
     def __init__(self, main_window: MainWindow):
@@ -89,6 +82,16 @@ class AboutWindow(Window):
         social_links_buttons_layout.addWidget(discord_button)
         social_links_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         social_links_buttons_widget.setLayout(social_links_buttons_layout)
+
+        uninstall_title = Title("Uninstall Info")
+        set_minimum_size_policy(uninstall_title)
+        uninstall_info_label = StyledLabel()
+        uninstall_info_label.setText("To completely remove Senpwai (don't know why you would though), post-uninstallation also uninstall Python 3.11 unless you use it outside of Senpwai and If you use HLS mode uninstall FFmpeg too, look up guides on how to do so")
+        uninstall_info_label.setWordWrap(True)
+        retain_settings_label = StyledLabel()
+        retain_settings_label.setText("If you wish to retain your settings even after uninstalling, press \"Win + R\" then type \"%appdata%\\..\\Local\\Programs\\Senpwai\" and press enter. Move the file named \"settings.json\" somewhere else, uninstall Senpwai, make a new folder named \"Senpwai\" in the \"Programs\" folder and move the \"settings.json\" file back into this Senpwai folder. Now next time you install Senpwai, it will use these settings instead of the defaults")
+        retain_settings_label.setWordWrap(True)
+
         version_title = Title(f"Version {VERSION}")
         set_minimum_size_policy(version_title)
 
@@ -104,6 +107,10 @@ class AboutWindow(Window):
         main_layout.addWidget(social_links_title)
         main_layout.addWidget(bug_reports_label)
         main_layout.addWidget(social_links_buttons_widget)
+        if sysplatform == "win32":
+            main_layout.addWidget(uninstall_title)
+            main_layout.addWidget(uninstall_info_label)
+            main_layout.addWidget(retain_settings_label)
         main_layout.addWidget(version_title)
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignTop)
         self.setLayout(self.full_layout)

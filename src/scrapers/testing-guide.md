@@ -17,11 +17,13 @@ python -m scrapers.test all --site pahe && python -m scrapers.test all --site go
 - **search**: Test searching
 - **dub_available**: Test dub availablity checking
 - **metadata**: Test getting metadata
-- **episode_page**: Test getting episode page links
+- **episode_page**: Test getting episode page links 
 - **download_page**: Test getting download page links
 - **download_size**: Test extraction (pahe)/ getting (gogo) of total download size
 - **direct_links**: Test getting direct download links
 - **hls_links**: Test getting hls links
+- **match_links**: Test matching hls links to user quality
+- **segments_urls**: Test getting segments urls
 - **download**: Test downloading (Implicitly performs all tests)
 - **all**: Perform all tests (alias to download). Only performs all tests for one site, defaults to pahe
 
@@ -31,7 +33,6 @@ python -m scrapers.test all --site pahe && python -m scrapers.test all --site go
 - `--quality, -q`: Specify the video quality (i.e., 360p, 480p, 720p, 1080p). Default: 360p
 - `--sub_or_dub, -sd`: Specify sub or dub. Default: sub
 - `--path, -p`: Specify the download folder path. Default: ./src/test-downloads
-- `--browser, -b`: Specify the browser (i.e., chrome, edge, firefox). Default: chrome
 - `--start_episode, -se`: Specify the starting episode number. Default: 1
 - `--end_episode, -ee`: Specify the ending episode number. Default: 2
 - `--verbose, -v`: Enable verbose mode for more detailed explanations of test results

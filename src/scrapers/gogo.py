@@ -1,65 +1,48 @@
-import requests
 from urllib.parse import quote
 from bs4 import BeautifulSoup, ResultSet, Tag
-from time import sleep
-import webbrowser
-from sys import platform
+from requests.cookies import RequestsCookieJar
+from random import choice as randomchoice
 
-from selenium.common.exceptions import WebDriverException
-from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.edge.service import Service as EdgeService
-from selenium.webdriver.firefox.service import Service as FirefoxService
-from selenium.webdriver import Chrome, Edge, Firefox, ChromeOptions, EdgeOptions, FirefoxOptions
-
-import subprocess
-from typing import Callable, cast
-from shared.app_and_scraper_shared import PARSER, network_error_retry_wrapper, match_quality, IBYTES_TO_MBS_DIVISOR, NETWORK_RETRY_WAIT_TIME, PausableAndCancellableFunction, AnimeMetadata, REQUEST_HEADERS, extract_new_domain_name_from_readme
+from typing import Callable, cast, Any
+from shared.app_and_scraper_shared import PARSER, CLIENT, match_quality, IBYTES_TO_MBS_DIVISOR, PausableAndCancellableFunction, AnimeMetadata, get_new_domain_name_from_readme, sanitise_title
 
 # Hls mode imports
 import json
-from yarl import URL as parseUrl
+from yarl import URL
 import base64
 import re
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.backends import default_backend
-from threading import Event
 
 GOGO = 'gogo'
 GOGO_HOME_URL = 'https://gogoanimehd.io'
 DUB_EXTENSION = ' (Dub)'
-EDGE = 'edge'
-CHROME = 'chrome'
-FIREFOX = 'firefox'
+REGISTERED_ACCOUNT_EMAILS = ['benida7218@weirby.com', 'hareki4411@wisnick.com' ,'nanab67795@weirby.com', 'xener53725@weirby.com', 'nenado3105@weirby.com', 
+                             'yaridod257@weirby.com', 'ketoh33964@weirby.com', 'kajade1254@wisnick.com', 'nakofe3005@weirby.com', 'gedidij506@weirby.com',
+                             'sihaci1525@undewp.com', 'lorimob952@soebing.com', 'nigeha6048@undewp.com', 'goriwij739@undewp.com', 'pekivik280@soebing.com'
+                             'hapas66158@undewp.com', 'wepajof522@undewp.com', 'semigo1458@undewp.com', 'xojecog864@undewp.com', 'lobik97135@wanbeiz.com' ]
 
+SESSION_COOKIES: RequestsCookieJar | None = None
 # Hls mode constants
 KEYS_REGEX = re.compile(rb'(?:container|videocontent)-(\d+)')
 ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
 
 
-def search(keyword: str) -> list[BeautifulSoup]:
-    global GOGO_HOME_URL
-    url_extension = '/search.html?keyword='
-    search_url = GOGO_HOME_URL + url_extension + quote(keyword)
-    response = cast(requests.Response, network_error_retry_wrapper(
-        lambda: requests.get(search_url, headers=REQUEST_HEADERS)))
-    # If the status code isn't 200 we assume they changed their domain name
-    if response.status_code != 200:
-        GOGO_HOME_URL = extract_new_domain_name_from_readme("Gogoanime")
-        return search(keyword)
-    content = response.content
+def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
+    ajax_search_url = 'https://ajax.gogo-load.com/site/loadAjaxSearch?keyword='+keyword
+    response = CLIENT.get(ajax_search_url)
+    content = response.json()['content']
     soup = BeautifulSoup(content, PARSER)
-    results_page = cast(Tag, soup.find('ul', class_="items"))
-    results = results_page.find_all('li')
-    return results
-
-
-def extract_anime_title_and_page_link(result: BeautifulSoup) -> tuple[str, str] | tuple[None, None]:
-    title = cast(str, cast(Tag, result.find('a'))['title'])
-    page_link = GOGO_HOME_URL + cast(str, cast(Tag, result.find('a'))['href'])
-    if DUB_EXTENSION in title:
-        return (None, None)
-    return (title, page_link)
+    a_tags = cast(list[Tag], soup.find_all('a'))
+    title_and_link: list[tuple[str, str]] = []
+    for a in a_tags:
+        title = a.text
+        link = f'{GOGO_HOME_URL}/{a["href"]}'
+        if DUB_EXTENSION in title and ignore_dub:
+            continue
+        title_and_link.append((title, link))
+    return title_and_link
 
 
 def extract_anime_id(anime_page_content: bytes) -> int:
@@ -69,9 +52,9 @@ def extract_anime_id(anime_page_content: bytes) -> int:
     return int(anime_id)
 
 
-def get_episode_page_links(start_episode: int, end_episode: int, anime_id: int) -> list[str]:
+def get_download_page_links(start_episode: int, end_episode: int, anime_id: int) -> list[str]:
     ajax_url = f'https://ajax.gogo-load.com/ajax/load-list-episode?ep_start={start_episode}&ep_end={end_episode}&id={anime_id}'
-    content = network_error_retry_wrapper(lambda: requests.get(ajax_url).content)
+    content = CLIENT.get(ajax_url).content
     soup = BeautifulSoup(content, PARSER)
     a_tags = soup.find_all('a')
     episode_page_links: list[str] = []
@@ -81,148 +64,28 @@ def get_episode_page_links(start_episode: int, end_episode: int, anime_id: int) 
         episode_page_links.append(GOGO_HOME_URL + resource)
     return episode_page_links
 
-
-class DriverManager():
-    def __init__(self):
-        self.is_inactive = Event()
-        self.browser: str = EDGE
-        self.driver: Chrome | Edge | Firefox | None = None
-        self.is_inactive.set()
-
-    def close_driver(self):
-        if self.driver:
-            self.driver.quit()
-            self.driver = None
-            self.is_inactive.set()
-
-    def setup_driver(self, browser: str = EDGE, headless: bool=True) -> Chrome | Edge | Firefox:
-        """
-        Be sure to call `close_driver` once you're done using the driver
-        """
-        self.is_inactive.wait()
-
-        def setup_options(options: ChromeOptions | EdgeOptions | FirefoxOptions) -> ChromeOptions | EdgeOptions | FirefoxOptions:
-            options.add_argument('--disable-extensions')
-            options.add_argument('--disable-infobars')
-            options.add_argument('--no-sandbox')
-            if headless:
-                if isinstance(options, FirefoxOptions):
-                    # For testing purposes, when deploying remember to uncomment out
-                    options.add_argument("--headless")
-                    # pass
-                else:
-                    # For testing purposes, when deploying remember to uncomment out
-                    options.add_argument("--headless=new")
-                    # pass
-            return options
-
-        def setup_edge_driver():
-            service_edge = EdgeService()
-            if platform == "win32":
-                service_edge.creation_flags = subprocess.CREATE_NO_WINDOW
-            options = cast(EdgeOptions, setup_options(EdgeOptions()))
-            return Edge(service=service_edge, options=options)
-
-        def setup_chrome_driver():
-            service_chrome = ChromeService()
-            service_chrome.creation_flags = subprocess.CREATE_NO_WINDOW
-            options = cast(ChromeOptions, setup_options(ChromeOptions()))
-            return Chrome(service=service_chrome, options=options)
-
-        def setup_firefox_driver():
-            service_firefox = FirefoxService()
-            if platform == "win32":
-                service_firefox.creation_flags = subprocess.CREATE_NO_WINDOW
-            options = cast(FirefoxOptions, setup_options(FirefoxOptions()))
-            return Firefox(service=service_firefox, options=options)
-
-        if browser == EDGE:
-            self.driver = setup_edge_driver()
-        elif browser == CHROME:
-            self.driver = setup_chrome_driver()
-        else:
-            self.driver = setup_firefox_driver()
-        self.browser = browser
-        self.is_inactive.clear()
-        return self.driver
-
-
-DRIVER_MANAGER = DriverManager()
-
-
 class GetDirectDownloadLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def get_direct_download_links(self, download_page_links: list[str], quality: str, driver: Chrome | Edge | Firefox, progress_update_call_back: Callable = lambda added: None, max_load_wait_time=5) -> list[str]:
-        # For testing purposes
-        # raise TimeoutError
-        download_links: list[str] = []
-        download_links: list[str] = []
-        for page_link in download_page_links:
-            links, quality_infos = get_links_and_quality_info(
-                page_link, driver, max_load_wait_time, self)
-            if self.cancelled:
-                return []
-            quality_idx = match_quality(quality_infos, quality)
-            download_links.append(links[quality_idx])
-            self.resume.wait()
-            progress_update_call_back(1)
-        return download_links
-
-
-def get_links_and_quality_info(download_page_link: str, driver: Chrome | Edge | Firefox, max_load_wait_time: int, get_ddl: GetDirectDownloadLinks, load_wait_time=1) -> tuple[list[str], list[str]]:
-    def network_error_retry():
-        while True:
-            if get_ddl.cancelled:
-                return [], []
-            try:
-                return driver.get(download_page_link)
-            except WebDriverException:
-                sleep(NETWORK_RETRY_WAIT_TIME)
-    network_error_retry()
-    sleep(load_wait_time)
-    soup = BeautifulSoup(driver.page_source, PARSER)
-    links_and_infos = soup.find_all('a')
-    links = [link_and_info['href']
-             for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
-    quality_infos = [link_and_info.text.replace(
-        'P', 'p') for link_and_info in links_and_infos if 'download' in link_and_info.attrs]
-    get_ddl.resume.wait()
-    if get_ddl.cancelled:
-        return [], []
-    if (len(links) == 0):
-        if load_wait_time >= max_load_wait_time:
-            raise TimeoutError
-        else:
-            return get_links_and_quality_info(download_page_link, driver, max_load_wait_time, get_ddl, load_wait_time+1)
-    return (links, quality_infos)
-
-
-class GetDownloadPageLinks(PausableAndCancellableFunction):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def get_download_page_links(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> list[str]:
-        download_page_links: list[str] = []
-
-        def extract_link(episode_page_link: str) -> str:
-            response = cast(requests.Response, network_error_retry_wrapper(
-                lambda page=episode_page_link: requests.get(page, headers=REQUEST_HEADERS)))
-            soup = BeautifulSoup(response.content, PARSER)
-            soup = cast(Tag, soup.find('li', class_='dowloads'))
-            link = cast(str, cast(Tag, soup.find(
-                'a', target='_blank'))['href'])
-            return link
-
-        for eps_pg_link in episode_page_links:
-            link = extract_link(eps_pg_link)
-            download_page_links.append(link)
+    def get_direct_download_links(self, download_page_links: list[str], user_quality: str, progress_update_callback: Callable = lambda x: None) -> list[str]:
+        direct_download_links: list[str] = []
+        for eps_pg_link in download_page_links:
+            link = ''
+            while link == '':
+                response = CLIENT.get(eps_pg_link, cookies=get_session_cookies())
+                soup = BeautifulSoup(response.content, PARSER)
+                a_tags = cast(ResultSet[Tag], cast(Tag, soup.find('div', class_='cf-download')).find_all('a'))
+                qualities = [a.text for a in a_tags]
+                idx = match_quality(qualities, user_quality)
+                redirect_link = cast(str, a_tags[idx]['href'])
+                link = CLIENT.get(redirect_link, cookies=get_session_cookies()).headers.get('Location', redirect_link)
+            direct_download_links.append(link)
             self.resume.wait()
             if self.cancelled:
                 return []
             progress_update_callback(1)
-        return download_page_links
+        return direct_download_links
 
 
 class CalculateTotalDowloadSize(PausableAndCancellableFunction):
@@ -231,10 +94,9 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
 
     def calculate_total_download_size(self, direct_download_links: list[str], progress_update_callback: Callable = lambda update: None, in_megabytes=False) -> int:
         total_size = 0
-        for idx, link in enumerate(direct_download_links):
-            response = network_error_retry_wrapper(
-                lambda link=link: requests.get(link, stream=True, headers=REQUEST_HEADERS))
-            size = response.headers.get('content-length', 0)
+        for link in (direct_download_links):
+            response = CLIENT.get(link, stream=True, cookies=get_session_cookies())
+            size = response.headers.get('Content-Length', 0)
             if in_megabytes:
                 total_size += round(int(size) / IBYTES_TO_MBS_DIVISOR)
             else:
@@ -245,14 +107,20 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
             progress_update_callback(1)
         return total_size
 
+def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
+    """
+    Returns a string too which is the new anime_page_link if there was a change in Gogo's domain name
+    """
+    response = CLIENT.get(anime_page_link)
+    # we assume they changed domain names if the status code isn't 200
+    if response.status_code != 200:
+        global GOGO_HOME_URL
+        prev_home_url = GOGO_HOME_URL
+        GOGO_HOME_URL = get_new_domain_name_from_readme(GOGO)
+        anime_page_link.replace(prev_home_url, GOGO_HOME_URL)
+        return CLIENT.get(anime_page_link).content, anime_page_link
+    return response.content, anime_page_link
 
-def open_browser_with_links(download_links: str) -> None:
-    for link in download_links:
-        webbrowser.open_new_tab(link)
-
-
-def get_anime_page_content(anime_page_link: str) -> bytes:
-    return network_error_retry_wrapper(lambda: requests.get(anime_page_link).content)
 
 
 def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
@@ -264,44 +132,31 @@ def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
     genre_tags = cast(ResultSet[Tag], metadata_tags[2].find_all('a'))
     genres = cast(list[str], [g['title'] for g in genre_tags])
     release_year = int(metadata_tags[3].get_text().replace('Released: ', ''))
-    episode_count = cast(Tag, cast(ResultSet[Tag], cast(Tag, soup.find(
-        'ul', id='episode_page')).find_all('li'))[-1].find('a')).get_text().split('-')[-1]
+    episode_count = int(cast(Tag, cast(ResultSet[Tag], cast(Tag, soup.find(
+        'ul', id='episode_page')).find_all('li'))[-1].find('a')).get_text().split('-')[-1])
     tag = soup.find('a', title="Ongoing Anime")
-    is_ongoing = False
     if tag:
-        is_ongoing = True
+        status = "ONGOING"
+    elif episode_count == 0:
+        status = "UPCOMING"
+    else:
+        status = "FINISHED"
 
-    return AnimeMetadata(poster_link, summary, int(episode_count), is_ongoing, genres, release_year)
+    return AnimeMetadata(poster_link, summary, episode_count, status, genres, release_year)
 
 
-def dub_available(anime_title: str) -> bool:
+def dub_availability_and_link(anime_title: str) -> tuple[bool, str]:
     dub_title = f'{anime_title}{DUB_EXTENSION}'
-    results = search(dub_title)
-    for result in results:
-        title = cast(str, cast(Tag, result.find('a'))['title'])
-        if dub_title == title:
-            return True
-    return False
-
-
-def get_dub_anime_page_link(anime_title: str) -> str:
-    dub_title = f'{anime_title}{DUB_EXTENSION}'
-    results = search(dub_title)
-    page_link = ''
-    for result in results:
-        title = cast(str, cast(Tag, result.find('a'))['title'])
-        if dub_title == title:
-            page_link = GOGO_HOME_URL + \
-                cast(str, cast(Tag, result.find('a'))['href'])
-            break
-    return page_link
-
+    results = search(dub_title, False)
+    for res_title, link in results:
+        if dub_title == res_title:
+            return True, link 
+    return False, ''
 
 # Hls mode functions start here
 
 def get_embed_url(episode_page_link: str) -> str:
-    response = cast(requests.Response, network_error_retry_wrapper(
-        lambda: requests.get(episode_page_link, headers=REQUEST_HEADERS)))
+    response = CLIENT.get(episode_page_link)
     soup = BeautifulSoup(response.content, PARSER)
     return cast(str, cast(Tag, soup.select_one('iframe'))['src'])
 
@@ -327,11 +182,10 @@ def aes_decrypt(data: str, *, key, iv) -> str:
 
 
 def extract_stream_url(embed_url: str) -> str:
-    parsed_url = parseUrl(embed_url)
+    parsed_url = URL(embed_url)
     content_id = parsed_url.query['id']
     streaming_page_host = f'https://{parsed_url.host}/'
-    streaming_page = cast(bytes, network_error_retry_wrapper(
-        lambda: requests.get(embed_url, headers=REQUEST_HEADERS).content))
+    streaming_page = CLIENT.get(embed_url).content
 
     encryption_key, iv, decryption_key = (
         _.group(1) for _ in KEYS_REGEX.finditer(streaming_page)
@@ -347,11 +201,10 @@ def extract_stream_url(embed_url: str) -> str:
     )
 
     component = component.split("&", 1)[1]
-    ajax_response = cast(requests.Response, network_error_retry_wrapper(lambda: requests.get(
+    ajax_response = CLIENT.get(
         streaming_page_host + "encrypt-ajax.php?" + component,
-        headers={"x-requested-with": "XMLHttpRequest",
-                 'User-Agent': REQUEST_HEADERS['User-Agent']},
-    )))
+        headers=CLIENT.append_headers({"x-requested-with": "XMLHttpRequest"}),
+    )
     content = json.loads(
         aes_decrypt(ajax_response.json()[
             'data'], key=decryption_key, iv=iv)
@@ -365,17 +218,73 @@ def extract_stream_url(embed_url: str) -> str:
         stream_url = source[0]["file"]
     return stream_url
 
+class GetMatchedQualityLinks(PausableAndCancellableFunction):
+    def __init__(self) -> None:
+        super().__init__()
+        
+    def get_matched_quality_link(self, hls_links: list[str], quality: str, progress_update_callback: Callable[[int], None] = lambda x: None) -> list[str]:
+        matched_links: list[str] = []
+        for h in hls_links:
+            response = CLIENT.get(h)
+            self.resume.wait()
+            if self.cancelled:
+                return []
+            lines = response.text.split(',')
+            qualities = [line for line in lines if "NAME=" in line]
+            idx = match_quality(qualities, quality)
+            resource = qualities[idx].splitlines()[1]
+            base_url = URL(h).parent
+            matched_links.append(f"{base_url}/{resource}")
+            progress_update_callback(1)
+        return matched_links
+class GetSegmentsUrls(PausableAndCancellableFunction):
+    def __init__(self) -> None:
+        super().__init__()
 
+    def get_segments_urls(self, matched_links: list[str], progress_update_callback: Callable[[int], None] = lambda x: None) -> list[list[str]]:
+        segments_urls: list[list[str]] = []
+        for m in matched_links:
+            response = CLIENT.get(m)
+            self.resume.wait()
+            if self.cancelled:
+                return []
+            segments = response.text.splitlines()
+            base_url = "/".join(m.split("/")[:-1])
+            segment_urls: list[str] = []
+            for seg in segments:
+                if seg.endswith('.ts'):
+                    segment_url = f"{base_url}/{seg}"
+                    segment_urls.append(segment_url)
+            segments_urls.append(segment_urls)
+            progress_update_callback(1)
+        return segments_urls
 class GetHlsLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def get_hls_links(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> list[str]:
+    def get_hls_links(self, download_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> list[str]:
         hls_links: list[str] = []
-        for eps_url in episode_page_links:
-            self.resume.wait()
+        for eps_url in download_page_links:
             hls_links.append(extract_stream_url(get_embed_url(eps_url)))
+            self.resume.wait()
             if self.cancelled:
                 return []
             progress_update_callback(1)
         return hls_links
+
+def get_session_cookies(fresh=False) -> RequestsCookieJar:
+    global SESSION_COOKIES
+    if SESSION_COOKIES and not fresh:
+        return SESSION_COOKIES
+    login_url = f'{GOGO_HOME_URL}/login.html'
+    response = CLIENT.get(login_url)
+    soup = BeautifulSoup(response.content, PARSER)
+    form_div = cast(Tag, soup.find('div', class_='form-login'))
+    csrf_token = cast(Tag, form_div.find('input', {'name': '_csrf'}))['value']
+    form_data = {"email": randomchoice(REGISTERED_ACCOUNT_EMAILS), 'password': 'amogus69420', "_csrf": csrf_token}
+    # A valid User-Agent is required during this post request hence the CLIENT is technically only necessary here
+    response = CLIENT.post(login_url, form_data, cookies=response.cookies)
+    SESSION_COOKIES = response.cookies
+    if len(SESSION_COOKIES) == 0:
+        return get_session_cookies()
+    return SESSION_COOKIES

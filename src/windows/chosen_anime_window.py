@@ -1,9 +1,9 @@
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpacerItem
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
-from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, GogoBrowserButton, QualityButton, SubDubButton, GogoNormOrHlsButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection, DualStateButton
+from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, QualityButton, SubDubButton, GogoNormOrHlsButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection, DualStateButton
 from shared.global_vars_and_funcs import GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, RED_NORMAL_COLOR, RED_PRESSED_COLOR, settings, KEY_SUB_OR_DUB, Q_1080, Q_720, Q_480, Q_360, chosen_anime_window_bckg_image_path
-from shared.global_vars_and_funcs import SUB, DUB, set_minimum_size_policy, KEY_GOGO_DEFAULT_BROWSER, KEY_QUALITY, KEY_TRACKED_ANIME, GOGO, CHROME, EDGE, FIREFOX
+from shared.global_vars_and_funcs import SUB, DUB, set_minimum_size_policy, KEY_QUALITY, KEY_TRACKED_ANIME, GOGO
 from windows.download_window import DownloadWindow
 from windows.settings_window import SettingsWindow
 from shared.app_and_scraper_shared import dynamic_episodes_predictor_initialiser_pro_turboencapsulator
@@ -69,9 +69,8 @@ class ChosenAnimeWindow(TemporaryWindow):
         release_year.setText(str(anime_details.metadata.release_year))
         set_minimum_size_policy(release_year)
         bottom_top_layout.addWidget(release_year)
-        airing_text = "ONGOING" if anime_details.metadata.is_ongoing else "FINISHED"
         airing_status = StyledLabel(None, 21, "blue")
-        airing_status.setText(airing_text)
+        airing_status.setText(anime_details.metadata.airing_status)
         set_minimum_size_policy(airing_status)
         bottom_top_layout.addWidget(airing_status)
         self.episode_count = EpisodeCount(
@@ -172,39 +171,26 @@ class ChosenAnimeWindow(TemporaryWindow):
         start_episode = str((self.anime_details.haved_end)+1) if (
             self.anime_details.haved_end and self.anime_details.haved_end < self.anime_details.episode_count) else "1"
         input_size = QSize(80, 40)
-        self.start_episode_input = NumberInput(21)
-        self.start_episode_input.setFixedSize(input_size)
-        self.start_episode_input.setPlaceholderText("START")
-        self.start_episode_input.setText(str(start_episode))
-        self.end_episode_input = NumberInput(21)
-        self.end_episode_input.setPlaceholderText("STOP")
-        self.end_episode_input.setFixedSize(input_size)
-        self.download_button = DownloadButton(
-            self, self.main_window.download_window, self.anime_details)
-        set_minimum_size_policy(self.download_button)
-
-        second_row_of_buttons_layout.addWidget(self.start_episode_input)
-        second_row_of_buttons_layout.addWidget(self.end_episode_input)
-        second_row_of_buttons_layout.addWidget(self.download_button)
+        if anime_details.metadata.airing_status != "UPCOMING":
+            self.start_episode_input = NumberInput(21)
+            self.start_episode_input.setFixedSize(input_size)
+            self.start_episode_input.setPlaceholderText("START")
+            self.start_episode_input.setText(str(start_episode))
+            self.end_episode_input = NumberInput(21)
+            self.end_episode_input.setPlaceholderText("STOP")
+            self.end_episode_input.setFixedSize(input_size)
+            self.download_button = DownloadButton(
+                self, self.main_window.download_window, self.anime_details)
+            set_minimum_size_policy(self.download_button)
+            second_row_of_buttons_layout.addWidget(self.start_episode_input)
+            second_row_of_buttons_layout.addWidget(self.end_episode_input)
+            second_row_of_buttons_layout.addWidget(self.download_button)
+            QTimer.singleShot(0, self.download_button.setFocus)
         including_error_label_widget = QWidget()
         including_error_label_layout = QVBoxLayout()
         self.error_label = ErrorLabel(18, 6)
         self.error_label.hide()
         including_error_label_layout.addWidget(self.error_label)
-        if anime_details.site == GOGO:
-            chrome_browser_button = GogoBrowserButton(self, CHROME, 18)
-            edge_browser_button = GogoBrowserButton(self, EDGE, 18)
-            firefox_browser_button = GogoBrowserButton(self, FIREFOX, 18)
-            self.browser_buttons = [chrome_browser_button,
-                                    edge_browser_button, firefox_browser_button]
-            for button in self.browser_buttons:
-                set_minimum_size_policy(button)
-                second_row_of_buttons_layout.addWidget(button)
-                browser = button.browser
-                button.clicked.connect(
-                    lambda garbage_bool, browser=browser: self.update_browser(browser))
-                if browser == cast(str, settings[KEY_GOGO_DEFAULT_BROWSER]):
-                    button.set_picked_status(True)
         second_row_of_buttons_widget.setLayout(second_row_of_buttons_layout)
         second_row_of_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         including_error_label_layout.addWidget(second_row_of_buttons_widget)
@@ -240,15 +226,9 @@ class ChosenAnimeWindow(TemporaryWindow):
             main_widget.horizontalScrollBar().maximum())
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
-        QTimer.singleShot(0, self.download_button.setFocus)
         # For testing purposes
         # self.download_button.animateClick()
 
-    def update_browser(self, browser: str):
-        self.anime_details.browser = browser
-        for button in self.browser_buttons:
-            if button.browser != browser:
-                button.set_picked_status(False)
 
     def update_quality(self, quality: str):
         self.anime_details.quality = quality
