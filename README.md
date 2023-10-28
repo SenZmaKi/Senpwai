@@ -30,7 +30,7 @@ Senpwai prioritizes efficiency and low RAM usage (~60 MBs on average and 15 MBs 
 
 During installation Python 3.11 will be automatically installed if not present, as a result Senpwai consumes ~500 MBs of disk space but if you already had Python 3.11 then ~250 MBs. 
 
-Senpwai WON'T work If you were to ever uninstall Python 3.11. Also to completely remove Senpwai (don't know why you would though), post-uninstallation also uninstall Python 3.11 unless you use it outside of Senpwai.
+Senpwai WON'T work If you were to ever uninstall Python 3.11. Also to completely remove Senpwai (don't know why you would though), post-uninstallation also uninstall Python 3.11 and if you use HLS mode uninstall FFmpeg too unless you them outside of Senpwai. If you don't know how to, just look up a guide.
 
 </details>
 
