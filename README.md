@@ -63,11 +63,11 @@ Open a terminal and run the following commands.
 1. **Set everything up.**
 - Linux/Mac
 ```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai/src && pip install virtualenv && python3 -m virtualenv ../.venv && source ../.venv/bin/activate && pip install -r requirements.txt
+git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai/src && python3 -m venv ../.venv && source ../.venv/bin/activate && pip install -r requirements.txt
 ```
 - Windows (Command Prompt)
 ```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai\src && pip install virtualenv && python -m virtualenv ..\.venv && ..\.venv\Scripts\activate && pip install -r requirements.txt
+git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai\src && python -m venv ..\.venv && ..\.venv\Scripts\activate && pip install -r requirements.txt
 ```
 
 2. **Run the app.**
