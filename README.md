@@ -28,7 +28,7 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
 
 Senpwai prioritizes efficiency and low RAM usage (~60 MBs on average and 15 MBs when minimised to tray), hence It runs directly via Python 3.11 as opposed to being bundled with tools like pyinstaller/cxfreeze/py2exe/nuitka.
 
-During installation Python 3.11 will be automatically installed if not present, as a result Senpwai consumes ~500 MBs of disk space but if you already had Python 3.11 then ~250 MBs. 
+During installation Python 3.11 will be automatically installed if not present, as a result Senpwai consumes ~500 MBs of disk space but if you already have Python 3.11 then ~250 MBs. 
 
 Senpwai WON'T work If you were to ever uninstall Python 3.11. Also to completely remove Senpwai (don't know why you would though), post-uninstallation also uninstall Python 3.11 and if you use HLS mode uninstall FFmpeg too unless you them outside of Senpwai. If you don't know how to, just look up a guide.
 
