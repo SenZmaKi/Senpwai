@@ -30,7 +30,7 @@ Senpwai prioritizes efficiency and low RAM usage (~60 MBs on average and 15 MBs 
 
 During installation Python 3.11 will be automatically installed if not present, as a result Senpwai consumes ~500 MBs of disk space but if you already have Python 3.11 then ~250 MBs. 
 
-Senpwai WON'T work If you were to ever uninstall Python 3.11. Also to completely remove Senpwai (don't know why you would though), post-uninstallation also uninstall Python 3.11 and if you use HLS mode uninstall FFmpeg too unless you them outside of Senpwai. If you don't know how to, just look up a guide.
+Senpwai WON'T work If you were to ever uninstall Python 3.11. Also to completely remove Senpwai (don't know why you would though), post-uninstallation also uninstall Python 3.11 and if you use HLS mode uninstall FFmpeg too, unless maybe you use them outside of Senpwai. If you don't know how to, just look up a guide.
 
 </details>
 
@@ -63,7 +63,7 @@ Open a terminal and run the following commands.
 1. **Set everything up.**
 - Linux/Mac
 ```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai/src && python3 -m venv ../.venv && source ../.venv/bin/activate && pip install -r requirements.txt
+git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai/src && python -m venv ../.venv && source ../.venv/bin/activate && pip install -r requirements.txt
 ```
 - Windows (Command Prompt)
 ```
@@ -91,12 +91,8 @@ In HLS mode Gogoanime downloads are guaranteed to work, though with a few downsi
 
 - Requires [FFmpeg](https://www.hostinger.com/tutorials/how-to-install-ffmpeg) to be installed, though Senpwai can attempt to automatically install it for you.
   
-- Ongoing downloads can't be paused.
-  
-- No download progress indication, the progress bars only indicate the completion of downloading each episode.
-  
-- May occasionally crash if you have an unstable internet connection.
-
+- No download size indication but Senpwai will estimate the total download size after the first download.
+ 
 </details>
 
 <details> <summary> Do you intend to add more sources? </summary> 
