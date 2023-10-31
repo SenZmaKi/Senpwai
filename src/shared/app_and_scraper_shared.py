@@ -15,8 +15,8 @@ from shared.global_vars_and_funcs import log_exception, delete_file
 
 PARSER = 'html.parser'
 IBYTES_TO_MBS_DIVISOR = 1024*1024
-QUALITY_REGEX = re.compile(r'\b(\d{3,4})p\b')
-QUALITY_REGEX2 = re.compile(r'\b\d+x(\d+)\b')
+QUALITY_REGEX_1 = re.compile(r'\b(\d{3,4})p\b')
+QUALITY_REGEX_2 = re.compile(r'\b\d+x(\d+)\b')
 NETWORK_RETRY_WAIT_TIME = 5
 GITHUB_README_URL = "https://github.com/SenZmaKi/Senpwai/blob/master/README.md"
 RESOURCE_MOVED_STATUS_CODES = (301, 302, 307, 308)
@@ -113,34 +113,32 @@ class AnimeMetadata:
 
 
 def match_quality(potential_qualities: list[str], user_quality: str) -> int:
-    detected_qualities: list[QualityAndIndices] = []
+    detected_qualities: list[tuple[int, int]] = []
     user_quality = user_quality.replace('p', '')
     for idx, potential_quality in enumerate(potential_qualities):
-        match = QUALITY_REGEX.search(potential_quality)
+        match = QUALITY_REGEX_1.search(potential_quality)
         if not match:
-            match = QUALITY_REGEX2.search(potential_quality)
+            match = QUALITY_REGEX_2.search(potential_quality)
 
         if match:
             quality = cast(str, match.group(1))
             if quality == user_quality:
                 return idx
             else:
-                if quality.isdigit():
-                    detected_qualities.append(
-                        QualityAndIndices(int(quality), idx))
+                detected_qualities.append((int(quality), idx))
     int_user_quality = int(user_quality)
-    if len(detected_qualities) <= 0:
+    if detected_qualities == []:
         if int_user_quality <= 480:
             return 0
         return -1
 
-    detected_qualities.sort(key=lambda x: x.quality)
+    detected_qualities.sort(key=lambda x: x[0])
     closest = detected_qualities[0]
     for quality in detected_qualities:
-        if quality.quality > int_user_quality:
+        if quality[0] > int_user_quality:
             break
         closest = quality
-    return closest.index
+    return closest[1]
 
 
 def sanitise_title(title: str, all=False, exclude='') -> str:
