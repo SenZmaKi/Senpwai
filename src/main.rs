@@ -1,15 +1,16 @@
 #![windows_subsystem = "windows"] // Comment this out when debugging/developing cause otherwise you won't see output from print statements
-use ::std::process::Command;
-use native_dialog::{MessageDialog, MessageType};
-use std::os::windows::process::CommandExt;
-use winapi::um::winuser;
+use {
+    native_dialog::{MessageDialog, MessageType},
+    std::os::windows::process::CommandExt,
+    std::process::Command,
+    winapi::um::winuser,
+};
 
 const APP_TITLE: &str = "Senpwai";
 const PYTHON_PATH: &str = "..\\.venv\\Scripts\\python.exe";
-const MAIN_SCRIPT_PATH: &str = "senpwai.py";
-const SRC_DIR: &str = "..\\src";
+const MAIN_SCRIPT_PATH: &str = ".\\senpwai.py";
 const CREATE_NO_WINDOW_FLAG: u32 = 0x08000000;
-const HELP_MESSAGE: &str = "Help: Reinstall and run the setup from https:://github.com/SenZmaKi/Senpwai.\nIf the error persists report it in either the\nDiscord Server: https://discord.gg/invite/e9UxkuyDX2\nGithub Issues: https://github.com/SenZmaKi/Senpwai/issues\nSubreddit: https://www.reddit.com/r/Senpwai";
+const HELP_MESSAGE: &str = "Help: Uninstall then reinstall the app using the setup from https:://github.com/SenZmaKi/Senpwai\n\nIf the error persists report it in either the\nDiscord Server: https://discord.gg/invite/e9UxkuyDX2\nGithub Issues: https://github.com/SenZmaKi/Senpwai/issues\nSubreddit: https://www.reddit.com/r/Senpwai";
 
 fn main() {
     if bring_app_to_foreground_if_running() {
@@ -38,32 +39,37 @@ fn bring_app_to_foreground_if_running() -> bool {
 
 fn run_app() {
     let mut args = vec![MAIN_SCRIPT_PATH.to_owned()];
+    // Skip the first arg cause it's the path/name of the current executable
     args.extend(std::env::args().skip(1));
-    let result = Command::new(PYTHON_PATH)
+    let output = Command::new(PYTHON_PATH)
         .args(args)
-        .current_dir(SRC_DIR)
         .creation_flags(CREATE_NO_WINDOW_FLAG)
-        .spawn();
+        .output();
 
-    match result {
-        Err(e) => {
-            let err = e.to_string();
-            if !err.is_empty() {
-                show_error_message(&format!(
-                    "Command Execution Error: {}\n{}",
-                    e.to_string(),
-                    HELP_MESSAGE
-                ));
+    match output {
+        Ok(output) => {
+            if !output.status.success() {
+                let err = String::from_utf8_lossy(&output.stderr);
+                if !err.is_empty() {
+                    let error_message = format!("{}\n\n{}", err, HELP_MESSAGE);
+                    show_error_message("Startup Error", &error_message);
+                }
             }
         }
-        _ => {}
+        Err(err) => {
+            let err = err.to_string();
+            if !err.is_empty() {
+                let error_message = format!("{}\n\n{}", err, HELP_MESSAGE);
+                show_error_message("Command Execution Error", &error_message);
+            }
+        }
     }
 }
 
-fn show_error_message(message: &str) {
+fn show_error_message(error_title: &str, message: &str) {
     MessageDialog::new()
         .set_type(MessageType::Error)
-        .set_title("Error")
+        .set_title(error_title)
         .set_text(message)
         .show_alert()
         .unwrap();
