@@ -24,7 +24,7 @@ fn bring_app_to_foreground_if_running() -> bool {
     let app_title_c = format!("{}\0", APP_TITLE);
 
     // Check if the app is already running by searching for its window
-    let window = unsafe { winuser::FindWindowA(std::ptr::null(), app_title_c.as_ptr() as _) };
+    let window = unsafe { winuser::FindWindowA(std::ptr::null(), app_title_c.as_ptr() as *const i8) };
 
     if window != std::ptr::null_mut() {
         // If the app is running, bring it into focus
@@ -41,21 +41,12 @@ fn run_app() {
     let mut args = vec![MAIN_SCRIPT_PATH.to_owned()];
     // Skip the first arg cause it's the path/name of the current executable
     args.extend(std::env::args().skip(1));
-    let output = Command::new(PYTHON_PATH)
+    let result = Command::new(PYTHON_PATH)
         .args(args)
         .creation_flags(CREATE_NO_WINDOW_FLAG)
-        .output();
+        .spawn();
 
-    match output {
-        Ok(output) => {
-            if !output.status.success() {
-                let err = String::from_utf8_lossy(&output.stderr);
-                if !err.is_empty() {
-                    let error_message = format!("{}\n\n{}", err, HELP_MESSAGE);
-                    show_error_message("Startup Error", &error_message);
-                }
-            }
-        }
+    match result {
         Err(err) => {
             let err = err.to_string();
             if !err.is_empty() {
@@ -63,6 +54,7 @@ fn run_app() {
                 show_error_message("Command Execution Error", &error_message);
             }
         }
+        Ok(_) => {}
     }
 }
 
