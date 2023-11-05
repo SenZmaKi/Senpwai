@@ -1,4 +1,3 @@
-from urllib.parse import quote
 from bs4 import BeautifulSoup, ResultSet, Tag
 from requests.cookies import RequestsCookieJar
 from random import choice as randomchoice

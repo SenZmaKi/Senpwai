@@ -194,12 +194,11 @@ class DownloadUpdateThread(QThread):
 
     def __init__(self, main_window: MainWindow, update_window: UpdateWindow, download_url: str, file_name: str):
         super().__init__(main_window)
-        self.quit_app.connect(main_window.quit_app)
+        self.quit_app.connect(main_window.app.quit)
         self.download_url = download_url
         self.total_size.connect(update_window.receive_total_size)
         self.update_window = update_window
         self.file_name = file_name
-        self.make_notification = main_window.tray_icon.make_notification
 
     def run(self):
         response = (CLIENT.get(self.download_url, stream=True))

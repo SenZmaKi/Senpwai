@@ -400,7 +400,7 @@ class DownloadWindow(Window):
 
         if not anime_details.anime_folder_path:
             anime_details.anime_folder_path = os.path.join(
-                anime_details.chosen_default_download_path, anime_details.sanitised_title)
+                anime_details.default_download_path, anime_details.sanitised_title)
             os.mkdir(anime_details.anime_folder_path)
         if anime_details.is_hls_download:
             total_segments = sum(len(l)
