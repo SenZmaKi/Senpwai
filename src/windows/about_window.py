@@ -86,11 +86,8 @@ class AboutWindow(Window):
         uninstall_title = Title("Uninstall Info")
         set_minimum_size_policy(uninstall_title)
         uninstall_info_label = StyledLabel()
-        uninstall_info_label.setText("To completely remove Senpwai (don't know why you would though), post-uninstallation also uninstall Python 3.11 unless you use it outside of Senpwai and If you use HLS mode uninstall FFmpeg too, look up guides on how to do so")
+        uninstall_info_label.setText("To completely remove Senpwai (don't know why you would though), post-uninstallation press \"Win + R\" then type \"%appdata%\\..\\Local\\Programs\\Senpwai\" and press enter, now delete this folder too")
         uninstall_info_label.setWordWrap(True)
-        retain_settings_label = StyledLabel()
-        retain_settings_label.setText("If you wish to retain your settings even after uninstalling, press \"Win + R\" then type \"%appdata%\\..\\Local\\Programs\\Senpwai\" and press enter. Move the file named \"settings.json\" somewhere else, uninstall Senpwai, make a new folder named \"Senpwai\" in the \"Programs\" folder and move the \"settings.json\" file back into this Senpwai folder. Now next time you install Senpwai, it will use these settings instead of the defaults")
-        retain_settings_label.setWordWrap(True)
 
         version_title = Title(f"Version {VERSION}")
         set_minimum_size_policy(version_title)
@@ -110,7 +107,6 @@ class AboutWindow(Window):
         if sysplatform == "win32":
             main_layout.addWidget(uninstall_title)
             main_layout.addWidget(uninstall_info_label)
-            main_layout.addWidget(retain_settings_label)
         main_layout.addWidget(version_title)
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignTop)
         self.setLayout(self.full_layout)

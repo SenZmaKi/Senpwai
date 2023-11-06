@@ -12,13 +12,17 @@ from types import TracebackType
 
 
 if getattr(sys, 'frozen', False):
-    base_directory = os.path.dirname(sys.executable)
+    base_directory = os.path.join(os.path.dirname(sys.executable))
+    internal_directory = os.path.join(base_directory, "_internal")
+    is_executable = True
 else:
     base_directory = os.path.dirname(os.path.realpath('__file__'))
+    internal_directory = base_directory
+    is_executable = False
 
 COMPANY_NAME = "AkatsuKi Inc."
 APP_NAME = "Senpwai"
-VERSION = "2.0.4"
+VERSION = "2.0.5"
 UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe", 
                           f"{APP_NAME}-updater.msi", f"{APP_NAME}-update.msi",
                           f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
@@ -35,11 +39,9 @@ for name in UPDATE_INSTALLER_NAMES:
     full_path = os.path.join(base_directory, name)
     delete_file(full_path)
 
-base_config_dir = user_config_dir()
-if sys.platform == "win32":
-    config_dir = os.path.join(base_config_dir, "Programs", APP_NAME)
-else:
-    config_dir = os.path.join(base_config_dir, APP_NAME)
+config_dir = os.path.join(user_config_dir(), APP_NAME)
+
+
 if not os.path.isdir(config_dir):
     os.makedirs(config_dir)
 GITHUB_REPO_URL = "https://github.com/SenZmaKi/Senpwai"
@@ -72,9 +74,8 @@ if not os.path.exists(error_logs_file_path):
     f.close()
 
 version_file_path = os.path.join(config_dir, "version.txt")
-if not os.path.exists(version_file_path):
-    with open(version_file_path, "w") as f:
-        f.write(VERSION)
+with open(version_file_path, "w") as f:
+    f.write(VERSION)
 
 logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -108,7 +109,7 @@ default_allow_notifications = True
 default_start_in_fullscreen = True
 default_gogo_hls_mode = False
 
-assets_path = os.path.join(base_directory, "assets")
+assets_path = os.path.join(internal_directory, "assets")
 def join_from_assets(file): return os.path.join(assets_path, file)
 
 
@@ -227,7 +228,6 @@ KEY_QUALITY = "quality"
 KEY_DOWNLOAD_FOLDER_PATHS = "download_folder_paths"
 KEY_MAX_SIMULTANEOUS_DOWNLOADS = "max_simultaneous_downloads"
 KEY_ALLOW_NOTIFICATIONS = "allow_notifcations"
-deprecated_key_make_download_complete_notifications = "make_download_complete_notifications"
 KEY_START_IN_FULLSCREEN = "start_in_fullscreen"
 KEY_RUN_ON_STARTUP = "run_on_startup"
 KEY_GOGO_NORM_OR_HLS_MODE = "gogo_hls_mode"
@@ -300,10 +300,7 @@ def validate_settings_json(settings_json: dict) -> dict:
     except KeyError:
         clean_settings[KEY_MAX_SIMULTANEOUS_DOWNLOADS] = default_max_simutaneous_downloads
     try:
-        try:
-            allow_notifications = settings_json[KEY_ALLOW_NOTIFICATIONS]
-        except KeyError:
-            allow_notifications = settings_json[deprecated_key_make_download_complete_notifications]
+        allow_notifications = settings_json[KEY_ALLOW_NOTIFICATIONS]
         if not isinstance(allow_notifications, bool):
             raise KeyError
         clean_settings[KEY_ALLOW_NOTIFICATIONS] = allow_notifications
@@ -369,32 +366,21 @@ def validate_settings_json(settings_json: dict) -> dict:
     return clean_settings
 
 
-def join_to_settings(x): return os.path.join(x, "settings.json")
 
 
-SETTINGS_JSON_PATH = join_to_settings(config_dir)
-
+SETTINGS_JSON_PATH = os.path.join(config_dir, "settings.json")
 
 def configure_settings() -> dict[str, SETTINGS_TYPES]:
     settings = {}
-    s_path = SETTINGS_JSON_PATH
-    if sys.platform == "win32":
-        deprecated_settings_json_path = join_to_settings(
-            os.path.join(base_config_dir, APP_NAME))
-        if not os.path.isfile(s_path) and os.path.isfile(deprecated_settings_json_path):
-            s_path = deprecated_settings_json_path
-
-    if os.path.exists(s_path):
-        with open(s_path, "r") as f:
+    if os.path.isfile(SETTINGS_JSON_PATH):
+        with open(SETTINGS_JSON_PATH, "r") as f:
             try:
                 settings = cast(dict, json.load(f))
             except json.decoder.JSONDecodeError:
                 pass
-    s_path = SETTINGS_JSON_PATH
-    with open(s_path, "w") as f:
+    with open(SETTINGS_JSON_PATH, "w") as f:
         validated_settings = validate_settings_json(settings)
         json.dump(validated_settings, f, indent=4)
         return validated_settings
-
 
 settings = configure_settings()

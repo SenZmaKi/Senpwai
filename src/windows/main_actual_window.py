@@ -33,9 +33,6 @@ class MainWindow(QMainWindow):
         self.download_window.start_auto_download()
         self.app.aboutToQuit.connect(self.tray_icon.hide)
 
-    def quit_app(self):
-        self.app.quit()
-
     def show_with_settings(self, args: list[str]):
         in_fullscreen = cast(bool, settings[KEY_START_IN_FULLSCREEN])
         if "--minimised_to_tray" in args:
@@ -159,7 +156,7 @@ class TrayIcon(QSystemTrayIcon):
             main_window.switch_to_download_window)
         downloads_action.triggered.connect(main_window.show)
         quit_action = QAction("Quit", self.context_menu)
-        quit_action.triggered.connect(main_window.quit_app)
+        quit_action.triggered.connect(main_window.app.quit)
         self.context_menu.addAction(check_for_new_episodes_action)
         self.context_menu.addAction(search_action)
         self.context_menu.addAction(downloads_action)

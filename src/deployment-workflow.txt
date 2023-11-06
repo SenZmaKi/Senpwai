@@ -2,39 +2,51 @@ to-dos:
         run tests in testing module and make sure they all pass, make sure to test both pahe and gogo
         check and test all app windows
         remove testing crap, search string "for testing" 
-        uncomment our # type: ignore comments and confirm that they you dont ignore unexpected errors
+        uncomment out "type: ignore" comments and confirm that they you don't ignore unexpected errors
         confirm all comments are in the right place
+        verify modules in requirements.txt and development-requirements.txt are up to date
+        generate version_file.txt
+        update VERSION in global variable, metadata.yml and setup.iss (MyAppVersion and VersionInfoVersion)
         ensure all changes have been committed and pushed to github
-        update VERSION in global variable, Cargo.toml, metadata.yml and setup.iss (MyAppVersion and VersionInfoVersion)
-        generate clean requirements.txt
-        build main exe:
-              - command: cargo build --release; rm .\Senpwai.exe; mv ..\target\release\Senpwai.exe .\Senpwai.exe; .\Senpwai.exe
+        test linux port
+        compile to exe
+        test exe
         compile to installer     
-        delete install directory for a clean install
+        uninstall the app for a clean install
         test installer
-        ensure all changes have been committed, pushed and merged to the master branch
+        merge changes with master branch and delete version branch
         publish release on github
+        announce update on discord and reddit
 
+working directory: src/
 
-requirements.txt-gen: directory: src/ 
-                       command: pigar generate
+compile to exe then to installer and run installer silently
+pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level 'ERROR' --version-file=version_file.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py ; iscc setup.iss /Q ; ..\setups\Senpwai-setup.exe /silent 
 
-file_version_info.txt-gen: directory: src/
-                           command: create-version-file metadata.yml --outfile file_version_info.txt
+compile to exe:
+pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level 'ERROR' --version-file=version_file.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py
 
-remove-all-modules: command: pip freeze | % {pip uninstall -y $_.split('==')[0]}
+test exe:
+dist/Senpwai/senpwai.exe
 
-install-modules: directory: src/
-                command: pip install -r requirements.txt
+generate requirements.txt:
+pigar generate
+
+generate version_file.txt:
+create-version-file metadata.yml --outfile version_file.txt
+
+remove all libraries:
+pip freeze | % {pip uninstall -y $_.split('==')[0]}
+
+install dependancies:
+pip install -r requirements.txt
 
 test-exe: 
-       - check memory usage    
-       - check cpu usage
-       - check disk usage
-       - check network usage
+check memory usage    
+check cpu usage
+check disk usage
+check network usage
 
-compile-installer: directory: src/
-                   command: ./setup.iss
-                   tasks: 
-                   - update version, !!! MyAppversion, VersionInfoVersion
-                   - remove unnecessary dirs e.g __pychache__ 
+compile-installer:
+iscc dist/Senpwai /Q
+setup.iss

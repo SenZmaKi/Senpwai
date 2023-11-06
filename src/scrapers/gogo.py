@@ -1,4 +1,3 @@
-from urllib.parse import quote
 from bs4 import BeautifulSoup, ResultSet, Tag
 from requests.cookies import RequestsCookieJar
 from random import choice as randomchoice
@@ -229,6 +228,7 @@ class GetMatchedQualityLinks(PausableAndCancellableFunction):
             self.resume.wait()
             if self.cancelled:
                 return []
+            print(response.headers)
             lines = response.text.split(',')
             qualities = [line for line in lines if "NAME=" in line]
             idx = match_quality(qualities, quality)

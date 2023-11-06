@@ -486,10 +486,9 @@ class AnimeDetails():
         self.site = site
         self.is_hls_download = True if site == GOGO and settings[KEY_GOGO_NORM_OR_HLS_MODE] == GOGO_HLS_MODE else False
         self.sanitised_title = sanitise_title(anime.title)
-        self.chosen_default_download_path: str = ''
+        self.default_download_path = cast(
+            list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])[0]
         self.anime_folder_path = self.get_anime_folder_path()
-        if self.anime_folder_path:
-            os.path.basename(self.anime_folder_path)
         self.potentially_haved_episodes = self.get_potentially_haved_episodes()
         self.haved_episodes: list[int] = []
         self.haved_start, self.haved_end, self.haved_count = self.get_start_end_and_count_of_haved_episodes()
@@ -506,78 +505,49 @@ class AnimeDetails():
 
     def get_anime_folder_path(self) -> str | None:
         def try_path(title: str) -> str | None:
-            detected = None
             for path in cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS]):
                 potential = os.path.join(path, title)
-                upper = potential.upper()
-                lower = potential.lower()
                 if os.path.isdir(potential):
-                    detected = potential
-                elif os.path.isdir(upper):
-                    detected = upper
-                elif os.path.isdir(lower):
-                    detected = lower
-                if detected:
-                    self.chosen_default_download_path = path
-                    return detected
-            self.chosen_default_download_path = cast(
-                list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])[0]
+                    return potential
             return None
 
-        path = try_path(self.sanitised_title)
-        if path:
-            return path
-        sanitised_title2 = sanitise_title(self.anime.title.replace(":", ""))
-        path = try_path(sanitised_title2)
-        parent_season_path = None
+        fully_sanitised_title = sanitise_title(self.anime.title, True, " ")
+        parent_seasons_path = ""
         season_number = 1
-        title = None
-        parsed = anitopy.parse(self.sanitised_title)
-        if parsed:
-            try:
-                season_number = parsed["anime_season"]
-                title = parsed["anime_title"]
-                parent_season_path = try_path(title)
-            except KeyError:
-                parsed = anitopy.parse(sanitised_title2)
-                if parsed:
-                    try:
-                        season_number = parsed["anime_season"]
-                        title = parsed["anime_title"]
-                        parent_season_path = try_path(title)
-                    except KeyError:
-                        pass
-        if parent_season_path and title:
-            # I know this can be way cleaner if I just used a tuple or some shii, but I need it to be as fast as possible
-            join = os.path.join
-            season_path = try_path(
-                join(parent_season_path, self.sanitised_title))
-            season_path = try_path(
-                join(parent_season_path, sanitised_title2))
-            if season_path:
-                    return season_path
-            if season_path:
-                return season_path
-            season_path = try_path(
-                join(parent_season_path, f"Season {season_number}"))
-            if season_path:
-                return season_path
-            season_path = try_path(
-                join(parent_season_path, f"SN {season_number}")
-            )
-            if season_path:
-                return season_path
-            season_path = try_path(
-                join(parent_season_path, f"{title} Season {season_number}")
-            )
-            if season_path:
-                return season_path
-            season_path = try_path(
-                join(parent_season_path, f"{title} SN {season_number}")
-            )
-            if season_path:
-                return season_path
-        return path
+        parsed_title = ""
+        anime_type = ""
+        parsed = {}
+        def init(title: str):
+            nonlocal parsed, parsed_title, parent_seasons_path, anime_type, season_number
+            parsed = anitopy.parse(title)
+            if parsed:
+                parsed_title = parsed.get("anime_title", title)
+                # It could be that the anime is a Special/OVA/ONA
+                anime_type = parsed.get("anime_type", "")
+                if anime_type:
+                    # In the resulting parsed anime_title, Anitopy only ignores Seasons but not Types for some reason, e.g., "Attack On Titan Season 1" will 
+                    # be parsed to "Attack on Titan" meanwhile, "Attack on Titan Specials" will still remain as "Attack on Titan"
+                    parsed_title = parsed_title.replace(anime_type, "").strip()
+                parent_seasons_path = try_path(parsed_title)
+                if not anime_type:
+                    season_number = parsed.get("anime_season", 1)
+        init(self.sanitised_title)
+        if not parent_seasons_path:
+            init(fully_sanitised_title)
+        if parent_seasons_path and parsed_title and parsed:
+            target_folders = [anime_type] if anime_type else [f"Season {season_number}", f"SN {season_number}", f"Sn {season_number}", f"{parsed_title} Season {season_number}", f"{parsed_title} SN {season_number}", f"{parsed_title} Sn {season_number}"]
+            target_folders += [self.sanitised_title, fully_sanitised_title]
+
+            for f in target_folders:
+                folder = os.path.join(parent_seasons_path, f)
+                if os.path.isdir(folder):
+                    return folder
+        if path := try_path(self.sanitised_title):
+            return path
+        elif path := try_path(fully_sanitised_title):
+            return path
+        else:
+            return None
 
     def get_potentially_haved_episodes(self) -> list[Path] | None:
         if not self.anime_folder_path:
