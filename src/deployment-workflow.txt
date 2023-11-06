@@ -21,10 +21,10 @@ to-dos:
 working directory: src/
 
 compile to exe then to installer and run installer silently
-pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level 'ERROR' --version-file=version_file.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py ; iscc setup.iss /Q ; ..\setups\Senpwai-setup.exe /silent 
+pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level "ERROR" --version-file=version_file.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py ; iscc setup.iss /Q ; ..\setups\Senpwai-setup.exe /silent 
 
 compile to exe:
-pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level 'ERROR' --version-file=version_file.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py
+pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level "ERROR" --version-file=version_file.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py
 
 test exe:
 dist/Senpwai/senpwai.exe
