@@ -1,30 +1,41 @@
 from bs4 import BeautifulSoup, ResultSet, Tag
-import json
 import re
-from typing import Callable, cast
+from typing import Callable, cast, Any
 from math import pow
 from shared.app_and_scraper_shared import CLIENT, PARSER, match_quality, PausableAndCancellableFunction, AnimeMetadata, get_new_domain_name_from_readme
+import requests
 
 PAHE = 'pahe'
 PAHE_HOME_URL = 'https://animepahe.ru'
 API_URL_EXTENSION = '/api?m='
+UUID_REGEX = re.compile(r'uuid=(.*?);')
+UUID_COOKIE = {'uuid': ''}
 
+def uuid_request(url: str, search_request=False) -> requests.Response:
+    # Without setting the uuid cookie most requests redirect to some html page containing a valid uuid
+    # But it seems like the uuid cookie only needs to be set as in they don't validate it
+    response = CLIENT.get(url, cookies=UUID_COOKIE)
+    if search_request:
+        try:
+            response.json()
+        except requests.exceptions.JSONDecodeError:
+            # This is a monkey patch fallback incase they start validating the uuid, it works by assuming the first request
+            # Which is a search request will involve decoding so if it fails decoding then it means they gave us the html page with the uuid
+            # So we try and and extract a valid uuid from the page, if they ever start validating uuids I wiill work on a better implementation
+            match = cast(re.Match[str], UUID_REGEX.search(response.text))
+            UUID_COOKIE['uuid'] = match.group(1)
+            return uuid_request(url)
+    return response
 
-def search(keyword: str, cookies = {}) -> list[dict[str, str]]:
+def search(keyword: str) -> list[dict[str, str]]:
     global PAHE_HOME_URL
     search_url = PAHE_HOME_URL+API_URL_EXTENSION+'search&q='+keyword
-    response = CLIENT.get(search_url, cookies=cookies)
+    response = uuid_request(search_url, True)
     # If the status code isn't 200 we assume they changed their domain name
     if response.status_code != 200:
         PAHE_HOME_URL = get_new_domain_name_from_readme("Animepahe")
         return search(keyword)
-    content = response.content
-    # Occasionally the api doesn't respond with proper Json
-    try:
-        decoded = cast(dict, json.loads(content.decode('UTF-8')))
-    except json.JSONDecodeError:
-        print('here')
-        return search(keyword, response.cookies)
+    decoded = cast(dict, response.json())
     # The api won't return json containing the data key if no results are found
     return decoded.get('data', [])
 
@@ -37,9 +48,8 @@ def extract_anime_title_page_link_and_id(result: dict[str, str]) -> tuple[str, s
 
 def get_total_episode_page_count(anime_page_link: str) -> int:
     page_url = f'{anime_page_link}&page={1}'
-    page_content = CLIENT.get(page_url).content
-    decoded_anime_page = json.loads(page_content.decode('UTF-8'))
-    total_episode_page_count: int = decoded_anime_page['last_page']
+    decoded = uuid_request(page_url).json()
+    total_episode_page_count: int = decoded['last_page']
     return total_episode_page_count
 
 
@@ -54,10 +64,9 @@ class GetEpisodePageLinks(PausableAndCancellableFunction):
         page_no = 1
         while page_url != None:
             page_url = f'{anime_page_link}&page={page_no}'
-            page_content = CLIENT.get(page_url).content
-            decoded_anime_page = json.loads(page_content.decode('UTF-8'))
-            episodes_data += decoded_anime_page['data']
-            page_url = decoded_anime_page["next_page_url"]
+            decoded = uuid_request(page_url).json()
+            episodes_data += decoded['data']
+            page_url = decoded["next_page_url"]
             page_no += 1
             self.resume.wait()
             if self.cancelled:
@@ -80,7 +89,7 @@ class GetPahewinDownloadPage(PausableAndCancellableFunction):
     def get_pahewin_download_page_links_and_info(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> tuple[list[list[str]], list[list[str]]]:
         download_data: list[ResultSet[BeautifulSoup]] = []
         for episode_page_link in episode_page_links:
-            page_content = CLIENT.get(episode_page_link).content
+            page_content = uuid_request(episode_page_link).content
             soup = BeautifulSoup(page_content, PARSER)
             download_data.append(soup.find_all(
                 'a', class_='dropdown-item', target='_blank'))
@@ -99,9 +108,8 @@ class GetPahewinDownloadPage(PausableAndCancellableFunction):
 
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
     page_url = f'{anime_page_link}&page={1}'
-    page_content = CLIENT.get(page_url).content
-    decoded_anime_page = json.loads(page_content.decode('UTF-8'))
-    episodes_data = decoded_anime_page['data']
+    decoded = uuid_request(page_url).json()
+    episodes_data = decoded['data']
     episode_sessions = [episode['session'] for episode in episodes_data]
     episode_links = [
         f'{PAHE_HOME_URL}/play/{anime_id}/{episode_session}' for episode_session in episode_sessions]
@@ -227,7 +235,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
 
 def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     page_link = f'{PAHE_HOME_URL}/anime/{anime_id}'
-    page_content = CLIENT.get(page_link).content
+    page_content = uuid_request(page_link).content
     soup = BeautifulSoup(page_content, PARSER)
     poster = soup.find(class_='youtube-preview')
     if not isinstance(poster, Tag):
@@ -243,8 +251,8 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
         'a[href*="/anime/season/"]'))['title'])
     _, release_year = season_and_year.split(' ')
     page_link = f'{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_desc'
-    page_content = CLIENT.get(page_link).content
-    episode_count = int(json.loads(page_content)['total'])
+    decoded = uuid_request(page_link).json()
+    episode_count = decoded['total']
     tag = soup.find(title="Currently Airing")
     if tag:
         status = "ONGOING"

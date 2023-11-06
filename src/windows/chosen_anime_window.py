@@ -1,5 +1,5 @@
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpacerItem
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpacerItem, QScrollBar
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, QualityButton, SubDubButton, GogoNormOrHlsButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection, DualStateButton
 from shared.global_vars_and_funcs import GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, RED_NORMAL_COLOR, RED_PRESSED_COLOR, settings, KEY_SUB_OR_DUB, Q_1080, Q_720, Q_480, Q_360, chosen_anime_window_bckg_image_path
@@ -222,8 +222,8 @@ class ChosenAnimeWindow(TemporaryWindow):
         right_widgets_widget.setLayout(right_widgets_layout)
         main_layout.addWidget(right_widgets_widget)
         main_widget = ScrollableSection(main_layout)
-        main_widget.horizontalScrollBar().setValue(
-            main_widget.horizontalScrollBar().maximum())
+        bar = cast(QScrollBar, main_widget.horizontalScrollBar())
+        bar.setValue(bar.maximum())
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
         # For testing purposes

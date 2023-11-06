@@ -365,20 +365,21 @@ class ArgParser():
             return default
         self.invalid_usage(f'Expected: {target_args}')
 
-def test_dub_available(site: str, target_result: tuple[str, str] | tuple[str, str, str]) -> bool: 
+def test_dub_available(site: str, target_result: tuple[str, str] | tuple[str, str, str]) -> tuple[bool, str]: 
     test_name = 'Dub availability checking'
     test_start(test_name)
     runtime_getter = get_run_time_later()
+    dub_link = ''
     if site == PAHE:
         target_result = cast(tuple[str, str, str], target_result)
         dub_available = pahe.dub_available(target_result[1], target_result[2])
     else:
-        dub_available, _ = gogo.dub_availability_and_link(target_result[0])
+        dub_available, dub_link = gogo.dub_availability_and_link(target_result[0])
     rt = runtime_getter()
     if not isinstance(dub_available, bool):
         fail_test(test_name, 'Boolean value', type(dub_available), rt, 90, f'The returned value was: {dub_available}' )
     pass_test(test_name, rt)
-    return dub_available
+    return dub_available, dub_link
 
 def run_tests(args: ArgParser):
     if args.arg_in_group_was_passed(COMMANDS):
@@ -391,23 +392,33 @@ def run_tests(args: ArgParser):
             print(f'Target Result: {target_result}\n')
         COMMANDS.remove('search')
         if args.arg_in_group_was_passed(COMMANDS):
-            dub_available = test_dub_available(args.site, target_result)
+            dub_available, dub_link = test_dub_available(args.site, target_result)
+
+
             if args.verbose:
                 print('Dub available') if dub_available else print('No Dub available')
             COMMANDS.remove('dub_available')
             if args.arg_in_group_was_passed(COMMANDS):
                 metadata, page_content = test_get_metadata(args.site, target_result)
                 if args.verbose:
-                    print(
+                    if args.site == GOGO:
+                        print('Sub metadata')
+                    print_metadata = lambda metadata:print(
                         f'Metadata:\nPoster Url: {metadata.poster_url}\nSummary: {metadata.summary[:100]}.. .\nEpisode Count: {metadata.episode_count}\nAiring Status: {metadata.airing_status}\nGenres: {metadata.genres}\nRelease Year: {metadata.release_year}\n')
+                    print_metadata(metadata)
                 COMMANDS.remove('metadata')
-                if args.arg_in_group_was_passed(COMMANDS):
+                if args.arg_in_group_was_passed(COMMANDS) or( args.site == GOGO and args.sub_or_dub == 'dub'):
                     if (args.end_eps > metadata.episode_count):
                         print(
                             f'The chosen target anime has {metadata.episode_count} episodes yet you specified the (\'--end_episode\', \'-ee\') as {args.end_eps}')
                         sys.exit()
                     if args.sub_or_dub == 'dub' and not dub_available:
                         return print('Couldn\'t find Dub for the anime on the specified site')
+                    elif args.site == GOGO:
+                        metadata, page_content = test_get_metadata(args.site, ('', dub_link))
+                        if args.verbose:
+                            print('Dub metadata')
+                            print_metadata(metadata) # type: ignore
                     if args.site == PAHE:
                         target_result = cast(tuple[str, str, str], target_result)
                         episode_page_links = test_get_episode_page_links(target_result[2], target_result[1], args.start_eps, args.end_eps)
