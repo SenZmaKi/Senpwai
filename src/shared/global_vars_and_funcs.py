@@ -22,7 +22,7 @@ else:
 
 COMPANY_NAME = "AkatsuKi Inc."
 APP_NAME = "Senpwai"
-VERSION = "2.0.4"
+VERSION = "2.0.5"
 UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe", 
                           f"{APP_NAME}-updater.msi", f"{APP_NAME}-update.msi",
                           f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",

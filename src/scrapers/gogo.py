@@ -228,6 +228,7 @@ class GetMatchedQualityLinks(PausableAndCancellableFunction):
             self.resume.wait()
             if self.cancelled:
                 return []
+            print(response.headers)
             lines = response.text.split(',')
             qualities = [line for line in lines if "NAME=" in line]
             idx = match_quality(qualities, quality)

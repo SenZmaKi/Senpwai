@@ -5,9 +5,10 @@ to-dos:
         uncomment out "type: ignore" comments and confirm that they you don't ignore unexpected errors
         confirm all comments are in the right place
         verify modules in requirements.txt and development-requirements.txt are up to date
-        ensure all changes have been committed and pushed to github
+        generate version_file.txt
         update VERSION in global variable, metadata.yml and setup.iss (MyAppVersion and VersionInfoVersion)
-        generate file_version_info.txt
+        ensure all changes have been committed and pushed to github
+        test linux port
         compile to exe
         test exe
         compile to installer     
@@ -20,10 +21,10 @@ to-dos:
 working directory: src/
 
 compile to exe then to installer and run installer silently
-pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level 'ERROR' --version-file=file_version_info.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py ; iscc setup.iss ; ..\setups\Senpwai-setup.exe /silent 
+pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level 'ERROR' --version-file=version_file.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py ; iscc setup.iss /Q ; ..\setups\Senpwai-setup.exe /silent 
 
 compile to exe:
-pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level 'ERROR' --version-file=file_version_info.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py
+pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level 'ERROR' --version-file=version_file.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py
 
 test exe:
 dist/Senpwai/senpwai.exe
@@ -31,8 +32,8 @@ dist/Senpwai/senpwai.exe
 generate requirements.txt:
 pigar generate
 
-generate file_version_info.txt:
-create-version-file metadata.yml --outfile file_version_info.txt
+generate version_file.txt:
+create-version-file metadata.yml --outfile version_file.txt
 
 remove all libraries:
 pip freeze | % {pip uninstall -y $_.split('==')[0]}
@@ -47,5 +48,5 @@ check disk usage
 check network usage
 
 compile-installer:
-iscc dist/Senpwai
+iscc dist/Senpwai /Q
 setup.iss
