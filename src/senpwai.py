@@ -3,7 +3,7 @@ from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt, QCoreApplication
 from windows.main_actual_window import MainWindow
-from shared.global_vars_and_funcs import APP_NAME, custom_exception_handler, COMPANY_NAME, VERSION
+from shared.global_vars_and_funcs import APP_NAME, custom_exception_handler
 import ctypes
 
 if sys.platform == "win32":

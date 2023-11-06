@@ -10,16 +10,21 @@ PAHE_HOME_URL = 'https://animepahe.ru'
 API_URL_EXTENSION = '/api?m='
 
 
-def search(keyword: str) -> list[dict[str, str]]:
+def search(keyword: str, cookies = {}) -> list[dict[str, str]]:
     global PAHE_HOME_URL
     search_url = PAHE_HOME_URL+API_URL_EXTENSION+'search&q='+keyword
-    response = CLIENT.get(search_url)
+    response = CLIENT.get(search_url, cookies=cookies)
     # If the status code isn't 200 we assume they changed their domain name
     if response.status_code != 200:
         PAHE_HOME_URL = get_new_domain_name_from_readme("Animepahe")
         return search(keyword)
     content = response.content
-    decoded = cast(dict, json.loads(content.decode('UTF-8')))
+    # Occasionally the api doesn't respond with proper Json
+    try:
+        decoded = cast(dict, json.loads(content.decode('UTF-8')))
+    except json.JSONDecodeError:
+        print('here')
+        return search(keyword, response.cookies)
     # The api won't return json containing the data key if no results are found
     return decoded.get('data', [])
 
@@ -59,8 +64,7 @@ class GetEpisodePageLinks(PausableAndCancellableFunction):
                 return []
             progress_update_callback(1)
         # To avoid episodes like 7.5 and 5.5 cause they're usually just recaps
-        episodes_data = list(filter(lambda episode: not isinstance(
-            episode['episode'], float), episodes_data))
+        episodes_data = [ep for ep in episodes_data if not isinstance(ep['episode'], float)]
         # Take note cause indices work differently from episode numbers
         episodes_data = episodes_data[start_episode-1: end_episode]
         episode_sessions = [episode['session'] for episode in episodes_data]

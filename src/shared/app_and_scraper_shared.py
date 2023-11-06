@@ -7,9 +7,7 @@ from string import printable, digits, ascii_letters
 import re
 import subprocess
 from threading import Event
-from random_user_agent.user_agent import UserAgent
-from random_user_agent.params import OperatingSystem, SoftwareName, SoftwareType, HardwareType
-from random import choice as randomchoice
+from fake_useragent import UserAgent
 from bs4 import BeautifulSoup, Tag
 from shared.global_vars_and_funcs import log_exception, delete_file
 
@@ -44,22 +42,7 @@ class Client():
         self.headers = self.setup_request_headers()
 
     def setup_request_headers(self) -> dict[str, str]:
-        if platform == 'win32':
-            operating_systems = [OperatingSystem.WINDOWS.value]
-        elif platform == 'linux':
-            operating_systems = [OperatingSystem.LINUX.value]
-        else:
-            operating_systems = [OperatingSystem.DARWIN.value]
-        software_names = [SoftwareName.CHROME.value, SoftwareName.FIREFOX.value,
-                        SoftwareName.EDGE.value, SoftwareName.OPERA.value]
-        software_types = [SoftwareType.WEB_BROWSER.value]
-        hardware_types = [HardwareType.COMPUTER.value]
-        if platform == 'darwin':
-            software_types.append(SoftwareName.SAFARI.value)
-        user_agent = randomchoice(UserAgent(limit=1000, software_names=software_names,
-                                operating_systems=operating_systems, software_types=software_types,
-                                hardware_types=hardware_types).get_user_agents())
-        headers = {'User-Agent': user_agent['user_agent']}
+        headers = {'User-Agent': UserAgent().random}
         return headers
     
     def append_headers(self, to_append: dict) -> dict:
@@ -147,7 +130,7 @@ def sanitise_title(title: str, all=False, exclude='') -> str:
     else:
         allowed_chars = set(printable) - set('\\/:*?"<>|')
         title = title.replace(':', ' -')
-    sanitised = ''.join(filter(lambda char: char in allowed_chars, title))
+    sanitised = ''.join([char for char in title if char in allowed_chars])
 
     return sanitised[:255].rstrip()
 

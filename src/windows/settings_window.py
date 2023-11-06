@@ -1,8 +1,8 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog, QLayoutItem
 from PyQt6.QtCore import Qt
 from shared.global_vars_and_funcs import SETTINGS_TYPES, validate_settings_json, SETTINGS_JSON_PATH, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR
 from shared.global_vars_and_funcs import settings,  KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_RUN_ON_STARTUP, KEY_CHECK_FOR_NEW_EPS_AFTER, KEY_GOGO_SKIP_CALCULATE
-from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME, delete_file
+from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME, delete_file, base_directory
 from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
 from windows.download_window import DownloadWindow
@@ -10,6 +10,8 @@ from sys import platform as sysplatform
 import json
 import os
 from typing import cast
+from pylnk3 import for_file as pylnk3for_file
+
 
 class SettingsWindow(Window):
     def __init__(self, main_window: MainWindow) -> None:
@@ -38,7 +40,8 @@ class SettingsWindow(Window):
         self.gogo_norm_or_hls_mode_setting = GogoNormOrHlsSetting(self)
         self.tracked_anime = TrackedAnimeListSetting(self,)
         self.auto_download_site = AutoDownloadSite(self)
-        self.check_for_new_eps_after = CheckForNewEpsAfterSetting(self, main_window.download_window)
+        self.check_for_new_eps_after = CheckForNewEpsAfterSetting(
+            self, main_window.download_window)
         self.gogo_skip_calculate = GogoSkipCalculate(self)
         if sysplatform == "win32":
             self.run_on_startup = RunOnStartUp(self)
@@ -64,6 +67,7 @@ class SettingsWindow(Window):
         validated = validate_settings_json(settings)
         with open(SETTINGS_JSON_PATH, "w") as f:
             json.dump(validated, f, indent=4)
+
 
 class FolderSetting(QWidget):
     def __init__(self, settings_window: SettingsWindow, main_window: MainWindow, setting_info: str, setting_key: str, setting_tool_tip: str | None):
@@ -129,8 +133,8 @@ class FolderSetting(QWidget):
     def update_widget_indices(self):
         for idx in range(self.folder_widgets_layout.count()):
 
-            cast(FolderWidget, self.folder_widgets_layout.itemAt(
-                idx).widget()).index = idx
+            cast(FolderWidget, cast(QLayoutItem, self.folder_widgets_layout.itemAt(
+                idx)).widget()).index = idx
 
     def change_from_folder_settings(self, new_folder_path: str, folder_widget: QWidget):
         folder_widget = cast(
@@ -268,7 +272,8 @@ class TrackedAnimeListSetting(SettingWidget):
         line.setFixedHeight(7)
         super().__init__(settings_window,
                          "Track for new episodes then auto download", [line, main_widget], False)
-        self.setting_label.setToolTip("When you start the app, Senpwai will check for new episodes\nof these anime then download them automatically")
+        self.setting_label.setToolTip(
+            "When you start the app, Senpwai will check for new episodes\nof these anime then download them automatically")
 
     def setup_anime_widget(self, wid: RemovableWidget):
         wid.remove_button.clicked.connect(lambda garbage_bool, txt=wid.text: cast(
@@ -320,14 +325,18 @@ class AutoDownloadSite(SettingWidget):
 
         super().__init__(settings_window,
                          "Auto download site", [pahe_button, gogo_button])
-        self.setting_label.setToolTip("If Senpwai can't find the anime in the specified site it will try the other")
+        self.setting_label.setToolTip(
+            "If Senpwai can't find the anime in the specified site it will try the other")
+
 
 class YesOrNoSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow, setting_info: str, setting_key_in_json: str, tooltip: str | None = None):
         self.yes_button = YesOrNoButton(True, settings_window.font_size)
         self.no_button = YesOrNoButton(False, settings_window.font_size)
-        self.yes_button.clicked.connect(lambda: self.no_button.set_picked_status(False))
-        self.no_button.clicked.connect(lambda: self.yes_button.set_picked_status(False))
+        self.yes_button.clicked.connect(
+            lambda: self.no_button.set_picked_status(False))
+        self.no_button.clicked.connect(
+            lambda: self.yes_button.set_picked_status(False))
         self.yes_button.clicked.connect(lambda: settings_window.update_settings_json(
             setting_key_in_json, True))
         self.no_button.clicked.connect(lambda: settings_window.update_settings_json(
@@ -342,31 +351,41 @@ class YesOrNoSetting(SettingWidget):
         if tooltip:
             self.setting_label.setToolTip(tooltip)
 
+
 class GogoSkipCalculate(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Skip calculating download size for Gogo", KEY_GOGO_SKIP_CALCULATE)
+        super().__init__(settings_window,
+                         "Skip calculating download size for Gogo", KEY_GOGO_SKIP_CALCULATE)
+
 
 class StartInFullscreenSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Start app in fullscreen", KEY_START_IN_FULLSCREEN)
 
+
 class RunOnStartUp(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Run on start up", KEY_RUN_ON_STARTUP)
         appdata_folder = cast(str, os.environ.get('APPDATA'))
-        self.lnk_path = os.path.join(appdata_folder, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', f'{APP_NAME}.lnk')
+        self.lnk_path = os.path.join(
+            appdata_folder, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', f'{APP_NAME}.lnk')
         self.yes_button.clicked.connect(self.make_startup_lnk)
         self.no_button.clicked.connect(self.remove_startup_lnk)
 
     def make_startup_lnk(self):
         self.remove_startup_lnk()
-        from pylnk3 import for_file
-        lnk = for_file(os.path.abspath(f"{APP_NAME}.exe"), APP_NAME, "--minimised_to_tray", "Senpwai start up shortcut", work_dir=os.path.abspath("."))
+        lnk = pylnk3for_file(os.path.join(base_directory, 
+            f"{APP_NAME}.exe"), APP_NAME, "--minimised_to_tray", "Senpwai startup shortcut", work_dir=os.path.abspath("."))
         lnk.save(self.lnk_path)
+        # pylnk3 seems to generate a garbage lnk file with no extension in the current directory
+        garbage_lnk = APP_NAME
+        if os.path.isfile(garbage_lnk):
+            os.unlink(garbage_lnk)
 
     def remove_startup_lnk(self):
         if os.path.isfile(self.lnk_path):
             delete_file(self.lnk_path)
+
 
 class AllowNotificationsSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
@@ -398,6 +417,7 @@ class GogoNormOrHlsSetting(SettingWidget):
                          "Gogo Normal or HLS mode", [norm_button, hls_button])
         self.setting_label.setToolTip(hls_button.toolTip())
 
+
 class NonZeroNumberInputSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow, setting_key: str, setting_info: str, error_on_zero_text: str, units: str | None, tooltip: str | None = None):
         self.settings_window = settings_window
@@ -410,12 +430,14 @@ class NonZeroNumberInputSetting(SettingWidget):
         self.input_layout = QHBoxLayout()
         input_widget = QWidget()
         input_widget.setLayout(self.input_layout)
-        self.input_layout.addWidget(self.number_input, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.input_layout.addWidget(
+            self.number_input, alignment=Qt.AlignmentFlag.AlignLeft)
         if units:
             units_label = StyledLabel(None, settings_window.font_size)
             units_label.setText(units)
             set_minimum_size_policy(units_label)
-            self.input_layout.addWidget(units_label, alignment=Qt.AlignmentFlag.AlignLeft)
+            self.input_layout.addWidget(
+                units_label, alignment=Qt.AlignmentFlag.AlignLeft)
         main_layout = QVBoxLayout()
         self.error = ErrorLabel(settings_window.font_size)
         self.error.setText(error_on_zero_text)
@@ -432,7 +454,7 @@ class NonZeroNumberInputSetting(SettingWidget):
         if tooltip:
             self.setting_label.setToolTip(tooltip)
             if units:
-                units_label.setToolTip(tooltip) # type: ignore
+                units_label.setToolTip(tooltip)  # type: ignore
 
     def text_changed(self, text: str):
         if not text.isdigit():
@@ -445,16 +467,19 @@ class NonZeroNumberInputSetting(SettingWidget):
         self.settings_window.update_settings_json(
             self.setting_key, new_setting)
 
+
 class MaxSimultaneousDownloadsSetting(NonZeroNumberInputSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, KEY_MAX_SIMULTANEOUS_DOWNLOADS, "Only allow", "Bruh, max simultaneous downloads cannot be zero", "simultaneous downloads", "The maximum number of downloads allowed to occur at the same time")
+        super().__init__(settings_window, KEY_MAX_SIMULTANEOUS_DOWNLOADS, "Only allow", "Bruh, max simultaneous downloads cannot be zero",
+                         "simultaneous downloads", "The maximum number of downloads allowed to occur at the same time")
 
 
 class CheckForNewEpsAfterSetting(NonZeroNumberInputSetting):
     def __init__(self, settings_window: SettingsWindow, download_window: DownloadWindow):
         self.download_window = download_window
-        super().__init__(settings_window, KEY_CHECK_FOR_NEW_EPS_AFTER, "Check for new episodes after", "Bruh, time intervals can't be zero", "hours", "Senpwai will check for new episodes of your tracked anime when you start the app\nthen in intervals of the hours you specify so long as it is running")
-    
+        super().__init__(settings_window, KEY_CHECK_FOR_NEW_EPS_AFTER, "Check for new episodes after", "Bruh, time intervals can't be zero", "hours",
+                         "Senpwai will check for new episodes of your tracked anime when you start the app\nthen in intervals of the hours you specify so long as it is running")
+
     def text_changed(self, text: str):
         super().text_changed(text)
         self.download_window.setup_auto_download_timer()

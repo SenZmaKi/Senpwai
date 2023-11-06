@@ -6,8 +6,7 @@
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
 #define MyAppExeName "Senpwai.exe"
-#define ProjectRootDir "C:\Users\PC\OneDrive\Documents\Python stuff\Senpwai"
-#define ProjectSrcDir "C:\Users\PC\OneDrive\Documents\Python stuff\Senpwai\src"
+#define ProjectRootDir "C:\Users\PC\OneDrive\Documents\Python\Senpwai\src"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -25,9 +24,9 @@ DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 PrivilegesRequired=lowest
-OutputDir=C:\Users\PC\OneDrive\Desktop
+OutputDir={#ProjectRootDir}\..\setups
 OutputBaseFilename=Senpwai-setup
-SetupIconFile="{#ProjectSrcDir}\assets\senpwai-icon.ico"
+SetupIconFile="{#ProjectRootDir}\assets\senpwai-icon.ico"
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -39,70 +38,20 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "{#ProjectRootDir}\python-3.11.1-amd64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
-Source: "{#ProjectSrcDir}\{#MyAppExeName}"; DestDir: "{app}\src"; Flags: ignoreversion
-Source: "{#ProjectSrcDir}\*"; DestDir: "{app}\src"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+Source: "{#ProjectRootDir}\dist\Senpwai\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
+; Delete the run on startup shortcut
 Type: filesandordirs; Name: "{userstartup}\Senpwai.lnk"
-; Incase the user installed Senpwai in a different folder we want to make sure we delete the settings file and error logs file too
-Type: filesandordirs; Name: "{localappdata}\Programs\Senpwai"
 
 [InstallDelete]
-; Deprecated v2.0.1 crap, I've specified them explicitly instead of just saying "{app}\" cause with the latter say if the user is on v2.0.2
-; Then we've basically lost settings.json when we could have simply only deleted what we actually don't want, which is crap from v2.0.1
-Type: filesandordirs; Name: "{app}\_bz2.pyd"
-Type: filesandordirs; Name: "{app}\_queue.pyd*"
-Type: filesandordirs; Name: "{app}\certifi"
-Type: filesandordirs; Name: "{app}\libssl-1_1.dll*"
-Type: filesandordirs; Name: "{app}\select.pyd"
-Type: filesandordirs; Name: "{app}\VCRUNTIME140.dll*"
-Type: filesandordirs; Name: "{app}\_cffi_backend.cp311-win_amd64.pyd*"
-Type: filesandordirs; Name: "{app}\_socket.pyd"
-Type: filesandordirs; Name: "{app}\charset_normalizer"
-Type: filesandordirs; Name: "{app}\multidict"
-Type: filesandordirs; Name: "{app}\selenium"
-Type: filesandordirs; Name: "{app}\VCRUNTIME140_1.dll*"
-Type: filesandordirs; Name: "{app}\_ctypes.pyd"
-Type: filesandordirs; Name: "{app}\_ssl.pyd"
-Type: filesandordirs; Name: "{app}\cryptography"
-Type: filesandordirs; Name: "{app}\pyexpat.pyd"
-Type: filesandordirs; Name: "{app}\Senpwai.exe"
-Type: filesandordirs; Name: "{app}\yarl"
-Type: filesandordirs; Name: "{app}\_decimal.pyd*"
-Type: filesandordirs; Name: "{app}\_uuid.pyd"
-Type: filesandordirs; Name: "{app}\cryptography-41.0.3.dist-info"
-Type: filesandordirs; Name: "{app}\PyQt6"
-Type: filesandordirs; Name: "{app}\unicodedata.pyd"
-Type: filesandordirs; Name: "{app}\_hashlib.pyd"
-Type: filesandordirs; Name: "{app}\assets"
-Type: filesandordirs; Name: "{app}\libcrypto-1_1.dll"
-Type: filesandordirs; Name: "{app}\python3.dll"
-Type: filesandordirs; Name: "{app}\_lzma.pyd"
-Type: filesandordirs; Name: "{app}\base_library.zip"
-Type: filesandordirs; Name: "{app}\libffi-8.dll"
-Type: filesandordirs; Name: "{app}\python311.dll"
-; The 2 below are in both v2.0.1 and versions that come after it cause they are made by Inno Setup
-; You'd think that Senpwai.exe would be here too but actually in versions after v2.0.1 it's in src\
-Type: filesandordirs; Name: "{app}\unins000.dat"
-Type: filesandordirs; Name: "{app}\unins000.exe*"
-; Starting from v2.0.4 I renamed inno-setup.iss to setup.iss
-Type: filesandordirs; Name: "{app}\src\inno-setup.iss"
-; Clean up the previous errors.log file cause it can get quite big
-Type: filesandordirs; Name: "{app}\errors.log"
-
-
+Type: filesandordirs; Name: "{app}"
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\src\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\src\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{tmp}\python-3.11.1-amd64.exe"; Parameters: "/quiet"; StatusMsg: "Downloading Python 3.11.1.. ."; Flags: waituntilterminated
-Filename: "{localappdata}\Programs\Python\Python311\python.exe"; Parameters: "-m venv .venv"; WorkingDir: "{app}"; StatusMsg: "Creating virtual environment, ryoiki tenkai.. ."; Flags: waituntilterminated runhidden
-; As of v2.0.4 selenium is no longer required
-Filename: "{localappdata}\Programs\Python\Python311\python.exe";Parameters: "-m pip uninstall selenium --no-input"; StatusMsg: "Uninstalling selenium from virtual environment.. ."; Flags: waituntilterminated runhidden
-Filename: "{app}\.venv\Scripts\python.exe"; Parameters: "-m pip install -r requirements.txt --no-input --retries 690000000000000"; WorkingDir: "{app}\src"; StatusMsg: "Downloading dependencies using pip.. ."; Flags: waituntilterminated runhidden
-Filename: "{app}\src\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
