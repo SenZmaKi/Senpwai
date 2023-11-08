@@ -11,6 +11,7 @@ API_URL_EXTENSION = '/api?m='
 UUID_REGEX = re.compile(r'uuid=(.*?);')
 UUID_COOKIE = {'uuid': ''}
 
+
 def uuid_request(url: str, search_request=False) -> requests.Response:
     # Without setting the uuid cookie most requests redirect to some html page containing a valid uuid
     # But it seems like the uuid cookie only needs to be set as in they don't validate it
@@ -27,6 +28,7 @@ def uuid_request(url: str, search_request=False) -> requests.Response:
             return uuid_request(url)
     return response
 
+
 def search(keyword: str) -> list[dict[str, str]]:
     global PAHE_HOME_URL
     search_url = PAHE_HOME_URL+API_URL_EXTENSION+'search&q='+keyword
@@ -38,6 +40,7 @@ def search(keyword: str) -> list[dict[str, str]]:
     decoded = cast(dict, response.json())
     # The api won't return json containing the data key if no results are found
     return decoded.get('data', [])
+
 
 def extract_anime_title_page_link_and_id(result: dict[str, str]) -> tuple[str, str, str]:
     anime_id = result['session']
@@ -73,7 +76,8 @@ class GetEpisodePageLinks(PausableAndCancellableFunction):
                 return []
             progress_update_callback(1)
         # To avoid episodes like 7.5 and 5.5 cause they're usually just recaps
-        episodes_data = [ep for ep in episodes_data if not isinstance(ep['episode'], float)]
+        episodes_data = [
+            ep for ep in episodes_data if not isinstance(ep['episode'], float)]
         # Take note cause indices work differently from episode numbers
         episodes_data = episodes_data[start_episode-1: end_episode]
         episode_sessions = [episode['session'] for episode in episodes_data]
@@ -223,7 +227,8 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
             soup = BeautifulSoup(decrypted, PARSER)
             post_url = cast(str, cast(Tag, soup.form)['action'])
             token_value = cast(str, cast(Tag, soup.input)['value'])
-            response = CLIENT.post(post_url, headers= CLIENT.append_headers({'Referer': download_link}), cookies=cookies, data={'_token': token_value}, allow_redirects=False)
+            response = CLIENT.post(post_url, headers=CLIENT.append_headers(
+                {'Referer': download_link}), cookies=cookies, data={'_token': token_value}, allow_redirects=False)
             direct_download_link = response.headers['Location']
             direct_download_links.append(direct_download_link)
             self.resume.wait()

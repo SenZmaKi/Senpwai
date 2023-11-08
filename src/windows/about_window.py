@@ -7,6 +7,7 @@ from shared.shared_classes_and_widgets import StyledLabel, IconButton, Scrollabl
 from webbrowser import open_new_tab
 from sys import platform as sysplatform
 
+
 class AboutWindow(Window):
     def __init__(self, main_window: MainWindow):
         super().__init__(main_window, about_bckg_image_path)
@@ -86,12 +87,12 @@ class AboutWindow(Window):
         uninstall_title = Title("Uninstall Info")
         set_minimum_size_policy(uninstall_title)
         uninstall_info_label = StyledLabel()
-        uninstall_info_label.setText("To completely remove Senpwai (don't know why you would though), post-uninstallation press \"Win + R\" then type \"%appdata%\\..\\Local\\Programs\\Senpwai\" and press enter, now delete this folder too")
+        uninstall_info_label.setText(
+            "To completely remove Senpwai (don't know why you would though), post-uninstallation press \"Win + R\" then type \"%appdata%\\..\\Local\\Programs\\Senpwai\" and press enter, now delete this folder too")
         uninstall_info_label.setWordWrap(True)
 
         version_title = Title(f"Version {VERSION}")
         set_minimum_size_policy(version_title)
-
 
         main_layout.addSpacing(40)
         main_layout.addWidget(reviews_title, Qt.AlignmentFlag.AlignCenter)
@@ -118,7 +119,8 @@ class Review(QWidget):
         main_layout = QVBoxLayout()
 
         profile_pic = IconButton(icon, 1.1)
-        profile_pic.clicked.connect(AudioPlayer(self, audio_path, volume=60).play)
+        profile_pic.clicked.connect(
+            AudioPlayer(self, audio_path, volume=60).play)
         author_name = StyledLabel(None, 15, "orange", font_color="black")
         author_name.setText(author)
         set_minimum_size_policy(author_name)

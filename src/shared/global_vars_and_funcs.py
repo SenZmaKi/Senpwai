@@ -21,10 +21,11 @@ else:
 COMPANY_NAME = "AkatsuKi Inc."
 APP_NAME = "Senpwai"
 VERSION = "2.0.5"
-UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe", 
+UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe",
                           f"{APP_NAME}-updater.msi", f"{APP_NAME}-update.msi",
                           f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
                           f"{APP_NAME}-installer.exe", f"{APP_NAME}-installer.msi")
+
 
 def delete_file(path: str):
     if os.path.isfile(path):
@@ -32,6 +33,7 @@ def delete_file(path: str):
             os.unlink(path)
         except PermissionError:
             pass
+
 
 for name in UPDATE_INSTALLER_NAMES:
     full_path = os.path.join(base_directory, name)
@@ -78,12 +80,15 @@ with open(version_file_path, "w") as f:
 logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 def log_exception(e: Exception):
     custom_exception_handler(type(e), e, e.__traceback__)
+
 
 def custom_exception_handler(type_: type[BaseException], value: BaseException, traceback: TracebackType | None):
     logging.error(f"Unhandled exception: {type_.__name__}: {value}")
     sys.__excepthook__(type_, value, traceback)
+
 
 def open_folder(folder_path: str) -> None:
     if sys.platform == "win32":
@@ -364,9 +369,8 @@ def validate_settings_json(settings_json: dict) -> dict:
     return clean_settings
 
 
-
-
 SETTINGS_JSON_PATH = os.path.join(config_dir, "settings.json")
+
 
 def configure_settings() -> dict[str, SETTINGS_TYPES]:
     settings = {}
@@ -380,5 +384,6 @@ def configure_settings() -> dict[str, SETTINGS_TYPES]:
         validated_settings = validate_settings_json(settings)
         json.dump(validated_settings, f, indent=4)
         return validated_settings
+
 
 settings = configure_settings()

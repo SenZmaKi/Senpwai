@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSystemTrayIcon, QSpacerItem
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSystemTrayIcon, QSpacerItem, QLayoutItem
 from PyQt6.QtCore import Qt, QThread, QMutex, pyqtSignal, QTimer
 from shared.global_vars_and_funcs import settings, KEY_ALLOW_NOTIFICATIONS, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_MAX_SIMULTANEOUS_DOWNLOADS, PAHE, KEY_CHECK_FOR_NEW_EPS_AFTER
 from shared.global_vars_and_funcs import set_minimum_size_policy, remove_from_queue_icon_path, move_up_queue_icon_path, move_down_queue_icon_path
@@ -153,7 +153,6 @@ class QueuedDownload(QWidget):
         set_minimum_size_policy(label)
         download_queue = cast(DownloadQueue, download_queue)
         self.main_layout = QHBoxLayout()
-        size = download_queue.up_icon.x
         self.up_button = IconButton(download_queue.up_icon, 1.1, self)
         self.up_button.clicked.connect(
             lambda: download_queue.move_queued_download(self, "up"))
@@ -228,7 +227,7 @@ class DownloadQueue(QWidget):
 
     def get_first_queued_download(self) -> QueuedDownload:
         first_queued_download = cast(
-            QueuedDownload, self.queued_downloads_layout.itemAt(0).widget())
+            QueuedDownload, cast(QLayoutItem, self.queued_downloads_layout.itemAt(0)).widget())
         return first_queued_download
 
     def remove_first_queued_download(self):
@@ -238,7 +237,7 @@ class DownloadQueue(QWidget):
 
     def get_queued_downloads(self) -> list[QueuedDownload]:
         count = self.queued_downloads_layout.count()
-        return [cast(QueuedDownload, self.queued_downloads_layout.itemAt(index).widget()) for index in range(count)]
+        return [cast(QueuedDownload, cast(QLayoutItem, self.queued_downloads_layout.itemAt(index)).widget()) for index in range(count)]
 
 
 class DownloadWindow(Window):
@@ -303,7 +302,7 @@ class DownloadWindow(Window):
             self.resume_icon = Icon(30, 30, resume_icon_path)
             self.cancel_icon = Icon(30, 30, cancel_icon_path)
             self.download_queue = DownloadQueue(self)
-        
+
         if anime_details.sub_or_dub == DUB:
             anime_details.anime.page_link = anime_details.dub_page_link
         if anime_details.site == PAHE:
@@ -502,7 +501,8 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
         self.download_window = download_window
         self.downloaded_episode_count = downloaded_episode_count
         self.anime_details = anime_details
-        self.update_anime_progress_bar_signal.connect(anime_progress_bar.update_bar)
+        self.update_anime_progress_bar_signal.connect(
+            anime_progress_bar.update_bar)
         self.send_progress_bar_details.connect(
             download_window.make_episode_progress_bar)
         self.progress_bars: dict[str, ProgressBarWithButtons] = {}
@@ -614,7 +614,7 @@ class DownloadThread(QThread):
     update_eps_count_and_hls_sizes = pyqtSignal(bool, str)
     update_bar_if_skipped_calculating_total_size = pyqtSignal(int)
 
-    def __init__(self, parent: DownloadManagerThread, ddl_or_seg_urls: str | list[str], title: str, size: int, site: str, is_hls_download: bool, skipped_calculating_total_download_size: bool, hls_quality: str, download_folder: str,  
+    def __init__(self, parent: DownloadManagerThread, ddl_or_seg_urls: str | list[str], title: str, size: int, site: str, is_hls_download: bool, skipped_calculating_total_download_size: bool, hls_quality: str, download_folder: str,
                  progress_bar: ProgressBarWithButtons, finished_callback: Callable, anime_progress_bar: ProgressBarWithoutButtons, update_anime_progress_bar: Callable, update_eps_count_and_hls_sizes: Callable, mutex: QMutex) -> None:
         super().__init__(parent)
         self.ddl_or_seg_urls = ddl_or_seg_urls
@@ -629,7 +629,8 @@ class DownloadThread(QThread):
         self.anime_progress_bar = anime_progress_bar
         self.update_bars.connect(self.progress_bar.update_bar)
         if skipped_calculating_total_download_size:
-            self.update_bar_if_skipped_calculating_total_size.connect(update_anime_progress_bar)
+            self.update_bar_if_skipped_calculating_total_size.connect(
+                update_anime_progress_bar)
         else:
             self.update_bars.connect(update_anime_progress_bar)
         self.finished.connect(finished_callback)
@@ -687,7 +688,8 @@ class GogoGetDownloadPageLinksThread(QThread):
         self.finished.connect(callback)
 
     def run(self):
-        page_content, self.anime_details.anime.page_link  = gogo.get_anime_page_content(self.anime_details.anime.page_link)
+        page_content, self.anime_details.anime.page_link = gogo.get_anime_page_content(
+            self.anime_details.anime.page_link)
         anime_id = gogo.extract_anime_id(page_content)
         episode_page_links = gogo.get_download_page_links(
             self.anime_details.predicted_episodes_to_download[0], self.anime_details.predicted_episodes_to_download[-1], anime_id)
@@ -917,7 +919,8 @@ class AutoDownloadThread(QThread):
                 if anime_details.metadata.airing_status == "FINISHED" and (haved_end and haved_end >= anime_details.episode_count):
                     self.download_window.main_window.settings_window.tracked_anime.remove_anime(
                         anime_details.anime.title)
-                    self.download_window.main_window.tray_icon.make_notification("Finished Tracking", f"You have the final episode of {title} and it has finished airing so I have removed it from your tracking list", True)
+                    self.download_window.main_window.tray_icon.make_notification(
+                        "Finished Tracking", f"You have the final episode of {title} and it has finished airing so I have removed it from your tracking list", True)
                 continue
             if anime_details.sub_or_dub == DUB and not anime_details.dub_available:
                 self.download_window.main_window.tray_icon.make_notification(

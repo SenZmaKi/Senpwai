@@ -35,12 +35,15 @@ class MiscWindow(TemporaryWindow):
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignHCenter)
         self.setLayout(self.full_layout)
 
+
 class NewVersionInfoWindow(MiscWindow):
     def __init__(self, main_window: MainWindow, info_text: str):
         super().__init__(main_window, info_text, [])
         title = Title(f"Version {VERSION} Changes")
         set_minimum_size_policy(title)
-        self.main_layout.insertWidget(0, title, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.main_layout.insertWidget(
+            0, title, alignment=Qt.AlignmentFlag.AlignHCenter)
+
 
 class NoFFmpegWindow(MiscWindow):
     def __init__(self, main_window: MainWindow, anime_details: AnimeDetails):

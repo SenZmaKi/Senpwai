@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from shared.global_vars_and_funcs import SETTINGS_TYPES, PAHE, GOGO
 from time import time
-from shared.global_vars_and_funcs import  settings, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE, KEY_GOGO_SKIP_CALCULATE
+from shared.global_vars_and_funcs import settings, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE, KEY_GOGO_SKIP_CALCULATE
 from shared.global_vars_and_funcs import folder_icon_path, RED_NORMAL_COLOR, RED_PRESSED_COLOR, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, open_folder, GOGO_HLS_MODE, set_minimum_size_policy, GOGO_NORM_MODE
 from shared.app_and_scraper_shared import sanitise_title, AnimeMetadata
 from pathlib import Path
@@ -14,7 +14,6 @@ import os
 from scrapers import pahe
 from scrapers import gogo
 
-        
 
 class Anime():
     def __init__(self, title: str, page_link: str, anime_id: str | None) -> None:
@@ -60,6 +59,7 @@ class StyledLabel(QLabel):
                     }}
                             """)
 
+
 class StyledTextBrowser(QTextBrowser):
     def __init__(self, parent=None, font_size: int = 20, bckg_color: str = "rgba(0, 0, 0, 220)", border_radius=10, font_color="white"):
         super().__init__(parent)
@@ -75,6 +75,7 @@ class StyledTextBrowser(QTextBrowser):
                         padding: 5px;
                     }}
                             """)
+
 
 class StyledButton(QPushButton):
     def __init__(self, parent: QWidget | None, font_size: int, font_color: str, normal_color: str, hover_color: str, pressed_color: str, border_radius=12):
@@ -172,8 +173,10 @@ class Icon(QIcon):
     def __init__(self, x: int, y: int, icon_path: str):
         self.x = x
         self.y = y
-        pixmap = QPixmap(icon_path).scaled(self.x, self.y, Qt.AspectRatioMode.IgnoreAspectRatio)
+        pixmap = QPixmap(icon_path).scaled(
+            self.x, self.y, Qt.AspectRatioMode.IgnoreAspectRatio)
         super().__init__(pixmap)
+
 
 class IconButton(QPushButton):
     def __init__(self, icon: Icon, size_factor: int | float, parent: QWidget | None = None):
@@ -200,6 +203,7 @@ class IconButton(QPushButton):
                     return True
 
         return super().eventFilter(obj, event)
+
 
 class AnimationAndText(QWidget):
     def __init__(self, animation_path: str, animation_size_x: int, animation_size_y: int, text: str, paint_x: int, paint_y: int, font_size: int, parent: QWidget | None = None):
@@ -296,11 +300,12 @@ class ErrorLabel(StyledLabel):
         super().__init__(parent, font_size, font_color="red")
         self.shown_duration_in_secs = shown_duration_in_secs
         self.timer = QTimer(self)
+
     def show(self):
         if not self.timer.isActive():
             self.timer.setSingleShot(True)
             self.timer.timeout.connect(self.hide)
-            self.timer.start(self.shown_duration_in_secs  * 1000)
+            self.timer.start(self.shown_duration_in_secs * 1000)
             return super().show()
 
 
@@ -332,7 +337,7 @@ class ProgressBarWithoutButtons(QWidget):
             QProgressBar::chunk {{
                 background-color: {GOGO_NORMAL_COLOR};
             }}"""
-    completed_stylesheet = s= ongoing_stylesheet + styles_to_overwride
+    completed_stylesheet = s = ongoing_stylesheet + styles_to_overwride
     styles_to_overwride = f"""
             QProgressBar::chunk {{
             background-color: {RED_NORMAL_COLOR}
@@ -345,6 +350,7 @@ class ProgressBarWithoutButtons(QWidget):
                     font-family: "Berlin Sans FB Demi";
                         }
                         """
+
     def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int, units: str, units_divisor: int = 1, delete_on_completion=True):
         super().__init__(parent)
         self.item_task_is_applied_on = item_task_is_applied_on
@@ -352,7 +358,7 @@ class ProgressBarWithoutButtons(QWidget):
         self.units = units
         self.units_divisor = units_divisor
         self.mutex = QMutex()
-        self.items_layout = QHBoxLayout(self)  
+        self.items_layout = QHBoxLayout(self)
         self.delete_on_completion = delete_on_completion
         self.destructLater = lambda: QTimer(
             self).singleShot(40000, self.deleteLater)
@@ -418,7 +424,6 @@ class ProgressBarWithoutButtons(QWidget):
                 self.bar.setFormat(
                     f"{self.task_title} {self.item_task_is_applied_on}")
 
-
     def update_bar(self, added_value: int):
         self.mutex.lock()
         new_value = self.bar.value() + added_value
@@ -471,7 +476,7 @@ class ProgressBarWithButtons(ProgressBarWithoutButtons):
         self.items_layout.addWidget(self.cancel_button)
 
     def pause_or_resume(self):
-        self.pause_callback() 
+        self.pause_callback()
         super().pause_or_resume()
         if self.paused:
             return self.pause_button.setIcon(self.resume_icon)
@@ -480,11 +485,14 @@ class ProgressBarWithButtons(ProgressBarWithoutButtons):
     def cancel(self):
         self.cancel_callback()
         super().cancel()
+
+
 class AnimeDetails():
     def __init__(self, anime: Anime, site: str):
         self.anime = anime
         self.site = site
-        self.is_hls_download = True if site == GOGO and settings[KEY_GOGO_NORM_OR_HLS_MODE] == GOGO_HLS_MODE else False
+        self.is_hls_download = True if site == GOGO and settings[
+            KEY_GOGO_NORM_OR_HLS_MODE] == GOGO_HLS_MODE else False
         self.sanitised_title = sanitise_title(anime.title)
         self.default_download_path = cast(
             list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])[0]
@@ -501,7 +509,8 @@ class AnimeDetails():
         self.download_info: list[str] = []
         self.total_download_size: int = 0
         self.predicted_episodes_to_download: list[int] = []
-        self.skip_calculating_size = True if site == GOGO and not self.is_hls_download and settings[KEY_GOGO_SKIP_CALCULATE] else False
+        self.skip_calculating_size = True if site == GOGO and not self.is_hls_download and settings[
+            KEY_GOGO_SKIP_CALCULATE] else False
 
     def get_anime_folder_path(self) -> str | None:
         def try_path(title: str) -> str | None:
@@ -517,6 +526,7 @@ class AnimeDetails():
         parsed_title = ""
         anime_type = ""
         parsed = {}
+
         def init(title: str):
             nonlocal parsed, parsed_title, parent_seasons_path, anime_type, season_number
             parsed = anitopy.parse(title)
@@ -525,7 +535,7 @@ class AnimeDetails():
                 # It could be that the anime is a Special/OVA/ONA
                 anime_type = parsed.get("anime_type", "")
                 if anime_type:
-                    # In the resulting parsed anime_title, Anitopy only ignores Seasons but not Types for some reason, e.g., "Attack On Titan Season 1" will 
+                    # In the resulting parsed anime_title, Anitopy only ignores Seasons but not Types for some reason, e.g., "Attack On Titan Season 1" will
                     # be parsed to "Attack on Titan" meanwhile, "Attack on Titan Specials" will still remain as "Attack on Titan"
                     parsed_title = parsed_title.replace(anime_type, "").strip()
                 parent_seasons_path = try_path(parsed_title)
@@ -535,7 +545,8 @@ class AnimeDetails():
         if not parent_seasons_path:
             init(fully_sanitised_title)
         if parent_seasons_path and parsed_title and parsed:
-            target_folders = [anime_type] if anime_type else [f"Season {season_number}", f"SN {season_number}", f"Sn {season_number}", f"{parsed_title} Season {season_number}", f"{parsed_title} SN {season_number}", f"{parsed_title} Sn {season_number}"]
+            target_folders = [anime_type] if anime_type else [f"Season {season_number}", f"SN {season_number}", f"Sn {season_number}",
+                                                              f"{parsed_title} Season {season_number}", f"{parsed_title} SN {season_number}", f"{parsed_title} Sn {season_number}"]
             target_folders += [self.sanitised_title, fully_sanitised_title]
 
             for f in target_folders:
@@ -578,7 +589,8 @@ class AnimeDetails():
                 self.anime.page_link, cast(str, self.anime.id))
             link = self.anime.page_link
         else:
-            dub_available, link = gogo.dub_availability_and_link(self.anime.title)
+            dub_available, link = gogo.dub_availability_and_link(
+                self.anime.title)
         return dub_available, link
 
     def get_metadata(self) -> AnimeMetadata:
@@ -586,9 +598,11 @@ class AnimeDetails():
             metadata = pahe.get_anime_metadata(
                 cast(str, self.anime.id))
         else:
-            page_content, self.anime.page_link = gogo.get_anime_page_content(self.anime.page_link)
+            page_content, self.anime.page_link = gogo.get_anime_page_content(
+                self.anime.page_link)
             metadata = gogo.extract_anime_metadata(page_content)
         return metadata
+
 
 class ScrollableSection(QScrollArea):
     def __init__(self, layout: QHBoxLayout | QVBoxLayout):
@@ -610,7 +624,7 @@ class FolderButton(IconButton):
         super().__init__(Icon(size_x, size_y, folder_icon_path), 1.3, parent)
         self.folder_path = path
         self.clicked.connect(lambda: open_folder(
-            self.folder_path))  
+            self.folder_path))
 
 
 class NumberInput(QLineEdit):
@@ -661,8 +675,8 @@ class GogoNormOrHlsButton(OptionButton):
         self.norm_or_hls = norm_or_hls
         if self.norm_or_hls == GOGO_NORM_MODE:
             return self.setToolTip("Normal download functionality, similar to Animepahe but may occassionally fail")
-        self.setToolTip("Guaranteed to work, it's like downloading a live stream as opposed to a file\nYou need to install FFmpeg for it to work but Senpwai will try to automatically install it")
-
+        self.setToolTip(
+            "Guaranteed to work, it's like downloading a live stream as opposed to a file\nYou need to install FFmpeg for it to work but Senpwai will try to automatically install it")
 
 
 class HorizontalLine(QFrame):
@@ -674,6 +688,7 @@ class HorizontalLine(QFrame):
                             background-color: {color}; 
                             }}
                             """)
+
 
 class Title(StyledLabel):
     def __init__(self, text: str, font=33):
