@@ -5,7 +5,6 @@ to-dos:
         uncomment out "type: ignore" comments and confirm that they you don't ignore unexpected errors
         confirm all comments are in the right place
         verify modules in requirements.txt and development-requirements.txt are up to date
-        generate version_file.txt
         update VERSION in global variable, metadata.yml and setup.iss (MyAppVersion and VersionInfoVersion)
         ensure all changes have been committed and pushed to github
         test linux port
@@ -21,19 +20,16 @@ to-dos:
 working directory: src/
 
 compile to exe then to installer and run installer silently
-pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level "ERROR" --version-file=version_file.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py ; iscc setup.iss /Q ; ..\setups\Senpwai-setup.exe /silent 
+python setup.py build ; iscc setup.iss /Q ; ..\setups\Senpwai-setup.exe /silent 
 
 compile to exe:
-pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level "ERROR" --version-file=version_file.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py
+python setup.py build
 
 test exe:
 dist/Senpwai/senpwai.exe
 
 generate requirements.txt:
 pigar generate
-
-generate version_file.txt:
-create-version-file metadata.yml --outfile version_file.txt
 
 remove all libraries:
 pip freeze | % {pip uninstall -y $_.split('==')[0]}

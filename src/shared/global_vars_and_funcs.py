@@ -13,11 +13,9 @@ from types import TracebackType
 
 if getattr(sys, 'frozen', False):
     base_directory = os.path.join(os.path.dirname(sys.executable))
-    internal_directory = os.path.join(base_directory, "_internal")
     is_executable = True
 else:
     base_directory = os.path.dirname(os.path.realpath('__file__'))
-    internal_directory = base_directory
     is_executable = False
 
 COMPANY_NAME = "AkatsuKi Inc."
@@ -109,7 +107,7 @@ default_allow_notifications = True
 default_start_in_fullscreen = True
 default_gogo_hls_mode = False
 
-assets_path = os.path.join(internal_directory, "assets")
+assets_path = os.path.join(base_directory, "assets")
 def join_from_assets(file): return os.path.join(assets_path, file)
 
 
