@@ -7,6 +7,7 @@ from shared.shared_classes_and_widgets import StyledLabel, IconButton, Scrollabl
 from webbrowser import open_new_tab
 from sys import platform as sysplatform
 
+
 class AboutWindow(Window):
     def __init__(self, main_window: MainWindow):
         super().__init__(main_window, about_bckg_image_path)
@@ -59,7 +60,7 @@ class AboutWindow(Window):
         set_minimum_size_policy(social_links_title)
         bug_reports_label = StyledLabel()
         bug_reports_label.setText(
-            "Found a bug or wanna make a feature request? Report it in the github issues, subreddit or discord server")
+            "Found a bug or wanna suggest a feature? Report/Suggest it in the discord server, github issues or subreddit")
         set_minimum_size_policy(bug_reports_label)
         github_button = IconButton(Icon(200, 80, github_icon_path), 1.1)
         github_button.clicked.connect(
@@ -86,12 +87,12 @@ class AboutWindow(Window):
         uninstall_title = Title("Uninstall Info")
         set_minimum_size_policy(uninstall_title)
         uninstall_info_label = StyledLabel()
-        uninstall_info_label.setText("To completely remove Senpwai (don't know why you would though), post-uninstallation press \"Win + R\" then type \"%appdata%\\..\\Local\\Programs\\Senpwai\" and press enter, now delete this folder too")
-        uninstall_info_label.setWordWrap(True)
+        uninstall_info_label.setText(
+            "To completely remove Senpwai (don't know why you would though), post-uninstallation press \"Win + R\",\ntype \"%appdata%\\..\\Local\\Programs\" and press enter. Look for a folder named \"Senpwai\" then delete it")
+        set_minimum_size_policy(uninstall_info_label)
 
         version_title = Title(f"Version {VERSION}")
         set_minimum_size_policy(version_title)
-
 
         main_layout.addSpacing(40)
         main_layout.addWidget(reviews_title, Qt.AlignmentFlag.AlignCenter)
@@ -118,7 +119,8 @@ class Review(QWidget):
         main_layout = QVBoxLayout()
 
         profile_pic = IconButton(icon, 1.1)
-        profile_pic.clicked.connect(AudioPlayer(self, audio_path, volume=60).play)
+        profile_pic.clicked.connect(
+            AudioPlayer(self, audio_path, volume=60).play)
         author_name = StyledLabel(None, 15, "orange", font_color="black")
         author_name.setText(author)
         set_minimum_size_policy(author_name)

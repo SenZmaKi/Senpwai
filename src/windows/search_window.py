@@ -1,5 +1,5 @@
 from PyQt6.QtGui import QKeyEvent
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLineEdit
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLineEdit, QScrollBar, QLayoutItem
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QEvent, QTimer
 from shared.global_vars_and_funcs import random_mascot_icon_path, GOGO, PAHE, loading_animation_path, sadge_piece_path, set_minimum_size_policy, sen_anilist_id, anilist_api_entrypoint, one_piece_audio_path, kage_bunshin_audio_path, toki_wa_ugoki_dasu_audio_path, za_warudo_audio_path
 from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, search_window_bckg_image_path, sen_favourite_audio_path, bunshin_poof_audio_path, gigachad_audio_path, what_da_hell_audio_path
@@ -10,6 +10,7 @@ from scrapers import pahe
 from scrapers import gogo
 from random import choice as randomchoice
 from time import sleep as timesleep
+from typing import cast
 
 
 class SearchWindow(Window):
@@ -52,7 +53,8 @@ class SearchWindow(Window):
 
         self.results_layout = QVBoxLayout()
         self.results_widget = ScrollableSection(self.results_layout)
-        self.res_wid_hor_scroll_bar = self.results_widget.horizontalScrollBar()
+        self.res_wid_hor_scroll_bar = cast(
+            QScrollBar, self.results_widget.horizontalScrollBar())
 
         self.loading = AnimationAndText(
             loading_animation_path, 250, 300, "Loading.. .", 1, 48, 50)
@@ -82,6 +84,8 @@ class SearchWindow(Window):
         self.fix_hor_scroll_bar()
 
     def search_anime(self, anime_title: str, site: str) -> None:
+        if anime_title == "":
+            return
         if self.search_thread:
             self.search_thread.quit()
         prev_top_was_anime_not_found = self.bottom_section_stacked_widgets.currentWidget(
@@ -91,8 +95,8 @@ class SearchWindow(Window):
         if prev_top_was_anime_not_found:
             self.anime_not_found.stop()
         for idx in reversed(range(self.results_layout.count())):
-            item = self.results_layout.itemAt(idx)
-            item.widget().deleteLater()
+            item = cast(QWidget, cast(
+                QLayoutItem, self.results_layout.itemAt(idx)).widget()).deleteLater()
             self.results_layout.removeItem(item)
         upper_title = anime_title.upper()
         self.search_thread = SearchThread(self, anime_title, site)
@@ -272,7 +276,7 @@ class SearchBar(QLineEdit):
                 elif event.key() == Qt.Key.Key_Tab:
                     first_button = self.search_window.results_layout.itemAt(0)
                     if first_button:
-                        first_button.widget().setFocus()
+                        cast(QWidget, first_button.widget()).setFocus()
                     else:
                         self.search_window.gogo_search_button.animateClick()
                     return True

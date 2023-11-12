@@ -12,21 +12,19 @@ from types import TracebackType
 
 
 if getattr(sys, 'frozen', False):
-    base_directory = os.path.join(os.path.dirname(sys.executable))
-    internal_directory = os.path.join(base_directory, "_internal")
+    src_directory = os.path.join(os.path.dirname(sys.executable))
     is_executable = True
 else:
-    base_directory = os.path.dirname(os.path.realpath('__file__'))
-    internal_directory = base_directory
+    src_directory = os.path.dirname(os.path.realpath('__file__'))
     is_executable = False
 
-COMPANY_NAME = "AkatsuKi Inc."
 APP_NAME = "Senpwai"
-VERSION = "2.0.5"
-UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe", 
+VERSION = "2.0.6"
+UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe",
                           f"{APP_NAME}-updater.msi", f"{APP_NAME}-update.msi",
                           f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
                           f"{APP_NAME}-installer.exe", f"{APP_NAME}-installer.msi")
+
 
 def delete_file(path: str):
     if os.path.isfile(path):
@@ -35,8 +33,9 @@ def delete_file(path: str):
         except PermissionError:
             pass
 
+
 for name in UPDATE_INSTALLER_NAMES:
-    full_path = os.path.join(base_directory, name)
+    full_path = os.path.join(src_directory, name)
     delete_file(full_path)
 
 config_dir = os.path.join(user_config_dir(), APP_NAME)
@@ -80,12 +79,15 @@ with open(version_file_path, "w") as f:
 logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 def log_exception(e: Exception):
     custom_exception_handler(type(e), e, e.__traceback__)
+
 
 def custom_exception_handler(type_: type[BaseException], value: BaseException, traceback: TracebackType | None):
     logging.error(f"Unhandled exception: {type_.__name__}: {value}")
     sys.__excepthook__(type_, value, traceback)
+
 
 def open_folder(folder_path: str) -> None:
     if sys.platform == "win32":
@@ -109,7 +111,7 @@ default_allow_notifications = True
 default_start_in_fullscreen = True
 default_gogo_hls_mode = False
 
-assets_path = os.path.join(internal_directory, "assets")
+assets_path = os.path.join(src_directory, "assets")
 def join_from_assets(file): return os.path.join(assets_path, file)
 
 
@@ -366,9 +368,8 @@ def validate_settings_json(settings_json: dict) -> dict:
     return clean_settings
 
 
-
-
 SETTINGS_JSON_PATH = os.path.join(config_dir, "settings.json")
+
 
 def configure_settings() -> dict[str, SETTINGS_TYPES]:
     settings = {}
@@ -382,5 +383,6 @@ def configure_settings() -> dict[str, SETTINGS_TYPES]:
         validated_settings = validate_settings_json(settings)
         json.dump(validated_settings, f, indent=4)
         return validated_settings
+
 
 settings = configure_settings()

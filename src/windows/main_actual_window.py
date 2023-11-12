@@ -1,9 +1,10 @@
-from PyQt6.QtGui import QGuiApplication, QIcon, QAction
+from PyQt6.QtGui import QGuiApplication, QIcon, QAction, QScreen
 from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout, QApplication, QMenu
 from PyQt6.QtCore import Qt
 from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS, KEY_START_IN_FULLSCREEN
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton, Icon
 from typing import Callable, cast
+
 
 class MainWindow(QMainWindow):
     def __init__(self, app: QApplication):
@@ -37,10 +38,11 @@ class MainWindow(QMainWindow):
         in_fullscreen = cast(bool, settings[KEY_START_IN_FULLSCREEN])
         if "--minimised_to_tray" in args:
             if in_fullscreen:
-                self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
+                self.setWindowState(self.windowState() |
+                                    Qt.WindowState.WindowMaximized)
             return self.hide()
         elif in_fullscreen:
-                self.showMaximized()
+            self.showMaximized()
         else:
             self.showNormal()
             self.center_window()
@@ -68,12 +70,13 @@ class MainWindow(QMainWindow):
         self.switch_to_window(self.update_window)
 
     def center_window(self) -> None:
-        screen_geometry = QGuiApplication.primaryScreen().availableGeometry()
+        screen_geometry = cast(
+            QScreen, QGuiApplication.primaryScreen()).availableGeometry()
         x = (screen_geometry.width() - self.width()) // 2
         self.move(x, 0)
 
     def setup_and_switch_to_chosen_anime_window(self, anime: Anime, site: str):
-        # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned 
+        # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned
         # When a user clicks more than one ResultButton quickly causing the reference to the original thread to be overwridden hence garbage collected/destroyed
         if not self.setup_chosen_anime_window_thread:
             self.search_window.loading.start()
@@ -226,8 +229,7 @@ class TemporaryWindow(Window):
             button.clicked.connect(
                 lambda: main_window.stacked_windows.removeWidget(self))
             button.clicked.connect(self.deleteLater)
-
-
+            
 # These modules imports must be placed here otherwise an ImportError is experienced cause 
 # They import MainWindow and Window resulting to a circular import, so we have to define MainWindow and Window first before importing them
 from windows.search_window import SearchWindow

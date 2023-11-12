@@ -31,9 +31,9 @@ def get_new_domain_name_from_readme(site_name: str) -> str:
     """
     page_content = CLIENT.get(GITHUB_README_URL).content
     soup = BeautifulSoup(page_content, PARSER)
-    new_domain_name =  cast(str, cast(Tag, soup.find('a', text=site_name))['href']).replace("\"", "").replace("\\", "")
+    new_domain_name = cast(str, cast(Tag, soup.find('a', text=site_name))[
+                           'href']).replace("\"", "").replace("\\", "")
     return new_domain_name
-    
 
 
 class Client():
@@ -44,7 +44,7 @@ class Client():
     def setup_request_headers(self) -> dict[str, str]:
         headers = {'User-Agent': UserAgent().random}
         return headers
-    
+
     def append_headers(self, to_append: dict) -> dict:
         to_append.update(self.headers)
         return to_append
@@ -53,27 +53,30 @@ class Client():
         if not headers:
             headers = self.headers
         if method == 'GET':
-            func = lambda: requests.get(url, headers=headers, stream=stream, cookies=cookies, allow_redirects=allow_redirects, timeout=timeout)
+            def func(): return requests.get(url, headers=headers, stream=stream,
+                                            cookies=cookies, allow_redirects=allow_redirects, timeout=timeout)
         else:
-            func = lambda: requests.post(url, headers=headers, cookies=cookies, data=data, json=json, allow_redirects=allow_redirects)
+            def func(): return requests.post(url, headers=headers, cookies=cookies,
+                                             data=data, json=json, allow_redirects=allow_redirects)
         return cast(requests.Response, self.network_error_retry_wrapper(func))
 
     def get(self, url: str, stream=False, headers: dict | None = None, timeout: int | None = None, cookies={}) -> requests.Response:
         return self.make_request("GET", url, headers, stream=stream, timeout=timeout, cookies=cookies)
-    
+
     def post(self, url: str, data: dict | bytes | None = None, json: dict | None = None, headers: dict | None = None, cookies={}, allow_redirects=False) -> requests.Response:
         return self.make_request('POST', url, headers, data=data, json=json, cookies=cookies, allow_redirects=allow_redirects)
-
 
     def network_error_retry_wrapper(self, callback: Callable[[], Any]) -> Any:
         while True:
             try:
                 return callback()
             except requests.exceptions.RequestException as e:
-                    log_exception(e)
-                    timesleep(1)
+                log_exception(e)
+                timesleep(1)
+
 
 CLIENT = Client()
+
 
 class QualityAndIndices:
     def __init__(self, quality: int, index: int):
@@ -134,6 +137,7 @@ def sanitise_title(title: str, all=False, exclude='') -> str:
 
     return sanitised[:255].rstrip()
 
+
 def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: int, end_episode: int, haved_episodes: list[int]) -> list[int]:
     predicted_episodes_to_download: list[int] = []
     for episode in range(start_episode, end_episode+1):
@@ -168,8 +172,9 @@ class PausableAndCancellableFunction:
         if self.resume.is_set():
             self.cancelled = True
 
+
 class Download(PausableAndCancellableFunction):
-    def __init__(self, link_or_segment_urls: str | list[str], episode_title: str, download_folder_path: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', is_hls_download=False, cookies = requests.sessions.RequestsCookieJar()) -> None:
+    def __init__(self, link_or_segment_urls: str | list[str], episode_title: str, download_folder_path: str, progress_update_callback: Callable = lambda x: None, file_extension='.mp4', is_hls_download=False, cookies=requests.sessions.RequestsCookieJar()) -> None:
         super().__init__()
         self.link_or_segment_urls = link_or_segment_urls
         self.episode_title = episode_title
@@ -202,11 +207,12 @@ class Download(PausableAndCancellableFunction):
             return
         delete_file(self.file_path)
         if self.is_hls_download:
-            subprocess.run(['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
+            subprocess.run(
+                ['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
             return delete_file(self.temporary_file_path)
         try:
             return os.rename(self.temporary_file_path, self.file_path)
-        except PermissionError: # Maybe they started watching the episode on VLC before it finished downloading now VLC has a handle to the file hence PermissionDenied
+        except PermissionError:  # Maybe they started watching the episode on VLC before it finished downloading now VLC has a handle to the file hence PermissionDenied
             pass
 
     def hls_download(self) -> bool:
@@ -222,9 +228,10 @@ class Download(PausableAndCancellableFunction):
 
     def normal_download(self) -> bool:
         self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
-        response = CLIENT.get(self.link_or_segment_urls, stream=True, timeout=30, cookies=self.cookies)
+        response = CLIENT.get(self.link_or_segment_urls,
+                              stream=True, timeout=30, cookies=self.cookies)
 
-        def response_ranged(start_byte): 
+        def response_ranged(start_byte):
             self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
             return CLIENT.get(self.link_or_segment_urls, stream=True, headers=CLIENT.append_headers({'Range': f'bytes={start_byte}-'}), timeout=30, cookies=self.cookies)
 
@@ -237,8 +244,9 @@ class Download(PausableAndCancellableFunction):
                     lambda: response_ranged(start_byte).iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR)))
                 while True:
                     try:
-                        get_data = lambda: next(iter_content)
-                        data = cast(bytes, CLIENT.network_error_retry_wrapper(get_data))
+                        def get_data(): return next(iter_content)
+                        data = cast(
+                            bytes, CLIENT.network_error_retry_wrapper(get_data))
                         self.resume.wait()
                         if self.cancelled:
                             return False

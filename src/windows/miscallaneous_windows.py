@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from windows.main_actual_window import MainWindow, TemporaryWindow, Window
-from shared.global_vars_and_funcs import chopper_crying_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, GITHUB_REPO_URL, github_api_releases_entry_point, github_icon_path, update_bckg_image_path, UPDATE_INSTALLER_NAMES, base_directory
+from shared.global_vars_and_funcs import chopper_crying_path, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, GITHUB_REPO_URL, github_api_releases_entry_point, github_icon_path, update_bckg_image_path, UPDATE_INSTALLER_NAMES, src_directory
 from shared.global_vars_and_funcs import RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, set_minimum_size_policy, chopper_crying_path, VERSION, pause_icon_path, resume_icon_path, cancel_icon_path
 from shared.shared_classes_and_widgets import StyledButton, StyledLabel, IconButton, AnimeDetails, Icon, StyledTextBrowser, Title
 from shared.app_and_scraper_shared import ffmpeg_is_installed, CLIENT, RESOURCE_MOVED_STATUS_CODES
@@ -35,12 +35,15 @@ class MiscWindow(TemporaryWindow):
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignHCenter)
         self.setLayout(self.full_layout)
 
+
 class NewVersionInfoWindow(MiscWindow):
     def __init__(self, main_window: MainWindow, info_text: str):
         super().__init__(main_window, info_text, [])
         title = Title(f"Version {VERSION} Changes")
         set_minimum_size_policy(title)
-        self.main_layout.insertWidget(0, title, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.main_layout.insertWidget(
+            0, title, alignment=Qt.AlignmentFlag.AlignHCenter)
+
 
 class NoFFmpegWindow(MiscWindow):
     def __init__(self, main_window: MainWindow, anime_details: AnimeDetails):
@@ -213,14 +216,14 @@ class DownloadUpdateThread(QThread):
         self.update_bar.connect(self.update_window.progress_bar.update_bar)
         file_name_no_ext, ext = self.file_name.split(".")
         ext = "." + ext
-        download = Download(self.download_url, file_name_no_ext, base_directory,
+        download = Download(self.download_url, file_name_no_ext, src_directory,
                             self.update_bar.emit, ext)
         self.update_window.progress_bar.pause_callback = download.pause_or_resume
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
         if not download.cancelled:
             subprocess.Popen(
-                [os.path.join(base_directory, self.file_name), "/silent"])
+                [os.path.join(src_directory, self.file_name), "/silent"])
             self.quit_app.emit()
 
 
@@ -250,11 +253,10 @@ class CheckIfUpdateAvailableThread(QThread):
         for c, n in zip(curr_s, new_s):
             if int(c) < int(n):
                 update_available = True
-        if update_available:
             for asset in latest_version_json["assets"]:
-                if asset["name"] in UPDATE_INSTALLER_NAMES:
-                    download_url = asset["browser_download_url"]
-                    asset_name = asset["name"]
+                matching_assets = [u for u in UPDATE_INSTALLER_NAMES if asset["name"].startswith(u)]
+                if matching_assets != []:
+                    download_url, asset_name = asset["browser_download_url"], matching_assets[0]
                     break
         return (update_available, download_url, asset_name,  platform_flag, latest_version_json["body"])
 

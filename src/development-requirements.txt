@@ -1,3 +1,0 @@
-pyinstaller==6.1.0
-pyinstaller-versionfile==2.1.1
-pigar==

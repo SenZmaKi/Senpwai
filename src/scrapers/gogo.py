@@ -17,10 +17,10 @@ from cryptography.hazmat.backends import default_backend
 GOGO = 'gogo'
 GOGO_HOME_URL = 'https://gogoanimehd.io'
 DUB_EXTENSION = ' (Dub)'
-REGISTERED_ACCOUNT_EMAILS = ['benida7218@weirby.com', 'hareki4411@wisnick.com' ,'nanab67795@weirby.com', 'xener53725@weirby.com', 'nenado3105@weirby.com', 
+REGISTERED_ACCOUNT_EMAILS = ['benida7218@weirby.com', 'hareki4411@wisnick.com', 'nanab67795@weirby.com', 'xener53725@weirby.com', 'nenado3105@weirby.com',
                              'yaridod257@weirby.com', 'ketoh33964@weirby.com', 'kajade1254@wisnick.com', 'nakofe3005@weirby.com', 'gedidij506@weirby.com',
                              'sihaci1525@undewp.com', 'lorimob952@soebing.com', 'nigeha6048@undewp.com', 'goriwij739@undewp.com', 'pekivik280@soebing.com'
-                             'hapas66158@undewp.com', 'wepajof522@undewp.com', 'semigo1458@undewp.com', 'xojecog864@undewp.com', 'lobik97135@wanbeiz.com' ]
+                             'hapas66158@undewp.com', 'wepajof522@undewp.com', 'semigo1458@undewp.com', 'xojecog864@undewp.com', 'lobik97135@wanbeiz.com']
 
 SESSION_COOKIES: RequestsCookieJar | None = None
 # Hls mode constants
@@ -63,6 +63,7 @@ def get_download_page_links(start_episode: int, end_episode: int, anime_id: int)
         episode_page_links.append(GOGO_HOME_URL + resource)
     return episode_page_links
 
+
 class GetDirectDownloadLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
@@ -72,13 +73,16 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
         for eps_pg_link in download_page_links:
             link = ''
             while link == '':
-                response = CLIENT.get(eps_pg_link, cookies=get_session_cookies())
+                response = CLIENT.get(
+                    eps_pg_link, cookies=get_session_cookies())
                 soup = BeautifulSoup(response.content, PARSER)
-                a_tags = cast(ResultSet[Tag], cast(Tag, soup.find('div', class_='cf-download')).find_all('a'))
+                a_tags = cast(ResultSet[Tag], cast(Tag, soup.find(
+                    'div', class_='cf-download')).find_all('a'))
                 qualities = [a.text for a in a_tags]
                 idx = match_quality(qualities, user_quality)
                 redirect_link = cast(str, a_tags[idx]['href'])
-                link = CLIENT.get(redirect_link, cookies=get_session_cookies()).headers.get('Location', redirect_link)
+                link = CLIENT.get(redirect_link, cookies=get_session_cookies()).headers.get(
+                    'Location', redirect_link)
             direct_download_links.append(link)
             self.resume.wait()
             if self.cancelled:
@@ -94,7 +98,8 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
     def calculate_total_download_size(self, direct_download_links: list[str], progress_update_callback: Callable = lambda update: None, in_megabytes=False) -> int:
         total_size = 0
         for link in (direct_download_links):
-            response = CLIENT.get(link, stream=True, cookies=get_session_cookies())
+            response = CLIENT.get(
+                link, stream=True, cookies=get_session_cookies())
             size = response.headers.get('Content-Length', 0)
             if in_megabytes:
                 total_size += round(int(size) / IBYTES_TO_MBS_DIVISOR)
@@ -105,6 +110,7 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
                 return 0
             progress_update_callback(1)
         return total_size
+
 
 def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
     """
@@ -119,7 +125,6 @@ def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
         anime_page_link.replace(prev_home_url, GOGO_HOME_URL)
         return CLIENT.get(anime_page_link).content, anime_page_link
     return response.content, anime_page_link
-
 
 
 def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
@@ -149,10 +154,11 @@ def dub_availability_and_link(anime_title: str) -> tuple[bool, str]:
     results = search(dub_title, False)
     for res_title, link in results:
         if dub_title == res_title:
-            return True, link 
+            return True, link
     return False, ''
 
 # Hls mode functions start here
+
 
 def get_embed_url(episode_page_link: str) -> str:
     response = CLIENT.get(episode_page_link)
@@ -217,10 +223,11 @@ def extract_stream_url(embed_url: str) -> str:
         stream_url = source[0]["file"]
     return stream_url
 
+
 class GetMatchedQualityLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
-        
+
     def get_matched_quality_link(self, hls_links: list[str], quality: str, progress_update_callback: Callable[[int], None] = lambda x: None) -> list[str]:
         matched_links: list[str] = []
         for h in hls_links:
@@ -237,6 +244,8 @@ class GetMatchedQualityLinks(PausableAndCancellableFunction):
             matched_links.append(f"{base_url}/{resource}")
             progress_update_callback(1)
         return matched_links
+
+
 class GetSegmentsUrls(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
@@ -258,6 +267,8 @@ class GetSegmentsUrls(PausableAndCancellableFunction):
             segments_urls.append(segment_urls)
             progress_update_callback(1)
         return segments_urls
+
+
 class GetHlsLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
@@ -272,6 +283,7 @@ class GetHlsLinks(PausableAndCancellableFunction):
             progress_update_callback(1)
         return hls_links
 
+
 def get_session_cookies(fresh=False) -> RequestsCookieJar:
     global SESSION_COOKIES
     if SESSION_COOKIES and not fresh:
@@ -281,7 +293,8 @@ def get_session_cookies(fresh=False) -> RequestsCookieJar:
     soup = BeautifulSoup(response.content, PARSER)
     form_div = cast(Tag, soup.find('div', class_='form-login'))
     csrf_token = cast(Tag, form_div.find('input', {'name': '_csrf'}))['value']
-    form_data = {"email": randomchoice(REGISTERED_ACCOUNT_EMAILS), 'password': 'amogus69420', "_csrf": csrf_token}
+    form_data = {"email": randomchoice(
+        REGISTERED_ACCOUNT_EMAILS), 'password': 'amogus69420', "_csrf": csrf_token}
     # A valid User-Agent is required during this post request hence the CLIENT is technically only necessary here
     response = CLIENT.post(login_url, form_data, cookies=response.cookies)
     SESSION_COOKIES = response.cookies
