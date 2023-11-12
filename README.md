@@ -78,6 +78,10 @@ cd src && python senpwai.py
 - Senpwai is open to pull requests, so if you have ideas for improvements, feel free to contribute!
 
 ## FAQ
+<details> <summary> Why did you make this? </summary>
+I couldn't afford wifi so I used my college wifi to download anime after class but batch downloading from streaming sites is a pain in the ass,
+you have to click billions of links just to download one episode, so I made Senpwai to help me and possibly others that face a similar problem.
+</details>
 
 <details> <summary> What is HLS mode? </summary>
  
