@@ -53,30 +53,23 @@ Open a terminal and run the following commands.
 1. **Set everything up.**
 - Linux/Mac
 ```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai/src && python -m venv ../.venv && source ../.venv/bin/activate && pip install -r requirements.txt
+git clone https://github.com/SenZmaKi/Senpwai && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 ```
 - Windows (Command Prompt)
 ```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai\src && python -m venv ..\.venv && ..\.venv\Scripts\activate && pip install -r requirements.txt
+git clone https://github.com/SenZmaKi/Senpwai && python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
 ```
 
-2. **Run the app directly via Python.**
+2. **Build the app into an executable.**
 ```
-python senpwai.py
+pip install cx_freeze==6.15.10 && python setup.py build
 ```
-
-3. **Build the app into an executable.**
-- Linux/Mac
+- The executable will be built in `Senpwai\build\Senpwai`
+  
+3. **Alternatively you can instead run the app directly via Python.**
 ```
-pip install pyinstaller && pyinstaller --windowed --name=Senpwai --icon=assets/senpwai-icon.ico --noconfirm --log-level "ERROR" --version-file=version_file.txt --add-data "assets:assets" --add-data "../.venv/Lib/site-packages/fake_useragent/data;fake_useragent/data" senpwai.py
-
+cd src && python senpwai.py
 ```
-- Windows
-```
-pip install pyinstaller && pyinstaller --windowed --name=Senpwai --icon=assets\senpwai-icon.ico --noconfirm --log-level "ERROR" --version-file=version_file.txt --add-data "assets;assets" --add-data "..\.venv\Lib\site-packages\fake_useragent\data;fake_useragent\data" senpwai.py
-
-```
-
 
 ## Support
 
