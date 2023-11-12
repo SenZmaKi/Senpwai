@@ -60,7 +60,7 @@ class AboutWindow(Window):
         set_minimum_size_policy(social_links_title)
         bug_reports_label = StyledLabel()
         bug_reports_label.setText(
-            "Found a bug or wanna make a feature request? Report it in the github issues, subreddit or discord server")
+            "Found a bug or wanna suggest a feature? Report/Suggest it in the discord server, github issues or subreddit")
         set_minimum_size_policy(bug_reports_label)
         github_button = IconButton(Icon(200, 80, github_icon_path), 1.1)
         github_button.clicked.connect(
@@ -88,8 +88,8 @@ class AboutWindow(Window):
         set_minimum_size_policy(uninstall_title)
         uninstall_info_label = StyledLabel()
         uninstall_info_label.setText(
-            "To completely remove Senpwai (don't know why you would though), post-uninstallation press \"Win + R\" then type \"%appdata%\\..\\Local\\Programs\\Senpwai\" and press enter, now delete this folder too")
-        uninstall_info_label.setWordWrap(True)
+            "To completely remove Senpwai (don't know why you would though), post-uninstallation press \"Win + R\",\ntype \"%appdata%\\..\\Local\\Programs\" and press enter. Look for a folder named \"Senpwai\" then delete it")
+        set_minimum_size_policy(uninstall_info_label)
 
         version_title = Title(f"Version {VERSION}")
         set_minimum_size_policy(version_title)

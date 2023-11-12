@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog, QLay
 from PyQt6.QtCore import Qt
 from shared.global_vars_and_funcs import SETTINGS_TYPES, validate_settings_json, SETTINGS_JSON_PATH, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR
 from shared.global_vars_and_funcs import settings,  KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_RUN_ON_STARTUP, KEY_CHECK_FOR_NEW_EPS_AFTER, KEY_GOGO_SKIP_CALCULATE
-from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME, delete_file, base_directory
+from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME, delete_file, src_directory
 from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
 from windows.download_window import DownloadWindow
@@ -374,7 +374,7 @@ class RunOnStartUp(YesOrNoSetting):
 
     def make_startup_lnk(self):
         self.remove_startup_lnk()
-        lnk = pylnk3for_file(os.path.join(base_directory, 
+        lnk = pylnk3for_file(os.path.join(src_directory, 
             f"{APP_NAME}.exe"), APP_NAME, "--minimised_to_tray", "Senpwai startup shortcut", work_dir=os.path.abspath("."))
         lnk.save(self.lnk_path)
         # pylnk3 seems to generate a garbage lnk file with no extension in the current directory

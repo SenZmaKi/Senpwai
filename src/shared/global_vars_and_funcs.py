@@ -12,15 +12,14 @@ from types import TracebackType
 
 
 if getattr(sys, 'frozen', False):
-    base_directory = os.path.join(os.path.dirname(sys.executable))
+    src_directory = os.path.join(os.path.dirname(sys.executable))
     is_executable = True
 else:
-    base_directory = os.path.dirname(os.path.realpath('__file__'))
+    src_directory = os.path.dirname(os.path.realpath('__file__'))
     is_executable = False
 
-COMPANY_NAME = "AkatsuKi Inc."
 APP_NAME = "Senpwai"
-VERSION = "2.0.5"
+VERSION = "2.0.6"
 UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe",
                           f"{APP_NAME}-updater.msi", f"{APP_NAME}-update.msi",
                           f"{APP_NAME}-setup.exe", f"{APP_NAME}-setup.msi",
@@ -36,7 +35,7 @@ def delete_file(path: str):
 
 
 for name in UPDATE_INSTALLER_NAMES:
-    full_path = os.path.join(base_directory, name)
+    full_path = os.path.join(src_directory, name)
     delete_file(full_path)
 
 config_dir = os.path.join(user_config_dir(), APP_NAME)
@@ -112,7 +111,7 @@ default_allow_notifications = True
 default_start_in_fullscreen = True
 default_gogo_hls_mode = False
 
-assets_path = os.path.join(base_directory, "assets")
+assets_path = os.path.join(src_directory, "assets")
 def join_from_assets(file): return os.path.join(assets_path, file)
 
 

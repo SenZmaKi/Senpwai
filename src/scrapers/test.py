@@ -1,15 +1,10 @@
 from shared.app_and_scraper_shared import Download, sanitise_title, AnimeMetadata
+from shared.global_vars_and_funcs import src_directory
 import os
 from scrapers import pahe, gogo
 from typing import cast, Callable, Any
 from time import time as current_time
 import sys
-from bs4 import BeautifulSoup
-
-if getattr(sys, 'frozen', False):
-    base_directory = os.path.dirname(sys.executable)
-else:
-    base_directory = os.path.dirname(os.path.realpath('__file__'))
 
 PAHE = pahe.PAHE
 GOGO = gogo.GOGO
@@ -20,7 +15,7 @@ DEFAULT_START_EPISODE = '1'
 DEFAULT_END_EPISODE = '2'
 DEFAULT_SUB_OR_DUB = 'sub'
 DEFAULT_SITE = 'pahe'
-DEFAULT_DOWNLOAD_FOLDER_PATH = os.path.join(base_directory, 'test-downloads')
+DEFAULT_DOWNLOAD_FOLDER_PATH = os.path.join(src_directory, '..', 'test-downloads')
 DEFAULT_VERBOSE = False
 COMMANDS = ['search', 'dub_available', 'metadata', 'episode_page', 'download_page', 'download_size',
             'direct_links', 'hls_links', 'match_links', 'segments_urls', 'download', 'all']
@@ -414,7 +409,7 @@ def run_tests(args: ArgParser):
                         sys.exit()
                     if args.sub_or_dub == 'dub' and not dub_available:
                         return print('Couldn\'t find Dub for the anime on the specified site')
-                    elif args.site == GOGO:
+                    elif args.site == GOGO and dub_available:
                         metadata, page_content = test_get_metadata(args.site, ('', dub_link))
                         if args.verbose:
                             print('Dub metadata')
@@ -487,7 +482,7 @@ def run_tests(args: ArgParser):
                             if args.arg_in_group_was_passed(COMMANDS):
                                 test_downloading(
                                     args.anime_title, direct_download_links, False, args.start_eps, args.end_eps, args.path)
-
+                                print(f'\nAll \"{args.site}\" Tests Passed\n')
 
 if __name__ == '__main__':
     args = ArgParser(sys.argv)
