@@ -207,8 +207,12 @@ class Download(PausableAndCancellableFunction):
             return
         delete_file(self.file_path)
         if self.is_hls_download:
-            subprocess.run(
-                ['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
+            if platform == "win32":
+                subprocess.run(
+                    ['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path], creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                subprocess.run(
+                    ['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
             return delete_file(self.temporary_file_path)
         try:
             return os.rename(self.temporary_file_path, self.file_path)
