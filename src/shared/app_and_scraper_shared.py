@@ -9,7 +9,7 @@ import subprocess
 from threading import Event
 from fake_useragent import UserAgent
 from bs4 import BeautifulSoup, Tag
-from shared.global_vars_and_funcs import log_exception, delete_file
+from shared.global_vars_and_funcs import log_exception, try_deleting_safely
 
 PARSER = 'html.parser'
 IBYTES_TO_MBS_DIVISOR = 1024*1024
@@ -174,7 +174,7 @@ class Download(PausableAndCancellableFunction):
         self.temporary_file_path = os.path.join(
             self.download_folder_path, temporary_file_title)
         if os.path.isfile(self.temporary_file_path):
-            delete_file(self.temporary_file_path)
+            try_deleting_safely(self.temporary_file_path)
 
     def cancel(self):
         return super().cancel()
@@ -187,9 +187,9 @@ class Download(PausableAndCancellableFunction):
             else:
                 download_complete = self.normal_download()
         if self.cancelled:
-            delete_file(self.temporary_file_path)
+            try_deleting_safely(self.temporary_file_path)
             return
-        delete_file(self.file_path)
+        try_deleting_safely(self.file_path)
         if self.is_hls_download:
             if sys.platform == "win32":
                 subprocess.run(
@@ -197,7 +197,7 @@ class Download(PausableAndCancellableFunction):
             else:
                 subprocess.run(
                     ['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
-            return delete_file(self.temporary_file_path)
+            return try_deleting_safely(self.temporary_file_path)
         try:
             return os.rename(self.temporary_file_path, self.file_path)
         except PermissionError:  # Maybe they started watching the episode on VLC before it finished downloading now VLC has a handle to the file hence PermissionDenied

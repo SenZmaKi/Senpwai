@@ -26,7 +26,7 @@ UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe",
                           f"{APP_NAME}-installer.exe", f"{APP_NAME}-installer.msi")
 
 
-def delete_file(path: str):
+def try_deleting_safely(path: str):
     if os.path.isfile(path):
         try:
             os.unlink(path)
@@ -36,9 +36,10 @@ def delete_file(path: str):
 
 for name in UPDATE_INSTALLER_NAMES:
     full_path = os.path.join(src_directory, name)
-    delete_file(full_path)
+    try_deleting_safely(full_path)
 
 config_dir = os.path.join(user_config_dir(), APP_NAME)
+SETTINGS_JSON_PATH = os.path.join(config_dir, "settings.json")
 
 
 if not os.path.isdir(config_dir):
@@ -98,12 +99,9 @@ def open_folder(folder_path: str) -> None:
         Popen(["open", folder_path])
 
 
-downloads_folder = os.path.join(Path.home(), "Downloads")
-if not os.path.isdir(downloads_folder):
-    os.mkdir(downloads_folder)
-downloads_folder = os.path.join(downloads_folder, "Anime")
-if not os.path.isdir(downloads_folder):
-    os.mkdir(downloads_folder)
+downloads_folder = os.path.join(Path.home(), "Downloads", "Anime")
+if not os.path.isfile(SETTINGS_JSON_PATH) and not os.path.isdir(downloads_folder):
+        os.makedirs(downloads_folder)
 default_download_folder_paths = [downloads_folder]
 
 default_max_simutaneous_downloads = 2
@@ -247,7 +245,7 @@ def requires_admin_access(folder_path):
     try:
         temp_file = os.path.join(folder_path, 'temp.txt')
         open(temp_file, 'w').close()
-        delete_file(temp_file)
+        try_deleting_safely(temp_file)
         return False
     except PermissionError:
         return True
@@ -368,7 +366,6 @@ def validate_settings_json(settings_json: dict) -> dict:
     return clean_settings
 
 
-SETTINGS_JSON_PATH = os.path.join(config_dir, "settings.json")
 
 
 def configure_settings() -> dict[str, SETTINGS_TYPES]:
