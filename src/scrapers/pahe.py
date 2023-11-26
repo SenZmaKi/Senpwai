@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 import re
 from typing import Callable, cast, Any
 from math import pow
-from shared.app_and_scraper_shared import CLIENT, PARSER, match_quality, PausableAndCancellableFunction, AnimeMetadata, get_new_domain_name_from_readme
+from shared.app_and_scraper_shared import CLIENT, PARSER, match_quality, PausableAndCancellableFunction, AnimeMetadata
 import requests
 
 PAHE = 'pahe'
@@ -30,13 +30,8 @@ def uuid_request(url: str, search_request=False) -> requests.Response:
 
 
 def search(keyword: str) -> list[dict[str, str]]:
-    global PAHE_HOME_URL
     search_url = PAHE_HOME_URL+API_URL_EXTENSION+'search&q='+keyword
     response = uuid_request(search_url, True)
-    # If the status code isn't 200 we assume they changed their domain name
-    if response.status_code != 200:
-        PAHE_HOME_URL = get_new_domain_name_from_readme("Animepahe")
-        return search(keyword)
     decoded = cast(dict, response.json())
     # The api won't return json containing the data key if no results are found
     return decoded.get('data', [])

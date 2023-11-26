@@ -1,5 +1,5 @@
 import os
-from sys import platform
+import sys
 from time import sleep as timesleep
 from typing import Callable, Any, cast, Iterator
 import requests
@@ -18,23 +18,6 @@ QUALITY_REGEX_2 = re.compile(r'\b\d+x(\d+)\b')
 NETWORK_RETRY_WAIT_TIME = 5
 GITHUB_README_URL = "https://github.com/SenZmaKi/Senpwai/blob/master/README.md"
 RESOURCE_MOVED_STATUS_CODES = (301, 302, 307, 308)
-
-
-def get_new_domain_name_from_readme(site_name: str) -> str:
-    """
-    Say Animepahe or Gogoanime change their domain name, now Senpwai makes an anime search but it gets a none 200 status code, 
-    then it'll assume they changed their domain name. It'll try to extract the new domain name from the readme.
-    So if the domain name changes be sure to update it in the readme, specifically in the hyperlinks i.e., [Animepahe](https://animepahe.ru)
-    and without an ending / i.e., https://animepahe.ru instead of https://animepahe.ru/ Also test if Senpwai is properly extracting it incase you made a mistake.
-
-    :param site_name: Can be either Animepahe or Gogoanime.
-    """
-    page_content = CLIENT.get(GITHUB_README_URL).content
-    soup = BeautifulSoup(page_content, PARSER)
-    new_domain_name = cast(str, cast(Tag, soup.find('a', text=site_name))[
-                           'href']).replace("\"", "").replace("\\", "")
-    return new_domain_name
-
 
 class Client():
 
@@ -126,6 +109,10 @@ def match_quality(potential_qualities: list[str], user_quality: str) -> int:
         closest = quality
     return closest[1]
 
+def run_process(args: list[str]) -> subprocess.CompletedProcess[bytes]:
+    if sys.platform == "win32":
+        return subprocess.run(args)
+    return subprocess.run(args)
 
 def sanitise_title(title: str, all=False, exclude='') -> str:
     if all:
@@ -148,10 +135,7 @@ def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: 
 
 def ffmpeg_is_installed() -> bool:
     try:
-        if platform == "win32":
-            subprocess.run("ffmpeg")
-        else:
-            subprocess.run("ffmpeg")
+        run_process(["ffmpeg"])
         return True
     except FileNotFoundError:
         return False
@@ -207,7 +191,7 @@ class Download(PausableAndCancellableFunction):
             return
         delete_file(self.file_path)
         if self.is_hls_download:
-            if platform == "win32":
+            if sys.platform == "win32":
                 subprocess.run(
                     ['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path], creationflags=subprocess.CREATE_NO_WINDOW)
             else:

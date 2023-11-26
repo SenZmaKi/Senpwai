@@ -3,7 +3,7 @@ from requests.cookies import RequestsCookieJar
 from random import choice as randomchoice
 
 from typing import Callable, cast, Any
-from shared.app_and_scraper_shared import PARSER, CLIENT, match_quality, IBYTES_TO_MBS_DIVISOR, PausableAndCancellableFunction, AnimeMetadata, get_new_domain_name_from_readme, sanitise_title
+from shared.app_and_scraper_shared import PARSER, CLIENT, match_quality, IBYTES_TO_MBS_DIVISOR, PausableAndCancellableFunction, AnimeMetadata
 
 # Hls mode imports
 import json
@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.backends import default_backend
 
 GOGO = 'gogo'
-GOGO_HOME_URL = 'https://gogoanimehd.io'
+GOGO_HOME_URL = 'https://anitaku.to'
 DUB_EXTENSION = ' (Dub)'
 REGISTERED_ACCOUNT_EMAILS = ['benida7218@weirby.com', 'hareki4411@wisnick.com', 'nanab67795@weirby.com', 'xener53725@weirby.com', 'nenado3105@weirby.com',
                              'yaridod257@weirby.com', 'ketoh33964@weirby.com', 'kajade1254@wisnick.com', 'nakofe3005@weirby.com', 'gedidij506@weirby.com',
@@ -112,19 +112,9 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
         return total_size
 
 
-def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
-    """
-    Returns a string too which is the new anime_page_link if there was a change in Gogo's domain name
-    """
-    response = CLIENT.get(anime_page_link)
-    # we assume they changed domain names if the status code isn't 200
-    if response.status_code != 200:
-        global GOGO_HOME_URL
-        prev_home_url = GOGO_HOME_URL
-        GOGO_HOME_URL = get_new_domain_name_from_readme(GOGO)
-        anime_page_link.replace(prev_home_url, GOGO_HOME_URL)
-        return CLIENT.get(anime_page_link).content, anime_page_link
-    return response.content, anime_page_link
+def get_anime_page_content(anime_page_link: str) -> bytes:
+        response = CLIENT.get(anime_page_link)
+        return response.content
 
 
 def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
