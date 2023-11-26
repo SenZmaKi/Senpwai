@@ -598,7 +598,7 @@ class AnimeDetails():
             metadata = pahe.get_anime_metadata(
                 cast(str, self.anime.id))
         else:
-            page_content, self.anime.page_link = gogo.get_anime_page_content(
+            page_content = gogo.get_anime_page_content(
                 self.anime.page_link)
             metadata = gogo.extract_anime_metadata(page_content)
         return metadata

@@ -16,7 +16,7 @@ import re
 
 
 class MiscWindow(TemporaryWindow):
-    def __init__(self, main_window: MainWindow, misc_info_text: str, widgets_to_add: list[QWidget]):
+    def __init__(self, main_window: MainWindow, misc_info_text: str):
         super().__init__(main_window, chopper_crying_path)
         self.info_label = StyledLabel(font_size=25)
         self.info_label.setText(misc_info_text)
@@ -25,8 +25,6 @@ class MiscWindow(TemporaryWindow):
         self.main_layout.addWidget(
             self.info_label, alignment=Qt.AlignmentFlag.AlignCenter)
         self.buttons_layout = QHBoxLayout()
-        for w in widgets_to_add:
-            self.buttons_layout.addWidget(w)
         buttons_widget = QWidget()
         buttons_widget.setLayout(self.buttons_layout)
         self.main_layout.addWidget(buttons_widget)
@@ -38,7 +36,7 @@ class MiscWindow(TemporaryWindow):
 
 class NewVersionInfoWindow(MiscWindow):
     def __init__(self, main_window: MainWindow, info_text: str):
-        super().__init__(main_window, info_text, [])
+        super().__init__(main_window, info_text)
         title = Title(f"Version {VERSION} Changes")
         set_minimum_size_policy(title)
         self.main_layout.insertWidget(
@@ -49,6 +47,8 @@ class NoFFmpegWindow(MiscWindow):
     def __init__(self, main_window: MainWindow, anime_details: AnimeDetails):
         self.main_window = main_window
         info_text = "Sumanai, in order to use HLS mode you need to have\nFFmpeg installed and properly added to path"
+        super().__init__(main_window, info_text)
+        super().__init__(main_window, info_text)
         install_ffmepg_button = StyledButton(
             None, 25, "black", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR)
         if sys.platform == "win32" or sys.platform == "linux":
@@ -65,9 +65,10 @@ class NoFFmpegWindow(MiscWindow):
             lambda: main_window.download_window.initiate_download_pipeline(anime_details))
         download_in_normal_mode.clicked.connect(
             self.download_window_button.click)
+        download_in_normal_mode.setText("Download in Normal mode")
         set_minimum_size_policy(download_in_normal_mode)
-        super().__init__(main_window, info_text, [
-            install_ffmepg_button, download_in_normal_mode])
+        self.buttons_layout.addWidget(download_in_normal_mode)
+        self.buttons_layout.addWidget(install_ffmepg_button)
 
 
 class TryInstallingFFmpegThread(QThread):
@@ -101,7 +102,7 @@ class TryInstallingFFmpegThread(QThread):
                 self.start_download()
             else:
                 self.no_ffmpeg_window.main_window.tray_icon.make_notification(
-                    "Failed to Automatically Install", "FFmpeg", False)
+                    "Installation Failed", "Failed to automatically install FFmpeg, opening a guide on your browser uWu", False)
                 open_new_tab(
                     "https://www.hostinger.com/tutorials/how-to-install-ffmpeg#How_to_Install_FFmpeg_on_Windows")
         elif sys.platform == "linux":

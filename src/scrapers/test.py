@@ -97,7 +97,7 @@ def test_get_metadata(site: str, target_result: tuple[str, str] | tuple[str, str
         target_result = cast(tuple[str, str, str], target_result)
         metadata = pahe.get_anime_metadata(target_result[2])
     else:
-        page_content, _ = gogo.get_anime_page_content(target_result[1])
+        page_content = gogo.get_anime_page_content(target_result[1])
         metadata = gogo.extract_anime_metadata(page_content)
     pass_test(test_name, run_time())
     return metadata, page_content

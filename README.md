@@ -1,5 +1,5 @@
 <h1 align="center">
-<img align="center" height="80px" width="80px" src="https://github.com/SenZmaKi/Senpwai/blob/master/src/assets/senpwai-icon.png" alt="Senpwai-icon">
+<img align="center" height="80px" width="80px" src="https://github.com/SenZmaKi/Senpwai/blob/master/src/assets/misc/senpwai-icon.png" alt="Senpwai-icon">
  Senpwai
 </h1>
 <p align="center">

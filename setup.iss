@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Senpwai"
-#define MyAppVersion "2.0.6"
+#define MyAppVersion "2.0.7"
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
 #define MyAppExeName "Senpwai.exe"
@@ -26,7 +26,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir={#ProjectRootDir}\setups
 OutputBaseFilename=Senpwai-setup
-SetupIconFile="{#ProjectRootDir}\src\assets\senpwai-icon.ico"
+SetupIconFile="{#ProjectRootDir}\src\assets\misc\senpwai-icon.ico"
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
