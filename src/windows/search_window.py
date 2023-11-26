@@ -2,7 +2,7 @@ from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget, QLineEdit, QScrollBar, QLayoutItem
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QEvent, QTimer
 from shared.global_vars_and_funcs import random_mascot_icon_path, GOGO, PAHE, loading_animation_path, sadge_piece_path, set_minimum_size_policy, sen_anilist_id, anilist_api_entrypoint, one_piece_audio_path, kage_bunshin_audio_path, toki_wa_ugoki_dasu_audio_path, za_warudo_audio_path
-from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, search_window_bckg_image_path, sen_favourite_audio_path, bunshin_poof_audio_path, gigachad_audio_path, what_da_hell_audio_path
+from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR, IS_CHRISTMAS, search_window_bckg_image_path, sen_favourite_audio_path, bunshin_poof_audio_path, gigachad_audio_path, what_da_hell_audio_path, merry_chrismasu_audio_path
 from shared.shared_classes_and_widgets import Anime, StyledButton, OutlinedButton, ScrollableSection, AnimationAndText, IconButton, AudioPlayer, Icon
 from shared.app_and_scraper_shared import CLIENT
 from windows.main_actual_window import MainWindow, Window
@@ -104,7 +104,9 @@ class SearchWindow(Window):
                    "shingeki no kyojin", "daily lives", "danshi koukosei", "daily lives of highshool boys", "arakawa", "haikyuu", "kaguya", "chio", "asobi asobase", "prison school", "grand blue", "mob psycho", "to your eternity", "fire force", "mieruko", "fumetsu")
         l_anime = ("tokyo ghoul", "sword art", "boku no pico", "full metal", "fmab", "fairy tail", "dragon ball",
                    "hunter x hunter", "hunter hunter", "platinum end", "record of ragnarok", "7 deadly sins", "seven deadly sins")
-        if "ONE PIECE" in upper_title:
+        if IS_CHRISTMAS:
+            AudioPlayer(self, merry_chrismasu_audio_path, 30).play()
+        elif "ONE PIECE" in upper_title:
             AudioPlayer(self, one_piece_audio_path, volume=100).play()
         elif "JOJO" in upper_title:
             AudioPlayer(self, za_warudo_audio_path, 100).play()

@@ -8,6 +8,7 @@ import json
 from typing import cast
 from subprocess import Popen
 import logging
+from datetime import datetime
 from types import TracebackType
 
 
@@ -32,7 +33,8 @@ def try_deleting_safely(path: str):
             os.unlink(path)
         except PermissionError:
             pass
-
+date = datetime.today()
+IS_CHRISTMAS = True if date.month == 12 and date.day >= 20 else False
 
 for name in UPDATE_INSTALLER_NAMES:
     full_path = os.path.join(src_directory, name)
@@ -112,12 +114,15 @@ default_gogo_hls_mode = False
 assets_path = os.path.join(src_directory, "assets")
 def join_from_assets(file): return os.path.join(assets_path, file)
 
+misc_path = os.path.join(assets_path, "misc")
+def join_from_misc(file): return os.path.join(misc_path, file)
 
-SENPWAI_ICON_PATH = join_from_assets("senpwai-icon.ico")
-task_complete_icon_path = join_from_assets("task-complete.png")
-loading_animation_path = join_from_assets("loading.gif")
-sadge_piece_path = join_from_assets("sadge-piece.gif")
-folder_icon_path = join_from_assets("folder.png")
+SENPWAI_ICON_PATH = join_from_misc("senpwai-icon.ico")
+task_complete_icon_path = join_from_misc("task-complete.png")
+loading_animation_path = join_from_misc("loading.gif")
+sadge_piece_path = join_from_misc("sadge-piece.gif")
+folder_icon_path = join_from_misc("folder.png")
+
 mascots_folder_path = join_from_assets("mascots")
 mascots_files = list(Path(mascots_folder_path).glob("*"))
 random_mascot_icon_path = str(randomchoice(mascots_files))
@@ -128,8 +133,8 @@ bckg_images_path = join_from_assets("background-images")
 def join_from_bckg_images(img_title): return os.path.join(
     bckg_images_path, img_title).replace("\\", "/")
 
-
-search_window_bckg_image_path = join_from_bckg_images("search.jpg")
+s = "christmas.jpg" if IS_CHRISTMAS else "search.jpg"
+search_window_bckg_image_path = join_from_bckg_images(s)
 chosen_anime_window_bckg_image_path = join_from_bckg_images("chosen-anime.jpg")
 settings_window_bckg_image_path = join_from_bckg_images("settings.jpg")
 download_window_bckg_image_path = join_from_bckg_images("downloads.png")
@@ -185,6 +190,7 @@ bunshin_poof_audio_path = join_from_audio("bunshin-poof.mp3")
 za_warudo_audio_path = join_from_audio("za-warudo.mp3")
 toki_wa_ugoki_dasu_audio_path = join_from_audio("toki-wa-ugoki-dasu.mp3")
 what_da_hell_audio_path = join_from_audio("what-da-hell.mp3")
+merry_chrismasu_audio_path = join_from_audio("merry-chrismasu.mp3")
 
 reviewer_profile_pics_folder_path = join_from_assets("reviewer-profile-pics")
 
