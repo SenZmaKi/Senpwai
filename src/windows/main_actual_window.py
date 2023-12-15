@@ -1,7 +1,7 @@
 from PyQt6.QtGui import QGuiApplication, QIcon, QAction, QScreen
 from PyQt6.QtWidgets import QMainWindow, QWidget, QSystemTrayIcon, QStackedWidget, QVBoxLayout, QHBoxLayout, QApplication, QMenu
 from PyQt6.QtCore import Qt
-from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, settings, KEY_ALLOW_NOTIFICATIONS, KEY_START_IN_FULLSCREEN
+from shared.global_vars_and_funcs import SENPWAI_ICON_PATH, search_icon_path, downloads_icon_path, settings_icon_path, about_icon_path, update_icon_path, task_complete_icon_path, SETTINGS
 from shared.shared_classes_and_widgets import Anime, AnimeDetails, IconButton, Icon
 from typing import Callable, cast
 
@@ -35,13 +35,12 @@ class MainWindow(QMainWindow):
         self.app.aboutToQuit.connect(self.tray_icon.hide)
 
     def show_with_settings(self, args: list[str]):
-        in_fullscreen = cast(bool, settings[KEY_START_IN_FULLSCREEN])
         if "--minimised_to_tray" in args:
-            if in_fullscreen:
+            if SETTINGS.start_in_fullscreen:
                 self.setWindowState(self.windowState() |
                                     Qt.WindowState.WindowMaximized)
             return self.hide()
-        elif in_fullscreen:
+        elif SETTINGS.start_in_fullscreen:
             self.showMaximized()
         else:
             self.showNormal()
@@ -179,7 +178,7 @@ class TrayIcon(QSystemTrayIcon):
             self.focus_or_hide_window()
 
     def make_notification(self, title: str, msg: str, sth_completed: bool, onclick: Callable[[], None] | None = None):
-        if settings[KEY_ALLOW_NOTIFICATIONS]:
+        if SETTINGS.allow_notifications:
             if onclick:
                 self.messageClicked.connect(onclick)
             if sth_completed:

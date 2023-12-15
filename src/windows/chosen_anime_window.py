@@ -2,8 +2,8 @@ from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpacerItem, QScrollBar
 from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer
 from shared.shared_classes_and_widgets import StyledLabel, StyledButton, AnimeDetails, NumberInput, QualityButton, SubDubButton, GogoNormOrHlsButton, FolderButton, Anime, HorizontalLine, ErrorLabel, ScrollableSection, DualStateButton
-from shared.global_vars_and_funcs import GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, RED_NORMAL_COLOR, RED_PRESSED_COLOR, settings, KEY_SUB_OR_DUB, Q_1080, Q_720, Q_480, Q_360, chosen_anime_window_bckg_image_path
-from shared.global_vars_and_funcs import SUB, DUB, set_minimum_size_policy, KEY_QUALITY, KEY_TRACKED_ANIME, GOGO
+from shared.global_vars_and_funcs import GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, RED_NORMAL_COLOR, RED_PRESSED_COLOR, SETTINGS, Q_1080, Q_720, Q_480, Q_360, chosen_anime_window_bckg_image_path
+from shared.global_vars_and_funcs import SUB, DUB, set_minimum_size_policy, GOGO
 from windows.download_window import DownloadWindow
 from windows.settings_window import SettingsWindow
 from shared.app_and_scraper_shared import dynamic_episodes_predictor_initialiser_pro_turboencapsulator
@@ -107,14 +107,14 @@ class ChosenAnimeWindow(TemporaryWindow):
         set_minimum_size_policy(self.sub_button)
         self.dub_button = None
         self.sub_button.clicked.connect(lambda: self.update_sub_or_dub(SUB))
-        if cast(str, settings[KEY_SUB_OR_DUB]) == SUB:
+        if SETTINGS.sub_or_dub == SUB:
             self.sub_button.set_picked_status(True)
         if self.anime_details.dub_available:
             self.dub_button = SubDubButton(self, DUB, 18)
             set_minimum_size_policy(self.dub_button)
             self.dub_button.clicked.connect(
                 lambda: self.update_sub_or_dub(DUB))
-            if cast(str, settings[KEY_SUB_OR_DUB]) == DUB:
+            if SETTINGS.sub_or_dub == DUB:
                 self.dub_button.set_picked_status(True)
             self.dub_button.clicked.connect(
                 lambda: self.sub_button.set_picked_status(False))
@@ -142,7 +142,7 @@ class ChosenAnimeWindow(TemporaryWindow):
             quality = button.quality
             button.clicked.connect(
                 lambda garbage_bool, quality=quality: self.update_quality(quality))
-            if quality == cast(str, settings[KEY_QUALITY]):
+            if quality == SETTINGS.quality:
                 button.set_picked_status(True)
         first_row_of_buttons_layout.addSpacerItem(QSpacerItem(20, 0))
         if anime_details.site == GOGO:
@@ -211,7 +211,7 @@ class ChosenAnimeWindow(TemporaryWindow):
             third_row_of_labels_layout.addWidget(folder_button)
         track_button = TrackButton(
             anime_details.anime.title, self, self.main_window.settings_window)
-        if anime_details.anime.title in cast(list[str], settings[KEY_TRACKED_ANIME]):
+        if anime_details.anime.title in SETTINGS.tracked_anime:
             track_button.change_status()
         set_minimum_size_policy(track_button)
         third_row_of_labels_layout.addSpacerItem(QSpacerItem(20, 0))

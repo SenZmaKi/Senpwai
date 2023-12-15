@@ -15,8 +15,8 @@ from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.backends import default_backend
 
 GOGO = 'gogo'
-FULL_SITE_NAME = 'Gogoanime'
 GOGO_HOME_URL = 'https://anitaku.to'
+FULL_SITE_NAME = 'Gogoanime'
 DUB_EXTENSION = ' (Dub)'
 REGISTERED_ACCOUNT_EMAILS = ['benida7218@weirby.com', 'hareki4411@wisnick.com', 'nanab67795@weirby.com', 'xener53725@weirby.com', 'nenado3105@weirby.com',
                              'yaridod257@weirby.com', 'ketoh33964@weirby.com', 'kajade1254@wisnick.com', 'nakofe3005@weirby.com', 'gedidij506@weirby.com',
@@ -27,7 +27,6 @@ SESSION_COOKIES: RequestsCookieJar | None = None
 # Hls mode constants
 KEYS_REGEX = re.compile(rb'(?:container|videocontent)-(\d+)')
 ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
-
 
 def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
     ajax_search_url = 'https://ajax.gogo-load.com/site/loadAjaxSearch?keyword='+keyword
@@ -112,18 +111,15 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
             progress_update_callback(1)
         return total_size
 
-def set_home_url(new_home_url: str) -> None:
-    global GOGO_HOME_URL
-    GOGO_HOME_URL = new_home_url
 
 def get_anime_page_content(anime_page_link: str) -> bytes:
     try:
         response = CLIENT.get(anime_page_link, exceptions_to_ignore=[DomainNameError])
         return response.content
     except DomainNameError:
+        global GOGO_HOME_URL
         prev_home_url = GOGO_HOME_URL
-        new_home_url = get_new_home_url_from_readme(FULL_SITE_NAME)
-        set_home_url(new_home_url)
+        GOGO_HOME_URL = get_new_home_url_from_readme(FULL_SITE_NAME)
         return get_anime_page_content(anime_page_link.replace(prev_home_url, GOGO_HOME_URL))
 
 

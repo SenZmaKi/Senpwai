@@ -2,10 +2,8 @@ from PyQt6.QtGui import QPixmap, QPen, QPainterPath, QPainter, QMovie, QKeyEvent
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame, QTextBrowser
 from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from shared.global_vars_and_funcs import SETTINGS_TYPES, PAHE, GOGO
 from time import time
-from shared.global_vars_and_funcs import settings, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE, KEY_GOGO_SKIP_CALCULATE
-from shared.global_vars_and_funcs import folder_icon_path, RED_NORMAL_COLOR, RED_PRESSED_COLOR, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, open_folder, GOGO_HLS_MODE, set_minimum_size_policy, GOGO_NORM_MODE
+from shared.global_vars_and_funcs import GOGO, PAHE, SETTINGS, Settings, folder_icon_path, RED_NORMAL_COLOR, RED_PRESSED_COLOR, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, open_folder, GOGO_HLS_MODE, set_minimum_size_policy, GOGO_NORM_MODE
 from shared.app_and_scraper_shared import sanitise_title, AnimeMetadata
 from pathlib import Path
 from typing import cast, Callable
@@ -144,7 +142,7 @@ class DualStateButton(StyledButton):
 
 
 class OptionButton(StyledButton):
-    def __init__(self, parent: QWidget | None, option: SETTINGS_TYPES, option_displayed: str, font_size: int, chosen_color: str, hover_color: str, font_color="white"):
+    def __init__(self, parent: QWidget | None, option: Settings.types, option_displayed: str, font_size: int, chosen_color: str, hover_color: str, font_color="white"):
         super().__init__(parent, font_size, font_color,
                          "rgba(128, 128, 128, 255)", chosen_color, hover_color)
         self.not_picked_style_sheet = self.styleSheet()
@@ -491,11 +489,9 @@ class AnimeDetails():
     def __init__(self, anime: Anime, site: str):
         self.anime = anime
         self.site = site
-        self.is_hls_download = True if site == GOGO and settings[
-            KEY_GOGO_NORM_OR_HLS_MODE] == GOGO_HLS_MODE else False
+        self.is_hls_download = True if site == GOGO and SETTINGS.gogo_norm_or_hls_mode == GOGO_HLS_MODE else False
         self.sanitised_title = sanitise_title(anime.title)
-        self.default_download_path = cast(
-            list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])[0]
+        self.default_download_path = SETTINGS.download_folder_paths[0]
         self.anime_folder_path = self.get_anime_folder_path()
         self.potentially_haved_episodes = self.get_potentially_haved_episodes()
         self.haved_episodes: list[int] = []
@@ -503,18 +499,17 @@ class AnimeDetails():
         self.dub_available, self.dub_page_link = self.get_dub_availablilty_status()
         self.metadata = self.get_metadata()
         self.episode_count = self.metadata.episode_count
-        self.quality = cast(str, settings[KEY_QUALITY])
-        self.sub_or_dub = cast(str, settings[KEY_SUB_OR_DUB])
+        self.quality = SETTINGS.quality
+        self.sub_or_dub = SETTINGS.sub_or_dub
         self.ddls_or_segs_urls: list[str] | list[list[str]] = []
         self.download_info: list[str] = []
         self.total_download_size: int = 0
         self.predicted_episodes_to_download: list[int] = []
-        self.skip_calculating_size = True if site == GOGO and not self.is_hls_download and settings[
-            KEY_GOGO_SKIP_CALCULATE] else False
+        self.skip_calculating_size = True if site == GOGO and not self.is_hls_download and SETTINGS.gogo_skip_calculate else False
 
     def get_anime_folder_path(self) -> str | None:
         def try_path(title: str) -> str | None:
-            for path in cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS]):
+            for path in SETTINGS.download_folder_paths:
                 potential = os.path.join(path, title)
                 if os.path.isdir(potential):
                     return potential

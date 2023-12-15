@@ -1,15 +1,14 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFileDialog, QLayoutItem
 from PyQt6.QtCore import Qt
-from shared.global_vars_and_funcs import SETTINGS_TYPES, validate_settings_json, SETTINGS_JSON_PATH, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR
-from shared.global_vars_and_funcs import settings,  KEY_ALLOW_NOTIFICATIONS, KEY_QUALITY, KEY_MAX_SIMULTANEOUS_DOWNLOADS, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_START_IN_FULLSCREEN, KEY_GOGO_NORM_OR_HLS_MODE, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_RUN_ON_STARTUP, KEY_CHECK_FOR_NEW_EPS_AFTER, KEY_GOGO_SKIP_CALCULATE
-from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME, try_deleting_safely, src_directory
+from shared.global_vars_and_funcs import SETTINGS, fix_qt_path_for_windows, set_minimum_size_policy, amogus_easter_egg, requires_admin_access, settings_window_bckg_image_path, GOGO_NORMAL_COLOR
+from shared.global_vars_and_funcs import PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, PAHE_HOVER_COLOR, RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR, SUB, DUB, Q_1080, Q_720, Q_480, Q_360, GOGO_NORM_MODE, GOGO_HLS_MODE, GOGO_PRESSED_COLOR, PAHE, GOGO, APP_NAME, src_directory
+from shared.app_and_scraper_shared import try_deleting_safely
 from shared.shared_classes_and_widgets import ScrollableSection, StyledLabel, OptionButton, SubDubButton, NumberInput, GogoNormOrHlsButton, QualityButton, StyledButton, ErrorLabel, HorizontalLine
 from windows.main_actual_window import MainWindow, Window
 from windows.download_window import DownloadWindow
 from sys import platform as sysplatform
-import json
 import os
-from typing import cast
+from typing import cast, Callable, Any
 from pylnk3 import for_file as pylnk3for_file
 
 
@@ -62,21 +61,14 @@ class SettingsWindow(Window):
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
 
-    def update_settings_json(self, key: str, new_value: SETTINGS_TYPES):
-        settings[key] = new_value
-        validated = validate_settings_json(settings)
-        with open(SETTINGS_JSON_PATH, "w") as f:
-            json.dump(validated, f, indent=4)
-
 
 class FolderSetting(QWidget):
-    def __init__(self, settings_window: SettingsWindow, main_window: MainWindow, setting_info: str, setting_key: str, setting_tool_tip: str | None):
+    def __init__(self, settings_window: SettingsWindow, main_window: MainWindow, setting_info: str, setting_tool_tip: str | None):
         super().__init__()
         self.settings_window = settings_window
         self.font_size = settings_window.font_size
         self.main_window = main_window
         self.main_layout = QVBoxLayout()
-        self.setting_key = setting_key
         settings_label = StyledLabel(font_size=self.font_size+5)
         settings_label.setText(setting_info)
         if setting_tool_tip:
@@ -103,7 +95,7 @@ class FolderSetting(QWidget):
         line.setFixedHeight(7)
         self.main_layout.addWidget(line)
         self.folder_widgets_layout = QVBoxLayout()
-        for idx, folder in enumerate(cast(list[str], settings[self.setting_key])):
+        for idx, folder in enumerate(SETTINGS.download_folder_paths):
             self.folder_widgets_layout.addWidget(FolderWidget(
                 main_window, self, 14, folder, idx), alignment=Qt.AlignmentFlag.AlignTop)
         folder_widgets_widget = ScrollableSection(self.folder_widgets_layout)
@@ -124,7 +116,7 @@ class FolderSetting(QWidget):
         elif not os.path.isdir(new_folder_path):
             self.error("Choose a valid folder, onegaishimasu")
             return False
-        elif new_folder_path in cast(list[str], settings[self.setting_key]):
+        elif new_folder_path in SETTINGS.download_folder_paths:
             self.error("Baka!!! that folder is already in the settings")
             return False
         else:
@@ -139,24 +131,18 @@ class FolderSetting(QWidget):
     def change_from_folder_settings(self, new_folder_path: str, folder_widget: QWidget):
         folder_widget = cast(
             FolderWidget, folder_widget)
-        new_folders_settings = cast(list, settings[self.setting_key])
-        new_folders_settings[folder_widget.index] = new_folder_path
+        SETTINGS.change_download_folder_path(
+            folder_widget.index, new_folder_path)
         folder_widget.folder_path = new_folder_path
         folder_widget.folder_label.setText(new_folder_path)
         set_minimum_size_policy(folder_widget.folder_label)
         folder_widget.folder_label.update()
-        self.settings_window.update_settings_json(
-            self.setting_key, new_folders_settings)
 
     def remove_from_folder_settings(self, folder_widget: QWidget):
         folder_widget = cast(
             FolderWidget, folder_widget)
-        new_folders_settings = cast(list, settings[self.setting_key])
-        new_folders_settings.pop(folder_widget.index)
+        SETTINGS.pop_download_folder_path(folder_widget.index)
         folder_widget.deleteLater()
-        self.folder_widgets_layout.removeWidget(folder_widget)
-        self.settings_window.update_settings_json(
-            self.setting_key, new_folders_settings)
         self.update_widget_indices()
 
     def add_folder_to_settings(self):
@@ -165,19 +151,18 @@ class FolderSetting(QWidget):
         added_folder_path = fix_qt_path_for_windows(added_folder_path)
         if not self.is_valid_new_folder(added_folder_path):
             return
+        SETTINGS.add_download_folder_path(added_folder_path)
         self.folder_widgets_layout.addWidget(FolderWidget(
             self.main_window, self, 14, added_folder_path, self.folder_widgets_layout.count()), alignment=Qt.AlignmentFlag.AlignTop)
-        self.settings_window.update_settings_json(
-            self.setting_key, cast(list[str], settings[self.setting_key]) + [added_folder_path])
 
 
 class DownloadFoldersSetting(FolderSetting):
     def __init__(self, settings_window: SettingsWindow, main_window: MainWindow):
-        super().__init__(settings_window, main_window, "Download folders", KEY_DOWNLOAD_FOLDER_PATHS,
+        super().__init__(settings_window, main_window, "Download folders",
                          "Senpwai will search these folders for anime episodes, in the order shown")
 
     def remove_from_folder_settings(self, download_folder_widget: QWidget):
-        if len(cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])) - 1 <= 0:
+        if len(SETTINGS.download_folder_paths) == 1:
             return self.error("Yarou!!! You must have at least one download folder")
         return super().remove_from_folder_settings(download_folder_widget)
 
@@ -265,7 +250,7 @@ class TrackedAnimeListSetting(SettingWidget):
         self.settings_window = settings_window
         main_widget = ScrollableSection(self.main_layout)
         self.anime_buttons: list[RemovableWidget] = []
-        for anime in cast(list[str], settings[KEY_TRACKED_ANIME]):
+        for anime in SETTINGS.tracked_anime:
             wid = RemovableWidget(anime, font_size=14)
             self.setup_anime_widget(wid)
         line = HorizontalLine()
@@ -276,10 +261,8 @@ class TrackedAnimeListSetting(SettingWidget):
             "When you start the app, Senpwai will check for new episodes\nof these anime then download them automatically")
 
     def setup_anime_widget(self, wid: RemovableWidget):
-        wid.remove_button.clicked.connect(lambda garbage_bool, txt=wid.text: cast(
-            list[str], settings[KEY_TRACKED_ANIME]).remove(txt))
-        wid.remove_button.clicked.connect(lambda: self.settings_window.update_settings_json(
-            KEY_TRACKED_ANIME, settings[KEY_TRACKED_ANIME]))
+        wid.remove_button.clicked.connect(
+            lambda garbage_bool, txt=wid.text: SETTINGS.remove_tracked_anime(txt))
         wid.remove_button.clicked.connect(
             lambda: self.anime_buttons.remove(wid))
         set_minimum_size_policy(wid)
@@ -289,7 +272,7 @@ class TrackedAnimeListSetting(SettingWidget):
     def remove_anime(self, title: str):
         for anime in self.anime_buttons:
             if anime.text == title:
-                anime.remove_button.click()
+                return anime.remove_button.click()
 
     def add_anime(self, title: str):
         for anime in self.anime_buttons:
@@ -297,10 +280,7 @@ class TrackedAnimeListSetting(SettingWidget):
                 return
         wid = RemovableWidget(title, 16)
         self.setup_anime_widget(wid)
-        new_setting = cast(
-            list[str], settings[KEY_TRACKED_ANIME]) + [title]
-        self.settings_window.update_settings_json(
-            KEY_TRACKED_ANIME, new_setting)
+        SETTINGS.add_tracked_anime(title)
 
 
 class AutoDownloadSite(SettingWidget):
@@ -312,13 +292,13 @@ class AutoDownloadSite(SettingWidget):
             None, GOGO, "GOGO", self.font_size, GOGO_NORMAL_COLOR, GOGO_PRESSED_COLOR)
         pahe_button.clicked.connect(
             lambda: gogo_button.set_picked_status(False))
-        pahe_button.clicked.connect(lambda: settings_window.update_settings_json(
-            KEY_AUTO_DOWNLOAD_SITE, pahe_button.option))
+        pahe_button.clicked.connect(
+            lambda: SETTINGS.update_auto_download_site(cast(str, pahe_button.option)))
         gogo_button.clicked.connect(
             lambda: pahe_button.set_picked_status(False))
-        gogo_button.clicked.connect(lambda: settings_window.update_settings_json(
-            KEY_AUTO_DOWNLOAD_SITE, gogo_button.option))
-        if settings[KEY_AUTO_DOWNLOAD_SITE] == PAHE:
+        gogo_button.clicked.connect(
+            lambda: SETTINGS.update_auto_download_site(cast(str, gogo_button.option)))
+        if SETTINGS.auto_download_site == PAHE:
             pahe_button.set_picked_status(True)
         else:
             gogo_button.set_picked_status(True)
@@ -330,19 +310,13 @@ class AutoDownloadSite(SettingWidget):
 
 
 class YesOrNoSetting(SettingWidget):
-    def __init__(self, settings_window: SettingsWindow, setting_info: str, setting_key_in_json: str, tooltip: str | None = None):
+    def __init__(self, settings_window: SettingsWindow, setting_info: str, tooltip: str | None = None):
         self.yes_button = YesOrNoButton(True, settings_window.font_size)
         self.no_button = YesOrNoButton(False, settings_window.font_size)
         self.yes_button.clicked.connect(
             lambda: self.no_button.set_picked_status(False))
         self.no_button.clicked.connect(
             lambda: self.yes_button.set_picked_status(False))
-        self.yes_button.clicked.connect(lambda: settings_window.update_settings_json(
-            setting_key_in_json, True))
-        self.no_button.clicked.connect(lambda: settings_window.update_settings_json(
-            setting_key_in_json, False))
-        self.yes_button.set_picked_status(
-            True) if settings[setting_key_in_json] else self.no_button.set_picked_status(True)
         set_minimum_size_policy(self.yes_button)
         set_minimum_size_policy(self.no_button)
         super().__init__(settings_window,
@@ -355,27 +329,51 @@ class YesOrNoSetting(SettingWidget):
 class GogoSkipCalculate(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window,
-                         "Skip calculating download size for Gogo", KEY_GOGO_SKIP_CALCULATE)
+                         "Skip calculating download size for Gogo")
+        if SETTINGS.gogo_skip_calculate:
+            self.yes_button.set_picked_status(True)
+        else:
+            self.no_button.set_picked_status(True)
+        self.yes_button.clicked.connect(
+            lambda: SETTINGS.update_gogo_skip_calculate(True))
+        self.no_button.clicked.connect(
+            lambda: SETTINGS.update_gogo_skip_calculate(False))
 
 
 class StartInFullscreenSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Start app in fullscreen", KEY_START_IN_FULLSCREEN)
+        super().__init__(settings_window, "Start app in fullscreen")
+        if SETTINGS.start_in_fullscreen:
+            self.yes_button.set_picked_status(True)
+        else:
+            self.no_button.set_picked_status(True)
+        self.yes_button.clicked.connect(
+            lambda: SETTINGS.update_start_in_fullscreen(True))
+        self.no_button.clicked.connect(
+            lambda: SETTINGS.update_start_in_fullscreen(False))
 
 
 class RunOnStartUp(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Run on start up", KEY_RUN_ON_STARTUP)
+        super().__init__(settings_window, "Run on start up")
         appdata_folder = cast(str, os.environ.get('APPDATA'))
         self.lnk_path = os.path.join(
             appdata_folder, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', f'{APP_NAME}.lnk')
+        if SETTINGS.run_on_startup:
+            self.yes_button.set_picked_status(True)
+        else:
+            self.no_button.set_picked_status(True)
+        self.yes_button.clicked.connect(
+            lambda: SETTINGS.update_run_on_startup(True))
         self.yes_button.clicked.connect(self.make_startup_lnk)
+        self.no_button.clicked.connect(
+            lambda: SETTINGS.update_run_on_startup(False))
         self.no_button.clicked.connect(self.remove_startup_lnk)
 
     def make_startup_lnk(self):
         self.remove_startup_lnk()
-        lnk = pylnk3for_file(os.path.join(src_directory, 
-            f"{APP_NAME}.exe"), APP_NAME, "--minimised_to_tray", "Senpwai startup shortcut", work_dir=os.path.abspath("."))
+        lnk = pylnk3for_file(os.path.join(src_directory,
+                                          f"{APP_NAME}.exe"), APP_NAME, "--minimised_to_tray", "Senpwai startup shortcut", work_dir=os.path.abspath("."))
         lnk.save(self.lnk_path)
         # pylnk3 seems to generate a garbage lnk file with no extension in the current directory
         garbage_lnk = APP_NAME
@@ -389,8 +387,15 @@ class RunOnStartUp(YesOrNoSetting):
 
 class AllowNotificationsSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Allow notifications uWu?",
-                         KEY_ALLOW_NOTIFICATIONS)
+        super().__init__(settings_window, "Allow notifications uWu?")
+        if SETTINGS.allow_notifications:
+            self.yes_button.set_picked_status(True)
+        else:
+            self.no_button.set_picked_status(True)
+        self.yes_button.clicked.connect(
+            lambda: SETTINGS.update_allow_notifications(True))
+        self.no_button.clicked.connect(
+            lambda: SETTINGS.update_allow_notifications(False))
 
 
 class GogoNormOrHlsSetting(SettingWidget):
@@ -401,7 +406,7 @@ class GogoNormOrHlsSetting(SettingWidget):
         hls_button = GogoNormOrHlsButton(
             settings_window, GOGO_HLS_MODE, settings_window.font_size)
         set_minimum_size_policy(hls_button)
-        if cast(str, settings[KEY_GOGO_NORM_OR_HLS_MODE]) == GOGO_HLS_MODE:
+        if SETTINGS.gogo_norm_or_hls_mode == GOGO_HLS_MODE:
             hls_button.set_picked_status(True)
         else:
             norm_button.set_picked_status(True)
@@ -410,23 +415,22 @@ class GogoNormOrHlsSetting(SettingWidget):
         hls_button.clicked.connect(
             lambda: norm_button.set_picked_status(False))
         norm_button.clicked.connect(
-            lambda: settings_window.update_settings_json(KEY_GOGO_NORM_OR_HLS_MODE, GOGO_NORM_MODE))
+            lambda: SETTINGS.update_gogo_norm_or_hls_mode(GOGO_NORM_MODE))
         hls_button.clicked.connect(
-            lambda: settings_window.update_settings_json(KEY_GOGO_NORM_OR_HLS_MODE, GOGO_HLS_MODE))
+            lambda: SETTINGS.update_gogo_norm_or_hls_mode(GOGO_HLS_MODE))
         super().__init__(settings_window,
                          "Gogo Normal or HLS mode", [norm_button, hls_button])
         self.setting_label.setToolTip(hls_button.toolTip())
 
 
 class NonZeroNumberInputSetting(SettingWidget):
-    def __init__(self, settings_window: SettingsWindow, setting_key: str, setting_info: str, error_on_zero_text: str, units: str | None, tooltip: str | None = None):
+    def __init__(self, settings_window: SettingsWindow, initial_value: int, setting_updater_callback: Callable[[int], None], setting_info: str, error_on_zero_text: str, units: str | None, tooltip: str | None = None):
         self.settings_window = settings_window
-        self.setting_key = setting_key
+        self.setting_updater_callback = setting_updater_callback
         self.number_input = NumberInput(font_size=settings_window.font_size)
         self.number_input.setFixedWidth(60)
         self.number_input.setPlaceholderText(amogus_easter_egg)
-        self.number_input.setText(
-            str(cast(int, settings[setting_key])))
+        self.number_input.setText(str(initial_value))
         self.input_layout = QHBoxLayout()
         input_widget = QWidget()
         input_widget.setLayout(self.input_layout)
@@ -464,20 +468,19 @@ class NonZeroNumberInputSetting(SettingWidget):
             self.error.show()
             self.number_input.setText("")
             return
-        self.settings_window.update_settings_json(
-            self.setting_key, new_setting)
+        self.setting_updater_callback(new_setting)
 
 
 class MaxSimultaneousDownloadsSetting(NonZeroNumberInputSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, KEY_MAX_SIMULTANEOUS_DOWNLOADS, "Only allow", "Bruh, max simultaneous downloads cannot be zero",
+        super().__init__(settings_window, SETTINGS.max_simultaneous_downloads, SETTINGS.update_max_simultaneous_downloads, "Only allow", "Bruh, max simultaneous downloads cannot be zero",
                          "simultaneous downloads", "The maximum number of downloads allowed to occur at the same time")
 
 
 class CheckForNewEpsAfterSetting(NonZeroNumberInputSetting):
     def __init__(self, settings_window: SettingsWindow, download_window: DownloadWindow):
         self.download_window = download_window
-        super().__init__(settings_window, KEY_CHECK_FOR_NEW_EPS_AFTER, "Check for new episodes after", "Bruh, time intervals can't be zero", "hours",
+        super().__init__(settings_window, SETTINGS.check_for_new_eps_after, SETTINGS.update_check_for_new_eps_after, "Check for new episodes after", "Bruh, time intervals can't be zero", "hours",
                          "Senpwai will check for new episodes of your tracked anime when you start the app\nthen in intervals of the hours you specify so long as it is running")
 
     def text_changed(self, text: str):
@@ -501,12 +504,12 @@ class QualitySetting(SettingWidget):
             quality = button.quality
             button.clicked.connect(
                 lambda garbage_bool, quality=quality: self.update_quality(quality))
-            if button.quality == cast(str, settings[KEY_QUALITY]):
+            if button.quality == SETTINGS.quality:
                 button.set_picked_status(True)
         super().__init__(settings_window, "Download quality", self.quality_buttons_list)
 
     def update_quality(self, quality: str):
-        self.settings_window.update_settings_json(KEY_QUALITY, quality)
+        SETTINGS.update_quality(quality)
         for button in self.quality_buttons_list:
             if button.quality != quality:
                 button.set_picked_status(False)
@@ -520,15 +523,15 @@ class SubDubSetting(SettingWidget):
         dub_button = SubDubButton(
             settings_window, DUB, settings_window.font_size)
         set_minimum_size_policy(dub_button)
-        if cast(str, settings[KEY_SUB_OR_DUB]) == SUB:
-            sub_button.click()
+        if SETTINGS.sub_or_dub == SUB:
+            sub_button.set_picked_status(True)
         else:
-            dub_button.click()
+            dub_button.set_picked_status(True)
         sub_button.clicked.connect(lambda: dub_button.set_picked_status(False))
         dub_button.clicked.connect(lambda: sub_button.set_picked_status(False))
         sub_button.clicked.connect(
-            lambda: settings_window.update_settings_json(KEY_SUB_OR_DUB, SUB))
+            lambda: SETTINGS.update_sub_or_dub(SUB))
         dub_button.clicked.connect(
-            lambda: settings_window.update_settings_json(KEY_SUB_OR_DUB, DUB))
+            lambda: SETTINGS.update_sub_or_dub(DUB))
         super().__init__(settings_window,
                          "Sub or Dub", [sub_button, dub_button])

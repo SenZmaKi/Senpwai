@@ -11,9 +11,6 @@ import logging
 from datetime import datetime
 from types import TracebackType
 
-# These are here to prevent circular imports cause 
-# shared.app_and_scraper_shared which is imported by both pahe and gogo 
-# imports try_deleting_safely and log_exception for here
 
 def try_deleting_safely(path: str):
     if os.path.isfile(path):
@@ -21,12 +18,6 @@ def try_deleting_safely(path: str):
             os.unlink(path)
         except PermissionError:
             pass
-
-def log_exception(e: Exception):
-    custom_exception_handler(type(e), e, e.__traceback__)
-
-from scrapers.pahe import PAHE_HOME_URL, set_home_url as set_pahe_home_url
-from scrapers.gogo import GOGO_HOME_URL, set_home_url as set_gogo_home_url
 
 
 if getattr(sys, 'frozen', False):
@@ -52,8 +43,6 @@ for name in UPDATE_INSTALLER_NAMES:
     try_deleting_safely(full_path)
 
 config_dir = os.path.join(user_config_dir(), APP_NAME)
-SETTINGS_JSON_PATH = os.path.join(config_dir, "settings.json")
-
 
 if not os.path.isdir(config_dir):
     os.makedirs(config_dir)
@@ -65,21 +54,155 @@ PAHE = "pahe"
 GOGO = "gogo"
 DUB = "dub"
 SUB = "sub"
-default_sub_or_dub = SUB
 Q_1080 = "1080p"
 Q_720 = "720p"
 Q_480 = "480p"
 Q_360 = "360p"
-default_quality = Q_720
 GOGO_NORM_MODE = "norm"
 GOGO_HLS_MODE = "hls"
-DEFAULT_GOGO_NORM_OR_HLS = GOGO_NORM_MODE
-default_auto_download_site = PAHE
-default_start_minimised = False
-default_run_on_startup = False
-default_on_captcha_switch_to = PAHE
-default_check_for_new_eps_after = 24
-default_gogo_skip_calculate = False
+
+
+class Settings():
+    types = str | int | bool | list[str]
+
+    def __init__(self, config_dir: str) -> None:
+        self.settings_json_path = os.path.join(config_dir, "settings.json")
+
+        # Default settings
+        self.sub_or_dub = SUB
+        self.quality = Q_720
+        self.download_folder_paths = self.setup_default_download_folder()
+        self.max_simultaneous_downloads = 3
+        self.allow_notifications = True
+        self.start_in_fullscreen = True
+        self.run_on_startup = False
+        self.gogo_norm_or_hls_mode = GOGO_NORM_MODE
+        self.tracked_anime: list[str] = []
+        self.auto_download_site = PAHE
+        self.check_for_new_eps_after = 24
+        self.gogo_skip_calculate = False
+
+        self.configure()
+
+    def configure(self) -> None:
+        failed_to_load_settings = False if os.path.isfile(
+            self.settings_json_path) else True
+        if not failed_to_load_settings:
+            with open(self.settings_json_path, "r") as f:
+                try:
+                    settings = cast(dict, json.load(f))
+                    try:
+                        self.__dict__.update(settings)
+                        print(self.quality)
+                    except ValueError:
+                        failed_to_load_settings = True
+                except json.decoder.JSONDecodeError:
+                    failed_to_load_settings = True
+        if failed_to_load_settings:
+            with open(self.settings_json_path, "w") as f:
+                json.dump(self.dict_settings(), f, indent=4)
+
+    def setup_default_download_folder(self) -> list[str]:
+        downloads_folder = os.path.join(Path.home(), "Downloads", "Anime")
+        if not os.path.isfile(self.settings_json_path) and not os.path.isdir(downloads_folder):
+            os.makedirs(downloads_folder)
+        return [downloads_folder]
+
+    def dict_settings(self) -> dict:
+        d_settings = {k: v for k, v in self.__dict__.items()}
+        d_settings.pop("settings_json_path")
+        return d_settings
+
+    def update_sub_or_dub(self, sub_or_dub: str) -> None:
+        self.sub_or_dub = sub_or_dub
+        self.save_settings()
+
+    def update_quality(self, quality: str) -> None:
+        self.quality = quality
+        self.save_settings()
+
+    def update_download_folder_paths(self, download_folder_paths: list[str]) -> None:
+        self.download_folder_paths = download_folder_paths
+        self.save_settings()
+
+    def add_download_folder_path(self, download_folder_path: str) -> None:
+        self.download_folder_paths.append(download_folder_path)
+        self.save_settings()
+
+    def remove_download_folder_path(self, download_folder_path: str) -> None:
+        self.download_folder_paths.remove(download_folder_path)
+        self.save_settings()
+
+    def change_download_folder_path(self, old_path_idx: int, new_path: str) -> None:
+        self.download_folder_paths[old_path_idx] = new_path
+        self.save_settings()
+
+    def pop_download_folder_path(self, index: int) -> None:
+        self.download_folder_paths.pop(index)
+        self.save_settings()
+
+    def update_max_simultaneous_downloads(self, max_simultaneous_downloads: int) -> None:
+        self.max_simultaneous_downloads = max_simultaneous_downloads
+        self.save_settings()
+
+    def update_allow_notifications(self, allow_notifications: bool) -> None:
+        self.allow_notifications = allow_notifications
+        self.save_settings()
+
+    def update_start_in_fullscreen(self, start_in_fullscreen: bool) -> None:
+        self.start_in_fullscreen = start_in_fullscreen
+        self.save_settings()
+
+    def update_run_on_startup(self, run_on_startup: bool) -> None:
+        self.run_on_startup = run_on_startup
+        self.save_settings()
+
+    def update_gogo_norm_or_hls_mode(self, gogo_norm_or_hls_mode: str) -> None:
+        self.gogo_norm_or_hls_mode = gogo_norm_or_hls_mode
+        self.save_settings()
+
+    def update_tracked_anime(self, tracked_anime: list[str]) -> None:
+        self.tracked_anime = tracked_anime
+        self.save_settings()
+
+    def remove_tracked_anime(self, anime_name: str) -> None:
+        self.tracked_anime.remove(anime_name)
+        self.save_settings()
+
+    def add_tracked_anime(self, anime_name: str) -> None:
+        self.tracked_anime.append(anime_name)
+        self.save_settings()
+
+    def update_auto_download_site(self, auto_download_site: str) -> None:
+        self.auto_download_site = auto_download_site
+        self.save_settings()
+
+    def update_check_for_new_eps_after(self, check_for_new_eps_after: int) -> None:
+        self.check_for_new_eps_after = check_for_new_eps_after
+        self.save_settings()
+
+    def update_gogo_skip_calculate(self, gogo_skip_calculate: bool) -> None:
+        self.gogo_skip_calculate = gogo_skip_calculate
+        self.save_settings()
+
+    def update_pahe_home_url(self, pahe_home_url: str) -> None:
+        self.pahe_home_url = pahe_home_url
+        self.save_settings()
+
+    def update_gogo_home_url(self, gogo_home_url: str) -> None:
+        self.gogo_home_url = gogo_home_url
+        self.save_settings()
+
+    def save_settings(self) -> None:
+        with open(self.settings_json_path, "w") as f:
+            json.dump(self.dict_settings(), f, indent=4)
+
+
+
+SETTINGS = Settings(config_dir)
+
+
+amogus_easter_egg = "ඞ"
 
 error_logs_file_path = os.path.join(config_dir, "errors.log")
 if not os.path.exists(error_logs_file_path):
@@ -94,11 +217,13 @@ logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-
-
 def custom_exception_handler(type_: type[BaseException], value: BaseException, traceback: TracebackType | None):
     logging.error(f"Unhandled exception: {type_.__name__}: {value}")
     sys.__excepthook__(type_, value, traceback)
+
+
+def log_exception(e: Exception):
+    custom_exception_handler(type(e), e, e.__traceback__)
 
 
 def open_folder(folder_path: str) -> None:
@@ -110,21 +235,13 @@ def open_folder(folder_path: str) -> None:
         Popen(["open", folder_path])
 
 
-downloads_folder = os.path.join(Path.home(), "Downloads", "Anime")
-if not os.path.isfile(SETTINGS_JSON_PATH) and not os.path.isdir(downloads_folder):
-        os.makedirs(downloads_folder)
-default_download_folder_paths = [downloads_folder]
-
-default_max_simutaneous_downloads = 2
-default_allow_notifications = True
-default_start_in_fullscreen = True
-default_gogo_hls_mode = False
-
 assets_path = os.path.join(src_directory, "assets")
 def join_from_assets(file): return os.path.join(assets_path, file)
 
+
 misc_path = os.path.join(assets_path, "misc")
 def join_from_misc(file): return os.path.join(misc_path, file)
+
 
 SENPWAI_ICON_PATH = join_from_misc("senpwai-icon.ico")
 task_complete_icon_path = join_from_misc("task-complete.png")
@@ -141,6 +258,7 @@ bckg_images_path = join_from_assets("background-images")
 
 def join_from_bckg_images(img_title): return os.path.join(
     bckg_images_path, img_title).replace("\\", "/")
+
 
 s = "christmas.jpg" if IS_CHRISTMAS else "search.jpg"
 search_window_bckg_image_path = join_from_bckg_images(s)
@@ -238,25 +356,6 @@ RED_NORMAL_COLOR = "#E80000"
 RED_HOVER_COLOR = "#FF0202"
 RED_PRESSED_COLOR = "#FF1C1C"
 
-KEY_SUB_OR_DUB = "sub_or_dub"
-KEY_QUALITY = "quality"
-KEY_DOWNLOAD_FOLDER_PATHS = "download_folder_paths"
-KEY_MAX_SIMULTANEOUS_DOWNLOADS = "max_simultaneous_downloads"
-KEY_ALLOW_NOTIFICATIONS = "allow_notifcations"
-KEY_START_IN_FULLSCREEN = "start_in_fullscreen"
-KEY_RUN_ON_STARTUP = "run_on_startup"
-KEY_GOGO_NORM_OR_HLS_MODE = "gogo_hls_mode"
-KEY_TRACKED_ANIME = "tracked_anime"
-KEY_AUTO_DOWNLOAD_SITE = "auto_download_site"
-KEY_CHECK_FOR_NEW_EPS_AFTER = "check_for_new_episodes_after"
-KEY_GOGO_SKIP_CALCULATE = "gogo_skip_calculating_total_download_size"
-
-KEY_PAHE_HOME_URL = "pahe_home_url"
-KEY_GOGO_HOME_URL = "gogo_home_url"
-
-amogus_easter_egg = "ඞ"
-SETTINGS_TYPES = (str | int | bool | list[str])
-
 
 def requires_admin_access(folder_path):
     try:
@@ -278,141 +377,3 @@ def fix_qt_path_for_windows(path: str) -> str:
     if sys.platform == "win32":
         path = path.replace("/", "\\")
     return path
-
-
-def validate_settings_json(settings_json: dict) -> dict:
-    clean_settings = {}
-    try:
-        sub_or_dub = settings_json[KEY_SUB_OR_DUB]
-        if sub_or_dub not in (SUB, DUB):
-            raise KeyError
-        clean_settings[KEY_SUB_OR_DUB] = sub_or_dub
-    except KeyError:
-        clean_settings[KEY_SUB_OR_DUB] = default_sub_or_dub
-    try:
-        quality = settings_json[KEY_QUALITY]
-        if quality not in (Q_1080, Q_720, Q_480, Q_360):
-            raise KeyError
-        clean_settings[KEY_QUALITY] = quality
-    except KeyError:
-        clean_settings[KEY_QUALITY] = default_quality
-    valid_folder_paths: list[str] = default_download_folder_paths
-    try:
-        # If a KeyError gets raised then set it to the default setting
-        download_folder_paths = cast(
-            list[str], settings_json[KEY_DOWNLOAD_FOLDER_PATHS])
-        # If no  KeyError then validate the folders first before saving them, there's probably better ways to do this but I'm hungry af
-        valid_folder_paths = [fix_qt_path_for_windows(path) for path in download_folder_paths if os.path.isdir(
-            path) and not requires_admin_access(path) and path not in valid_folder_paths]
-        if valid_folder_paths == []:
-            valid_folder_paths = default_download_folder_paths
-        raise KeyError
-    except KeyError:
-        clean_settings[KEY_DOWNLOAD_FOLDER_PATHS] = valid_folder_paths
-    try:
-        max_simultaneous_downloads = settings_json[KEY_MAX_SIMULTANEOUS_DOWNLOADS]
-        if not isinstance(max_simultaneous_downloads, int) or max_simultaneous_downloads <= 0:
-            raise KeyError
-        clean_settings[KEY_MAX_SIMULTANEOUS_DOWNLOADS] = max_simultaneous_downloads
-    except KeyError:
-        clean_settings[KEY_MAX_SIMULTANEOUS_DOWNLOADS] = default_max_simutaneous_downloads
-    try:
-        allow_notifications = settings_json[KEY_ALLOW_NOTIFICATIONS]
-        if not isinstance(allow_notifications, bool):
-            raise KeyError
-        clean_settings[KEY_ALLOW_NOTIFICATIONS] = allow_notifications
-    except KeyError:
-        clean_settings[KEY_ALLOW_NOTIFICATIONS] = default_allow_notifications
-    try:
-        start_in_fullscreen = settings_json[KEY_START_IN_FULLSCREEN]
-        if not isinstance(start_in_fullscreen, bool):
-            raise KeyError
-        clean_settings[KEY_START_IN_FULLSCREEN] = start_in_fullscreen
-    except KeyError:
-        clean_settings[KEY_START_IN_FULLSCREEN] = default_start_in_fullscreen
-    try:
-        gogo_norm_or_hls_mode = settings_json[KEY_GOGO_NORM_OR_HLS_MODE]
-        if gogo_norm_or_hls_mode not in (GOGO_NORM_MODE, GOGO_HLS_MODE):
-            raise KeyError
-        clean_settings[KEY_GOGO_NORM_OR_HLS_MODE] = gogo_norm_or_hls_mode
-    except KeyError:
-        clean_settings[KEY_GOGO_NORM_OR_HLS_MODE] = DEFAULT_GOGO_NORM_OR_HLS
-    try:
-        tracked_anime = cast(
-            list[str], list(set(settings_json[KEY_TRACKED_ANIME])))
-        if not isinstance(tracked_anime, list):
-            raise KeyError
-        valid = []
-        for anime in tracked_anime:
-            if isinstance(anime, str):
-                valid.append(anime)
-        clean_settings[KEY_TRACKED_ANIME] = valid
-    except KeyError:
-        clean_settings[KEY_TRACKED_ANIME] = []
-    try:
-        pahe_or_gogo_auto = settings_json[KEY_AUTO_DOWNLOAD_SITE]
-        if pahe_or_gogo_auto not in (PAHE, GOGO):
-            raise KeyError
-        clean_settings[KEY_AUTO_DOWNLOAD_SITE] = pahe_or_gogo_auto
-    except KeyError:
-        clean_settings[KEY_AUTO_DOWNLOAD_SITE] = default_auto_download_site
-    try:
-        run_on_startup = settings_json[KEY_RUN_ON_STARTUP]
-        if not isinstance(run_on_startup, bool):
-            raise KeyError
-        clean_settings[KEY_RUN_ON_STARTUP] = run_on_startup
-    except KeyError:
-        clean_settings[KEY_RUN_ON_STARTUP] = default_run_on_startup
-
-    try:
-        skip = settings_json[KEY_GOGO_SKIP_CALCULATE]
-        if not isinstance(skip, bool):
-            raise KeyError
-        clean_settings[KEY_GOGO_SKIP_CALCULATE] = skip
-    except KeyError:
-        clean_settings[KEY_GOGO_SKIP_CALCULATE] = default_gogo_skip_calculate
-
-    try:
-        intervals = settings_json[KEY_CHECK_FOR_NEW_EPS_AFTER]
-        if not isinstance(intervals, int):
-            raise KeyError
-        clean_settings[KEY_CHECK_FOR_NEW_EPS_AFTER] = intervals
-    except KeyError:
-        clean_settings[KEY_CHECK_FOR_NEW_EPS_AFTER] = default_check_for_new_eps_after
-
-    try:
-        pahe_home_url = settings_json[KEY_PAHE_HOME_URL]
-        if not isinstance(pahe_home_url, str):
-            raise KeyError
-        if pahe_home_url != PAHE_HOME_URL:
-            set_pahe_home_url(pahe_home_url)
-    except KeyError:
-        clean_settings[KEY_PAHE_HOME_URL] = PAHE_HOME_URL
-    try:
-        gogo_home_url = settings_json[KEY_PAHE_HOME_URL]
-        if not isinstance(gogo_home_url, str):
-            raise KeyError
-        if gogo_home_url != GOGO_HOME_URL:
-            set_gogo_home_url(gogo_home_url)
-    except KeyError:
-        clean_settings[KEY_PAHE_HOME_URL] = GOGO_HOME_URL
-    return clean_settings
-
-
-
-
-def configure_settings() -> dict[str, SETTINGS_TYPES]:
-    settings = {}
-    if os.path.isfile(SETTINGS_JSON_PATH):
-        with open(SETTINGS_JSON_PATH, "r") as f:
-            try:
-                settings = cast(dict, json.load(f))
-            except json.decoder.JSONDecodeError:
-                pass
-    with open(SETTINGS_JSON_PATH, "w") as f:
-        validated_settings = validate_settings_json(settings)
-        json.dump(validated_settings, f, indent=4)
-        return validated_settings
-
-
-settings = configure_settings()

@@ -1,7 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSystemTrayIcon, QSpacerItem, QLayoutItem
 from PyQt6.QtCore import Qt, QThread, QMutex, pyqtSignal, QTimer
-from shared.global_vars_and_funcs import settings, KEY_ALLOW_NOTIFICATIONS, KEY_TRACKED_ANIME, KEY_AUTO_DOWNLOAD_SITE, KEY_MAX_SIMULTANEOUS_DOWNLOADS, PAHE, KEY_CHECK_FOR_NEW_EPS_AFTER
-from shared.global_vars_and_funcs import set_minimum_size_policy, remove_from_queue_icon_path, move_up_queue_icon_path, move_down_queue_icon_path
+from shared.global_vars_and_funcs import SETTINGS, set_minimum_size_policy, remove_from_queue_icon_path, move_up_queue_icon_path, move_down_queue_icon_path
 from shared.global_vars_and_funcs import PAHE, GOGO, DUB, download_window_bckg_image_path, open_folder, pause_icon_path, resume_icon_path, cancel_icon_path
 from shared.app_and_scraper_shared import Download, IBYTES_TO_MBS_DIVISOR, CLIENT, PausableAndCancellableFunction, ffmpeg_is_installed, dynamic_episodes_predictor_initialiser_pro_turboencapsulator, sanitise_title, RESOURCE_MOVED_STATUS_CODES
 from windows.main_actual_window import MainWindow, Window
@@ -78,7 +77,7 @@ class DownloadedEpisodeCount(CurrentAgainstTotal):
     def update_count(self, added_episode_count: int):
         super().update_count(added_episode_count)
         complete = self.is_complete()
-        if complete and self.total != 0 and cast(bool, settings[KEY_ALLOW_NOTIFICATIONS]):
+        if complete and self.total != 0 and SETTINGS.allow_notifications:
             self.download_window.main_window.tray_icon.make_notification(
                 "Download Complete", self.anime_title, True, lambda: open_folder(self.anime_folder_path))
         if complete or self.cancelled:
@@ -280,19 +279,18 @@ class DownloadWindow(Window):
 
     def setup_auto_download_timer(self):
         self.auto_download_timer.stop()
-        self.auto_download_timer.start(
-            cast(int, settings[KEY_CHECK_FOR_NEW_EPS_AFTER]) * 1000 * 60 * 60)
+        self.auto_download_timer.start(   # Converting from hours to milliseconds
+            SETTINGS.check_for_new_eps_after * 1000 * 60 * 60)
 
     def clean_out_auto_download_thread(self):
         self.auto_download_thread = None
 
     def start_auto_download(self):
-        tracked_anime = cast(list[str], settings[KEY_TRACKED_ANIME])
 
         # We only spawn a new thread if one wasn't already running to avoid overwriding the reference to the previous one causing it to get garbage collected/destroyed
         # Cause it can cause this error "QThread: Destroyed while thread is still running"
-        if tracked_anime != [] and not self.auto_download_thread:
-            self.auto_download_thread = AutoDownloadThread(self, tracked_anime,
+        if SETTINGS.tracked_anime != [] and not self.auto_download_thread:
+            self.auto_download_thread = AutoDownloadThread(self, SETTINGS.tracked_anime,
                                                            self.main_window.tray_icon, self.clean_out_auto_download_thread)
             self.auto_download_thread.start()
 
@@ -526,7 +524,7 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
     def clean_up_finished_download(self, episode_title: str):
         self.progress_bars.pop(episode_title)
         self.ongoing_downloads_count -= 1
-        if self.ongoing_downloads_count < cast(int, settings[KEY_MAX_SIMULTANEOUS_DOWNLOADS]):
+        if self.ongoing_downloads_count < SETTINGS.max_simultaneous_downloads:
             self.download_slot_available.set()
 
     def update_eps_count_and_size(self, is_cancelled: bool, eps_file_path: str):
@@ -590,7 +588,7 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
             DownloadThread(self, ddl_or_seg_urls, episode_title, episode_size_or_segs, self.anime_details.site, self.anime_details.is_hls_download, self.anime_details.skip_calculating_size, self.anime_details.quality, cast(str, self.anime_details.anime_folder_path),
                            episode_progress_bar, self.clean_up_finished_download, self.anime_progress_bar, self.update_anime_progress_bar, self.update_eps_count_and_size, self.mutex).start()
             self.ongoing_downloads_count += 1
-            if self.ongoing_downloads_count >= cast(int, settings[KEY_MAX_SIMULTANEOUS_DOWNLOADS]):
+            if self.ongoing_downloads_count >= SETTINGS.max_simultaneous_downloads:
                 self.download_slot_available.clear()
 
 
@@ -887,7 +885,7 @@ class AutoDownloadThread(QThread):
         queued: list[str] = []
         for title in self.anime_titles:
             anime: Anime
-            site = cast(str, settings[KEY_AUTO_DOWNLOAD_SITE])
+            site = SETTINGS.auto_download_site
             if site == PAHE:
                 result = self.pahe_fetch_anime_obj(title)
                 if not result:
