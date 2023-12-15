@@ -2,8 +2,8 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 from requests.cookies import RequestsCookieJar
 from random import choice as randomchoice
 
-from typing import Callable, cast, Any
-from shared.app_and_scraper_shared import PARSER, CLIENT, match_quality, IBYTES_TO_MBS_DIVISOR, PausableAndCancellableFunction, AnimeMetadata
+from typing import Callable, cast
+from shared.app_and_scraper_shared import PARSER, CLIENT, match_quality, IBYTES_TO_MBS_DIVISOR, PausableAndCancellableFunction, AnimeMetadata, DomainNameError, get_new_home_url_from_readme
 
 # Hls mode imports
 import json
@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.padding import PKCS7
 from cryptography.hazmat.backends import default_backend
 
 GOGO = 'gogo'
+FULL_SITE_NAME = 'Gogoanime'
 GOGO_HOME_URL = 'https://anitaku.to'
 DUB_EXTENSION = ' (Dub)'
 REGISTERED_ACCOUNT_EMAILS = ['benida7218@weirby.com', 'hareki4411@wisnick.com', 'nanab67795@weirby.com', 'xener53725@weirby.com', 'nenado3105@weirby.com',
@@ -111,10 +112,19 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
             progress_update_callback(1)
         return total_size
 
+def set_home_url(new_home_url: str) -> None:
+    global GOGO_HOME_URL
+    GOGO_HOME_URL = new_home_url
 
 def get_anime_page_content(anime_page_link: str) -> bytes:
-        response = CLIENT.get(anime_page_link)
+    try:
+        response = CLIENT.get(anime_page_link, exceptions_to_ignore=[DomainNameError])
         return response.content
+    except DomainNameError:
+        prev_home_url = GOGO_HOME_URL
+        new_home_url = get_new_home_url_from_readme(FULL_SITE_NAME)
+        set_home_url(new_home_url)
+        return get_anime_page_content(anime_page_link.replace(prev_home_url, GOGO_HOME_URL))
 
 
 def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
@@ -225,7 +235,6 @@ class GetMatchedQualityLinks(PausableAndCancellableFunction):
             self.resume.wait()
             if self.cancelled:
                 return []
-            print(response.headers)
             lines = response.text.split(',')
             qualities = [line for line in lines if "NAME=" in line]
             idx = match_quality(qualities, quality)

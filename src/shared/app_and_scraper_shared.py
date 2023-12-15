@@ -2,13 +2,13 @@ import os
 import sys
 from time import sleep as timesleep
 from typing import Callable, Any, cast, Iterator
-import requests
+import requests 
 from string import printable, digits, ascii_letters
 import re
 import subprocess
 from threading import Event
 from fake_useragent import UserAgent
-from bs4 import BeautifulSoup, Tag
+from base64 import b64decode
 from shared.global_vars_and_funcs import log_exception, try_deleting_safely
 
 PARSER = 'html.parser'
@@ -16,13 +16,39 @@ IBYTES_TO_MBS_DIVISOR = 1024*1024
 QUALITY_REGEX_1 = re.compile(r'\b(\d{3,4})p\b')
 QUALITY_REGEX_2 = re.compile(r'\b\d+x(\d+)\b')
 NETWORK_RETRY_WAIT_TIME = 5
-GITHUB_README_URL = "https://github.com/SenZmaKi/Senpwai/blob/master/README.md"
+GITHUB_README_URL = "https://api.github.com/repos/SenZmaKi/Senpwai/readme"
 RESOURCE_MOVED_STATUS_CODES = (301, 302, 307, 308)
 
+
+def get_new_home_url_from_readme(site_name: str) -> str:
+    """
+    Say Animepahe or Gogoanime change their domain name, now Senpwai makes a request to either but it gets a non-200 status code, 
+    then it'll assume they changed their domain name. It'll try to extract the new domain name from the readme.
+    So if the domain name changes be sure to update it in the readme, specifically in the hyperlinks i.e., [Animepahe](https://animepahe.ru)
+    and without an ending "/" i.e., https://animepahe.ru instead of https://animepahe.ru/ Also test if Senpwai is properly extracting it incase you made a mistake.
+
+    :param site_name: Can be either Animepahe or Gogoanime.
+    :return: The new home url.
+    """
+    encoded_readme_text = CLIENT.get(GITHUB_README_URL).json()['content']
+    readme_text = b64decode(encoded_readme_text).decode('utf-8')
+    new_domain_name = cast(re.Match, re.search(rf"\[{site_name}\]\((.*)\)", readme_text)).group(1)
+    return new_domain_name
+
+class DomainNameError(Exception):
+    """Raised when the domain name changes"""
+
+def has_valid_internet_connection() -> bool:
+    try:
+        requests.get("https://www.google.com")
+        return True
+    except requests.exceptions.RequestException:
+        return False
 class Client():
 
     def __init__(self) -> None:
         self.headers = self.setup_request_headers()
+        self.domain_name_error = DomainNameError()
 
     def setup_request_headers(self) -> dict[str, str]:
         headers = {'User-Agent': UserAgent().random}
@@ -32,28 +58,31 @@ class Client():
         to_append.update(self.headers)
         return to_append
 
-    def make_request(self, method: str, url: str, headers: dict | None, cookies={}, stream=False, data: dict | bytes | None = None, json: dict | None = None,  allow_redirects=False, timeout: int | None = None) -> requests.Response:
+    def make_request(self, method: str, url: str, headers: dict | None, cookies={}, stream=False, data: dict | bytes | None = None, json: dict | None = None,  allow_redirects=False, timeout: int | None = None, exceptions_to_ignore: list[type[Exception]] = []) -> requests.Response:
         if not headers:
             headers = self.headers
         if method == 'GET':
-            def func(): return requests.get(url, headers=headers, stream=stream,
+            def callback(): return requests.get(url, headers=headers, stream=stream,
                                             cookies=cookies, allow_redirects=allow_redirects, timeout=timeout)
         else:
-            def func(): return requests.post(url, headers=headers, cookies=cookies,
+            def callback(): return requests.post(url, headers=headers, cookies=cookies,
                                              data=data, json=json, allow_redirects=allow_redirects)
-        return cast(requests.Response, self.network_error_retry_wrapper(func))
+        return cast(requests.Response, self.network_error_retry_wrapper(callback, exceptions_to_ignore))
 
-    def get(self, url: str, stream=False, headers: dict | None = None, timeout: int | None = None, cookies={}) -> requests.Response:
-        return self.make_request("GET", url, headers, stream=stream, timeout=timeout, cookies=cookies)
+    def get(self, url: str, stream=False, headers: dict | None = None, timeout: int | None = None, cookies={}, exceptions_to_ignore: list[type[Exception]] = []) -> requests.Response:
+        return self.make_request("GET", url, headers, stream=stream, timeout=timeout, cookies=cookies, exceptions_to_ignore=exceptions_to_ignore)
 
-    def post(self, url: str, data: dict | bytes | None = None, json: dict | None = None, headers: dict | None = None, cookies={}, allow_redirects=False) -> requests.Response:
-        return self.make_request('POST', url, headers, data=data, json=json, cookies=cookies, allow_redirects=allow_redirects)
+    def post(self, url: str, data: dict | bytes | None = None, json: dict | None = None, headers: dict | None = None, cookies={}, allow_redirects=False, exceptions_to_ignore: list[type[Exception]] = []) -> requests.Response:
+        return self.make_request('POST', url, headers, data=data, json=json, cookies=cookies, allow_redirects=allow_redirects, exceptions_to_ignore=exceptions_to_ignore)
 
-    def network_error_retry_wrapper(self, callback: Callable[[], Any]) -> Any:
+    def network_error_retry_wrapper(self, callback: Callable[[], Any], exceptions_to_ignore: list[type[Exception]] = []) -> Any:
         while True:
             try:
                 return callback()
             except requests.exceptions.RequestException as e:
+                e = self.domain_name_error if has_valid_internet_connection() else e 
+                if any([isinstance(e, exception) for exception in exceptions_to_ignore]):
+                    raise e
                 log_exception(e)
                 timesleep(1)
 

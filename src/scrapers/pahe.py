@@ -2,20 +2,29 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 import re
 from typing import Callable, cast, Any
 from math import pow
-from shared.app_and_scraper_shared import CLIENT, PARSER, match_quality, PausableAndCancellableFunction, AnimeMetadata
+from shared.app_and_scraper_shared import CLIENT, PARSER, match_quality, PausableAndCancellableFunction, AnimeMetadata, DomainNameError, get_new_home_url_from_readme
 import requests
 
 PAHE = 'pahe'
+FULL_SITE_NAME = 'Animepahe'
 PAHE_HOME_URL = 'https://animepahe.ru'
 API_URL_EXTENSION = '/api?m='
 UUID_REGEX = re.compile(r'uuid=(.*?);')
 UUID_COOKIE = {'uuid': ''}
 
+def set_home_url(home_url: str) -> None:
+    global PAHE_HOME_URL
+    PAHE_HOME_URL = home_url
 
 def uuid_request(url: str, search_request=False) -> requests.Response:
     # Without setting the uuid cookie most requests redirect to some html page containing a valid uuid
     # But it seems like the uuid cookie only needs to be set as in they don't validate it
-    response = CLIENT.get(url, cookies=UUID_COOKIE)
+    try:
+        response = CLIENT.get(url, cookies=UUID_COOKIE, exceptions_to_ignore=[DomainNameError])
+    except DomainNameError:
+        new_home_url = get_new_home_url_from_readme(FULL_SITE_NAME)
+        set_home_url(new_home_url)
+        return uuid_request(url, search_request)
     if search_request:
         try:
             response.json()

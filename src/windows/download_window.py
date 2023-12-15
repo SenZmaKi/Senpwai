@@ -549,10 +549,10 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
     def gogo_check_if_valid_link(self, link: str) -> tuple[str, requests.Response | None]:
         response = CLIENT.get(link, stream=True)
         if response.status_code in RESOURCE_MOVED_STATUS_CODES:
-            possible_valid_redirect_link = response.headers.get("location", "")
+            possible_valid_redirect_link = response.headers.get("Location", "")
             return self.gogo_check_if_valid_link(possible_valid_redirect_link) if possible_valid_redirect_link != "" else (link, None)
         try:
-            response.headers['content-length']
+            response.headers["Content-Length"]
         except KeyError:
             response = None
 
@@ -560,7 +560,7 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
 
     def get_exact_episode_size(self, link: str) -> tuple[str, int]:
         link, response = self.gogo_check_if_valid_link(link)
-        return (link, int(response.headers['content-length'])) if response else (link, 0)
+        return (link, int(response.headers["Content-Length"])) if response else (link, 0)
 
     def run(self):
         ddls_or_segs_urls = self.anime_details.ddls_or_segs_urls

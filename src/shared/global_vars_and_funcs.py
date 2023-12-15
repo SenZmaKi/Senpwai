@@ -11,6 +11,23 @@ import logging
 from datetime import datetime
 from types import TracebackType
 
+# These are here to prevent circular imports cause 
+# shared.app_and_scraper_shared which is imported by both pahe and gogo 
+# imports try_deleting_safely and log_exception for here
+
+def try_deleting_safely(path: str):
+    if os.path.isfile(path):
+        try:
+            os.unlink(path)
+        except PermissionError:
+            pass
+
+def log_exception(e: Exception):
+    custom_exception_handler(type(e), e, e.__traceback__)
+
+from scrapers.pahe import PAHE_HOME_URL, set_home_url as set_pahe_home_url
+from scrapers.gogo import GOGO_HOME_URL, set_home_url as set_gogo_home_url
+
 
 if getattr(sys, 'frozen', False):
     src_directory = os.path.join(os.path.dirname(sys.executable))
@@ -27,12 +44,6 @@ UPDATE_INSTALLER_NAMES = (f"{APP_NAME}-updater.exe", f"{APP_NAME}-update.exe",
                           f"{APP_NAME}-installer.exe", f"{APP_NAME}-installer.msi")
 
 
-def try_deleting_safely(path: str):
-    if os.path.isfile(path):
-        try:
-            os.unlink(path)
-        except PermissionError:
-            pass
 date = datetime.today()
 IS_CHRISTMAS = True if date.month == 12 and date.day >= 20 else False
 
@@ -83,8 +94,6 @@ logging.basicConfig(filename=error_logs_file_path, level=logging.ERROR,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-def log_exception(e: Exception):
-    custom_exception_handler(type(e), e, e.__traceback__)
 
 
 def custom_exception_handler(type_: type[BaseException], value: BaseException, traceback: TracebackType | None):
@@ -242,6 +251,8 @@ KEY_AUTO_DOWNLOAD_SITE = "auto_download_site"
 KEY_CHECK_FOR_NEW_EPS_AFTER = "check_for_new_episodes_after"
 KEY_GOGO_SKIP_CALCULATE = "gogo_skip_calculating_total_download_size"
 
+KEY_PAHE_HOME_URL = "pahe_home_url"
+KEY_GOGO_HOME_URL = "gogo_home_url"
 
 amogus_easter_egg = "ඞ"
 SETTINGS_TYPES = (str | int | bool | list[str])
@@ -369,6 +380,22 @@ def validate_settings_json(settings_json: dict) -> dict:
     except KeyError:
         clean_settings[KEY_CHECK_FOR_NEW_EPS_AFTER] = default_check_for_new_eps_after
 
+    try:
+        pahe_home_url = settings_json[KEY_PAHE_HOME_URL]
+        if not isinstance(pahe_home_url, str):
+            raise KeyError
+        if pahe_home_url != PAHE_HOME_URL:
+            set_pahe_home_url(pahe_home_url)
+    except KeyError:
+        clean_settings[KEY_PAHE_HOME_URL] = PAHE_HOME_URL
+    try:
+        gogo_home_url = settings_json[KEY_PAHE_HOME_URL]
+        if not isinstance(gogo_home_url, str):
+            raise KeyError
+        if gogo_home_url != GOGO_HOME_URL:
+            set_gogo_home_url(gogo_home_url)
+    except KeyError:
+        clean_settings[KEY_PAHE_HOME_URL] = GOGO_HOME_URL
     return clean_settings
 
 
