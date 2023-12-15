@@ -109,9 +109,9 @@ def match_quality(potential_qualities: list[str], user_quality: str) -> int:
         closest = quality
     return closest[1]
 
-def run_process(args: list[str]) -> subprocess.CompletedProcess[bytes]:
+def run_process_silently(args: list[str]) -> subprocess.CompletedProcess[bytes]:
     if sys.platform == "win32":
-        return subprocess.run(args)
+        return subprocess.run(args, creationflags=subprocess.CREATE_NO_WINDOW)
     return subprocess.run(args)
 
 def sanitise_title(title: str, all=False, exclude='') -> str:
@@ -135,7 +135,7 @@ def dynamic_episodes_predictor_initialiser_pro_turboencapsulator(start_episode: 
 
 def ffmpeg_is_installed() -> bool:
     try:
-        run_process(["ffmpeg"])
+        run_process_silently(["ffmpeg"])
         return True
     except FileNotFoundError:
         return False
@@ -191,12 +191,7 @@ class Download(PausableAndCancellableFunction):
             return
         try_deleting_safely(self.file_path)
         if self.is_hls_download:
-            if sys.platform == "win32":
-                subprocess.run(
-                    ['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path], creationflags=subprocess.CREATE_NO_WINDOW)
-            else:
-                subprocess.run(
-                    ['ffmpeg', '-i', self.temporary_file_path, '-c', 'copy', self.file_path])
+            run_process_silently(["ffmpeg", "-i", self.temporary_file_path, "-c", "copy", self.file_path])
             return try_deleting_safely(self.temporary_file_path)
         try:
             return os.rename(self.temporary_file_path, self.file_path)
