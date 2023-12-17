@@ -1,5 +1,5 @@
 <h1 align="center">
-<img align="center" height="80px" width="80px" src="https://github.com/SenZmaKi/Senpwai/blob/master/src/assets/misc/senpwai-icon.png" alt="Senpwai-icon">
+<img align="center" height="80px" width="80px" src="src/assets/misc/senpwai-icon.png" alt="Senpwai-icon">
  Senpwai
 </h1>
 <p align="center">
@@ -14,6 +14,7 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
 <p align="center">
   <a href="#installation">Installation</a> •
   <a href="#features">Features</a> •
+  <a href="#cli">CLI</a> •
   <a href="#building-from-source">Building from source</a> •
   <a href="#support">Support</a> •
   <a href="#faq">FAQ</a> •
@@ -25,12 +26,12 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
 ## Installation
 
 - **Windows 10/11**
-  
+
 Download [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpwai-setup.exe) then run it.
 
 - **Linux/Mac**
-  
- You'll have to [build from source](#building-from-source).
+
+You'll have to [build from source](#building-from-source).
 
 ## Features
 
@@ -41,32 +42,41 @@ Download [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/downloa
 - Download in sub or dub (if available) depending on the user's preference.
 - Automatically detects episodes you already have and avoids re-downloading them.
 - Robust and graceful download error management.
-- Goofy aah ahh GUI and Amogus.
+- GUI and [CLI](docs/senpcli-guide.md).
 
+## CLI
+[Senpcli](docs/senpcli-guide.md) is the CLI alternative for Senpwai.
 
 ## Building from Source
 
-Ensure you have [Python 3.11](https://www.python.org/downloads/release/python-3111) and [Git](https://github.com/git-guides/install-git) installed. 
+Ensure you have [Python 3.11](https://www.python.org/downloads/release/python-3111) and [Git](https://github.com/git-guides/install-git) installed.
 
 Open a terminal and run the following commands.
 
 1. **Set everything up.**
+
 - Linux/Mac
+
 ```
 git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 ```
+
 - Windows (Command Prompt)
+
 ```
 git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
 ```
 
 2. **Build the app into an executable.**
+
 ```
 pip install cx_freeze==6.15.10 && python setup.py build
 ```
+
 - The executable will be built in `Senpwai\build\Senpwai`
-  
+
 3. **Alternatively you can instead run the app directly via Python.**
+
 ```
 cd src && python senpwai.py
 ```
@@ -78,6 +88,7 @@ cd src && python senpwai.py
 - Senpwai is open to pull requests, so if you have ideas for improvements, feel free to contribute!
 
 ## FAQ
+
 <details> <summary> Why did you make this? </summary>
 I couldn't afford wifi so I used my college wifi to download anime after class but batch downloading from streaming sites is a pain in the ass,
 you have to click billions of links just to download one episode, so I made Senpwai to help me and possibly others that face a similar problem.
@@ -89,12 +100,11 @@ HLS mode attempts to fix the unstability of Gogoanime normal mode.
 In HLS mode Gogoanime downloads are guaranteed to work, though with a few downsides:
 
 - Requires [FFmpeg](https://www.hostinger.com/tutorials/how-to-install-ffmpeg) to be installed, though Senpwai can attempt to automatically install it for you.
-  
 - No download size indication but Senpwai will estimate the total download size after the first download.
- 
+
 </details>
 
-<details> <summary> Do you intend to add more sources? </summary> 
+<details> <summary> Do you intend to add more sources? </summary>
 
 One person can only do so much, I only plan on adding another source if something ever happens to Animepahe or Gogoanime.
 More sources means more writing more code which in turn means fixing more bugs.

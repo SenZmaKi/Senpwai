@@ -22,6 +22,7 @@ from utils.scraper_utils import (
     lacked_episodes,
 )
 from utils.static_utils import (
+    open_folder,
     DUB,
     APP_EXE_PATH as SENPWAI_EXE_PATH,
     GOGO,
@@ -40,7 +41,7 @@ from tqdm import tqdm
 APP_NAME = "Senpcli"
 SENPWAI_IS_INSTALLED = path.isfile(SENPWAI_EXE_PATH)
 APP_NAME_LOWER = "senpcli"
-DESCRIPTION = "A CLI alternative to Senpwai"
+DESCRIPTION = "The CLI alternative for Senpwai"
 ASCII_APP_NAME = r"""
                                    .__  .__ 
   ______ ____   ____ ______   ____ |  | |__|
@@ -52,6 +53,7 @@ ASCII_APP_NAME = r"""
 FAILED_TO_AUTOMATICALLY_INSTALL_FFMPEG = "Failed to automatically install FFmpeg"
 
 ANIME_REFERENCES = (
+    "Hello friend",
     "It's called the Attack Titan",
     "Bertholdt, Reiner, Kono uragiri mono gaaaa!!!",
     "Tatakae tatake",
@@ -104,6 +106,7 @@ ANIME_REFERENCES = (
     "Senpwai: Stand proud Senpcli, you are strong",
     "We are the exception",
     "As the strongest curse Jogoat fought the fraud.. .",
+    "Goodbye friend",
 )
 
 
@@ -130,7 +133,7 @@ def parse_args(args: list[str]) -> Namespace:
         "--start_episode",
         type=int,
         help="Episode to start downloading at",
-        default=1,
+        default=-1,
     )
     parser.add_argument(
         "-ee",
@@ -158,6 +161,12 @@ def parse_args(args: list[str]) -> Namespace:
         help="Skip calculating the total download size (Gogo only)",
         action="store_true",
         default=SETTINGS.gogo_skip_calculate,
+    )
+    parser.add_argument(
+        "-of",
+        "--open_folder",
+        help="Open the folder containing the downloaded anime",
+        action="store_true",
     )
     parser.add_argument(
         "-msd",
@@ -206,7 +215,7 @@ def search(title: str, site: str) -> Anime | None:
     return results
 
 
-def validate_end_episode(end_episode: int, total_episode_count: int) -> int:
+def validate_start_and_end_episode(start_episode: int, end_episode: int, total_episode_count: int) -> tuple[int, int]:
     if end_episode == -1:
         end_episode = total_episode_count
     if end_episode > total_episode_count:
@@ -214,7 +223,12 @@ def validate_end_episode(end_episode: int, total_episode_count: int) -> int:
             f"Setting end episode to {total_episode_count} since the anime only has {total_episode_count} episodes"
         )
         end_episode = total_episode_count
-    return end_episode
+    if start_episode > total_episode_count:
+        print(
+            f"Setting start episode to {total_episode_count} since the anime only has {total_episode_count} episodes"
+        )
+        start_episode = end_episode
+    return start_episode, end_episode
 
 
 def pahe_get_episode_page_links(
@@ -597,6 +611,8 @@ def download_and_install_update(download_url: str, file_name: str) -> None:
 def handle_update_check_result(
     is_available: bool, download_url, file_name: str
 ) -> None:
+    if SENPWAI_IS_INSTALLED:
+        return print("Update available, install it by updating Senpwai")
     if is_available:
         print("Update available, would you like to download and install it? (y/n)")
         if input("> ").lower() == "y":
@@ -617,8 +633,16 @@ def get_anime_and_anime_details(parsed) -> tuple[Anime, AnimeDetails] | None:
     if anime is None:
         return None
     anime_details = AnimeDetails(anime, parsed.site)
-    parsed.end_episode = validate_end_episode(
-        parsed.end_episode, anime_details.metadata.episode_count
+    if parsed.start_episode == -1:
+        if (
+            anime_details.haved_end is not None
+            and anime_details.haved_end < anime_details.metadata.episode_count
+        ):
+            parsed.start_episode = anime_details.haved_end + 1
+        else:
+            parsed.start_episode = 1
+    parsed.start_episode, parsed.end_episode = validate_start_and_end_episode(
+        parsed.start_episode, parsed.end_episode, anime_details.metadata.episode_count
     )
     return anime, anime_details
 
@@ -631,6 +655,21 @@ def initiate_download_pipeline(
         handle_pahe(parsed, anime, anime_details)
     else:
         handle_gogo(parsed, anime, anime_details)
+    if parsed.open_folder:
+        open_folder(anime_details.anime_folder_path)
+
+
+def valid_start_and_end_episode(parsed: Namespace) -> bool:
+    if parsed.end_episode < parsed.start_episode:
+        print("End episode cannot be less than start episode, hontoni baka ga")
+        return False
+    elif parsed.start_episode < 1 and parsed.start_episode != -1:
+        print("Start episode cannot be less than 1, is that your IQ?")
+        return False
+    elif parsed.end_episode < 1 and parsed.end_episode != -1:
+        print("End episode cannot be less than 1, is that your brain cell count?")
+        return False
+    return True
 
 
 def main():
@@ -638,17 +677,15 @@ def main():
         args = sys.argv[1:]
         print(ASCII_APP_NAME)
         parsed = parse_args(args)
-        # If Senpwai is installed it will handle updating both itself and Senpcli
-        update_check_thread, update_check_result_queue = None, None
-        if not SENPWAI_IS_INSTALLED:
-            update_check_thread, update_check_result_queue = start_update_check_thread()
+        if not valid_start_and_end_episode(parsed):
+            return
+        update_check_thread, update_check_result_queue = start_update_check_thread()
         anime_and_anime_details = get_anime_and_anime_details(parsed)
         if anime_and_anime_details is None:
             return
         initiate_download_pipeline(parsed, *anime_and_anime_details)
-        if not SENPWAI_IS_INSTALLED:
-            cast(Thread, update_check_thread).join()
-            handle_update_check_result(*cast(Queue, update_check_result_queue).get())
+        update_check_thread.join()
+        handle_update_check_result(*update_check_result_queue.get())
 
     except KeyboardInterrupt:
         print("\n\nAborted")
