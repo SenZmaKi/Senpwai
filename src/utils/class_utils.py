@@ -10,13 +10,13 @@ from scrapers import gogo, pahe
 import logging
 import re
 
-from shared.scraper_utils import (
+from utils.scraper_utils import (
     CLIENT,
     RESOURCE_MOVED_STATUS_CODES,
     AnimeMetadata,
     sanitise_title,
 )
-from shared.static_utils import (
+from utils.static_utils import (
     APP_NAME,
     generate_windows_setup_file_titles,
     VERSION,

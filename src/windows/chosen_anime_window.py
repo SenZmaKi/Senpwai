@@ -10,9 +10,9 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from shared.class_utils import SETTINGS, Anime, AnimeDetails
-from shared.scraper_utils import lacked_episode_numbers
-from shared.static_utils import (
+from utils.class_utils import SETTINGS, Anime, AnimeDetails
+from utils.scraper_utils import lacked_episode_numbers
+from utils.static_utils import (
     CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH,
     DUB,
     GOGO,
@@ -26,7 +26,7 @@ from shared.static_utils import (
     RED_PRESSED_COLOR,
     SUB,
 )
-from shared.widget_utils import (
+from utils.widget_utils import (
     DualStateButton,
     ErrorLabel,
     FolderButton,

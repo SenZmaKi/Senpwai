@@ -6,8 +6,8 @@ from webbrowser import open_new_tab
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from shared.class_utils import AnimeDetails, update_available
-from shared.scraper_utils import (
+from utils.class_utils import AnimeDetails, update_available
+from utils.scraper_utils import (
     CLIENT,
     FFMPEG_LINUX_INSTALLATION_GUIDE,
     FFMPEG_MAC_INSTALLATION_GUIDE,
@@ -17,7 +17,7 @@ from shared.scraper_utils import (
     Download,
     ffmpeg_is_installed,
 )
-from shared.static_utils import (
+from utils.static_utils import (
     APP_NAME,
     CANCEL_ICON_PATH,
     CHOPPER_CRYING_PATH,
@@ -36,7 +36,7 @@ from shared.static_utils import (
     UPDATE_BCKG_IMAGE_PATH,
     VERSION,
 )
-from shared.widget_utils import (
+from utils.widget_utils import (
     Icon,
     IconButton,
     StyledButton,

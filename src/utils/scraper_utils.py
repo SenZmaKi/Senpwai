@@ -11,7 +11,7 @@ from random import choice as random_choice
 
 import requests
 
-from shared.static_utils import log_exception, try_deleting_safely
+from utils.static_utils import log_exception, try_deleting_safely
 
 PARSER = "html.parser"
 IBYTES_TO_MBS_DIVISOR = 1024 * 1024

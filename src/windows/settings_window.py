@@ -5,9 +5,9 @@ from typing import Callable, cast
 from pylnk3 import for_file as pylnk3_for_file
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
-from shared.class_utils import SETTINGS
-from shared.scraper_utils import try_deleting_safely
-from shared.static_utils import (
+from utils.class_utils import SETTINGS
+from utils.scraper_utils import try_deleting_safely
+from utils.static_utils import (
     AMOGUS_EASTER_EGG,
     APP_NAME,
     DUB,
@@ -33,7 +33,7 @@ from shared.static_utils import (
     SUB,
     requires_admin_access,
 )
-from shared.widget_utils import (
+from utils.widget_utils import (
     ErrorLabel,
     GogoNormOrHlsButton,
     HorizontalLine,

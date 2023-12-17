@@ -3,8 +3,8 @@ import sys
 from time import time as current_time
 from typing import Any, Callable, cast
 
-from shared.scraper_utils import AnimeMetadata, Download, sanitise_title
-from shared.static_utils import SRC_DIRECTORY
+from utils.scraper_utils import AnimeMetadata, Download, sanitise_title
+from utils.static_utils import SRC_DIRECTORY
 
 from scrapers import gogo, pahe
 

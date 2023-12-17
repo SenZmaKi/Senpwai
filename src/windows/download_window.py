@@ -13,8 +13,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from scrapers import gogo, pahe
-from shared.class_utils import SETTINGS, Anime, AnimeDetails
-from shared.scraper_utils import (
+from utils.class_utils import SETTINGS, Anime, AnimeDetails
+from utils.scraper_utils import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
     PausableAndCancellableFunction,
@@ -23,7 +23,7 @@ from shared.scraper_utils import (
     lacked_episodes,
     sanitise_title,
 )
-from shared.static_utils import (
+from utils.static_utils import (
     CANCEL_ICON_PATH,
     DOWNLOAD_WINDOW_BCKG_IMAGE_PATH,
     DUB,
@@ -36,7 +36,7 @@ from shared.static_utils import (
     RESUME_ICON_PATH,
     open_folder,
 )
-from shared.widget_utils import (
+from utils.widget_utils import (
     FolderButton,
     HorizontalLine,
     Icon,

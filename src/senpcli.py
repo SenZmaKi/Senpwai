@@ -9,8 +9,8 @@ from queue import Queue
 from os import path
 
 from scrapers import gogo, pahe
-from shared.class_utils import SETTINGS, Anime, AnimeDetails, update_available
-from shared.scraper_utils import (
+from utils.class_utils import SETTINGS, Anime, AnimeDetails, update_available
+from utils.scraper_utils import (
     FFMPEG_LINUX_INSTALLATION_GUIDE,
     FFMPEG_MAC_INSTALLATION_GUIDE,
     FFMPEG_WINDOWS_INSTALLATION_GUIDE,
@@ -21,7 +21,7 @@ from shared.scraper_utils import (
     lacked_episode_numbers,
     lacked_episodes,
 )
-from shared.static_utils import (
+from utils.static_utils import (
     DUB,
     APP_EXE_PATH as SENPWAI_EXE_PATH,
     GOGO,
@@ -639,6 +639,7 @@ def main():
         print(ASCII_APP_NAME)
         parsed = parse_args(args)
         # If Senpwai is installed it will handle updating both itself and Senpcli
+        update_check_thread, update_check_result_queue = None, None
         if not SENPWAI_IS_INSTALLED:
             update_check_thread, update_check_result_queue = start_update_check_thread()
         anime_and_anime_details = get_anime_and_anime_details(parsed)
@@ -646,8 +647,8 @@ def main():
             return
         initiate_download_pipeline(parsed, *anime_and_anime_details)
         if not SENPWAI_IS_INSTALLED:
-            update_check_thread.join() # type: ignore
-            handle_update_check_result(*update_check_result_queue.get()) # type: ignore
+            cast(Thread, update_check_thread).join()
+            handle_update_check_result(*cast(Queue, update_check_result_queue).get())
 
     except KeyboardInterrupt:
         print("\n\nAborted")

@@ -14,9 +14,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from scrapers import gogo, pahe
-from shared.class_utils import Anime
-from shared.scraper_utils import CLIENT
-from shared.static_utils import (
+from utils.class_utils import Anime
+from utils.scraper_utils import CLIENT
+from utils.static_utils import (
     ANILIST_API_ENTRYPOINY,
     BUNSHIN_POOF_AUDIO_PATH,
     GIGACHAD_AUDIO_PATH,
@@ -43,7 +43,7 @@ from shared.static_utils import (
     WHAT_DA_HELL_AUDIO_PATH,
     ZA_WARUDO_AUDIO_PATH,
 )
-from shared.widget_utils import (
+from utils.widget_utils import (
     AnimationAndText,
     AudioPlayer,
     Icon,

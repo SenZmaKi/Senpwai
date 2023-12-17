@@ -4,7 +4,7 @@ import sys
 from PyQt6.QtCore import QCoreApplication, Qt
 from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import QApplication
-from shared.static_utils import APP_NAME, custom_exception_handler
+from utils.static_utils import APP_NAME, custom_exception_handler
 from windows.primary_windows import MainWindow
 
 

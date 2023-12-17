@@ -11,7 +11,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
 from requests.cookies import RequestsCookieJar
-from shared.scraper_utils import (
+from utils.scraper_utils import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     PARSER,
