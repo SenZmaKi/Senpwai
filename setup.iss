@@ -54,15 +54,36 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall 
-; [Code]
-; var 
-;  IsUpdate: Boolean;
-; procedure AutoLaunch;
-; begin
-;   IsUpdate := ParamStr(2) = '/update';
-;   if IsUpdate then
-;   begin
-;     Exec(ExpandConstant('{app}\{MyAppExeName}'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
-;   end;
-; end;
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent 
+
+; Automatically launch the app after an update install
+[Code]
+var 
+ IsUpdate: Boolean;
+ ResultCode: Integer;
+ I: Integer;
+procedure AutoLaunch;
+begin
+  IsUpdate := False;
+  for I := 1 to ParamCount do
+  begin
+    if ParamStr(I) = '/update' then
+    begin
+      IsUpdate := True;
+      Break;
+    end;
+  end;
+
+  if IsUpdate then
+  begin
+    Exec(ExpandConstant('{app}\{#MyAppExeName}'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+  begin
+    AutoLaunch;
+  end;
+end;

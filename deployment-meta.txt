@@ -5,7 +5,7 @@ to-dos:
         uncomment out "type: ignore" comments and confirm that they you don't ignore unexpected errors
         confirm all comments are in the right place
         verify modules in requirements.txt and development-requirements.txt are up to date
-        update VERSION in global variable, metadata.yml and setup.iss (MyAppVersion and VersionInfoVersion)
+        update VERSION in static_utils.VERSION, class_utils.Settings.app_version, metadata.yml, setup.iss, and setup_senpcli.iss (MyAppVersion and VersionInfoVersion)
         ensure all changes have been committed and pushed to github
         test linux port
         compile to exe
@@ -27,7 +27,7 @@ cd src ; python -m scrapers.test all ; python -m scrapers.test --site gogo ; cd 
 
 
 run all test:
-cd src ; python -m scrapers.test all ; python -m  scrapers.test --site gogo 
+cd src ; python -m scrapers.test all ; python -m  scrapers.test --site gogo all
 
 compile to exe:
 python setup.py build

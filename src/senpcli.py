@@ -2,12 +2,15 @@ import subprocess
 import sys
 from argparse import ArgumentParser, Namespace
 from random import choice as random_choice
-from typing import cast, Callable
+from threading import Event, Lock, Thread
+from typing import Callable, cast
 from webbrowser import open_new_tab
-from threading import Thread, Event, Lock
+from queue import Queue
+from os import path
 
 from scrapers import gogo, pahe
-from shared.app_and_scraper_shared import (
+from shared.class_utils import SETTINGS, Anime, AnimeDetails, update_available
+from shared.scraper_utils import (
     FFMPEG_LINUX_INSTALLATION_GUIDE,
     FFMPEG_MAC_INSTALLATION_GUIDE,
     FFMPEG_WINDOWS_INSTALLATION_GUIDE,
@@ -18,21 +21,24 @@ from shared.app_and_scraper_shared import (
     lacked_episode_numbers,
     lacked_episodes,
 )
-from shared.global_vars_and_funcs import (
+from shared.static_utils import (
     DUB,
+    APP_EXE_PATH as SENPWAI_EXE_PATH,
     GOGO,
     PAHE,
     Q_360,
     Q_480,
     Q_720,
     Q_1080,
-    SETTINGS,
     SUB,
     VERSION,
+    GITHUB_API_LATEST_RELEASE_ENDPOINT,
+    SRC_DIRECTORY,
 )
-from shared.shared_classes_and_widgets import Anime, AnimeDetails
 from tqdm import tqdm
 
+APP_NAME = "Senpcli"
+SENPWAI_IS_INSTALLED = path.isfile(SENPWAI_EXE_PATH)
 APP_NAME_LOWER = "senpcli"
 DESCRIPTION = "A CLI alternative to Senpwai"
 ASCII_APP_NAME = r"""
@@ -47,6 +53,7 @@ FAILED_TO_AUTOMATICALLY_INSTALL_FFMPEG = "Failed to automatically install FFmpeg
 
 ANIME_REFERENCES = (
     "It's called the Attack Titan",
+    "Bertholdt, Reiner, Kono uragiri mono gaaaa!!!",
     "Tatakae tatake",
     "Ohio Final Boss",
     "Tokio tomare",
@@ -94,9 +101,9 @@ ANIME_REFERENCES = (
     "Bankai Hihio Zabimaru",
     "Huuuero Zabimaru",
     "Nah I'd Code",
-    "Stand proud Senpwai you are strong",
+    "Senpwai: Stand proud Senpcli, you are strong",
     "We are the exception",
-    "As the curse Jogoat fought the fraud.. .",
+    "As the strongest curse Jogoat fought the fraud.. .",
 )
 
 
@@ -315,7 +322,7 @@ def download_thread(
     if is_hls_download:
         episode_size = len(link_or_segs_urls)
     else:
-        link_or_segs_urls, episode_size = anime_details.get_exact_episode_size(
+        episode_size, link_or_segs_urls = Download.get_resource_length(
             cast(str, link_or_segs_urls)
         )
     if is_hls_download:
@@ -380,7 +387,10 @@ def download_manager(
     for idx, link in enumerate(ddls_or_segs_urls):
         download_slot_available.wait()
         episode_title = anime_details.episode_title(idx)
-        Thread(target=download_thread, args=(episode_title, link, anime_details, is_hls_download, update_progress)).start()
+        Thread(
+            target=download_thread,
+            args=(episode_title, link, anime_details, is_hls_download, update_progress),
+        ).start()
         curr_simultaneous_downloads += 1
         if curr_simultaneous_downloads == max_simultaneous_downloads:
             download_slot_available.clear()
@@ -398,7 +408,7 @@ def install_ffmpeg() -> bool:
             subprocess.run("winget install Gyan.FFmpeg")
             return True
         # I should probably catch the specific exceptions but I'm too lazy to figure out all the possible exceptions
-        except:
+        except Exception:
             pass
         # Incase the installation was scuffed
         if not ffmpeg_is_installed():
@@ -409,7 +419,7 @@ def install_ffmpeg() -> bool:
         try:
             subprocess.run("sudo apt install ffmpeg")
             return True
-        except:
+        except Exception:
             pass
         if not ffmpeg_is_installed():
             print(FAILED_TO_AUTOMATICALLY_INSTALL_FFMPEG)
@@ -419,7 +429,7 @@ def install_ffmpeg() -> bool:
         try:
             subprocess.run("brew install ffmpeg")
             return True
-        except:
+        except Exception:
             pass
         if not ffmpeg_is_installed():
             print(FAILED_TO_AUTOMATICALLY_INSTALL_FFMPEG)
@@ -509,7 +519,9 @@ def handle_pahe(parsed: Namespace, anime: Anime, anime_details: AnimeDetails):
         episode_page_links, parsed.quality, parsed.sub_or_dub
     )
     direct_download_links = pahe_get_direct_download_links(download_page_links)
-    download_manager(direct_download_links, anime_details, False, parsed.max_simultaneous_downloads)
+    download_manager(
+        direct_download_links, anime_details, False, parsed.max_simultaneous_downloads
+    )
 
 
 def handle_gogo(parsed: Namespace, anime: Anime, anime_details: AnimeDetails):
@@ -530,7 +542,12 @@ def handle_gogo(parsed: Namespace, anime: Anime, anime_details: AnimeDetails):
                 hls_links, parsed.quality
             )
             hls_segments_urls = gogo_get_hls_segments_urls(matched_quality_links)
-            download_manager(hls_segments_urls, anime_details, True, parsed.max_simultaneous_downloads)
+            download_manager(
+                hls_segments_urls,
+                anime_details,
+                True,
+                parsed.max_simultaneous_downloads,
+            )
     else:
         download_page_links = gogo_get_download_page_links(
             parsed.start_episode, parsed.end_episode, anime.page_link
@@ -544,32 +561,96 @@ def handle_gogo(parsed: Namespace, anime: Anime, anime_details: AnimeDetails):
         )
         if not parsed.skip_calculating:
             gogo_calculate_total_download_size(direct_download_links)
-        download_manager(direct_download_links, anime_details, False, parsed.max_simultaneous_downloads)
+        download_manager(
+            direct_download_links,
+            anime_details,
+            False,
+            parsed.max_simultaneous_downloads,
+        )
+
+
+def check_for_update_thread(queue: Queue) -> None:
+    is_available, download_url, file_name, _ = update_available(
+        GITHUB_API_LATEST_RELEASE_ENDPOINT, APP_NAME, VERSION
+    )
+    queue.put((is_available, download_url, file_name))
+
+
+def download_and_install_update(download_url: str, file_name: str) -> None:
+    download_size, download_url = Download.get_resource_length(download_url)
+    pbar = tqdm(
+        total=download_size,
+        desc="Downloading update",
+        unit="iB",
+        unit_scale=True,
+        leave=False,
+    )
+    file_name_no_ext, file_ext = path.splitext(file_name)
+    download = Download(
+        download_url, file_name_no_ext, SRC_DIRECTORY, pbar.update, file_ext
+    )
+    download.start_download()
+    pbar.close()
+    subprocess.Popen([path.join(SRC_DIRECTORY, file_name), "/silent", "/update"])
+
+
+def handle_update_check_result(
+    is_available: bool, download_url, file_name: str
+) -> None:
+    if is_available:
+        print("Update available, would you like to download and install it? (y/n)")
+        if input("> ").lower() == "y":
+            download_and_install_update(download_url, file_name)
+
+
+def start_update_check_thread() -> tuple[Thread, Queue]:
+    update_check_result_queue = Queue()
+    update_check_thread = Thread(
+        target=check_for_update_thread, args=(update_check_result_queue,)
+    )
+    update_check_thread.start()
+    return update_check_thread, update_check_result_queue
+
+
+def get_anime_and_anime_details(parsed) -> tuple[Anime, AnimeDetails] | None:
+    anime = search(parsed.title, parsed.site)
+    if anime is None:
+        return None
+    anime_details = AnimeDetails(anime, parsed.site)
+    parsed.end_episode = validate_end_episode(
+        parsed.end_episode, anime_details.metadata.episode_count
+    )
+    return anime, anime_details
+
+
+def initiate_download_pipeline(
+    parsed: Namespace, anime: Anime, anime_details: AnimeDetails
+):
+    print(f"Downloading to: {anime_details.anime_folder_path}")
+    if parsed.site == PAHE:
+        handle_pahe(parsed, anime, anime_details)
+    else:
+        handle_gogo(parsed, anime, anime_details)
 
 
 def main():
     try:
-        # Ignore the first argument, which is the scriptname since it causes this error with argparse:
-        # error: unrecognized arguments: cli.py
         args = sys.argv[1:]
         print(ASCII_APP_NAME)
         parsed = parse_args(args)
-        anime = search(parsed.title, parsed.site)
-        if anime is None:
+        # If Senpwai is installed it will handle updating both itself and Senpcli
+        if not SENPWAI_IS_INSTALLED:
+            update_check_thread, update_check_result_queue = start_update_check_thread()
+        anime_and_anime_details = get_anime_and_anime_details(parsed)
+        if anime_and_anime_details is None:
             return
-        anime_details = AnimeDetails(anime, parsed.site)
-        parsed.end_episode = validate_end_episode(
-            parsed.end_episode, anime_details.metadata.episode_count
-        )
-        print(f"Downloading to: {anime_details.anime_folder_path}")
-        if parsed.site == PAHE:
-            handle_pahe(parsed, anime, anime_details)
-        else:
-            handle_gogo(parsed, anime, anime_details)
+        initiate_download_pipeline(parsed, *anime_and_anime_details)
+        if not SENPWAI_IS_INSTALLED:
+            update_check_thread.join() # type: ignore
+            handle_update_check_result(*update_check_result_queue.get()) # type: ignore
 
     except KeyboardInterrupt:
-        # Two newlines cause progress bars cause a weird interaction when print is called
-        print("\n\nAborting")
+        print("\n\nAborted")
 
 
 if __name__ == "__main__":
