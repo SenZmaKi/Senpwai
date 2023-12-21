@@ -1,21 +1,38 @@
-from bs4 import BeautifulSoup, ResultSet, Tag
 import re
-from typing import Callable, cast, Any
 from math import pow
-from shared.app_and_scraper_shared import CLIENT, PARSER, match_quality, PausableAndCancellableFunction, AnimeMetadata
-import requests
+from typing import Callable, cast
 
-PAHE = 'pahe'
-PAHE_HOME_URL = 'https://animepahe.ru'
-API_URL_EXTENSION = '/api?m='
-UUID_REGEX = re.compile(r'uuid=(.*?);')
-UUID_COOKIE = {'uuid': ''}
+import requests
+from bs4 import BeautifulSoup, ResultSet, Tag
+from utils.scraper_utils import (
+    CLIENT,
+    PARSER,
+    AnimeMetadata,
+    DomainNameError,
+    PausableAndCancellableFunction,
+    get_new_home_url_from_readme,
+    match_quality,
+)
+
+PAHE = "pahe"
+PAHE_HOME_URL = "https://animepahe.ru"
+FULL_SITE_NAME = "Animepahe"
+API_URL_EXTENSION = "/api?m="
+UUID_REGEX = re.compile(r"uuid=(.*?);")
+UUID_COOKIE = {"uuid": ""}
 
 
 def uuid_request(url: str, search_request=False) -> requests.Response:
     # Without setting the uuid cookie most requests redirect to some html page containing a valid uuid
     # But it seems like the uuid cookie only needs to be set as in they don't validate it
-    response = CLIENT.get(url, cookies=UUID_COOKIE)
+    try:
+        response = CLIENT.get(
+            url, cookies=UUID_COOKIE, exceptions_to_ignore=[DomainNameError]
+        )
+    except DomainNameError:
+        global PAHE_HOME_URL
+        PAHE_HOME_URL = get_new_home_url_from_readme(FULL_SITE_NAME)
+        return uuid_request(url, search_request)
     if search_request:
         try:
             response.json()
@@ -24,30 +41,34 @@ def uuid_request(url: str, search_request=False) -> requests.Response:
             # Which is a search request will involve decoding so if it fails decoding then it means they gave us the html page with the uuid
             # So we try and and extract a valid uuid from the page, if they ever start validating uuids I wiill work on a better implementation
             match = cast(re.Match[str], UUID_REGEX.search(response.text))
-            UUID_COOKIE['uuid'] = match.group(1)
+            UUID_COOKIE["uuid"] = match.group(1)
             return uuid_request(url)
     return response
 
 
 def search(keyword: str) -> list[dict[str, str]]:
-    search_url = PAHE_HOME_URL+API_URL_EXTENSION+'search&q='+keyword
+    search_url = PAHE_HOME_URL + API_URL_EXTENSION + "search&q=" + keyword
     response = uuid_request(search_url, True)
     decoded = cast(dict, response.json())
     # The api won't return json containing the data key if no results are found
-    return decoded.get('data', [])
+    return decoded.get("data", [])
 
 
-def extract_anime_title_page_link_and_id(result: dict[str, str]) -> tuple[str, str, str]:
-    anime_id = result['session']
-    title = result['title']
-    page_link = f'{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_asc'
+def extract_anime_title_page_link_and_id(
+    result: dict[str, str],
+) -> tuple[str, str, str]:
+    anime_id = result["session"]
+    title = result["title"]
+    page_link = (
+        f"{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_asc"
+    )
     return title, page_link, anime_id
 
 
 def get_total_episode_page_count(anime_page_link: str) -> int:
-    page_url = f'{anime_page_link}&page={1}'
+    page_url = f"{anime_page_link}&page={1}"
     decoded = uuid_request(page_url).json()
-    total_episode_page_count: int = decoded['last_page']
+    total_episode_page_count: int = decoded["last_page"]
     return total_episode_page_count
 
 
@@ -56,14 +77,21 @@ class GetEpisodePageLinks(PausableAndCancellableFunction):
         super().__init__()
 
     # Retrieves a list of the episode page links (not download links)
-    def get_episode_page_links(self, start_episode: int, end_episode: int, anime_page_link: str, anime_id: str, progress_update_callback: Callable = lambda update: None) -> list[str]:
+    def get_episode_page_links(
+        self,
+        start_episode: int,
+        end_episode: int,
+        anime_page_link: str,
+        anime_id: str,
+        progress_update_callback: Callable = lambda _: None,
+    ) -> list[str]:
         page_url = anime_page_link
         episodes_data = []
         page_no = 1
-        while page_url != None:
-            page_url = f'{anime_page_link}&page={page_no}'
+        while page_url is not None:
+            page_url = f"{anime_page_link}&page={page_no}"
             decoded = uuid_request(page_url).json()
-            episodes_data += decoded['data']
+            episodes_data += decoded["data"]
             page_url = decoded["next_page_url"]
             page_no += 1
             self.resume.wait()
@@ -72,51 +100,69 @@ class GetEpisodePageLinks(PausableAndCancellableFunction):
             progress_update_callback(1)
         # To avoid episodes like 7.5 and 5.5 cause they're usually just recaps
         episodes_data = [
-            ep for ep in episodes_data if not isinstance(ep['episode'], float)]
+            ep for ep in episodes_data if not isinstance(ep["episode"], float)
+        ]
         # Take note cause indices work differently from episode numbers
-        episodes_data = episodes_data[start_episode-1: end_episode]
-        episode_sessions = [episode['session'] for episode in episodes_data]
+        episodes_data = episodes_data[start_episode - 1 : end_episode]
+        episode_sessions = [episode["session"] for episode in episodes_data]
         episode_links = [
-            f'{PAHE_HOME_URL}/play/{anime_id}/{episode_session}' for episode_session in episode_sessions]
+            f"{PAHE_HOME_URL}/play/{anime_id}/{episode_session}"
+            for episode_session in episode_sessions
+        ]
         return episode_links
 
 
-class GetPahewinDownloadPage(PausableAndCancellableFunction):
+class GetPahewinDownloadPageLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def get_pahewin_download_page_links_and_info(self, episode_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> tuple[list[list[str]], list[list[str]]]:
+    def get_pahewin_download_page_links_and_info(
+        self,
+        episode_page_links: list[str],
+        progress_update_callback: Callable = lambda _: None,
+    ) -> tuple[list[list[str]], list[list[str]]]:
         download_data: list[ResultSet[BeautifulSoup]] = []
         for episode_page_link in episode_page_links:
             page_content = uuid_request(episode_page_link).content
             soup = BeautifulSoup(page_content, PARSER)
-            download_data.append(soup.find_all(
-                'a', class_='dropdown-item', target='_blank'))
+            download_data.append(
+                soup.find_all("a", class_="dropdown-item", target="_blank")
+            )
             self.resume.wait()
             if self.cancelled:
                 return ([], [])
             progress_update_callback(1)
         # Scrapes the download data of each episode and stores the links in a list which is contained in another list containing all episodes
         pahewin_download_page_links: list[list[str]] = [
-            [cast(str, download_link["href"]) for download_link in episode_data] for episode_data in download_data]
+            [cast(str, download_link["href"]) for download_link in episode_data]
+            for episode_data in download_data
+        ]
         # Scrapes the download data of each episode and stores the info for each quality and dub or sub in a list which is contained in another list containing all episodes
-        download_info: list[list[str]] = [[episode_info.text.strip(
-        ) for episode_info in episode_data] for episode_data in download_data]
+        download_info: list[list[str]] = [
+            [episode_info.text.strip() for episode_info in episode_data]
+            for episode_data in download_data
+        ]
         return (pahewin_download_page_links, download_info)
 
 
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
-    page_url = f'{anime_page_link}&page={1}'
+    page_url = f"{anime_page_link}&page={1}"
     decoded = uuid_request(page_url).json()
-    episodes_data = decoded['data']
-    episode_sessions = [episode['session'] for episode in episodes_data]
+    episodes_data = decoded["data"]
+    episode_sessions = [episode["session"] for episode in episodes_data]
     episode_links = [
-        f'{PAHE_HOME_URL}/play/{anime_id}/{episode_session}' for episode_session in episode_sessions]
+        f"{PAHE_HOME_URL}/play/{anime_id}/{episode_session}"
+        for episode_session in episode_sessions
+    ]
     episode_links = [episode_links[-1]]
-    _, download_info = GetPahewinDownloadPage(
-    ).get_pahewin_download_page_links_and_info(episode_links)
+    (
+        _,
+        download_info,
+    ) = GetPahewinDownloadPageLinks().get_pahewin_download_page_links_and_info(
+        episode_links
+    )
 
-    dub_pattern = r'eng$'
+    dub_pattern = r"eng$"
     for episode in download_info:
         found_dub = False
         for info in episode:
@@ -128,16 +174,20 @@ def dub_available(anime_page_link: str, anime_id: str) -> bool:
     return True
 
 
-def bind_sub_or_dub_to_link_info(sub_or_dub: str, pahewin_download_page_links: list[list[str]], download_info: list[list[str]]) -> tuple[list[list[str]], list[list[str]]]:
+def bind_sub_or_dub_to_link_info(
+    sub_or_dub: str,
+    pahewin_download_page_links: list[list[str]],
+    download_info: list[list[str]],
+) -> tuple[list[list[str]], list[list[str]]]:
     bound_links: list[list[str]] = []
     bound_info: list[list[str]] = []
-    dub_pattern = r'eng$'
+    dub_pattern = r"eng$"
     for idx_out, episode_info in enumerate(download_info):
         links: list[str] = []
         infos: list[str] = []
         for idx_in, info in enumerate(episode_info):
             match = re.search(dub_pattern, info)
-            if (sub_or_dub == 'dub' and match) or (sub_or_dub == 'sub' and not match):
+            if (sub_or_dub == "dub" and match) or (sub_or_dub == "sub" and not match):
                 links.append(pahewin_download_page_links[idx_out][idx_in])
                 infos.append(info)
         bound_links.append(links)
@@ -146,7 +196,11 @@ def bind_sub_or_dub_to_link_info(sub_or_dub: str, pahewin_download_page_links: l
     return (bound_links, bound_info)
 
 
-def bind_quality_to_link_info(quality: str, pahewin_download_page_links: list[list[str]], download_info: list[list[str]]) -> tuple[list[str], list[str]]:
+def bind_quality_to_link_info(
+    quality: str,
+    pahewin_download_page_links: list[list[str]],
+    download_info: list[list[str]],
+) -> tuple[list[str], list[str]]:
     bound_links: list[str] = []
     bound_info: list[str] = []
     for idx_out, episode_info in enumerate(download_info):
@@ -157,7 +211,7 @@ def bind_quality_to_link_info(quality: str, pahewin_download_page_links: list[li
 
 
 def calculate_total_download_size(bound_info: list[str]) -> int:
-    pattern = r'\b(\d+)MB\b'
+    pattern = r"\b(\d+)MB\b"
     total_size = 0
     download_sizes: list[int] = []
     for episode in bound_info:
@@ -202,29 +256,44 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def get_direct_download_links(self, pahewin_download_page_links: list[str], progress_update_callback: Callable = lambda x: None) -> list[str]:
+    def get_direct_download_links(
+        self,
+        pahewin_download_page_links: list[str],
+        progress_update_callback: Callable = lambda _: None,
+    ) -> list[str]:
         direct_download_links: list[str] = []
-        param_regex = re.compile(
-            r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""")
+        param_regex = re.compile(r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""")
         for pahewin_link in pahewin_download_page_links:
             page_content = CLIENT.get(pahewin_link).content
             soup = BeautifulSoup(page_content, PARSER)
-            download_link = cast(str, cast(Tag, soup.find(
-                "a", class_="btn btn-primary btn-block redirect"))["href"])
+            download_link = cast(
+                str,
+                cast(Tag, soup.find("a", class_="btn btn-primary btn-block redirect"))[
+                    "href"
+                ],
+            )
 
             response = CLIENT.get(download_link)
             cookies = response.cookies
             match = cast(re.Match, param_regex.search(response.text))
-            full_key, key, v1, v2 = match.group(1), match.group(
-                2), match.group(3), match.group(4)
-            decrypted = decrypt_token_and_post_url_page(
-                full_key, key, int(v1), int(v2))
+            full_key, key, v1, v2 = (
+                match.group(1),
+                match.group(2),
+                match.group(3),
+                match.group(4),
+            )
+            decrypted = decrypt_token_and_post_url_page(full_key, key, int(v1), int(v2))
             soup = BeautifulSoup(decrypted, PARSER)
-            post_url = cast(str, cast(Tag, soup.form)['action'])
-            token_value = cast(str, cast(Tag, soup.input)['value'])
-            response = CLIENT.post(post_url, headers=CLIENT.append_headers(
-                {'Referer': download_link}), cookies=cookies, data={'_token': token_value}, allow_redirects=False)
-            direct_download_link = response.headers['Location']
+            post_url = cast(str, cast(Tag, soup.form)["action"])
+            token_value = cast(str, cast(Tag, soup.input)["value"])
+            response = CLIENT.post(
+                post_url,
+                headers=CLIENT.append_headers({"Referer": download_link}),
+                cookies=cookies,
+                data={"_token": token_value},
+                allow_redirects=False,
+            )
+            direct_download_link = response.headers["Location"]
             direct_download_links.append(direct_download_link)
             self.resume.wait()
             if self.cancelled:
@@ -234,25 +303,29 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
 
 
 def get_anime_metadata(anime_id: str) -> AnimeMetadata:
-    page_link = f'{PAHE_HOME_URL}/anime/{anime_id}'
+    page_link = f"{PAHE_HOME_URL}/anime/{anime_id}"
     page_content = uuid_request(page_link).content
     soup = BeautifulSoup(page_content, PARSER)
-    poster = soup.find(class_='youtube-preview')
+    poster = soup.find(class_="youtube-preview")
     if not isinstance(poster, Tag):
-        poster = cast(Tag, soup.find(class_='poster-image'))
-    poster_link = cast(str, poster['href'])
-    summary = cast(Tag, soup.find(class_='anime-synopsis')).get_text()
-    genres_tags = cast(Tag, cast(Tag, soup.find(
-        class_="anime-genre font-weight-bold")).find('ul')).find_all('li')
+        poster = cast(Tag, soup.find(class_="poster-image"))
+    poster_link = cast(str, poster["href"])
+    summary = cast(Tag, soup.find(class_="anime-synopsis")).get_text()
+    genres_tags = cast(
+        Tag, cast(Tag, soup.find(class_="anime-genre font-weight-bold")).find("ul")
+    ).find_all("li")
     genres: list[str] = []
     for genre in genres_tags:
-        genres.append(cast(str, cast(Tag, genre.find('a'))['title']))
-    season_and_year = cast(str, cast(Tag, soup.select_one(
-        'a[href*="/anime/season/"]'))['title'])
-    _, release_year = season_and_year.split(' ')
-    page_link = f'{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_desc'
+        genres.append(cast(str, cast(Tag, genre.find("a"))["title"]))
+    season_and_year = cast(
+        str, cast(Tag, soup.select_one('a[href*="/anime/season/"]'))["title"]
+    )
+    _, release_year = season_and_year.split(" ")
+    page_link = (
+        f"{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_desc"
+    )
     decoded = uuid_request(page_link).json()
-    episode_count = decoded['total']
+    episode_count = decoded["total"]
     tag = soup.find(title="Currently Airing")
     if tag:
         status = "ONGOING"
@@ -260,4 +333,6 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
         status = "UPCOMING"
     else:
         status = "FINISHED"
-    return AnimeMetadata(poster_link, summary, episode_count, status, genres, int(release_year))
+    return AnimeMetadata(
+        poster_link, summary, episode_count, status, genres, int(release_year)
+    )

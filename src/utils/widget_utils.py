@@ -1,25 +1,55 @@
-from PyQt6.QtGui import QPixmap, QPen, QPainterPath, QPainter, QMovie, QKeyEvent, QIcon
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QProgressBar, QFrame, QTextBrowser
-from PyQt6.QtCore import Qt, QSize, QMutex, QTimer, QUrl
-from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from shared.global_vars_and_funcs import SETTINGS_TYPES, PAHE, GOGO
+import sys
 from time import time
-from shared.global_vars_and_funcs import settings, KEY_QUALITY, KEY_SUB_OR_DUB, KEY_DOWNLOAD_FOLDER_PATHS, KEY_GOGO_NORM_OR_HLS_MODE, KEY_GOGO_SKIP_CALCULATE
-from shared.global_vars_and_funcs import folder_icon_path, RED_NORMAL_COLOR, RED_PRESSED_COLOR, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR, GOGO_NORMAL_COLOR, open_folder, GOGO_HLS_MODE, set_minimum_size_policy, GOGO_NORM_MODE
-from shared.app_and_scraper_shared import sanitise_title, AnimeMetadata
-from pathlib import Path
-from typing import cast, Callable
-import anitopy
-import os
-from scrapers import pahe
-from scrapers import gogo
+from typing import Callable, cast
+
+from PyQt6.QtCore import QEvent, QMutex, QObject, QSize, Qt, QTimer, QUrl
+from PyQt6.QtGui import (
+    QIcon,
+    QKeyEvent,
+    QMovie,
+    QPaintEvent,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+)
+from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
+from PyQt6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QTextBrowser,
+    QVBoxLayout,
+    QWidget,
+)
+
+from utils.class_utils import Settings
+from utils.static_utils import (
+    FOLDER_ICON_PATH,
+    GOGO_NORM_MODE,
+    GOGO_NORMAL_COLOR,
+    PAHE_NORMAL_COLOR,
+    PAHE_PRESSED_COLOR,
+    RED_NORMAL_COLOR,
+    RED_PRESSED_COLOR,
+    open_folder,
+)
 
 
-class Anime():
-    def __init__(self, title: str, page_link: str, anime_id: str | None) -> None:
-        self.title = title
-        self.page_link = page_link
-        self.id = anime_id
+def set_minimum_size_policy(object):
+    object.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+    object.setFixedSize(object.sizeHint())
+
+
+def fix_qt_path_for_windows(path: str) -> str:
+    if sys.platform == "win32":
+        path = path.replace("/", "\\")
+    return path
 
 
 class BckgImg(QLabel):
@@ -31,7 +61,13 @@ class BckgImg(QLabel):
 
 
 class Animation(QLabel):
-    def __init__(self, animation_path: str, animation_size_x: int, animation_size_y: int, parent: QWidget | None = None):
+    def __init__(
+        self,
+        animation_path: str,
+        animation_size_x: int,
+        animation_size_y: int,
+        parent: QWidget | None = None,
+    ):
         super().__init__(parent)
         self.animation = QMovie(animation_path)
         self.animation.setScaledSize(QSize(animation_size_x, animation_size_y))
@@ -45,9 +81,17 @@ class Animation(QLabel):
 
 
 class StyledLabel(QLabel):
-    def __init__(self, parent=None, font_size: int = 20, bckg_color: str = "rgba(0, 0, 0, 220)", border_radius=10, font_color="white"):
+    def __init__(
+        self,
+        parent=None,
+        font_size: int = 20,
+        bckg_color: str = "rgba(0, 0, 0, 220)",
+        border_radius=10,
+        font_color="white",
+    ):
         super().__init__(parent)
-        self.setStyleSheet(f"""
+        self.setStyleSheet(
+            f"""
                     QLabel {{
                         color: {font_color};
                         font-size: {font_size}px;
@@ -57,14 +101,23 @@ class StyledLabel(QLabel):
                         border: 1px solid black;
                         padding: 5px;
                     }}
-                            """)
+                            """
+        )
 
 
 class StyledTextBrowser(QTextBrowser):
-    def __init__(self, parent=None, font_size: int = 20, bckg_color: str = "rgba(0, 0, 0, 220)", border_radius=10, font_color="white"):
+    def __init__(
+        self,
+        parent=None,
+        font_size: int = 20,
+        bckg_color: str = "rgba(0, 0, 0, 220)",
+        border_radius=10,
+        font_color="white",
+    ):
         super().__init__(parent)
         self.setOpenExternalLinks(True)
-        self.setStyleSheet(f"""
+        self.setStyleSheet(
+            f"""
                     QTextEdit {{
                         color: {font_color};
                         font-size: {font_size}px;
@@ -74,16 +127,27 @@ class StyledTextBrowser(QTextBrowser):
                         border: 1px solid black;
                         padding: 5px;
                     }}
-                            """)
+                            """
+        )
 
 
 class StyledButton(QPushButton):
-    def __init__(self, parent: QWidget | None, font_size: int, font_color: str, normal_color: str, hover_color: str, pressed_color: str, border_radius=12):
+    def __init__(
+        self,
+        parent: QWidget | None,
+        font_size: int,
+        font_color: str,
+        normal_color: str,
+        hover_color: str,
+        pressed_color: str,
+        border_radius=12,
+    ):
         super().__init__()
         if parent:
             self.setParent(parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet(f"""
+        self.setStyleSheet(
+            f"""
             QPushButton {{
                 color: {font_color};
                 background-color: {normal_color};
@@ -99,22 +163,45 @@ class StyledButton(QPushButton):
             QPushButton:pressed {{  
                 background-color: {pressed_color};
             }}
-        """)
+        """
+        )
         self.installEventFilter(self)
 
-    def eventFilter(self, obj, event):
-        if obj == self:
-            if isinstance(event, QKeyEvent) and event.type() == event.Type.KeyPress and (event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)):
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None):
+        if a0 == self:
+            if (
+                isinstance(a1, QKeyEvent)
+                and a1.type() == a1.Type.KeyPress
+                and (a1.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter))
+            ):
                 self.animateClick()
                 return True
 
-            return super().eventFilter(obj, event)
+        return super().eventFilter(a0, a1)
 
 
 class DualStateButton(StyledButton):
-    def __init__(self, parent: QWidget | None, font_size: int, font_color: str, hover_color: str, set_color: str, on_text: str, off_text: str, unset_color="rgba(128, 128, 128, 255)", border_radius=12):
-        super().__init__(parent, font_size, font_color,
-                         unset_color, hover_color, set_color, border_radius)
+    def __init__(
+        self,
+        parent: QWidget | None,
+        font_size: int,
+        font_color: str,
+        hover_color: str,
+        set_color: str,
+        on_text: str,
+        off_text: str,
+        unset_color="rgba(128, 128, 128, 255)",
+        border_radius=12,
+    ):
+        super().__init__(
+            parent,
+            font_size,
+            font_color,
+            unset_color,
+            hover_color,
+            set_color,
+            border_radius,
+        )
         self.on = False
         self.on_text = on_text
         self.off_text = off_text
@@ -129,7 +216,7 @@ class DualStateButton(StyledButton):
             background-color: {hover_color};
         }}
     """
-        self.on_stylesheet = self.off_stylesheet+styles_to_overwride
+        self.on_stylesheet = self.off_stylesheet + styles_to_overwride
         self.clicked.connect(self.change_status)
 
     def change_status(self):
@@ -144,9 +231,24 @@ class DualStateButton(StyledButton):
 
 
 class OptionButton(StyledButton):
-    def __init__(self, parent: QWidget | None, option: SETTINGS_TYPES, option_displayed: str, font_size: int, chosen_color: str, hover_color: str, font_color="white"):
-        super().__init__(parent, font_size, font_color,
-                         "rgba(128, 128, 128, 255)", chosen_color, hover_color)
+    def __init__(
+        self,
+        parent: QWidget | None,
+        option: Settings.types,
+        option_displayed: str,
+        font_size: int,
+        chosen_color: str,
+        hover_color: str,
+        font_color="white",
+    ):
+        super().__init__(
+            parent,
+            font_size,
+            font_color,
+            "rgba(128, 128, 128, 255)",
+            chosen_color,
+            hover_color,
+        )
         self.not_picked_style_sheet = self.styleSheet()
         styles_to_overwride = f"""
             QPushButton {{
@@ -157,7 +259,7 @@ class OptionButton(StyledButton):
             background-color: {chosen_color};
         }}
     """
-        self.picked_style_sheet = self.not_picked_style_sheet+styles_to_overwride
+        self.picked_style_sheet = self.not_picked_style_sheet + styles_to_overwride
         self.option = option
         self.setText(option_displayed)
         self.clicked.connect(lambda: self.set_picked_status(True))
@@ -174,59 +276,80 @@ class Icon(QIcon):
         self.x = x
         self.y = y
         pixmap = QPixmap(icon_path).scaled(
-            self.x, self.y, Qt.AspectRatioMode.IgnoreAspectRatio)
+            self.x, self.y, Qt.AspectRatioMode.IgnoreAspectRatio
+        )
         super().__init__(pixmap)
 
 
 class IconButton(QPushButton):
-    def __init__(self, icon: Icon, size_factor: int | float, parent: QWidget | None = None):
+    def __init__(
+        self, icon: Icon, size_factor: int | float, parent: QWidget | None = None
+    ):
         super().__init__(parent)
         self.setFixedSize(icon.x, icon.y)
         self.setIcon(icon)
-        self.setIconSize(self.size()/size_factor)  # type: ignore
+        self.setIconSize(self.size() / size_factor)
         self.enterEvent = lambda event: self.setIconSize(QSize(icon.x, icon.y))
         self.leaveEvent = lambda a0: self.setIconSize(
-            QSize(icon.x, icon.y)/size_factor)  # type: ignore
+            QSize(icon.x, icon.y) / size_factor
+        )
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             QPushButton {
                 border: none; 
                 background-color: transparent;
-            }""")
+            }"""
+        )
         self.installEventFilter(self)
 
-    def eventFilter(self, obj, event):
-        if obj == self:
-            if isinstance(event, QKeyEvent) and event.type() == event.Type.KeyPress and ((event.key() == Qt.Key.Key_Return) or (event.key() == Qt.Key.Key_Enter)):
-                if isinstance(obj, QPushButton):
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None):
+        if a0 == self:
+            if (
+                isinstance(a1, QKeyEvent)
+                and a1.type() == a1.Type.KeyPress
+                and ((a1.key() == Qt.Key.Key_Return) or (a1.key() == Qt.Key.Key_Enter))
+            ):
+                if isinstance(a0, QPushButton):
                     self.animateClick()
                     return True
 
-        return super().eventFilter(obj, event)
+        return super().eventFilter(a0, a1)
 
 
 class AnimationAndText(QWidget):
-    def __init__(self, animation_path: str, animation_size_x: int, animation_size_y: int, text: str, paint_x: int, paint_y: int, font_size: int, parent: QWidget | None = None):
+    def __init__(
+        self,
+        animation_path: str,
+        animation_size_x: int,
+        animation_size_y: int,
+        text: str,
+        paint_x: int,
+        paint_y: int,
+        font_size: int,
+        parent: QWidget | None = None,
+    ):
         super().__init__(parent)
         self.animation = Animation(
-            animation_path, animation_size_x, animation_size_y, parent)
+            animation_path, animation_size_x, animation_size_y, parent
+        )
         self.animation_path = animation_path
         self.text_label = OutlinedLabel(parent, paint_x, paint_y)
         self.text_label.setText(text)
-        self.text_label.setStyleSheet(f"""
+        self.text_label.setStyleSheet(
+            f"""
                     OutlinedLabel {{
                         color: #FFEF00;
                         font-size: {font_size}px;
                         font-family: "Berlin Sans FB Demi";
                         }}
-                        """)
+                        """
+        )
         self.main_layout = QVBoxLayout()
         self.main_layout.addWidget(self.animation)
         self.main_layout.addWidget(self.text_label)
-        self.main_layout.setAlignment(
-            self.animation, Qt.AlignmentFlag.AlignCenter)
-        self.main_layout.setAlignment(
-            self.text_label, Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.setAlignment(self.animation, Qt.AlignmentFlag.AlignCenter)
+        self.main_layout.setAlignment(self.text_label, Qt.AlignmentFlag.AlignCenter)
         self.setLayout(self.main_layout)
 
     def start(self):
@@ -242,7 +365,7 @@ class OutlinedLabel(QLabel):
         self.paint_y = paint_y
         super().__init__(parent)
 
-    def paintEvent(self, event):
+    def paintEvent(self, a0: QPaintEvent | None):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -257,18 +380,35 @@ class OutlinedLabel(QLabel):
 
         # Call the parent class's paintEvent to draw the label background and other properties
         painter.end()
-        return super().paintEvent(event)
+        return super().paintEvent(a0)
 
 
 class OutlinedButton(StyledButton):
-    def __init__(self, paint_x, paint_y, parent: QWidget | None, font_size: int, font_color: str, normal_color: str,
-                 hover_color: str, pressed_color: str, border_radius=12):
+    def __init__(
+        self,
+        paint_x,
+        paint_y,
+        parent: QWidget | None,
+        font_size: int,
+        font_color: str,
+        normal_color: str,
+        hover_color: str,
+        pressed_color: str,
+        border_radius=12,
+    ):
         self.paint_x = paint_x
         self.paint_y = paint_y
-        super().__init__(parent, font_size, font_color, normal_color,
-                         hover_color, pressed_color, border_radius)
+        super().__init__(
+            parent,
+            font_size,
+            font_color,
+            normal_color,
+            hover_color,
+            pressed_color,
+            border_radius,
+        )
 
-    def paintEvent(self, event):
+    def paintEvent(self, a0: QPaintEvent | None):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -283,7 +423,7 @@ class OutlinedButton(StyledButton):
 
         # Call the parent class's paintEvent to draw the button background and other properties
         painter.end()
-        return super().paintEvent(event)
+        return super().paintEvent(a0)
 
 
 class AudioPlayer(QMediaPlayer):
@@ -296,7 +436,12 @@ class AudioPlayer(QMediaPlayer):
 
 
 class ErrorLabel(StyledLabel):
-    def __init__(self, font_size: int, shown_duration_in_secs: int = 3, parent: QWidget | None = None):
+    def __init__(
+        self,
+        font_size: int,
+        shown_duration_in_secs: int = 3,
+        parent: QWidget | None = None,
+    ):
         super().__init__(parent, font_size, font_color="red")
         self.shown_duration_in_secs = shown_duration_in_secs
         self.timer = QTimer(self)
@@ -351,7 +496,16 @@ class ProgressBarWithoutButtons(QWidget):
                         }
                         """
 
-    def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int, units: str, units_divisor: int = 1, delete_on_completion=True):
+    def __init__(
+        self,
+        parent: QWidget | None,
+        task_title: str,
+        item_task_is_applied_on: str,
+        total_value: int,
+        units: str,
+        units_divisor: int = 1,
+        delete_on_completion=True,
+    ):
         super().__init__(parent)
         self.item_task_is_applied_on = item_task_is_applied_on
         self.total_value = total_value
@@ -360,8 +514,7 @@ class ProgressBarWithoutButtons(QWidget):
         self.mutex = QMutex()
         self.items_layout = QHBoxLayout(self)
         self.delete_on_completion = delete_on_completion
-        self.destructLater = lambda: QTimer(
-            self).singleShot(40000, self.deleteLater)
+        self.destructLater = lambda: QTimer(self).singleShot(40000, self.deleteLater)
         self.setLayout(self.items_layout)
         self.paused = False
         self.cancelled = False
@@ -391,7 +544,8 @@ class ProgressBarWithoutButtons(QWidget):
 
         self.current_against_max_values = OutlinedLabel(self, 1, 40)
         self.current_against_max_values.setText(
-            f"0/{round(total_value/units_divisor)} {units}")
+            f"0/{round(total_value/units_divisor)} {units}"
+        )
         self.current_against_max_values.setFixedHeight(height)
         self.current_against_max_values.setStyleSheet(self.text_style_sheet)
 
@@ -421,8 +575,7 @@ class ProgressBarWithoutButtons(QWidget):
                 self.bar.setFormat(f"Paused {self.item_task_is_applied_on}")
             else:
                 self.bar.setStyleSheet(self.ongoing_stylesheet)
-                self.bar.setFormat(
-                    f"{self.task_title} {self.item_task_is_applied_on}")
+                self.bar.setFormat(f"{self.task_title} {self.item_task_is_applied_on}")
 
     def update_bar(self, added_value: int):
         self.mutex.lock()
@@ -440,19 +593,19 @@ class ProgressBarWithoutButtons(QWidget):
         percent_new_value = round(new_value / max_value * 100)
         self.percentage.setText(f"{percent_new_value}%")
         self.current_against_max_values.setText(
-            f" {round(new_value/self.units_divisor)}/{round(max_value/self.units_divisor)} {self.units}")
+            f" {round(new_value/self.units_divisor)}/{round(max_value/self.units_divisor)} {self.units}"
+        )
         # If statement to handle cases of annoying division by zero error where downloads update super quick so elapsed time is roughly zero
         if time_elapsed > 0 and added_value > 0:
             rate = added_value / time_elapsed
-            eta = (max_value - new_value) * (1/rate)
+            eta = (max_value - new_value) * (1 / rate)
             if eta >= 3600:
                 self.eta.setText(f"{round(eta/3600, 1)} hrs left")
             elif eta >= 60:
                 self.eta.setText(f"{round(eta/60)} mins left")
             else:
                 self.eta.setText(f"{round(eta)} secs left")
-            self.rate.setText(
-                f" {round(rate/self.units_divisor, 1)} {self.units}/s")
+            self.rate.setText(f" {round(rate/self.units_divisor, 1)} {self.units}/s")
             self.prev_time = curr_time
         self.mutex.unlock()
         if complete and self.delete_on_completion:
@@ -460,10 +613,30 @@ class ProgressBarWithoutButtons(QWidget):
 
 
 class ProgressBarWithButtons(ProgressBarWithoutButtons):
-    def __init__(self, parent: QWidget | None, task_title: str, item_task_is_applied_on: str, total_value: int,
-                 units: str, units_divisor: int, pause_icon: Icon, resume_icon: Icon, cancel_icon: Icon, pause_callback: Callable[[], None], cancel_callback: Callable[[], None], delete_on_completion=True):
-        super().__init__(parent, task_title, item_task_is_applied_on,
-                         total_value, units, units_divisor, delete_on_completion=delete_on_completion)
+    def __init__(
+        self,
+        parent: QWidget | None,
+        task_title: str,
+        item_task_is_applied_on: str,
+        total_value: int,
+        units: str,
+        units_divisor: int,
+        pause_icon: Icon,
+        resume_icon: Icon,
+        cancel_icon: Icon,
+        pause_callback: Callable[[], None],
+        cancel_callback: Callable[[], None],
+        delete_on_completion=True,
+    ):
+        super().__init__(
+            parent,
+            task_title,
+            item_task_is_applied_on,
+            total_value,
+            units,
+            units_divisor,
+            delete_on_completion=delete_on_completion,
+        )
         self.pause_icon = pause_icon
         self.resume_icon = resume_icon
         self.pause_callback = pause_callback
@@ -487,123 +660,6 @@ class ProgressBarWithButtons(ProgressBarWithoutButtons):
         super().cancel()
 
 
-class AnimeDetails():
-    def __init__(self, anime: Anime, site: str):
-        self.anime = anime
-        self.site = site
-        self.is_hls_download = True if site == GOGO and settings[
-            KEY_GOGO_NORM_OR_HLS_MODE] == GOGO_HLS_MODE else False
-        self.sanitised_title = sanitise_title(anime.title)
-        self.default_download_path = cast(
-            list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS])[0]
-        self.anime_folder_path = self.get_anime_folder_path()
-        self.potentially_haved_episodes = self.get_potentially_haved_episodes()
-        self.haved_episodes: list[int] = []
-        self.haved_start, self.haved_end, self.haved_count = self.get_start_end_and_count_of_haved_episodes()
-        self.dub_available, self.dub_page_link = self.get_dub_availablilty_status()
-        self.metadata = self.get_metadata()
-        self.episode_count = self.metadata.episode_count
-        self.quality = cast(str, settings[KEY_QUALITY])
-        self.sub_or_dub = cast(str, settings[KEY_SUB_OR_DUB])
-        self.ddls_or_segs_urls: list[str] | list[list[str]] = []
-        self.download_info: list[str] = []
-        self.total_download_size: int = 0
-        self.predicted_episodes_to_download: list[int] = []
-        self.skip_calculating_size = True if site == GOGO and not self.is_hls_download and settings[
-            KEY_GOGO_SKIP_CALCULATE] else False
-
-    def get_anime_folder_path(self) -> str | None:
-        def try_path(title: str) -> str | None:
-            for path in cast(list[str], settings[KEY_DOWNLOAD_FOLDER_PATHS]):
-                potential = os.path.join(path, title)
-                if os.path.isdir(potential):
-                    return potential
-            return None
-
-        fully_sanitised_title = sanitise_title(self.anime.title, True, " ")
-        parent_seasons_path = ""
-        season_number = 1
-        parsed_title = ""
-        anime_type = ""
-        parsed = {}
-
-        def init(title: str):
-            nonlocal parsed, parsed_title, parent_seasons_path, anime_type, season_number
-            parsed = anitopy.parse(title)
-            if parsed:
-                parsed_title = parsed.get("anime_title", title)
-                # It could be that the anime is a Special/OVA/ONA
-                anime_type = parsed.get("anime_type", "")
-                if anime_type:
-                    # In the resulting parsed anime_title, Anitopy only ignores Seasons but not Types for some reason, e.g., "Attack On Titan Season 1" will
-                    # be parsed to "Attack on Titan" meanwhile, "Attack on Titan Specials" will still remain as "Attack on Titan"
-                    parsed_title = parsed_title.replace(anime_type, "").strip()
-                parent_seasons_path = try_path(parsed_title)
-                if not anime_type:
-                    season_number = parsed.get("anime_season", 1)
-        init(self.sanitised_title)
-        if not parent_seasons_path:
-            init(fully_sanitised_title)
-        if parent_seasons_path and parsed_title and parsed:
-            target_folders = [anime_type] if anime_type else [f"Season {season_number}", f"SN {season_number}", f"Sn {season_number}",
-                                                              f"{parsed_title} Season {season_number}", f"{parsed_title} SN {season_number}", f"{parsed_title} Sn {season_number}"]
-            target_folders += [self.sanitised_title, fully_sanitised_title]
-
-            for f in target_folders:
-                folder = os.path.join(parent_seasons_path, f)
-                if os.path.isdir(folder):
-                    return folder
-        if path := try_path(self.sanitised_title):
-            return path
-        elif path := try_path(fully_sanitised_title):
-            return path
-        else:
-            return None
-
-    def get_potentially_haved_episodes(self) -> list[Path] | None:
-        if not self.anime_folder_path:
-            return None
-        episodes = list(Path(self.anime_folder_path).glob("*"))
-        return episodes
-
-    def get_start_end_and_count_of_haved_episodes(self) -> tuple[int, int, int] | tuple[None, None, None]:
-        if self.potentially_haved_episodes:
-            for episode in self.potentially_haved_episodes:
-                if "[Downloading]" in episode.name:
-                    continue
-                parsed = anitopy.parse(episode.name)
-                if not parsed:
-                    continue
-                try:
-                    episode_number = int(parsed['episode_number'])
-                except KeyError:
-                    continue
-                if episode_number > 0:
-                    self.haved_episodes.append(episode_number)
-            self.haved_episodes.sort()
-        return (self.haved_episodes[0], self.haved_episodes[-1], len(self.haved_episodes)) if len(self.haved_episodes) > 0 else (None, None, None)
-
-    def get_dub_availablilty_status(self) -> tuple[bool, str]:
-        if self.site == PAHE:
-            dub_available = pahe.dub_available(
-                self.anime.page_link, cast(str, self.anime.id))
-            link = self.anime.page_link
-        else:
-            dub_available, link = gogo.dub_availability_and_link(
-                self.anime.title)
-        return dub_available, link
-
-    def get_metadata(self) -> AnimeMetadata:
-        if self.site == PAHE:
-            metadata = pahe.get_anime_metadata(
-                cast(str, self.anime.id))
-        else:
-            page_content = gogo.get_anime_page_content(
-                self.anime.page_link)
-            metadata = gogo.extract_anime_metadata(page_content)
-        return metadata
-
-
 class ScrollableSection(QScrollArea):
     def __init__(self, layout: QHBoxLayout | QVBoxLayout):
         super().__init__()
@@ -612,26 +668,30 @@ class ScrollableSection(QScrollArea):
         self.main_widget.setLayout(layout)
         self.main_layout = self.layout()
         self.setWidget(self.main_widget)
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
                     QWidget {
                         background-color: transparent;
                         border: None;
-                        }""")
+                        }"""
+        )
 
 
 class FolderButton(IconButton):
-    def __init__(self, path: str, size_x: int, size_y: int, parent: QWidget | None = None):
-        super().__init__(Icon(size_x, size_y, folder_icon_path), 1.3, parent)
+    def __init__(
+        self, path: str, size_x: int, size_y: int, parent: QWidget | None = None
+    ):
+        super().__init__(Icon(size_x, size_y, FOLDER_ICON_PATH), 1.3, parent)
         self.folder_path = path
-        self.clicked.connect(lambda: open_folder(
-            self.folder_path))
+        self.clicked.connect(lambda: open_folder(self.folder_path))
 
 
 class NumberInput(QLineEdit):
     def __init__(self, font_size: int = 14, parent: QWidget | None = None):
         super().__init__(parent)
         self.installEventFilter(self)
-        self.setStyleSheet(f"""
+        self.setStyleSheet(
+            f"""
             QLineEdit{{
                 border: 2px solid black;
                 border-radius: 12px;
@@ -641,53 +701,85 @@ class NumberInput(QLineEdit):
                 font-family: "Berlin Sans FB Demi";
                 background-color: white;
             }}
-        """)
+        """
+        )
 
-    def eventFilter(self, obj, event):
-        if event.type() == QKeyEvent.Type.KeyPress:
-            if event.key() in (Qt.Key.Key_0, Qt.Key.Key_1, Qt.Key.Key_2, Qt.Key.Key_3, Qt.Key.Key_4, Qt.Key.Key_5,
-                               Qt.Key.Key_6, Qt.Key.Key_7, Qt.Key.Key_8, Qt.Key.Key_9, Qt.Key.Key_Backspace,
-                               Qt.Key.Key_Delete, Qt.Key.Key_Left, Qt.Key.Key_Right):
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None):
+        if cast(QEvent, a1) == QKeyEvent.Type.KeyPress:
+            if cast(QKeyEvent, a1).key() in (
+                Qt.Key.Key_0,
+                Qt.Key.Key_1,
+                Qt.Key.Key_2,
+                Qt.Key.Key_3,
+                Qt.Key.Key_4,
+                Qt.Key.Key_5,
+                Qt.Key.Key_6,
+                Qt.Key.Key_7,
+                Qt.Key.Key_8,
+                Qt.Key.Key_9,
+                Qt.Key.Key_Backspace,
+                Qt.Key.Key_Delete,
+                Qt.Key.Key_Left,
+                Qt.Key.Key_Right,
+            ):
                 return False
             else:
                 return True
-        return super().eventFilter(obj, event)
+        return super().eventFilter(a0, a1)
 
 
 class QualityButton(OptionButton):
     def __init__(self, window: QWidget, quality: str, font_size: int):
-        super().__init__(window, quality, quality, font_size,
-                         PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR)
+        super().__init__(
+            window, quality, quality, font_size, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR
+        )
         self.quality = quality
 
 
 class SubDubButton(OptionButton):
     def __init__(self, window: QWidget, sub_or_dub: str, font_size: int):
-        super().__init__(window, sub_or_dub, sub_or_dub.upper(),
-                         font_size,  PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR)
+        super().__init__(
+            window,
+            sub_or_dub,
+            sub_or_dub.upper(),
+            font_size,
+            PAHE_NORMAL_COLOR,
+            PAHE_PRESSED_COLOR,
+        )
         self.sub_or_dub = sub_or_dub
 
 
 class GogoNormOrHlsButton(OptionButton):
     def __init__(self, window: QWidget | None, norm_or_hls: str, font_size: int):
-        super().__init__(window, norm_or_hls, norm_or_hls.upper(),
-                         font_size, RED_NORMAL_COLOR, RED_PRESSED_COLOR)
+        super().__init__(
+            window,
+            norm_or_hls,
+            norm_or_hls.upper(),
+            font_size,
+            RED_NORMAL_COLOR,
+            RED_PRESSED_COLOR,
+        )
         self.norm_or_hls = norm_or_hls
         if self.norm_or_hls == GOGO_NORM_MODE:
-            return self.setToolTip("Normal download functionality, similar to Animepahe but may occassionally fail")
+            return self.setToolTip(
+                "Normal download functionality, similar to Animepahe but may occassionally fail"
+            )
         self.setToolTip(
-            "Guaranteed to work, it's like downloading a live stream as opposed to a file\nYou need to install FFmpeg for it to work but Senpwai will try to automatically install it")
+            "Guaranteed to work, it's like downloading a live stream as opposed to a file\nYou need to install FFmpeg for it to work but Senpwai will try to automatically install it"
+        )
 
 
 class HorizontalLine(QFrame):
     def __init__(self, color: str = "black", parent: QWidget | None = None):
         super().__init__(parent)
         self.setFrameShape(QFrame.Shape.HLine)
-        self.setStyleSheet(f"""
+        self.setStyleSheet(
+            f"""
                         QFrame {{ 
                             background-color: {color}; 
                             }}
-                            """)
+                            """
+        )
 
 
 class Title(StyledLabel):
