@@ -102,7 +102,6 @@ def get_run_time_later() -> Callable[[], float]:
 def test_check_results_for_anime(
     anime_title: str,
     results: list[tuple[str, str]] | list[tuple[str, str, str]],
-    site: str,
 ) -> tuple[str, str] | tuple[str, str, str] | None:
     test_name = f"Matching results to {anime_title}"
     test_start(test_name)
@@ -553,7 +552,7 @@ def run_tests(args: ArgParser):
             print(f"Search Results: {results}\n")
         target_result = cast(
             tuple[str, str] | tuple[str, str, str],
-            test_check_results_for_anime(args.anime_title, results, args.site),
+            test_check_results_for_anime(args.anime_title, results),
         )
         if args.verbose:
             print(f"Target Result: {target_result}\n")

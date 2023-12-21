@@ -2,7 +2,7 @@ from random import choice as randomchoice
 from time import sleep as timesleep
 from typing import cast
 
-from PyQt6.QtCore import QEvent, Qt, QThread, QTimer, pyqtSignal
+from PyQt6.QtCore import QEvent, QObject, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -147,13 +147,12 @@ class SearchWindow(AbstractWindow):
                 QWidget, cast(QLayoutItem, self.results_layout.itemAt(idx)).widget()
             ).deleteLater()
             self.results_layout.removeItem(item)
-        upper_title = anime_title.upper()
         self.search_thread = SearchThread(self, anime_title, site)
-        if IS_CHRISTMAS:
-            AudioPlayer(self, MERRY_CHRISMASU_AUDIO_PATH, 30).play()
-        elif "ONE PIECE" in upper_title:
+        anime_title_lower = anime_title.lower()
+        is_naruto = "naruto" in anime_title_lower
+        if "one piece" in anime_title_lower:
             AudioPlayer(self, SEN_FAVOURITE_AUDIO_PATH, volume=100).play()
-        elif "JOJO" in upper_title:
+        elif "jojo" in anime_title_lower:
             AudioPlayer(self, ZA_WARUDO_AUDIO_PATH, 100).play()
             for _ in range(180):
                 self.main_window.app.processEvents()
@@ -164,18 +163,20 @@ class SearchWindow(AbstractWindow):
             timesleep(2)
             AudioPlayer(self, TOKI_WA_UGOKI_DASU_AUDIO_PATH, 100).play()
             timesleep(1.8)
-        lower = anime_title.lower()
-        for w_anime in W_ANIME:
-            if w_anime in lower:
-                AudioPlayer(self, GIGACHAD_AUDIO_PATH, 50).play()
-        for l_anime in L_ANIME:
-            if l_anime in lower:
-                AudioPlayer(self, WHAT_DA_HELL_AUDIO_PATH, 100).play()
-        if "NARUTO" in upper_title:
+        elif anime_title_lower in W_ANIME:
+            AudioPlayer(self, GIGACHAD_AUDIO_PATH, 25).play()
+        elif anime_title_lower in L_ANIME:
+            AudioPlayer(self, WHAT_DA_HELL_AUDIO_PATH, 100).play()
+        elif is_naruto:
             self.kage_bunshin_no_jutsu = AudioPlayer(
                 self, KAGE_BUNSHIN_AUDIO_PATH, volume=50
             )
             self.kage_bunshin_no_jutsu.play()
+        # Has to be the last check to avoid faiing to set self.kage_bunshin_no_jutsu incase is_naruto == True
+        elif IS_CHRISTMAS:
+            AudioPlayer(self, MERRY_CHRISMASU_AUDIO_PATH, 30).play()
+
+        if is_naruto:
             self.search_thread.finished.connect(self.start_naruto_results_thread)
         else:
             self.search_thread.finished.connect(self.show_results)
@@ -319,19 +320,19 @@ class SearchBar(QLineEdit):
         """
         )
 
-    def eventFilter(self, obj, event: QEvent):
-        if isinstance(event, QKeyEvent):
-            if obj == self and event.type() == event.Type.KeyPress:
-                if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None):
+        if isinstance(a1, QKeyEvent):
+            if a0 == self and a1.type() == a1.Type.KeyPress:
+                if a1.key() == Qt.Key.Key_Enter or a1.key() == Qt.Key.Key_Return:
                     self.search_window.pahe_search_button.animateClick()
-                elif event.key() == Qt.Key.Key_Tab:
+                elif a1.key() == Qt.Key.Key_Tab:
                     first_button = self.search_window.results_layout.itemAt(0)
                     if first_button:
                         cast(QWidget, first_button.widget()).setFocus()
                     else:
                         self.search_window.gogo_search_button.animateClick()
                     return True
-        return super().eventFilter(obj, event)
+        return super().eventFilter(a0, a1)
 
 
 class SearchButton(StyledButton):
@@ -413,17 +414,18 @@ class ResultButton(OutlinedButton):
         )
         self.installEventFilter(self)
 
-    def eventFilter(self, obj, event: QEvent):
-        if obj == self:
-            if event.type() == QEvent.Type.FocusIn:
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None):
+        if a0 == self:
+            a1 = cast(QEvent, a1)
+            if a1.type() == QEvent.Type.FocusIn:
                 self.setStyleSheet(self.focused_sheet)
-            elif event.type() == QEvent.Type.FocusOut:
+            elif a1.type() == QEvent.Type.FocusOut:
                 self.setStyleSheet(self.style_sheet_buffer)
             if (
-                isinstance(event, QKeyEvent)
-                and event.type() == event.Type.KeyPress
+                isinstance(a1, QKeyEvent)
+                and a1.type() == a1.Type.KeyPress
                 and (
-                    event.key()
+                    a1.key()
                     in (
                         Qt.Key.Key_Tab,
                         Qt.Key.Key_Up,
@@ -436,7 +438,7 @@ class ResultButton(OutlinedButton):
                 # It doesn't work without the QTimer for some reason, probably cause the horizontal scroll bar centering bug happens
                 # after this event is processed so the fix is overwridden hence we wait for the bug to happen first then fix it thus we need the QTimer
                 QTimer.singleShot(0, self.search_window.fix_hor_scroll_bar)
-        return super().eventFilter(obj, event)
+        return super().eventFilter(a0, a1)
 
 
 class SearchThread(QThread):

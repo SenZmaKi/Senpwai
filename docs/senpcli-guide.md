@@ -2,29 +2,29 @@
 
 The CLI alternative for Senpwai.
 
-# Installation
+## Installation
 
 - **Windows 10/11**
 
-Senpwai ships with Senpcli preinstalled but you can install Senpcli as a completely seperate package by downloading and running [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpcli-setup.exe).
+Senpwai ships with the Senpcli executable preinstalled but you can install Senpcli as a completely seperate package by downloading and running [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpcli-setup.exe).
 
-If you're using the preinstalled version first add the Senpwai folder to your PATH environment variable in order to use Senpcli. The folder is typically at "%APPDATA%/../Local/Programs/Senpwai". Here is a [guide](https://www.architectryan.com/2018/03/17/add-to-the-path-on-windows-10/) for adding a folder to path.
+If you're using the preinstalled version first add the Senpwai folder to your PATH environment variable. The folder is typically at "%LOCALAPPDATA%\Programs\Senpwai". Here is a [guide](https://www.architectryan.com/2018/03/17/add-to-the-path-on-windows-10/) for adding a folder to PATH.
 
 - **Linux/Mac**
 
 You'll have to [build from source](#building-from-source).
 
-# Usage
+## Usage
 
 ```bash
 senpcli [-h] [-v] [-sd {sub,dub}] [-s {pahe,gogo}] [-se START_EPISODE] [-ee END_EPISODE] [-q {1080p,720p,480p,360p}] [-hls] [-sc] [-msd] [-of] title
 ```
 
-## Positional Arguments
+### Positional Arguments
 
 - `title`: Title of the anime to download
 
-## Options
+### Options
 
 - `-h, --help`: Show help message and exit
 - `-v, --version`: Show program's version number and exit
@@ -38,11 +38,11 @@ senpcli [-h] [-v] [-sd {sub,dub}] [-s {pahe,gogo}] [-se START_EPISODE] [-ee END_
 - `-of, --open_folder`: Open the folder containing the downloaded anime
 - `-msd MAX_SIMULTANEOUS_DOWNLOADS, --max_simultaneous_downloads MAX_SIMULTANEOUS_DOWNLOADS`: Maximum number of simultaneous downloads
 
-## Settings
+### Settings
 
-Senpcli by default uses your settings from Senpwai. If you don't have Senpwai installed and want to edit the settings you can find the settings.json at "%APPDATA%/../Local/Senpwai/settings.json" on Windows and "~/.config/Senpwai/settings.json" on Linux/Mac.
+Senpcli by default uses your settings from Senpwai. If you don't have Senpwai installed and want to edit the settings you can find the settings.json at "%LOCALAPPDATA%\Senpwai\settings.json" on Windows and "~/.config/Senpwai/settings.json" on Linux/Mac.
 
-# Building from Source
+## Building from Source
 
 Ensure you have [Python 3.11](https://www.python.org/downloads/release/python-3111) and [Git](https://github.com/git-guides/install-git) installed.
 

@@ -83,7 +83,7 @@ class GetEpisodePageLinks(PausableAndCancellableFunction):
         end_episode: int,
         anime_page_link: str,
         anime_id: str,
-        progress_update_callback: Callable = lambda update: None,
+        progress_update_callback: Callable = lambda _: None,
     ) -> list[str]:
         page_url = anime_page_link
         episodes_data = []
@@ -119,7 +119,7 @@ class GetPahewinDownloadPageLinks(PausableAndCancellableFunction):
     def get_pahewin_download_page_links_and_info(
         self,
         episode_page_links: list[str],
-        progress_update_callback: Callable = lambda x: None,
+        progress_update_callback: Callable = lambda _: None,
     ) -> tuple[list[list[str]], list[list[str]]]:
         download_data: list[ResultSet[BeautifulSoup]] = []
         for episode_page_link in episode_page_links:
@@ -259,7 +259,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
     def get_direct_download_links(
         self,
         pahewin_download_page_links: list[str],
-        progress_update_callback: Callable = lambda x: None,
+        progress_update_callback: Callable = lambda _: None,
     ) -> list[str]:
         direct_download_links: list[str] = []
         param_regex = re.compile(r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""")

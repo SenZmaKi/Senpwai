@@ -5,14 +5,12 @@ from typing import cast
 
 import anitopy
 from appdirs import user_config_dir
-from requests import Response
 from scrapers import gogo, pahe
 import logging
 import re
 
 from utils.scraper_utils import (
     CLIENT,
-    RESOURCE_MOVED_STATUS_CODES,
     AnimeMetadata,
     sanitise_title,
 )
@@ -56,9 +54,6 @@ def update_available(
                     matched_asset,
                 )
                 break
-    # If the latest release doesn't have the target asset, then we assume that there's no update available
-    if target_asset_name == "":
-        update_available = False
     return (
         update_available,
         download_url,
@@ -142,7 +137,6 @@ class Settings:
         d_settings = {k: v for k, v in self.__dict__.items()}
         d_settings.pop("settings_json_path")
         d_settings.pop("config_dir")
-        d_settings.pop("is_update_install")
         return d_settings
 
     def update_sub_or_dub(self, sub_or_dub: str) -> None:

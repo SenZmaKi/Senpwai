@@ -4,22 +4,19 @@ from argparse import ArgumentParser, Namespace
 from random import choice as random_choice
 from threading import Event, Lock, Thread
 from typing import Callable, cast
-from webbrowser import open_new_tab
 from queue import Queue
 from os import path
 
-from scrapers import gogo, pahe
 from utils.class_utils import SETTINGS, Anime, AnimeDetails, update_available
+from scrapers import gogo, pahe
 from utils.scraper_utils import (
-    FFMPEG_LINUX_INSTALLATION_GUIDE,
-    FFMPEG_MAC_INSTALLATION_GUIDE,
-    FFMPEG_WINDOWS_INSTALLATION_GUIDE,
     IBYTES_TO_MBS_DIVISOR,
     Download,
     ffmpeg_is_installed,
     fuzz_str,
     lacked_episode_numbers,
     lacked_episodes,
+    try_installing_ffmpeg,
 )
 from utils.static_utils import (
     open_folder,
@@ -34,6 +31,7 @@ from utils.static_utils import (
     SUB,
     VERSION,
     GITHUB_API_LATEST_RELEASE_ENDPOINT,
+    GITHUB_REPO_URL,
     SRC_DIRECTORY,
 )
 from tqdm import tqdm
@@ -50,7 +48,6 @@ ASCII_APP_NAME = r"""
 /____  >\___  >___|  /   __/ \___  >____/__|
      \/     \/     \/|__|        \/         
 """
-FAILED_TO_AUTOMATICALLY_INSTALL_FFMPEG = "Failed to automatically install FFmpeg"
 
 ANIME_REFERENCES = (
     "Hello friend",
@@ -215,7 +212,9 @@ def search(title: str, site: str) -> Anime | None:
     return results
 
 
-def validate_start_and_end_episode(start_episode: int, end_episode: int, total_episode_count: int) -> tuple[int, int]:
+def validate_start_and_end_episode(
+    start_episode: int, end_episode: int, total_episode_count: int
+) -> tuple[int, int]:
     if end_episode == -1:
         end_episode = total_episode_count
     if end_episode > total_episode_count:
@@ -390,8 +389,8 @@ def download_manager(
     def update_progress(added):
         update_lock.acquire()
         nonlocal curr_simultaneous_downloads
-        curr_simultaneous_downloads += added
-        if curr_simultaneous_downloads == 0:
+        curr_simultaneous_downloads -= 1
+        if curr_simultaneous_downloads < max_simultaneous_downloads:
             download_slot_available.set()
         episodes_pbar.update(added)
         if episodes_pbar.n == episodes_pbar.total:
@@ -411,44 +410,10 @@ def download_manager(
 
     downloads_complete.wait()
     episodes_pbar.close()
+
     print(
-        f"Download complete uWu, Senpwai ga saiko no stando da!!!\n{random_choice(ANIME_REFERENCES)}"
+        f"Download complete uWu, Senpcli ga saikou no stando da!!!\n{random_choice(ANIME_REFERENCES)}"
     )
-
-
-def install_ffmpeg() -> bool:
-    if sys.platform == "win32":
-        try:
-            subprocess.run("winget install Gyan.FFmpeg")
-            return True
-        # I should probably catch the specific exceptions but I'm too lazy to figure out all the possible exceptions
-        except Exception:
-            pass
-        # Incase the installation was scuffed
-        if not ffmpeg_is_installed():
-            print(FAILED_TO_AUTOMATICALLY_INSTALL_FFMPEG)
-            open_new_tab(FFMPEG_WINDOWS_INSTALLATION_GUIDE)
-
-    elif sys.platform == "linux":
-        try:
-            subprocess.run("sudo apt install ffmpeg")
-            return True
-        except Exception:
-            pass
-        if not ffmpeg_is_installed():
-            print(FAILED_TO_AUTOMATICALLY_INSTALL_FFMPEG)
-            open_new_tab(FFMPEG_LINUX_INSTALLATION_GUIDE)
-
-    else:
-        try:
-            subprocess.run("brew install ffmpeg")
-            return True
-        except Exception:
-            pass
-        if not ffmpeg_is_installed():
-            print(FAILED_TO_AUTOMATICALLY_INSTALL_FFMPEG)
-            open_new_tab(FFMPEG_MAC_INSTALLATION_GUIDE)
-    return False
 
 
 def install_ffmpeg_prompt() -> bool:
@@ -457,7 +422,10 @@ def install_ffmpeg_prompt() -> bool:
             "HLS mode requires FFmpeg to be installed, would you like to install it? (y/n)"
         )
         if input("> ").lower() == "y":
-            return install_ffmpeg()
+            successfully_installed = try_installing_ffmpeg()
+            if not successfully_installed:
+                print("Failed to automatically install FFmpeg")
+            return successfully_installed
         else:
             print("Aborting")
             return False
@@ -528,6 +496,11 @@ def handle_pahe(parsed: Namespace, anime: Anime, anime_details: AnimeDetails):
     if already_has_all_episodes(
         anime_details, parsed.start_episode, parsed.end_episode, episode_page_links
     ):
+        return
+    if parsed.sub_or_dub == DUB and not pahe.dub_available(
+        anime.page_link, cast(str, anime.id)
+    ):
+        print("Dub not available for this anime")
         return
     download_page_links = pahe_get_download_page_links(
         episode_page_links, parsed.quality, parsed.sub_or_dub
@@ -614,9 +587,14 @@ def handle_update_check_result(
     if SENPWAI_IS_INSTALLED:
         return print("Update available, install it by updating Senpwai")
     if is_available:
-        print("Update available, would you like to download and install it? (y/n)")
-        if input("> ").lower() == "y":
-            download_and_install_update(download_url, file_name)
+        if sys.platform == "win32":
+            print("Update available, would you like to download and install it? (y/n)")
+            if input("> ").lower() == "y":
+                download_and_install_update(download_url, file_name)
+        else:
+            print(
+                f"A new version is available, but to install it you'll have to build from source\nThere is a guide at: {GITHUB_REPO_URL}"
+            )
 
 
 def start_update_check_thread() -> tuple[Thread, Queue]:
@@ -632,6 +610,11 @@ def get_anime_and_anime_details(parsed) -> tuple[Anime, AnimeDetails] | None:
     anime = search(parsed.title, parsed.site)
     if anime is None:
         return None
+    if parsed.sub_or_dub == DUB and parsed.site == GOGO:
+        dub_available, anime.page_link = gogo.dub_availability_and_link(anime.title)
+        if not dub_available:
+            print("Dub not available for this anime")
+            return None
     anime_details = AnimeDetails(anime, parsed.site)
     if parsed.start_episode == -1:
         if (
@@ -659,7 +642,7 @@ def initiate_download_pipeline(
         open_folder(anime_details.anime_folder_path)
 
 
-def valid_start_and_end_episode(parsed: Namespace) -> bool:
+def validate_args(parsed: Namespace) -> bool:
     if parsed.end_episode < parsed.start_episode:
         print("End episode cannot be less than start episode, hontoni baka ga")
         return False
@@ -669,6 +652,10 @@ def valid_start_and_end_episode(parsed: Namespace) -> bool:
     elif parsed.end_episode < 1 and parsed.end_episode != -1:
         print("End episode cannot be less than 1, is that your brain cell count?")
         return False
+    elif parsed.site != GOGO and parsed.hls:
+        print("Setting site to Gogo since HLS mode is only available for Gogo")
+        parsed.site = GOGO
+
     return True
 
 
@@ -677,7 +664,7 @@ def main():
         args = sys.argv[1:]
         print(ASCII_APP_NAME)
         parsed = parse_args(args)
-        if not valid_start_and_end_episode(parsed):
+        if not validate_args(parsed):
             return
         update_check_thread, update_check_result_queue = start_update_check_thread()
         anime_and_anime_details = get_anime_and_anime_details(parsed)

@@ -8,7 +8,6 @@ from types import TracebackType
 import logging
 
 
-
 if getattr(sys, "frozen", False):
     SRC_DIRECTORY = os.path.join(os.path.dirname(sys.executable))
     IS_EXECUTABLE = True
@@ -45,8 +44,10 @@ def try_deleting_safely(path: str):
         except PermissionError:
             pass
 
+
 def generate_windows_setup_file_titles(app_name: str) -> tuple[str, str]:
     return (f"{app_name}-setup.exe", f"{app_name}-setup.msi")
+
 
 for setup in generate_windows_setup_file_titles(APP_NAME):
     try_deleting_safely(setup)
@@ -226,7 +227,7 @@ UPDATE_ICON_PATH = join_from_navbar("update.png")
 
 # Anime eastereggs
 
-W_ANIME = (
+W_ANIME = {
     "vermeil",
     "golden kamuy",
     "goblin slayer",
@@ -261,8 +262,8 @@ W_ANIME = (
     "fire force",
     "mieruko",
     "fumetsu",
-)
-L_ANIME = (
+}
+L_ANIME = {
     "tokyo ghoul",
     "sword art",
     "boku no pico",
@@ -277,4 +278,4 @@ L_ANIME = (
     "7 deadly sins",
     "seven deadly sins",
     "apothecary",
-)
+}

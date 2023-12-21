@@ -226,10 +226,10 @@ class DownloadFoldersSetting(FolderSetting):
             "Senpwai will search these folders for anime episodes, in the order shown",
         )
 
-    def remove_from_folder_settings(self, download_folder_widget: QWidget):
+    def remove_from_folder_settings(self, folder_widget: QWidget):
         if len(SETTINGS.download_folder_paths) == 1:
             return self.error("Yarou!!! You must have at least one download folder")
-        return super().remove_from_folder_settings(download_folder_widget)
+        return super().remove_from_folder_settings(folder_widget)
 
 
 class FolderWidget(QWidget):
@@ -308,7 +308,6 @@ class SettingWidget(QWidget):
         setting_info: str,
         widgets_to_add: list,
         horizontal_layout=True,
-        all_on_one_line=False,
     ):
         super().__init__()
         self.setting_label = StyledLabel(font_size=settings_window.font_size + 5)
@@ -371,7 +370,7 @@ class TrackedAnimeListSetting(SettingWidget):
 
     def setup_anime_widget(self, wid: RemovableWidget):
         wid.remove_button.clicked.connect(
-            lambda garbage_bool, txt=wid.text: SETTINGS.remove_tracked_anime(txt)
+            lambda _, txt=wid.text: SETTINGS.remove_tracked_anime(txt)
         )
         wid.remove_button.clicked.connect(lambda: self.anime_buttons.remove(wid))
         set_minimum_size_policy(wid)
@@ -666,7 +665,7 @@ class QualitySetting(SettingWidget):
             set_minimum_size_policy(button)
             quality = button.quality
             button.clicked.connect(
-                lambda garbage_bool, quality=quality: self.update_quality(quality)
+                lambda _, quality=quality: self.update_quality(quality)
             )
             if button.quality == SETTINGS.quality:
                 button.set_picked_status(True)

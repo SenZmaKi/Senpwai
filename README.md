@@ -45,7 +45,8 @@ You'll have to [build from source](#building-from-source).
 - GUI and [CLI](docs/senpcli-guide.md).
 
 ## CLI
-[Senpcli](docs/senpcli-guide.md) is the CLI alternative for Senpwai.
+
+[Senpcli](docs/senpcli-guide.md) is a minimalist and lightweight CLI alternative for Senpwai. Senpwai is already efficient and lightweight, Senpcli basically strips off the GUI while maintaining most of the basic functionality.
 
 ## Building from Source
 

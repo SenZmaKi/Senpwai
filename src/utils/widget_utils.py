@@ -1,9 +1,18 @@
 import sys
 from time import time
-from typing import Callable
+from typing import Callable, cast
 
-from PyQt6.QtCore import QMutex, QSize, Qt, QTimer, QUrl
-from PyQt6.QtGui import QIcon, QKeyEvent, QMovie, QPainter, QPainterPath, QPen, QPixmap
+from PyQt6.QtCore import QEvent, QMutex, QObject, QSize, Qt, QTimer, QUrl
+from PyQt6.QtGui import (
+    QIcon,
+    QKeyEvent,
+    QMovie,
+    QPaintEvent,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+)
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import (
     QFrame,
@@ -158,17 +167,17 @@ class StyledButton(QPushButton):
         )
         self.installEventFilter(self)
 
-    def eventFilter(self, obj, event):
-        if obj == self:
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None):
+        if a0 == self:
             if (
-                isinstance(event, QKeyEvent)
-                and event.type() == event.Type.KeyPress
-                and (event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter))
+                isinstance(a1, QKeyEvent)
+                and a1.type() == a1.Type.KeyPress
+                and (a1.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter))
             ):
                 self.animateClick()
                 return True
 
-            return super().eventFilter(obj, event)
+        return super().eventFilter(a0, a1)
 
 
 class DualStateButton(StyledButton):
@@ -294,21 +303,18 @@ class IconButton(QPushButton):
         )
         self.installEventFilter(self)
 
-    def eventFilter(self, obj, event):
-        if obj == self:
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None):
+        if a0 == self:
             if (
-                isinstance(event, QKeyEvent)
-                and event.type() == event.Type.KeyPress
-                and (
-                    (event.key() == Qt.Key.Key_Return)
-                    or (event.key() == Qt.Key.Key_Enter)
-                )
+                isinstance(a1, QKeyEvent)
+                and a1.type() == a1.Type.KeyPress
+                and ((a1.key() == Qt.Key.Key_Return) or (a1.key() == Qt.Key.Key_Enter))
             ):
-                if isinstance(obj, QPushButton):
+                if isinstance(a0, QPushButton):
                     self.animateClick()
                     return True
 
-        return super().eventFilter(obj, event)
+        return super().eventFilter(a0, a1)
 
 
 class AnimationAndText(QWidget):
@@ -359,7 +365,7 @@ class OutlinedLabel(QLabel):
         self.paint_y = paint_y
         super().__init__(parent)
 
-    def paintEvent(self, event):
+    def paintEvent(self, a0: QPaintEvent | None):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -374,7 +380,7 @@ class OutlinedLabel(QLabel):
 
         # Call the parent class's paintEvent to draw the label background and other properties
         painter.end()
-        return super().paintEvent(event)
+        return super().paintEvent(a0)
 
 
 class OutlinedButton(StyledButton):
@@ -402,7 +408,7 @@ class OutlinedButton(StyledButton):
             border_radius,
         )
 
-    def paintEvent(self, event):
+    def paintEvent(self, a0: QPaintEvent | None):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -417,7 +423,7 @@ class OutlinedButton(StyledButton):
 
         # Call the parent class's paintEvent to draw the button background and other properties
         painter.end()
-        return super().paintEvent(event)
+        return super().paintEvent(a0)
 
 
 class AudioPlayer(QMediaPlayer):
@@ -698,9 +704,9 @@ class NumberInput(QLineEdit):
         """
         )
 
-    def eventFilter(self, obj, event):
-        if event.type() == QKeyEvent.Type.KeyPress:
-            if event.key() in (
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None):
+        if cast(QEvent, a1) == QKeyEvent.Type.KeyPress:
+            if cast(QKeyEvent, a1).key() in (
                 Qt.Key.Key_0,
                 Qt.Key.Key_1,
                 Qt.Key.Key_2,
@@ -719,7 +725,7 @@ class NumberInput(QLineEdit):
                 return False
             else:
                 return True
-        return super().eventFilter(obj, event)
+        return super().eventFilter(a0, a1)
 
 
 class QualityButton(OptionButton):

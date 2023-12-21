@@ -103,7 +103,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
         self,
         download_page_links: list[str],
         user_quality: str,
-        progress_update_callback: Callable = lambda x: None,
+        progress_update_callback: Callable = lambda _: None,
     ) -> list[str]:
         direct_download_links: list[str] = []
         for eps_pg_link in download_page_links:
@@ -136,7 +136,7 @@ class CalculateTotalDowloadSize(PausableAndCancellableFunction):
     def calculate_total_download_size(
         self,
         direct_download_links: list[str],
-        progress_update_callback: Callable = lambda update: None,
+        progress_update_callback: Callable = lambda _: None,
         in_megabytes=False,
     ) -> int:
         total_size = 0
@@ -284,7 +284,7 @@ class GetHlsMatchedQualityLinks(PausableAndCancellableFunction):
         self,
         hls_links: list[str],
         quality: str,
-        progress_update_callback: Callable = lambda x: None,
+        progress_update_callback: Callable = lambda _: None,
     ) -> list[str]:
         matched_links: list[str] = []
         for h in hls_links:
@@ -309,7 +309,7 @@ class GetHlsSegmentsUrls(PausableAndCancellableFunction):
     def get_hls_segments_urls(
         self,
         matched_links: list[str],
-        progress_update_callback: Callable = lambda x: None,
+        progress_update_callback: Callable = lambda _: None,
     ) -> list[list[str]]:
         segments_urls: list[list[str]] = []
         for m in matched_links:
@@ -336,7 +336,7 @@ class GetHlsLinks(PausableAndCancellableFunction):
     def get_hls_links(
         self,
         download_page_links: list[str],
-        progress_update_callback: Callable = lambda x: None,
+        progress_update_callback: Callable = lambda _: None,
     ) -> list[str]:
         hls_links: list[str] = []
         for eps_url in download_page_links:

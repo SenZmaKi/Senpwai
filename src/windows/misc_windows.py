@@ -9,13 +9,10 @@ from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from utils.class_utils import AnimeDetails, update_available
 from utils.scraper_utils import (
     CLIENT,
-    FFMPEG_LINUX_INSTALLATION_GUIDE,
-    FFMPEG_MAC_INSTALLATION_GUIDE,
-    FFMPEG_WINDOWS_INSTALLATION_GUIDE,
     IBYTES_TO_MBS_DIVISOR,
     RESOURCE_MOVED_STATUS_CODES,
     Download,
-    ffmpeg_is_installed,
+    try_installing_ffmpeg,
 )
 from utils.static_utils import (
     APP_NAME,
@@ -79,6 +76,8 @@ class NewVersionInfoWindow(MiscWindow):
 
 
 class NoFFmpegWindow(MiscWindow):
+    initiate_download_pipeline = pyqtSignal(AnimeDetails)
+
     def __init__(self, main_window: MainWindow, anime_details: AnimeDetails):
         self.main_window = main_window
         info_text = "Sumanai, in order to use HLS mode you need to have\nFFmpeg installed and properly added to path"
@@ -87,22 +86,20 @@ class NoFFmpegWindow(MiscWindow):
         install_ffmepg_button = StyledButton(
             None, 25, "black", GOGO_NORMAL_COLOR, GOGO_HOVER_COLOR, GOGO_PRESSED_COLOR
         )
-        if sys.platform == "win32" or sys.platform == "linux":
-            install_ffmepg_button.setText("Automatically Install FFmpeg")
-        else:
-            install_ffmepg_button.setText("Install FFmpeg")
+        install_ffmepg_button.setText("Automatically Install FFmpeg")
         set_minimum_size_policy(install_ffmepg_button)
         install_ffmepg_button.clicked.connect(
-            lambda: TryInstallingFFmpegThread(self, anime_details).start()
+            TryInstallingFFmpegThread(self, anime_details).start
         )
         anime_details.is_hls_download = False
         download_in_normal_mode = StyledButton(
             None, 25, "black", RED_NORMAL_COLOR, RED_HOVER_COLOR, RED_PRESSED_COLOR
         )
+        self.initiate_download_pipeline.connect(
+            main_window.download_window.initiate_download_pipeline
+        )
         download_in_normal_mode.clicked.connect(
-            lambda: main_window.download_window.initiate_download_pipeline(
-                anime_details
-            )
+            lambda: self.initiate_download_pipeline.emit(anime_details)
         )
         download_in_normal_mode.clicked.connect(self.download_window_button.click)
         download_in_normal_mode.setText("Download in Normal mode")
@@ -118,7 +115,9 @@ class TryInstallingFFmpegThread(QThread):
     def __init__(self, no_ffmpeg_window: NoFFmpegWindow, anime_details: AnimeDetails):
         super().__init__(no_ffmpeg_window)
         self.initiate_download_pipeline.connect(
-            no_ffmpeg_window.main_window.download_window.initiate_download_pipeline
+            lambda: no_ffmpeg_window.main_window.download_window.initiate_download_pipeline(
+                anime_details
+            )
         )
         self.anime_details = anime_details
         self.switch_to_download_window.connect(
@@ -132,61 +131,17 @@ class TryInstallingFFmpegThread(QThread):
         self.switch_to_download_window.emit()
 
     def run(self):
-        if sys.platform == "win32":
-            try:
-                subprocess.run(
-                    "winget install Gyan.FFmpeg",
-                    creationflags=subprocess.CREATE_NEW_CONSOLE,
-                )
-            # I should probably catch the specific exceptions but I'm too lazy to figure out all the possible exceptions
-            except Exception:
-                pass
-            if ffmpeg_is_installed():
-                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
-                    "Successfully Installed", "FFmpeg", True, None
-                )
-                self.start_download()
-            # Incase the installation was scuffed
-            else:
-                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
-                    "Installation Failed",
-                    "Failed to automatically install FFmpeg, opening a guide on your browser uWu",
-                    False,
-                )
-                open_new_tab(FFMPEG_WINDOWS_INSTALLATION_GUIDE)
-        elif sys.platform == "linux":
-            try:
-                subprocess.run(
-                    "sudo apt-get update && sudo apt-get install ffmpeg", shell=True
-                )
-            except Exception:
-                pass
-            if ffmpeg_is_installed():
-                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
-                    "Successfully Installed", "FFmpeg", True, None
-                )
-                self.start_download()
-            else:
-                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
-                    "Failed to Automatically Install", "FFmpeg", False
-                )
-                open_new_tab(FFMPEG_LINUX_INSTALLATION_GUIDE)
-
+        if try_installing_ffmpeg():
+            self.no_ffmpeg_window.main_window.tray_icon.make_notification(
+                "Successfully Installed", "FFmpeg", True, None
+            )
+            self.start_download()
         else:
-            try:
-                subprocess.run("brew install ffmpeg", shell=True)
-            except Exception:
-                pass
-            if ffmpeg_is_installed():
-                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
-                    "Successfully Installed", "FFmpeg", True, None
-                )
-                self.start_download()
-            else:
-                self.no_ffmpeg_window.main_window.tray_icon.make_notification(
-                    "Failed to Automatically Install", "FFmpeg", False
-                )
-                open_new_tab(FFMPEG_MAC_INSTALLATION_GUIDE)
+            self.no_ffmpeg_window.main_window.tray_icon.make_notification(
+                "Installation Failed",
+                "Failed to automatically install FFmpeg, opened a guide on your browser uWu",
+                False,
+            )
 
 
 class UpdateWindow(AbstractWindow):
@@ -207,7 +162,6 @@ class UpdateWindow(AbstractWindow):
         update_info_text_browser.setMarkdown(update_info)
         update_info_text_browser.setMinimumWidth(500)
         update_info_text_browser.setMinimumHeight(300)
-
 
         main_layout.addWidget(
             update_info_text_browser, alignment=Qt.AlignmentFlag.AlignCenter
@@ -326,7 +280,9 @@ class DownloadUpdateThread(QThread):
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
         if not download.cancelled:
-            subprocess.Popen([os.path.join(SRC_DIRECTORY, self.file_name), "/silent", "/update"])
+            subprocess.Popen(
+                [os.path.join(SRC_DIRECTORY, self.file_name), "/silent", "/update"]
+            )
             self.quit_app.emit()
 
 
@@ -342,4 +298,6 @@ class CheckIfUpdateAvailableThread(QThread):
         self.finished.connect(finished_callback)
 
     def run(self):
-        self.finished.emit(update_available(GITHUB_API_LATEST_RELEASE_ENDPOINT, APP_NAME, VERSION))
+        self.finished.emit(
+            update_available(GITHUB_API_LATEST_RELEASE_ENDPOINT, APP_NAME, VERSION)
+        )

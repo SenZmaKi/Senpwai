@@ -8,6 +8,7 @@ from threading import Event
 from time import sleep as timesleep
 from typing import Any, Callable, Iterator, cast
 from random import choice as random_choice
+from webbrowser import open_new_tab
 
 import requests
 
@@ -284,6 +285,52 @@ def run_process_silently(args: list[str]) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(args)
 
 
+def run_process_in_new_console(
+    args: list[str] | str,
+) -> subprocess.CompletedProcess[bytes]:
+    if sys.platform == "win32":
+        return subprocess.run(args, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    return subprocess.run(args, shell=True)
+
+
+def try_installing_ffmpeg() -> bool:
+    if sys.platform == "win32":
+        try:
+            run_process_in_new_console("winget install Gyan.FFmpeg")
+        # I should probably catch the specific exceptions but I'm too lazy to figure out all the possible exceptions
+        except Exception as _:
+            pass
+        # Incase the installation was scuffed
+        if ffmpeg_is_installed():
+            return True
+        else:
+            open_new_tab(FFMPEG_WINDOWS_INSTALLATION_GUIDE)
+            return False
+    elif sys.platform == "linux":
+        try:
+            run_process_in_new_console(
+                "sudo apt-get update && sudo apt-get install ffmpeg"
+            )
+        except Exception as _:
+            pass
+        if ffmpeg_is_installed():
+            return True
+        else:
+            open_new_tab(FFMPEG_LINUX_INSTALLATION_GUIDE)
+            return False
+
+    else:
+        try:
+            run_process_in_new_console("brew install ffmpeg")
+        except Exception as _:
+            pass
+        if ffmpeg_is_installed():
+            return True
+        else:
+            open_new_tab(FFMPEG_MAC_INSTALLATION_GUIDE)
+            return False
+
+
 def fuzz_str(text: str) -> str:
     return sanitise_title(text, True).lower()
 
@@ -349,7 +396,7 @@ class Download(PausableAndCancellableFunction):
         link_or_segment_urls: str | list[str],
         episode_title: str,
         download_folder_path: str,
-        progress_update_callback: Callable = lambda x: None,
+        progress_update_callback: Callable = lambda _: None,
         file_extension=".mp4",
         is_hls_download=False,
         cookies=requests.sessions.RequestsCookieJar(),

@@ -121,8 +121,8 @@ class DownloadedEpisodeCount(CurrentAgainstTotal):
     def is_complete(self) -> bool:
         return self.current >= self.total
 
-    def update_count(self, added_episode_count: int):
-        super().update_count(added_episode_count)
+    def update_count(self, added: int):
+        super().update_count(added)
         complete = self.is_complete()
         if complete and self.total != 0 and SETTINGS.allow_notifications:
             self.download_window.main_window.tray_icon.make_notification(
@@ -821,10 +821,7 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
             if self.anime_details.is_hls_download:
                 episode_size_or_segs = len(ddl_or_seg_urls)
             else:
-                (
-                    episode_size_or_segs,
-                    ddl_or_seg_urls
-                ) = Download.get_resource_length(
+                (episode_size_or_segs, ddl_or_seg_urls) = Download.get_resource_length(
                     cast(str, ddl_or_seg_urls)
                 )
                 if episode_size_or_segs == 0:
