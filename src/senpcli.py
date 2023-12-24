@@ -162,7 +162,7 @@ def parse_args(args: list[str]) -> Namespace:
     parser.add_argument(
         "-of",
         "--open_folder",
-        help="Open the folder containing the downloaded anime",
+        help="Open the folder containing the downloaded anime once the download finishes",
         action="store_true",
     )
     parser.add_argument(

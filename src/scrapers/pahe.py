@@ -20,14 +20,18 @@ FULL_SITE_NAME = "Animepahe"
 API_URL_EXTENSION = "/api?m="
 UUID_REGEX = re.compile(r"uuid=(.*?);")
 UUID_COOKIE = {"uuid": ""}
+KWIK_PAGE_REGEX = re.compile(r"https?://kwik.cx/f/([^\"']+)")
 
 
 def uuid_request(url: str, search_request=False) -> requests.Response:
     # Without setting the uuid cookie most requests redirect to some html page containing a valid uuid
     # But it seems like the uuid cookie only needs to be set as in they don't validate it
     try:
+        # We only want to handle the domain change incase this is the first request
+        # This is to avoid raising DomainNameError when the problem is sth broke instead
+        exceptions_to_ignore = [DomainNameError] if search_request else []
         response = CLIENT.get(
-            url, cookies=UUID_COOKIE, exceptions_to_ignore=[DomainNameError]
+            url, cookies=UUID_COOKIE, exceptions_to_ignore=exceptions_to_ignore
         )
     except DomainNameError:
         global PAHE_HOME_URL
@@ -264,15 +268,13 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
         direct_download_links: list[str] = []
         param_regex = re.compile(r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""")
         for pahewin_link in pahewin_download_page_links:
-            page_content = CLIENT.get(pahewin_link).content
-            soup = BeautifulSoup(page_content, PARSER)
+            # Extract kwik page links
+            html_page = CLIENT.get(pahewin_link).text
             download_link = cast(
-                str,
-                cast(Tag, soup.find("a", class_="btn btn-primary btn-block redirect"))[
-                    "href"
-                ],
-            )
+                re.Match[str], KWIK_PAGE_REGEX.search(html_page)
+            ).group()
 
+            # Extract direct download links from kwik page links
             response = CLIENT.get(download_link)
             cookies = response.cookies
             match = cast(re.Match, param_regex.search(response.text))
@@ -336,3 +338,4 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     return AnimeMetadata(
         poster_link, summary, episode_count, status, genres, int(release_year)
     )
+
