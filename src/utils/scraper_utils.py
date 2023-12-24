@@ -6,7 +6,7 @@ from base64 import b64decode
 from string import ascii_letters, digits, printable
 from threading import Event
 from time import sleep as timesleep
-from typing import Any, Callable, Iterator, cast
+from typing import Any, Callable, Iterator, Sequence, cast
 from random import choice as random_choice
 from webbrowser import open_new_tab
 
@@ -100,7 +100,7 @@ def get_new_home_url_from_readme(site_name: str) -> str:
 
 
 class DomainNameError(Exception):
-    """Raised when the domain name changes"""
+    """Raised when it is assumed the domain name has changed"""
 
 
 def has_valid_internet_connection() -> bool:
@@ -114,7 +114,6 @@ def has_valid_internet_connection() -> bool:
 class Client:
     def __init__(self) -> None:
         self.headers = self.setup_request_headers()
-        self.domain_name_error = DomainNameError()
 
     def setup_request_headers(self) -> dict[str, str]:
         headers = {"User-Agent": random_choice(USER_AGENTS)}
@@ -135,7 +134,7 @@ class Client:
         json: dict | None = None,
         allow_redirects=False,
         timeout: int | None = None,
-        exceptions_to_ignore: list[type[Exception]] = [],
+        exceptions_to_ignore: Sequence[type[Exception]] = [],
     ) -> requests.Response:
         if not headers:
             headers = self.headers
@@ -174,7 +173,7 @@ class Client:
         headers: dict | None = None,
         timeout: int | None = None,
         cookies={},
-        exceptions_to_ignore: list[type[Exception]] = [],
+        exceptions_to_ignore: Sequence[type[Exception]] = [],
     ) -> requests.Response:
         return self.make_request(
             "GET",
@@ -210,13 +209,13 @@ class Client:
     def network_error_retry_wrapper(
         self,
         callback: Callable[[], Any],
-        exceptions_to_ignore: list[type[Exception]] = [],
+        exceptions_to_ignore: Sequence[type[Exception]] = [],
     ) -> Any:
         while True:
             try:
                 return callback()
             except requests.exceptions.RequestException as e:
-                e = self.domain_name_error if has_valid_internet_connection() else e
+                e = DomainNameError() if has_valid_internet_connection() else e
                 if any(
                     [isinstance(e, exception) for exception in exceptions_to_ignore]
                 ):

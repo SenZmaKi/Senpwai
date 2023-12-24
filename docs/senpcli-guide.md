@@ -35,7 +35,7 @@ senpcli [-h] [-v] [-sd {sub,dub}] [-s {pahe,gogo}] [-se START_EPISODE] [-ee END_
 - `-q {1080p,720p,480p,360p}, --quality {1080p,720p,480p,360p}`: Quality to download the anime in
 - `-hls, --hls`: Use HLS mode to download the anime (Gogo only and requires FFmpeg to be installed)
 - `-sc, --skip_calculating`: Skip calculating the total download size (Gogo only)
-- `-of, --open_folder`: Open the folder containing the downloaded anime
+- `-of, --open_folder`: Open the folder containing the downloaded anime once the download finishes
 - `-msd MAX_SIMULTANEOUS_DOWNLOADS, --max_simultaneous_downloads MAX_SIMULTANEOUS_DOWNLOADS`: Maximum number of simultaneous downloads
 
 ### Settings
