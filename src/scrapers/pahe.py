@@ -17,18 +17,38 @@ from utils.scraper_utils import (
 PAHE = "pahe"
 PAHE_HOME_URL = "https://animepahe.ru"
 FULL_SITE_NAME = "Animepahe"
-API_URL_EXTENSION = "/api?m="
+API_ENTRY_POINT = f"{PAHE_HOME_URL}/api?m="
+"""
+The base URL for Pahe's API, used for retrieving anime information.
+"""
+ANIME_PAGE_URL = f"{API_ENTRY_POINT}release&id={{}}&sort=episode_asc"
+"""
+Generates the anime page link from the provided anime id.
+Example: https://animepahe.ru/api?m=release&id={anime_id}&sort=episode_asc
+"""
+EPISODE_PAGE_URL = f"{PAHE_HOME_URL}/play/{{}}/{{}}"
+"""
+Generates episode page link from the provided anime id and episode session.
+Example: https://animepahe.ru/play/{anime_id}/{episode_session}
+"""
+LOAD_EPISODES_URL = "{}&page={}"
+"""
+Generates the load episodes link from the provided anime page link and page number.
+Example: {anime_page_link}&page={page_number}
+"""
 UUID_REGEX = re.compile(r"uuid=(.*?);")
 UUID_COOKIE = {"uuid": ""}
 KWIK_PAGE_REGEX = re.compile(r"https?://kwik.cx/f/([^\"']+)")
+DUB_PATTERN = "eng"
+EPISODE_SIZE_REGEX = re.compile(r"\b(\d+)MB\b")
 
 
 def uuid_request(url: str, search_request=False) -> requests.Response:
     # Without setting the uuid cookie most requests redirect to some html page containing a valid uuid
-    # But it seems like the uuid cookie only needs to be set as in they don't validate it
+    # but it seems like the uuid cookie only needs to be set as in they don't validate it
     try:
         # We only want to handle the domain change incase this is the first request
-        # This is to avoid raising DomainNameError when the problem is sth broke instead
+        # This is to avoid raising DomainNameError when the something else broke instead
         exceptions_to_ignore = [DomainNameError] if search_request else []
         response = CLIENT.get(
             url, cookies=UUID_COOKIE, exceptions_to_ignore=exceptions_to_ignore
@@ -42,8 +62,9 @@ def uuid_request(url: str, search_request=False) -> requests.Response:
             response.json()
         except requests.exceptions.JSONDecodeError:
             # This is a monkey patch fallback incase they start validating the uuid, it works by assuming the first request
-            # Which is a search request will involve decoding so if it fails decoding then it means they gave us the html page with the uuid
-            # So we try and and extract a valid uuid from the page, if they ever start validating uuids I wiill work on a better implementation
+            # which is a search request will involve decoding so if it fails decoding then it means they gave us the html page with the uuid
+            # so we try and and extract a valid uuid from the page
+            # TODO: if they ever start validating uuids implement a better implementation
             match = cast(re.Match[str], UUID_REGEX.search(response.text))
             UUID_COOKIE["uuid"] = match.group(1)
             return uuid_request(url)
@@ -51,10 +72,10 @@ def uuid_request(url: str, search_request=False) -> requests.Response:
 
 
 def search(keyword: str) -> list[dict[str, str]]:
-    search_url = PAHE_HOME_URL + API_URL_EXTENSION + "search&q=" + keyword
+    search_url = f"{API_ENTRY_POINT}search&q={keyword}"
     response = uuid_request(search_url, True)
     decoded = cast(dict, response.json())
-    # The api won't return json containing the data key if no results are found
+    # The search api endpoint won't return json containing the data key if no results are found
     return decoded.get("data", [])
 
 
@@ -63,14 +84,12 @@ def extract_anime_title_page_link_and_id(
 ) -> tuple[str, str, str]:
     anime_id = result["session"]
     title = result["title"]
-    page_link = (
-        f"{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_asc"
-    )
+    page_link = ANIME_PAGE_URL.format(anime_id)
     return title, page_link, anime_id
 
 
 def get_total_episode_page_count(anime_page_link: str) -> int:
-    page_url = f"{anime_page_link}&page={1}"
+    page_url = LOAD_EPISODES_URL.format(anime_page_link, 1)
     decoded = uuid_request(page_url).json()
     total_episode_page_count: int = decoded["last_page"]
     return total_episode_page_count
@@ -93,7 +112,7 @@ class GetEpisodePageLinks(PausableAndCancellableFunction):
         episodes_data = []
         page_no = 1
         while page_url is not None:
-            page_url = f"{anime_page_link}&page={page_no}"
+            page_url = LOAD_EPISODES_URL.format(anime_page_link, page_no)
             decoded = uuid_request(page_url).json()
             episodes_data += decoded["data"]
             page_url = decoded["next_page_url"]
@@ -110,7 +129,7 @@ class GetEpisodePageLinks(PausableAndCancellableFunction):
         episodes_data = episodes_data[start_episode - 1 : end_episode]
         episode_sessions = [episode["session"] for episode in episodes_data]
         episode_links = [
-            f"{PAHE_HOME_URL}/play/{anime_id}/{episode_session}"
+            EPISODE_PAGE_URL.format(anime_id, episode_session)
             for episode_session in episode_sessions
         ]
         return episode_links
@@ -149,13 +168,17 @@ class GetPahewinDownloadPageLinks(PausableAndCancellableFunction):
         return (pahewin_download_page_links, download_info)
 
 
+def is_dub(anime_info: str) -> bool:
+    return anime_info.endswith(DUB_PATTERN)
+
+
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
-    page_url = f"{anime_page_link}&page={1}"
+    page_url = LOAD_EPISODES_URL.format(anime_page_link, 1)
     decoded = uuid_request(page_url).json()
     episodes_data = decoded["data"]
     episode_sessions = [episode["session"] for episode in episodes_data]
     episode_links = [
-        f"{PAHE_HOME_URL}/play/{anime_id}/{episode_session}"
+        EPISODE_PAGE_URL.format(anime_id, episode_session)
         for episode_session in episode_sessions
     ]
     episode_links = [episode_links[-1]]
@@ -166,13 +189,10 @@ def dub_available(anime_page_link: str, anime_id: str) -> bool:
         episode_links
     )
 
-    dub_pattern = r"eng$"
     for episode in download_info:
         found_dub = False
         for info in episode:
-            match = re.search(dub_pattern, info)
-            if match:
-                found_dub = True
+            found_dub = is_dub(info)
         if not found_dub:
             return False
     return True
@@ -185,13 +205,14 @@ def bind_sub_or_dub_to_link_info(
 ) -> tuple[list[list[str]], list[list[str]]]:
     bound_links: list[list[str]] = []
     bound_info: list[list[str]] = []
-    dub_pattern = r"eng$"
     for idx_out, episode_info in enumerate(download_info):
         links: list[str] = []
         infos: list[str] = []
         for idx_in, info in enumerate(episode_info):
-            match = re.search(dub_pattern, info)
-            if (sub_or_dub == "dub" and match) or (sub_or_dub == "sub" and not match):
+            is_dub_link = is_dub(info)
+            if (sub_or_dub == "sub" and not is_dub_link) or (
+                sub_or_dub == "dub" and is_dub_link
+            ):
                 links.append(pahewin_download_page_links[idx_out][idx_in])
                 infos.append(info)
         bound_links.append(links)
@@ -215,11 +236,10 @@ def bind_quality_to_link_info(
 
 
 def calculate_total_download_size(bound_info: list[str]) -> int:
-    pattern = r"\b(\d+)MB\b"
     total_size = 0
     download_sizes: list[int] = []
     for episode in bound_info:
-        match = cast(re.Match, re.search(pattern, episode))
+        match = cast(re.Match, EPISODE_SIZE_REGEX.search(episode))
         size = int(match.group(1))
         download_sizes.append(size)
         total_size += size
@@ -323,9 +343,7 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
         str, cast(Tag, soup.select_one('a[href*="/anime/season/"]'))["title"]
     )
     _, release_year = season_and_year.split(" ")
-    page_link = (
-        f"{PAHE_HOME_URL}{API_URL_EXTENSION}release&id={anime_id}&sort=episode_desc"
-    )
+    page_link = ANIME_PAGE_URL.format(anime_id)
     decoded = uuid_request(page_link).json()
     episode_count = decoded["total"]
     tag = soup.find(title="Currently Airing")
