@@ -10,10 +10,10 @@ import sys
 def duo_value_parser(file_path: str, split_str: str) -> list[tuple[str, str]]:
     extracted: list[tuple[str, str]] = []
     with open(file_path) as f:
-        lines = f.readlines()
-        for l in lines:
-            if not l.startswith("#"):
-                split = l.split(split_str, 1)
+        readlines = f.readlines()
+        for line in readlines:
+            if not line.startswith("#"):
+                split = line.split(split_str, 1)
                 key_value = cast(
                     tuple[str, str], tuple([split[0].strip(), split[1].strip()])
                 )

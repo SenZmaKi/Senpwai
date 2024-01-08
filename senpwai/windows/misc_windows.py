@@ -6,15 +6,15 @@ from webbrowser import open_new_tab
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from utils.class_utils import AnimeDetails, update_available
-from utils.scraper_utils import (
+from senpwai.utils.class_utils import AnimeDetails, update_available
+from senpwai.utils.scraper_utils import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     RESOURCE_MOVED_STATUS_CODES,
     Download,
     try_installing_ffmpeg,
 )
-from utils.static_utils import (
+from senpwai.utils.static_utils import (
     APP_NAME,
     CANCEL_ICON_PATH,
     CHOPPER_CRYING_PATH,
@@ -29,11 +29,11 @@ from utils.static_utils import (
     RED_NORMAL_COLOR,
     RED_PRESSED_COLOR,
     RESUME_ICON_PATH,
-    SRC_DIRECTORY,
+    ROOT_DIRECTORY,
     UPDATE_BCKG_IMAGE_PATH,
     VERSION,
 )
-from utils.widget_utils import (
+from senpwai.utils.widget_utils import (
     Icon,
     IconButton,
     StyledButton,
@@ -43,8 +43,8 @@ from utils.widget_utils import (
     set_minimum_size_policy,
 )
 
-from windows.download_window import ProgressBarWithButtons
-from windows.primary_windows import AbstractTemporaryWindow, AbstractWindow, MainWindow
+from senpwai.windows.download_window import ProgressBarWithButtons
+from senpwai.windows.primary_windows import AbstractTemporaryWindow, AbstractWindow, MainWindow
 
 
 class MiscWindow(AbstractTemporaryWindow):
@@ -272,7 +272,7 @@ class DownloadUpdateThread(QThread):
         download = Download(
             self.download_url,
             file_name_no_ext,
-            SRC_DIRECTORY,
+            ROOT_DIRECTORY,
             self.update_bar.emit,
             ext,
         )
@@ -281,7 +281,7 @@ class DownloadUpdateThread(QThread):
         download.start_download()
         if not download.cancelled:
             subprocess.Popen(
-                [os.path.join(SRC_DIRECTORY, self.file_name), "/silent", "/update"]
+                [os.path.join(ROOT_DIRECTORY, self.file_name), "/silent", "/update"]
             )
             self.quit_app.emit()
 

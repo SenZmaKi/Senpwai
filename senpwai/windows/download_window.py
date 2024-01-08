@@ -12,9 +12,9 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from scrapers import gogo, pahe
-from utils.class_utils import SETTINGS, Anime, AnimeDetails
-from utils.scraper_utils import (
+from senpwai.scrapers import gogo, pahe
+from senpwai.utils.class_utils import SETTINGS, Anime, AnimeDetails
+from senpwai.utils.scraper_utils import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
     PausableAndCancellableFunction,
@@ -23,7 +23,7 @@ from utils.scraper_utils import (
     lacked_episodes,
     sanitise_title,
 )
-from utils.static_utils import (
+from senpwai.utils.static_utils import (
     CANCEL_ICON_PATH,
     DOWNLOAD_WINDOW_BCKG_IMAGE_PATH,
     DUB,
@@ -36,7 +36,7 @@ from utils.static_utils import (
     RESUME_ICON_PATH,
     open_folder,
 )
-from utils.widget_utils import (
+from senpwai.utils.widget_utils import (
     FolderButton,
     HorizontalLine,
     Icon,
@@ -50,7 +50,7 @@ from utils.widget_utils import (
     set_minimum_size_policy,
 )
 
-from windows.primary_windows import AbstractWindow, MainWindow
+from senpwai.windows.primary_windows import AbstractWindow, MainWindow
 
 
 class CurrentAgainstTotal(StyledLabel):

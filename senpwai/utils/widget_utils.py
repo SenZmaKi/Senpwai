@@ -28,8 +28,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from utils.class_utils import Settings
-from utils.static_utils import (
+from senpwai.utils.class_utils import Settings
+from senpwai.utils.static_utils import (
     FOLDER_ICON_PATH,
     GOGO_NORM_MODE,
     GOGO_NORMAL_COLOR,

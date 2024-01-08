@@ -4,7 +4,7 @@ from typing import Callable, cast
 
 import requests
 from bs4 import BeautifulSoup, ResultSet, Tag
-from utils.scraper_utils import (
+from senpwai.utils.scraper_utils import (
     CLIENT,
     PARSER,
     AnimeMetadata,

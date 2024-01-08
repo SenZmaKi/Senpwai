@@ -5,9 +5,9 @@ from typing import Callable, cast
 from pylnk3 import for_file as pylnk3_for_file
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
-from utils.class_utils import SETTINGS
-from utils.scraper_utils import try_deleting_safely
-from utils.static_utils import (
+from senpwai.utils.class_utils import SETTINGS
+from senpwai.utils.scraper_utils import try_deleting_safely
+from senpwai.utils.static_utils import (
     AMOGUS_EASTER_EGG,
     APP_NAME,
     DUB,
@@ -29,11 +29,11 @@ from utils.static_utils import (
     RED_NORMAL_COLOR,
     RED_PRESSED_COLOR,
     SETTINGS_WINDOW_BCKG_IMAGE_PATH,
-    SRC_DIRECTORY,
+    ROOT_DIRECTORY,
     SUB,
     requires_admin_access,
 )
-from utils.widget_utils import (
+from senpwai.utils.widget_utils import (
     ErrorLabel,
     GogoNormOrHlsButton,
     HorizontalLine,
@@ -48,8 +48,8 @@ from utils.widget_utils import (
     set_minimum_size_policy,
 )
 
-from windows.download_window import DownloadWindow
-from windows.primary_windows import AbstractWindow, MainWindow
+from senpwai.windows.download_window import DownloadWindow
+from senpwai.windows.primary_windows import AbstractWindow, MainWindow
 
 
 class SettingsWindow(AbstractWindow):
@@ -497,7 +497,7 @@ class RunOnStartUp(YesOrNoSetting):
     def make_startup_lnk(self):
         self.remove_startup_lnk()
         lnk = pylnk3_for_file(
-            os.path.join(SRC_DIRECTORY, f"{APP_NAME}.exe"),
+            os.path.join(ROOT_DIRECTORY, f"{APP_NAME}.exe"),
             APP_NAME,
             MINIMISED_TO_TRAY_ARG,
             "Senpwai startup shortcut",

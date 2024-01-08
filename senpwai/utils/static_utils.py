@@ -9,15 +9,19 @@ import logging
 
 
 if getattr(sys, "frozen", False):
-    SRC_DIRECTORY = os.path.join(os.path.dirname(sys.executable))
+    # Senpwai/senpwai/senpwai.exe
+    ROOT_DIRECTORY = os.path.dirname(os.path.dirname(sys.executable))
     IS_EXECUTABLE = True
 else:
-    SRC_DIRECTORY = os.path.dirname(os.path.realpath("__file__"))
+    # Senpwai/senpwai/utils/static_utils.py
+    ROOT_DIRECTORY = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    )
     IS_EXECUTABLE = False
 
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = APP_NAME.lower()
-APP_EXE_PATH = os.path.join(SRC_DIRECTORY, f"{APP_NAME_LOWER}.exe")
+APP_EXE_PATH = os.path.join(ROOT_DIRECTORY, f"{APP_NAME_LOWER}.exe")
 VERSION = "2.0.9"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
@@ -107,7 +111,7 @@ def requires_admin_access(folder_path):
 # Paths
 
 
-assets_path = os.path.join(SRC_DIRECTORY, "assets")
+assets_path = os.path.join(ROOT_DIRECTORY, "assets")
 
 
 def join_from_assets(file):
@@ -279,3 +283,4 @@ L_ANIME = {
     "seven deadly sins",
     "apothecary",
 }
+

@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "senpwai"
+version = "2.0.10"
+description = "A desktop app for tracking and batch downloading anime"
+authors = ["Sen ZmaKi <senzmaki@gmail.com>"]
+license = "GPL v3"
+readme = "README.md"
+include = ["assets"]
+packages = [{ include = "senpwai" }, { include = "senpcli", from = "senpwai" }]
+exclude = ["src/**/test.py"]
+repository = "https://github.com/SenZmaKi/Senpwai"
+documentation = "https://github.com/SenZmaKi/Senpwai/blob/master/docs"
+keywords = [
+  "anime",
+  "anime downloader",
+  "batch anime downloader",
+  "anime app",
+  "anime desktop app",
+  "desktop app",
+  "anime tracker",
+  "anime tracker app",
+]
+
+[tool.poetry.urls]
+"Github Issues" = "https://github.com/SenZmaKi/Senpwai"
+"Discord" = "https://discord.gg/invite/e9UxkuyDX2"
+"Reddit" = "https://www.reddit.com/r/Senpwai"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.31.0"
+PyQt6 = "^6.6.0"
+yarl = "^1.9.4"
+cryptography = "^41.0.7"
+anitopy = "^2.1.1"
+bs4 = "^0.0.1"
+appdirs = "^1.4.4"
+tqdm = "^4.66.1"
+argparse = "^1.4.0"
+pylnk3 = "^0.4.2"
+
+[tool.poetry.group.dev.dependencies]
+cx-Freeze = "^6.15.12"
+
+[tool.poetry.scripts]
+senpwai = "senpwai.senpwai:main"
+senpcli = "senpwai.senpcli.senpcli:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

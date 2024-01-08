@@ -7,9 +7,9 @@ from typing import Callable, cast
 from queue import Queue
 from os import path
 
-from utils.class_utils import SETTINGS, Anime, AnimeDetails, update_available
-from scrapers import gogo, pahe
-from utils.scraper_utils import (
+from senpwai.utils.class_utils import SETTINGS, Anime, AnimeDetails, update_available
+from senpwai.scrapers import gogo, pahe
+from senpwai.utils.scraper_utils import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
     ffmpeg_is_installed,
@@ -18,7 +18,7 @@ from utils.scraper_utils import (
     lacked_episodes,
     try_installing_ffmpeg,
 )
-from utils.static_utils import (
+from senpwai.utils.static_utils import (
     open_folder,
     DUB,
     APP_EXE_PATH as SENPWAI_EXE_PATH,
@@ -32,7 +32,7 @@ from utils.static_utils import (
     VERSION,
     GITHUB_API_LATEST_RELEASE_ENDPOINT,
     GITHUB_REPO_URL,
-    SRC_DIRECTORY,
+    ROOT_DIRECTORY,
 )
 from tqdm import tqdm
 
@@ -574,11 +574,11 @@ def download_and_install_update(download_url: str, file_name: str,) -> None:
     )
     file_name_no_ext, file_ext = path.splitext(file_name)
     download = Download(
-        download_url, file_name_no_ext, SRC_DIRECTORY, pbar.update, file_ext
+        download_url, file_name_no_ext, ROOT_DIRECTORY, pbar.update, file_ext
     )
     download.start_download()
     pbar.close()
-    subprocess.Popen([path.join(SRC_DIRECTORY, file_name), "/silent", "/update"])
+    subprocess.Popen([path.join(ROOT_DIRECTORY, file_name), "/silent", "/update"])
 
 
 def handle_update_check_result(
