@@ -20,6 +20,7 @@ from utils.scraper_utils import (
     PausableAndCancellableFunction,
     get_new_home_url_from_readme,
     match_quality,
+    sanitise_title,
 )
 from yarl import URL
 
@@ -205,8 +206,9 @@ def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
 def dub_availability_and_link(anime_title: str) -> tuple[bool, str]:
     dub_title = f"{anime_title}{DUB_EXTENSION}"
     results = search(dub_title, False)
+    sanitised_dub_title = sanitise_title(dub_title, True)
     for res_title, link in results:
-        if dub_title == res_title:
+        if sanitised_dub_title == sanitise_title(res_title, True):
             return True, link
     return False, ""
 
