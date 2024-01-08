@@ -1,8 +1,5 @@
 from cx_Freeze import setup, Executable
-from os.path import join as join_paths
-from os.path import isfile as path_isfile
-from os.path import abspath as path_abspath
-from os import unlink as os_unlink
+from os import path, unlink as os_unlink
 from typing import cast
 import sys
 
@@ -27,10 +24,10 @@ def get_metadata() -> dict[str, str]:
 
 
 def get_executables(
-    metadata: dict[str, str], src_dir: str, senpcli_only: bool
+    metadata: dict[str, str], senpwai_package_dir: str, senpcli_only: bool
 ) -> list[Executable]:
-    gui_script_path = join_paths(src_dir, "senpwai.py")
-    cli_script_path = join_paths(src_dir, "senpcli.py")
+    gui_script_path = path.join(senpwai_package_dir, "senpwai.py")
+    cli_script_path = path.join(senpwai_package_dir, "senpcli/senpcli.py")
     gui_base = "WIN32GUI" if sys.platform == "win32" else None
     gui_executable = Executable(
         script=gui_script_path,
@@ -49,13 +46,13 @@ def get_executables(
     return [cli_executable] if senpcli_only else [gui_executable, cli_executable]
 
 
-def get_options(build_directory: str, src_dir, senpcli_only: bool) -> dict:
+def get_options(build_dir: str, assets_dir: str, senpcli_only: bool) -> dict:
     return {
-        "build_exe": {"build_exe": build_directory, "silent_level": 3}
+        "build_exe": {"build_exe": build_dir, "silent_level": 3}
         if senpcli_only
         else {
-            "build_exe": build_directory,
-            "include_files": join_paths(src_dir, "assets"),
+            "build_exe": build_dir,
+            "include_files": assets_dir,
             "zip_include_packages": "PyQt6",
             "silent_level": 3,
         }
@@ -66,22 +63,25 @@ def main():
     senpcli_only = "--senpcli" in sys.argv
     if senpcli_only:
         sys.argv.remove("--senpcli")
-    src_dir = "src"
-    sys.path.append(src_dir)
+    root_dir = path.dirname(path.realpath(__file__))
+    senpwai_package_dir = path.join(root_dir, "senpwai")
+    sys.path.append(senpwai_package_dir)
     metadata = get_metadata()
     name = metadata["CliName"] if senpcli_only else metadata["Name"]
-    build_directory = join_paths("build", name)
+    build_dir = path.join(root_dir, "build", name)
+    assets_dir = path.join(root_dir, "assets")
     setup(
         name=name,
         version=metadata["Version"],
-        options=get_options(build_directory, src_dir, senpcli_only),
-        executables=get_executables(metadata, src_dir, senpcli_only),
+        options=get_options(build_dir, assets_dir, senpcli_only),
+        executables=get_executables(metadata, senpwai_package_dir, senpcli_only),
     )
-    license_file = join_paths(build_directory, "frozen_application_license.txt")
-    if path_isfile(license_file):
+    license_file = path.join(build_dir, "frozen_application_license.txt")
+    if path.isfile(license_file):
         os_unlink(license_file)
-    print(f"Built at: {path_abspath(build_directory)}")
+    print(f"Built at: {path.abspath(build_dir)}")
 
 
 if __name__ == "__main__":
     main()
+

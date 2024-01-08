@@ -5,16 +5,16 @@ from typing import cast
 
 import anitopy
 from appdirs import user_config_dir
-from senpwai.scrapers import gogo, pahe
+from scrapers import gogo, pahe
 import logging
 import re
 
-from senpwai.utils.scraper_utils import (
+from utils.scraper_utils import (
     CLIENT,
     AnimeMetadata,
     sanitise_title,
 )
-from senpwai.utils.static_utils import (
+from utils.static_utils import (
     APP_NAME,
     generate_windows_setup_file_titles,
     VERSION,

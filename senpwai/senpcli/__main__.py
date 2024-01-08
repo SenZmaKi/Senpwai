@@ -1,4 +1,4 @@
-from senpwai.senpcli.senpcli import main
+from senpcli.senpcli import main
 
 if __name__ == "__main__":
     main()

@@ -3,7 +3,7 @@ from webbrowser import open_new_tab
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from senpwai.utils.static_utils import (
+from utils.static_utils import (
     ABOUT_BCKG_IMAGE_PATH,
     DISCORD_ICON_PATH,
     GIGACHAD_AUDIO_PATH,
@@ -19,7 +19,7 @@ from senpwai.utils.static_utils import (
     SEN_ICON_PATH,
     VERSION,
 )
-from senpwai.utils.widget_utils import (
+from utils.widget_utils import (
     AudioPlayer,
     Icon,
     IconButton,
@@ -29,7 +29,7 @@ from senpwai.utils.widget_utils import (
     set_minimum_size_policy,
 )
 
-from senpwai.windows.primary_windows import AbstractWindow, MainWindow
+from windows.primary_windows import AbstractWindow, MainWindow
 
 
 class AboutWindow(AbstractWindow):

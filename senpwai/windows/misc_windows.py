@@ -6,15 +6,15 @@ from webbrowser import open_new_tab
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from senpwai.utils.class_utils import AnimeDetails, update_available
-from senpwai.utils.scraper_utils import (
+from utils.class_utils import AnimeDetails, update_available
+from utils.scraper_utils import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     RESOURCE_MOVED_STATUS_CODES,
     Download,
     try_installing_ffmpeg,
 )
-from senpwai.utils.static_utils import (
+from utils.static_utils import (
     APP_NAME,
     CANCEL_ICON_PATH,
     CHOPPER_CRYING_PATH,
@@ -33,7 +33,7 @@ from senpwai.utils.static_utils import (
     UPDATE_BCKG_IMAGE_PATH,
     VERSION,
 )
-from senpwai.utils.widget_utils import (
+from utils.widget_utils import (
     Icon,
     IconButton,
     StyledButton,
@@ -43,8 +43,8 @@ from senpwai.utils.widget_utils import (
     set_minimum_size_policy,
 )
 
-from senpwai.windows.download_window import ProgressBarWithButtons
-from senpwai.windows.primary_windows import AbstractTemporaryWindow, AbstractWindow, MainWindow
+from windows.download_window import ProgressBarWithButtons
+from windows.primary_windows import AbstractTemporaryWindow, AbstractWindow, MainWindow
 
 
 class MiscWindow(AbstractTemporaryWindow):

@@ -19,6 +19,7 @@ else:
     )
     IS_EXECUTABLE = False
 
+print(ROOT_DIRECTORY)
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = APP_NAME.lower()
 APP_EXE_PATH = os.path.join(ROOT_DIRECTORY, f"{APP_NAME_LOWER}.exe")

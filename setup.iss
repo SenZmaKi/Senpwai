@@ -6,7 +6,7 @@
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
 #define MyAppExeName "Senpwai.exe"
-#define ProjectRootDir "C:\Users\PC\OneDrive\Documents\Python\Senpwai"
+#define ProjectRootDir "C:\Users\PC\OneDrive\Documents\Programming\Python\Senpwai"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -26,7 +26,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir={#ProjectRootDir}\setups
 OutputBaseFilename=Senpwai-setup
-SetupIconFile="{#ProjectRootDir}\src\assets\misc\senpwai-icon.ico"
+SetupIconFile="{#ProjectRootDir}\assets\misc\senpwai-icon.ico"
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -50,8 +50,8 @@ Type: filesandordirs; Name: "{userstartup}\Senpwai.lnk"
 Type: filesandordirs; Name: "{app}"
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\senpwai\{#MyAppExeName}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\senpwai\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent 
@@ -76,7 +76,7 @@ begin
 
   if IsUpdate then
   begin
-    Exec(ExpandConstant('{app}\{#MyAppExeName}'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
+    Exec(ExpandConstant('{app}\senpwai\{#MyAppExeName}'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
   end;
 end;
 

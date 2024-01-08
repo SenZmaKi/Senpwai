@@ -12,7 +12,7 @@ from webbrowser import open_new_tab
 
 import requests
 
-from senpwai.utils.static_utils import log_exception, try_deleting_safely
+from utils.static_utils import log_exception, try_deleting_safely
 
 PARSER = "html.parser"
 IBYTES_TO_MBS_DIVISOR = 1024 * 1024

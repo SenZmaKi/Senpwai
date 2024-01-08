@@ -12,8 +12,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from senpwai.utils.class_utils import SETTINGS, Anime, AnimeDetails
-from senpwai.utils.static_utils import (
+from utils.class_utils import SETTINGS, Anime, AnimeDetails
+from utils.static_utils import (
     ABOUT_ICON_PATH,
     DOWNLOADS_ICON_PATH,
     MINIMISED_TO_TRAY_ARG,
@@ -23,7 +23,7 @@ from senpwai.utils.static_utils import (
     TASK_COMPLETE_ICON_PATH,
     UPDATE_ICON_PATH,
 )
-from senpwai.utils.widget_utils import Icon, IconButton
+from utils.widget_utils import Icon, IconButton
 
 
 class MainWindow(QMainWindow):
@@ -273,13 +273,13 @@ class AbstractTemporaryWindow(AbstractWindow):
 
 # These modules imports must be placed here otherwise an ImportError is experienced cause
 # They import MainWindow and Window resulting to a circular import, so we have to define MainWindow and Window first before importing them
-from senpwai.windows.about_window import AboutWindow
-from senpwai.windows.chosen_anime_window import ChosenAnimeWindow, MakeAnimeDetailsThread
-from senpwai.windows.download_window import DownloadWindow
-from senpwai.windows.misc_windows import (
+from windows.about_window import AboutWindow
+from windows.chosen_anime_window import ChosenAnimeWindow, MakeAnimeDetailsThread
+from windows.download_window import DownloadWindow
+from windows.misc_windows import (
     CheckIfUpdateAvailableThread,
     NoFFmpegWindow,
     UpdateWindow,
 )
-from senpwai.windows.search_window import SearchWindow
-from senpwai.windows.settings_window import SettingsWindow
+from windows.search_window import SearchWindow
+from windows.settings_window import SettingsWindow
