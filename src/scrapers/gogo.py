@@ -26,6 +26,10 @@ from yarl import URL
 
 GOGO = "gogo"
 GOGO_HOME_URL = "https://anitaku.to"
+AJAX_SEARCH_URL = "https://ajax.gogo-load.com/site/loadAjaxSearch?keyword="
+AJAX_LOAD_EPS_URL = (
+    "https://ajax.gogo-load.com/ajax/load-list-episode?ep_start={}&ep_end={}&id={}"
+)
 FULL_SITE_NAME = "Gogoanime"
 DUB_EXTENSION = " (Dub)"
 REGISTERED_ACCOUNT_EMAILS = [
@@ -58,10 +62,8 @@ ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
 
 
 def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
-    ajax_search_url = (
-        "https://ajax.gogo-load.com/site/loadAjaxSearch?keyword=" + keyword
-    )
-    response = CLIENT.get(ajax_search_url)
+    search_url = AJAX_SEARCH_URL + keyword
+    response = CLIENT.get(search_url)
     content = response.json()["content"]
     soup = BeautifulSoup(content, PARSER)
     a_tags = cast(list[Tag], soup.find_all("a"))
@@ -84,7 +86,7 @@ def extract_anime_id(anime_page_content: bytes) -> int:
 def get_download_page_links(
     start_episode: int, end_episode: int, anime_id: int
 ) -> list[str]:
-    ajax_url = f"https://ajax.gogo-load.com/ajax/load-list-episode?ep_start={start_episode}&ep_end={end_episode}&id={anime_id}"
+    ajax_url = AJAX_LOAD_EPS_URL.format(start_episode, end_episode, anime_id)
     content = CLIENT.get(ajax_url).content
     soup = BeautifulSoup(content, PARSER)
     a_tags = soup.find_all("a")
@@ -263,7 +265,7 @@ def extract_stream_url(embed_url: str) -> str:
     component = component.split("&", 1)[1]
     ajax_response = CLIENT.get(
         streaming_page_host + "encrypt-ajax.php?" + component,
-        headers=CLIENT.append_headers({"x-requested-with": "XMLHttpRequest"}),
+        headers=CLIENT.append_headers({"X-Requested-With": "XMLHttpRequest"}),
     )
     content = json.loads(
         aes_decrypt(ajax_response.json()["data"], key=decryption_key, iv=iv)
@@ -370,3 +372,4 @@ def get_session_cookies(fresh=False) -> RequestsCookieJar:
     if len(SESSION_COOKIES) == 0:
         return get_session_cookies()
     return SESSION_COOKIES
+
