@@ -19,6 +19,7 @@ from senpwai.utils.scraper_utils import (
     try_installing_ffmpeg,
 )
 from senpwai.utils.static_utils import (
+    IS_PIP_INSTALL,
     open_folder,
     DUB,
     APP_EXE_PATH as SENPWAI_EXE_PATH,
@@ -563,7 +564,10 @@ def check_for_update_thread(queue: Queue) -> None:
     queue.put((is_available, download_url, file_name))
 
 
-def download_and_install_update(download_url: str, file_name: str,) -> None:
+def download_and_install_update(
+    download_url: str,
+    file_name: str,
+) -> None:
     download_size, download_url = Download.get_resource_length(download_url)
     pbar = tqdm(
         total=download_size,
@@ -584,20 +588,27 @@ def download_and_install_update(download_url: str, file_name: str,) -> None:
 def handle_update_check_result(
     is_available: bool, download_url, file_name: str
 ) -> None:
+    if not is_available:
+        return
+    if IS_PIP_INSTALL:
+        return print(
+            'Update available, install it by running "pip install senpwai --upgrade"'
+        )
     if SENPWAI_IS_INSTALLED:
         return print("Update available, install it by updating Senpwai")
-    if is_available:
-        if sys.platform == "win32":
-            print("Update available, would you like to download and install it? (y/n)")
-            if input("> ").lower() == "y":
-                try:
-                    download_and_install_update(download_url, file_name)
-                except PermissionError:
-                    print("Retry in an admin shell e.g., if you're using Command Prompt run it as an administrator")
-        else:
-            print(
-                f"A new version is available, but to install it you'll have to build from source\nThere is a guide at: {GITHUB_REPO_URL}"
-            )
+    if sys.platform == "win32":
+        print("Update available, would you like to download and install it? (y/n)")
+        if input("> ").lower() == "y":
+            try:
+                download_and_install_update(download_url, file_name)
+            except PermissionError:
+                print(
+                    "Retry in an admin shell e.g., if you're using Command Prompt run it as an administrator"
+                )
+        return
+    print(
+        f"A new version is available, but to install it you'll have to build from source\nThere is a guide at: {GITHUB_REPO_URL}"
+    )
 
 
 def start_update_check_thread() -> tuple[Thread, Queue]:
@@ -683,3 +694,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

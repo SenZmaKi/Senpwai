@@ -13,10 +13,10 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from scrapers import gogo, pahe
-from utils.class_utils import Anime
-from utils.scraper_utils import CLIENT
-from utils.static_utils import (
+from senpwai.scrapers import gogo, pahe
+from senpwai.utils.class_utils import Anime
+from senpwai.utils.scraper_utils import CLIENT
+from senpwai.utils.static_utils import (
     ANILIST_API_ENTRYPOINY,
     BUNSHIN_POOF_AUDIO_PATH,
     GIGACHAD_AUDIO_PATH,
@@ -43,7 +43,7 @@ from utils.static_utils import (
     WHAT_DA_HELL_AUDIO_PATH,
     ZA_WARUDO_AUDIO_PATH,
 )
-from utils.widget_utils import (
+from senpwai.utils.widget_utils import (
     AnimationAndText,
     AudioPlayer,
     Icon,
@@ -54,7 +54,7 @@ from utils.widget_utils import (
     set_minimum_size_policy,
 )
 
-from windows.primary_windows import AbstractWindow, MainWindow
+from senpwai.windows.primary_windows import AbstractWindow, MainWindow
 
 
 class SearchWindow(AbstractWindow):

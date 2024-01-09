@@ -4,22 +4,29 @@ from typing import cast
 import sys
 
 
-def duo_value_parser(file_path: str, split_str: str) -> list[tuple[str, str]]:
+def duo_value_parser(file_path: str, split_str: str, ignore_if_startswith = ["#"]) -> list[tuple[str, str]]:
     extracted: list[tuple[str, str]] = []
+
+    def process_str(s: str) -> str:
+        return s.strip().replace('"', "").replace("'", "")
+
     with open(file_path) as f:
         readlines = f.readlines()
         for line in readlines:
-            if not line.startswith("#"):
+            if not any([line.startswith(i) for i in ignore_if_startswith]):
                 split = line.split(split_str, 1)
+                if len(split) < 2:
+                    continue
                 key_value = cast(
-                    tuple[str, str], tuple([split[0].strip(), split[1].strip()])
+                    tuple[str, str],
+                    tuple([process_str(split[0]), process_str(split[1])]),
                 )
                 extracted.append(key_value)
     return extracted
 
 
-def get_metadata() -> dict[str, str]:
-    key_and_value = duo_value_parser("metadata.yml", ":")
+def parse_metadata() -> dict[str, str]:
+    key_and_value = duo_value_parser("pyproject.toml", " = ")
     return dict(key_and_value)
 
 
@@ -31,17 +38,17 @@ def get_executables(
     gui_base = "WIN32GUI" if sys.platform == "win32" else None
     gui_executable = Executable(
         script=gui_script_path,
-        icon=metadata["Icon"],
+        icon=metadata["icon"],
         base=gui_base,
-        target_name=metadata["Name"].lower(),
-        copyright=metadata["Copyright"],
+        target_name=metadata["name"],
+        copyright=metadata["copyright"],
     )
     cli_executable = Executable(
         script=cli_script_path,
         base=None,
-        icon=metadata["Icon"],
-        target_name=metadata["CliName"].lower(),
-        copyright=metadata["Copyright"],
+        icon=metadata["icon"],
+        target_name=metadata["senpcli_name"],
+        copyright=metadata["copyright"],
     )
     return [cli_executable] if senpcli_only else [gui_executable, cli_executable]
 
@@ -66,13 +73,13 @@ def main():
     root_dir = path.dirname(path.realpath(__file__))
     senpwai_package_dir = path.join(root_dir, "senpwai")
     sys.path.append(senpwai_package_dir)
-    metadata = get_metadata()
-    name = metadata["CliName"] if senpcli_only else metadata["Name"]
-    build_dir = path.join(root_dir, "build", name)
-    assets_dir = path.join(root_dir, "assets")
+    metadata = parse_metadata()
+    name = metadata["senpcli_name"] if senpcli_only else metadata["name"]
+    build_dir = path.join(root_dir, "build", name.capitalize())
+    assets_dir = path.join(senpwai_package_dir, "assets")
     setup(
         name=name,
-        version=metadata["Version"],
+        version=metadata["version"],
         options=get_options(build_dir, assets_dir, senpcli_only),
         executables=get_executables(metadata, senpwai_package_dir, senpcli_only),
     )

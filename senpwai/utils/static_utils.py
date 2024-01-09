@@ -8,18 +8,18 @@ from types import TracebackType
 import logging
 
 
+IS_PIP_INSTALL = False
 if getattr(sys, "frozen", False):
-    # Senpwai/senpwai/senpwai.exe
-    ROOT_DIRECTORY = os.path.dirname(os.path.dirname(sys.executable))
+    # Senpwai/senpwai.exe
+    ROOT_DIRECTORY = os.path.dirname(sys.executable)
     IS_EXECUTABLE = True
 else:
-    # Senpwai/senpwai/utils/static_utils.py
-    ROOT_DIRECTORY = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    )
+    # senpwai/utils/static_utils.py
+    ROOT_DIRECTORY = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    if os.path.dirname(ROOT_DIRECTORY).endswith("site-packages"):
+        IS_PIP_INSTALL = True
     IS_EXECUTABLE = False
 
-print(ROOT_DIRECTORY)
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = APP_NAME.lower()
 APP_EXE_PATH = os.path.join(ROOT_DIRECTORY, f"{APP_NAME_LOWER}.exe")

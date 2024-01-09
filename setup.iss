@@ -26,7 +26,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir={#ProjectRootDir}\setups
 OutputBaseFilename=Senpwai-setup
-SetupIconFile="{#ProjectRootDir}\assets\misc\senpwai-icon.ico"
+SetupIconFile="{#ProjectRootDir}\senpwai\assets\misc\senpwai-icon.ico"
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -50,11 +50,14 @@ Type: filesandordirs; Name: "{userstartup}\Senpwai.lnk"
 Type: filesandordirs; Name: "{app}"
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\senpwai\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\senpwai\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent 
+
+[Registry]
+Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Flags: uninsdeletevalue
 
 ; Automatically launch the app after an update install
 [Code]
@@ -76,7 +79,7 @@ begin
 
   if IsUpdate then
   begin
-    Exec(ExpandConstant('{app}\senpwai\{#MyAppExeName}'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
+    Exec(ExpandConstant('{app}\{#MyAppExeName}'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
   end;
 end;
 

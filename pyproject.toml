@@ -1,3 +1,6 @@
+# Poetry plugins
+# - poethepoet@0.24.4
+# = poetry-plugin-export@1.6.0
 [tool.poetry]
 name = "senpwai"
 version = "2.0.10"
@@ -5,21 +8,31 @@ description = "A desktop app for tracking and batch downloading anime"
 authors = ["SenZmaKi <senzmaki@gmail.com>"]
 license = "GPL v3"
 readme = "README.md"
-include = ["assets"]
+include = ["senpwai/assets"]
 packages = [{ include = "senpwai" }, { include = "senpcli", from = "senpwai" }]
 exclude = ["src/**/test.py"]
 repository = "https://github.com/SenZmaKi/Senpwai"
 documentation = "https://github.com/SenZmaKi/Senpwai/blob/master/docs"
 keywords = [
   "anime",
-  "anime downloader",
-  "batch anime downloader",
-  "anime app",
-  "anime desktop app",
+  "app",
+  "cli",
   "desktop app",
+  "anime downloader",
+  "anime cli",
+  "anime app",
   "anime tracker",
+  "batch anime downloader",
+  "bulk anime  downloader",
+  "anime desktop app",
   "anime tracker app",
 ]
+
+[tool.cx_freeze]
+icon = "senpwai/assets/misc/senpwai-icon.ico"
+senpcli_name = "senpcli"
+company = "AKatsuKi Inc."
+copyright = "© AKatsuKi Inc. All rights reserved."
 
 [tool.poetry.urls]
 "Github Issues" = "https://github.com/SenZmaKi/Senpwai"
@@ -28,7 +41,7 @@ keywords = [
 
 [tool.poetry.scripts]
 senpwai = "senpwai.senpwai:main"
-senpcli = "senpwai.senpcli:main"
+senpcli = "senpwai.senpcli.senpcli:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -44,8 +57,7 @@ pylnk3 = "^0.4.2"
 pyqt6 = "^6.6.1"
 
 [tool.poetry.group.dev.dependencies]
-cx-Freeze = "^6.15.12"
-poethepoet = "^0.24.4"
+cx-freeze = "^6.15.12"
 
 [build-system]
 requires = ["poetry-core"]
@@ -53,7 +65,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poe.tasks]
 generate_release = [
-  { ref = "tests" },
+  { ref = "run_tests" },
   { ref = "build_exes" },
   { ref = "compile_installers" },
   { ref = "run_installers" },
@@ -64,7 +76,7 @@ generate_release_ddl = [
   { ref = "compile_installers" },
   { ref = "run_installers" },
 ]
-tests = [{ ref = "test_pahe" }, { ref = "test_gogo" }]
+run_tests = [{ ref = "test_pahe" }, { ref = "test_gogo" }]
 test_pahe = "python -m senpwai.scrapers.test --site pahe all --silent"
 test_gogo = [{ ref = "test_gogo_norm" }, { ref = "test_gogo_hls --silent" }]
 test_gogo_norm = "python -m senpwai.scrapers.test --site gogo all --silent"

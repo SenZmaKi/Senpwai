@@ -10,9 +10,9 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from utils.class_utils import SETTINGS, Anime, AnimeDetails
-from utils.scraper_utils import lacked_episode_numbers
-from utils.static_utils import (
+from senpwai.utils.class_utils import SETTINGS, Anime, AnimeDetails
+from senpwai.utils.scraper_utils import lacked_episode_numbers
+from senpwai.utils.static_utils import (
     CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH,
     DUB,
     GOGO,
@@ -26,7 +26,7 @@ from utils.static_utils import (
     RED_PRESSED_COLOR,
     SUB,
 )
-from utils.widget_utils import (
+from senpwai.utils.widget_utils import (
     DualStateButton,
     ErrorLabel,
     FolderButton,
@@ -41,9 +41,9 @@ from utils.widget_utils import (
     set_minimum_size_policy,
 )
 
-from windows.download_window import DownloadWindow
-from windows.primary_windows import AbstractTemporaryWindow, MainWindow
-from windows.settings_window import SettingsWindow
+from senpwai.windows.download_window import DownloadWindow
+from senpwai.windows.primary_windows import AbstractTemporaryWindow, MainWindow
+from senpwai.windows.settings_window import SettingsWindow
 
 
 class SummaryLabel(StyledLabel):

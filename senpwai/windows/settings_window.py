@@ -5,9 +5,9 @@ from typing import Callable, cast
 from pylnk3 import for_file as pylnk3_for_file
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
-from utils.class_utils import SETTINGS
-from utils.scraper_utils import try_deleting_safely
-from utils.static_utils import (
+from senpwai.utils.class_utils import SETTINGS
+from senpwai.utils.scraper_utils import try_deleting_safely
+from senpwai.utils.static_utils import (
     AMOGUS_EASTER_EGG,
     APP_NAME,
     DUB,
@@ -33,7 +33,7 @@ from utils.static_utils import (
     SUB,
     requires_admin_access,
 )
-from utils.widget_utils import (
+from senpwai.utils.widget_utils import (
     ErrorLabel,
     GogoNormOrHlsButton,
     HorizontalLine,
@@ -48,8 +48,8 @@ from utils.widget_utils import (
     set_minimum_size_policy,
 )
 
-from windows.download_window import DownloadWindow
-from windows.primary_windows import AbstractWindow, MainWindow
+from senpwai.windows.download_window import DownloadWindow
+from senpwai.windows.primary_windows import AbstractWindow, MainWindow
 
 
 class SettingsWindow(AbstractWindow):

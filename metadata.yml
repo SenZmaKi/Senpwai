@@ -3,7 +3,7 @@ CliName: Senpcli
 Creator: SenZmaKi
 Email: senzmaki@gmail.com
 Version: 2.0.9.0
-Description: A desktop app for batch downloading anime and auto-downloading new episodes upon release
+Description: A desktop app for tracking and batch downloading anime
 Icon: assets/misc/senpwai-icon.ico 
 Homepage: https://github.com/SenZmaKi/Senpwai
 Company: AKatsuKi Inc.
