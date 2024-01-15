@@ -1,4 +1,11 @@
 <h1 align="center">
+Developer's Note
+</h1>
+<p align=center>
+ I know that Animepahe is broken but I have exams for about a month so i can't fix it right now
+</p>
+
+<h1 align="center">
 <img align="center" height="80px" width="80px" src="src/assets/misc/senpwai-icon.png" alt="Senpwai-icon">
  Senpwai
 </h1>
@@ -23,9 +30,6 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
 
 ![image](https://github.com/SenZmaKi/Senpwai/assets/90490506/04a9cfba-7961-48b8-b8ff-392aaef5b4d4)
 
-## Developer's Note
-
-Animepahe is broken but I have exams for about a month so i can't fix it right now
 
 ## Installation
 
