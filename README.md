@@ -96,6 +96,11 @@ cd src && python senpwai.py
 - You can also leave a star on the github for more weebs to know about it.
 - Senpwai is open to pull requests, so if you have ideas for improvements, feel free to contribute!
 
+## Sponsors
+<p>
+<a href="https://github.com/Adam1400"><img src="https://github.com/Adam1400.png" width="80px" alt="Adam1400"/></a>&nbsp;&nbsp;<a href="https://github.com/KeithBoehler"><img src="https://github.com/KeithBoehler.png" width="80px" alt="KeithBoehler" /></a>
+</p>
+
 ## FAQ
 
 <details> <summary> Why did you make this? </summary>
@@ -104,7 +109,6 @@ you have to click billions of links just to download one episode, so I made Senp
 </details>
 
 <details> <summary> What is HLS mode? </summary>
- 
 HLS mode attempts to fix the unstability of Gogoanime normal mode. 
 In HLS mode Gogoanime downloads are guaranteed to work, though with a few downsides:
 
