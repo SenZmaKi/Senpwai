@@ -2,7 +2,7 @@
 Developer's Note
 </h1>
 <p align=center>
- I know that Animepahe is broken but I have exams for about a month so i can't fix it right now
+ I know that Animepahe is broken but I have exams for about a month so I can't fix it right now
 </p>
 
 <h1 align="center">
