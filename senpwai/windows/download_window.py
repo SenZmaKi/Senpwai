@@ -17,7 +17,7 @@ from senpwai.utils.class_utils import SETTINGS, Anime, AnimeDetails
 from senpwai.utils.scraper_utils import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
-    PausableAndCancellableFunction,
+    ProgressFunction,
     ffmpeg_is_installed,
     lacked_episode_numbers,
     lacked_episodes,
@@ -737,7 +737,7 @@ class DownloadWindow(AbstractWindow):
         self.progress_bars_layout.insertWidget(0, bar)
 
 
-class DownloadManagerThread(QThread, PausableAndCancellableFunction):
+class DownloadManagerThread(QThread, ProgressFunction):
     send_progress_bar_details = pyqtSignal(str, int, dict, bool)
     update_anime_progress_bar_signal = pyqtSignal(int)
 
@@ -749,7 +749,7 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
         downloaded_episode_count: DownloadedEpisodeCount,
     ) -> None:
         QThread.__init__(self, download_window)
-        PausableAndCancellableFunction.__init__(self)
+        ProgressFunction.__init__(self)
         self.anime_progress_bar = anime_progress_bar
         self.download_window = download_window
         self.downloaded_episode_count = downloaded_episode_count
@@ -771,7 +771,7 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
             for bar in self.progress_bars.values():
                 bar.pause_button.click()
             self.anime_progress_bar.pause_or_resume()
-        PausableAndCancellableFunction.pause_or_resume(self)
+        ProgressFunction.pause_or_resume(self)
 
     def cancel(self):
         if self.resume.is_set() and not self.cancelled:
@@ -779,7 +779,7 @@ class DownloadManagerThread(QThread, PausableAndCancellableFunction):
                 bar.cancel_button.click()
             self.downloaded_episode_count.cancelled = True
             self.anime_progress_bar.cancel()
-            PausableAndCancellableFunction.cancel(self)
+            ProgressFunction.cancel(self)
 
     def update_anime_progress_bar(self, added: int):
         if self.anime_details.is_hls_download:

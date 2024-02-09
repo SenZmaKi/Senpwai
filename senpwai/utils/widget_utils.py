@@ -705,7 +705,7 @@ class NumberInput(QLineEdit):
         )
 
     def eventFilter(self, a0: QObject | None, a1: QEvent | None):
-        if cast(QEvent, a1) == QKeyEvent.Type.KeyPress:
+        if a1 is not None and cast(QEvent, a1.type()) == QKeyEvent.Type.KeyPress:
             if cast(QKeyEvent, a1).key() in (
                 Qt.Key.Key_0,
                 Qt.Key.Key_1,

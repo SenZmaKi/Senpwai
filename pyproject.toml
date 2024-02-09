@@ -58,6 +58,7 @@ pyqt6 = "^6.6.1"
 
 [tool.poetry.group.dev.dependencies]
 cx-freeze = "^6.15.12"
+pytest = "^8.0.0"
 
 [build-system]
 requires = ["poetry-core"]

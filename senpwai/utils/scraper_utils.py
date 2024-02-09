@@ -83,9 +83,7 @@ USER_AGENTS = (
 
 def get_new_home_url_from_readme(site_name: str) -> str:
     """
-    Say Animepahe or Gogoanime change their domain name, now Senpwai makes a request to either but it gets a non-200 status code,
-    then it'll assume they changed their domain name. It'll try to extract the new domain name from the readme.
-    So if the domain name changes be sure to update it in the readme, specifically in the hyperlinks i.e., [Animepahe](https://animepahe.ru)
+    If the either Animepahe's or Gogoanime's domain name changes be sure to update it in the readme, specifically in the hyperlinks i.e., [Animepahe](https://animepahe.ru)
     and without an ending "/" i.e., https://animepahe.ru instead of https://animepahe.ru/ Also test if Senpwai is properly extracting it incase you made a mistake.
 
     :param site_name: Can be either Animepahe or Gogoanime.
@@ -134,7 +132,7 @@ class Client:
         json: dict | None = None,
         allow_redirects=False,
         timeout: int | None = None,
-        exceptions_to_ignore: Sequence[type[Exception]] = [],
+        exceptions_to_ignore: Sequence[type[Exception]] | None = None,
     ) -> requests.Response:
         if not headers:
             headers = self.headers
@@ -173,7 +171,7 @@ class Client:
         headers: dict | None = None,
         timeout: int | None = None,
         cookies={},
-        exceptions_to_ignore: Sequence[type[Exception]] = [],
+        exceptions_to_ignore: Sequence[type[Exception]] | None = None,
     ) -> requests.Response:
         return self.make_request(
             "GET",
@@ -193,7 +191,7 @@ class Client:
         headers: dict | None = None,
         cookies={},
         allow_redirects=False,
-        exceptions_to_ignore: list[type[Exception]] = [],
+        exceptions_to_ignore: Sequence[type[Exception]] | None = None,
     ) -> requests.Response:
         return self.make_request(
             "POST",
@@ -209,14 +207,14 @@ class Client:
     def network_error_retry_wrapper(
         self,
         callback: Callable[[], Any],
-        exceptions_to_ignore: Sequence[type[Exception]] = [],
+        exceptions_to_ignore: Sequence[type[Exception]] | None = None,
     ) -> Any:
         while True:
             try:
                 return callback()
             except requests.exceptions.RequestException as e:
                 e = DomainNameError() if has_valid_internet_connection() else e
-                if any(
+                if exceptions_to_ignore is not None and any(
                     [isinstance(e, exception) for exception in exceptions_to_ignore]
                 ):
                     raise e
@@ -373,7 +371,7 @@ def ffmpeg_is_installed() -> bool:
         return False
 
 
-class PausableAndCancellableFunction:
+class ProgressFunction:
     def __init__(self) -> None:
         self.resume = Event()
         self.resume.set()
@@ -389,7 +387,7 @@ class PausableAndCancellableFunction:
             self.cancelled = True
 
 
-class Download(PausableAndCancellableFunction):
+class Download(ProgressFunction):
     def __init__(
         self,
         link_or_segment_urls: str | list[str],

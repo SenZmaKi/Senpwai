@@ -1,15 +1,7 @@
-import base64
-
-# Hls mode imports
-import json
-import re
-from random import choice as randomchoice
+from random import choice as random_choice
 from typing import Callable, cast
 
 from bs4 import BeautifulSoup, ResultSet, Tag
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives.padding import PKCS7
 from requests.cookies import RequestsCookieJar
 from senpwai.utils.scraper_utils import (
     CLIENT,
@@ -17,49 +9,20 @@ from senpwai.utils.scraper_utils import (
     PARSER,
     AnimeMetadata,
     DomainNameError,
-    PausableAndCancellableFunction,
+    ProgressFunction,
     get_new_home_url_from_readme,
     match_quality,
     sanitise_title,
 )
-from yarl import URL
-
-GOGO = "gogo"
-GOGO_HOME_URL = "https://anitaku.to"
-AJAX_SEARCH_URL = "https://ajax.gogo-load.com/site/loadAjaxSearch?keyword="
-AJAX_LOAD_EPS_URL = (
-    "https://ajax.gogo-load.com/ajax/load-list-episode?ep_start={}&ep_end={}&id={}"
+from .constants import (
+    AJAX_SEARCH_URL,
+    DUB_EXTENSION,
+    FULL_SITE_NAME,
+    AJAX_LOAD_EPS_URL,
+    GOGO_HOME_URL,
+    REGISTERED_ACCOUNT_EMAILS,
 )
-FULL_SITE_NAME = "Gogoanime"
-DUB_EXTENSION = " (Dub)"
-REGISTERED_ACCOUNT_EMAILS = [
-    "benida7218@weirby.com",
-    "hareki4411@wisnick.com",
-    "nanab67795@weirby.com",
-    "xener53725@weirby.com",
-    "nenado3105@weirby.com",
-    "yaridod257@weirby.com",
-    "ketoh33964@weirby.com",
-    "kajade1254@wisnick.com",
-    "nakofe3005@weirby.com",
-    "gedidij506@weirby.com",
-    "sihaci1525@undewp.com",
-    "lorimob952@soebing.com",
-    "nigeha6048@undewp.com",
-    "goriwij739@undewp.com",
-    "pekivik280@soebing.com",
-    "hapas66158@undewp.com",
-    "wepajof522@undewp.com",
-    "semigo1458@undewp.com",
-    "xojecog864@undewp.com",
-    "lobik97135@wanbeiz.com",
-]
-
 SESSION_COOKIES: RequestsCookieJar | None = None
-# Hls mode constants
-KEYS_REGEX = re.compile(rb"(?:container|videocontent)-(\d+)")
-ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
-
 
 def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
     search_url = AJAX_SEARCH_URL + keyword
@@ -98,7 +61,7 @@ def get_download_page_links(
     return download_page_links
 
 
-class GetDirectDownloadLinks(PausableAndCancellableFunction):
+class GetDirectDownloadLinks(ProgressFunction):
     def __init__(self) -> None:
         super().__init__()
 
@@ -132,7 +95,7 @@ class GetDirectDownloadLinks(PausableAndCancellableFunction):
         return direct_download_links
 
 
-class CalculateTotalDowloadSize(PausableAndCancellableFunction):
+class CalculateTotalDowloadSize(ProgressFunction):
     def __init__(self):
         super().__init__()
 
@@ -215,142 +178,6 @@ def dub_availability_and_link(anime_title: str) -> tuple[bool, str]:
     return False, ""
 
 
-# Hls mode functions start here
-
-
-def get_embed_url(episode_page_link: str) -> str:
-    response = CLIENT.get(episode_page_link)
-    soup = BeautifulSoup(response.content, PARSER)
-    return cast(str, cast(Tag, soup.select_one("iframe"))["src"])
-
-
-def aes_encrypt(data: str, *, key, iv) -> bytes:
-    backend = default_backend()
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
-    encryptor = cipher.encryptor()
-    padder = PKCS7(128).padder()
-    padded_data = padder.update(data.encode()) + padder.finalize()
-    return base64.b64encode(encryptor.update(padded_data) + encryptor.finalize())
-
-
-def aes_decrypt(data: str, *, key, iv) -> str:
-    backend = default_backend()
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
-    decryptor = cipher.decryptor()
-    decrypted_data = decryptor.update(base64.b64decode(data)) + decryptor.finalize()
-    unpadder = PKCS7(128).unpadder()
-    unpadded_data = unpadder.update(decrypted_data) + unpadder.finalize()
-    return unpadded_data.decode()
-
-
-def extract_stream_url(embed_url: str) -> str:
-    parsed_url = URL(embed_url)
-    content_id = parsed_url.query["id"]
-    streaming_page_host = f"https://{parsed_url.host}/"
-    streaming_page = CLIENT.get(embed_url).content
-
-    encryption_key, iv, decryption_key = (
-        _.group(1) for _ in KEYS_REGEX.finditer(streaming_page)
-    )
-    component = aes_decrypt(
-        cast(re.Match[bytes], ENCRYPTED_DATA_REGEX.search(streaming_page))
-        .group(1)
-        .decode(),
-        key=encryption_key,
-        iv=iv,
-    ) + "&id={}&alias={}".format(
-        aes_encrypt(content_id, key=encryption_key, iv=iv).decode(), content_id
-    )
-
-    component = component.split("&", 1)[1]
-    ajax_response = CLIENT.get(
-        streaming_page_host + "encrypt-ajax.php?" + component,
-        headers=CLIENT.append_headers({"X-Requested-With": "XMLHttpRequest"}),
-    )
-    content = json.loads(
-        aes_decrypt(ajax_response.json()["data"], key=decryption_key, iv=iv)
-    )
-
-    try:
-        source = content["source"]
-        stream_url = source[0]["file"]
-    except KeyError:
-        source = content["source_bk"]
-        stream_url = source[0]["file"]
-    return stream_url
-
-
-class GetHlsMatchedQualityLinks(PausableAndCancellableFunction):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def get_hls_matched_quality_links(
-        self,
-        hls_links: list[str],
-        quality: str,
-        progress_update_callback: Callable = lambda _: None,
-    ) -> list[str]:
-        matched_links: list[str] = []
-        for h in hls_links:
-            response = CLIENT.get(h)
-            self.resume.wait()
-            if self.cancelled:
-                return []
-            lines = response.text.split(",")
-            qualities = [line for line in lines if "NAME=" in line]
-            idx = match_quality(qualities, quality)
-            resource = qualities[idx].splitlines()[1]
-            base_url = URL(h).parent
-            matched_links.append(f"{base_url}/{resource}")
-            progress_update_callback(1)
-        return matched_links
-
-
-class GetHlsSegmentsUrls(PausableAndCancellableFunction):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def get_hls_segments_urls(
-        self,
-        matched_links: list[str],
-        progress_update_callback: Callable = lambda _: None,
-    ) -> list[list[str]]:
-        segments_urls: list[list[str]] = []
-        for m in matched_links:
-            response = CLIENT.get(m)
-            self.resume.wait()
-            if self.cancelled:
-                return []
-            segments = response.text.splitlines()
-            base_url = "/".join(m.split("/")[:-1])
-            segment_urls: list[str] = []
-            for seg in segments:
-                if seg.endswith(".ts"):
-                    segment_url = f"{base_url}/{seg}"
-                    segment_urls.append(segment_url)
-            segments_urls.append(segment_urls)
-            progress_update_callback(1)
-        return segments_urls
-
-
-class GetHlsLinks(PausableAndCancellableFunction):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def get_hls_links(
-        self,
-        download_page_links: list[str],
-        progress_update_callback: Callable = lambda _: None,
-    ) -> list[str]:
-        hls_links: list[str] = []
-        for eps_url in download_page_links:
-            hls_links.append(extract_stream_url(get_embed_url(eps_url)))
-            self.resume.wait()
-            if self.cancelled:
-                return []
-            progress_update_callback(1)
-        return hls_links
-
 
 def get_session_cookies(fresh=False) -> RequestsCookieJar:
     global SESSION_COOKIES
@@ -362,7 +189,7 @@ def get_session_cookies(fresh=False) -> RequestsCookieJar:
     form_div = cast(Tag, soup.find("div", class_="form-login"))
     csrf_token = cast(Tag, form_div.find("input", {"name": "_csrf"}))["value"]
     form_data = {
-        "email": randomchoice(REGISTERED_ACCOUNT_EMAILS),
+        "email": random_choice(REGISTERED_ACCOUNT_EMAILS),
         "password": "amogus69420",
         "_csrf": csrf_token,
     }
@@ -372,4 +199,3 @@ def get_session_cookies(fresh=False) -> RequestsCookieJar:
     if len(SESSION_COOKIES) == 0:
         return get_session_cookies()
     return SESSION_COOKIES
-
