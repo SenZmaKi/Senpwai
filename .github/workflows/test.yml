@@ -9,7 +9,7 @@ on:
     branches:   
       - master
 
- schedule:
+  schedule:
       # 6:00 A.M UTC  == 9:00 AM EAT
       - cron: '0 6 * * *'
 
