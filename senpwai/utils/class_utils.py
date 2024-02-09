@@ -278,7 +278,7 @@ class AnimeDetails:
 
     def validate_anime_folder_path(self) -> None:
         if not os.path.isdir(self.anime_folder_path):
-            os.mkdir(self.anime_folder_path)
+            os.makedirs(self.anime_folder_path)
 
     def get_anime_folder_path(self) -> str:
         def try_path(title: str) -> str | None:
