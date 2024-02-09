@@ -46,11 +46,11 @@ Download [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/downloa
 - Download in sub or dub (if available) depending on the user's preference.
 - Automatically detects episodes you already have and avoids re-downloading them.
 - Robust and graceful download error management.
-- GUI and [CLI](docs/senpcli-guide.md).
+- GUI and [CLI](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-guide.md).
 
 ## CLI
 
-[Senpcli](docs/senpcli-guide.md) is a minimalist and lightweight CLI alternative for Senpwai. Senpwai is already efficient and lightweight, Senpcli basically strips off the GUI while maintaining most of the basic functionality.
+[Senpcli](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-guide.md) is a minimalist and lightweight CLI alternative for Senpwai. Senpwai is already efficient and lightweight, Senpcli basically strips off the GUI while maintaining most of the basic functionality.
 
 ## Building from Source
 
