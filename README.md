@@ -1,14 +1,5 @@
 <h1 align="center">
-Developer's Note
-</h1>
-<p align=center>
- I know that Animepahe is broken but I have exams for about a month so I can't fix it right now
-</p>
-
-<h1 align="center">
-<img align="center" height="80px" width="80px" src="src/assets/misc/senpwai-icon.png" alt="Senpwai-icon">
- Senpwai
-</h1>
+<img align="center" height="80px" width="80px" src="https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/.github/images/senpwai-icon.png" alt="senpwai-icon"> Senpwai</h1>
 <p align="center">
 A blazingly fast desktop app for batch downloading anime and auto-downloading new episodes upon release
 </p>
@@ -28,18 +19,22 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
   <a href="#links">Links</a>
 </p>
 
-![image](https://github.com/SenZmaKi/Senpwai/assets/90490506/04a9cfba-7961-48b8-b8ff-392aaef5b4d4)
-
+<img align="center" src="https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/.github/images/one-piece.png" alt="one-piece-screenshot">
 
 ## Installation
+- **Cross-platform (Linux, Mac, Windows 10/11)**
 
+Needs [Python 3.11](https://www.python.org/downloads/release/python-3111) installed.
+```bash
+pip install senpwai
+```
 - **Windows 10/11**
 
 Download [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpwai-setup.exe) then run it.
 
-- **Linux/Mac**
+- **Other**
 
-You'll have to [build from source](#building-from-source).
+[Build from source](#building-from-source).
 
 ## Features
 
@@ -64,30 +59,23 @@ Open a terminal and run the following commands.
 
 1. **Set everything up.**
 
-- Linux/Mac
-
 ```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && pip install -r dev-requirements.txt && poetry install
 ```
 
-- Windows (Command Prompt)
+
+2. **Build the app into a binary.**
 
 ```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
+poetry run poe build_senpwai_binary
 ```
 
-2. **Build the app into an executable.**
-
-```
-pip install cx_freeze==6.15.10 && python setup.py build
-```
-
-- The executable will be built in `Senpwai\build\Senpwai`
+- The binary will be built in `Senpwai\build\Senpwai`
 
 3. **Alternatively you can instead run the app directly via Python.**
 
 ```
-cd src && python senpwai.py
+poetry run senpwai
 ```
 
 ## Support
@@ -95,11 +83,6 @@ cd src && python senpwai.py
 - You can support the development of Senpwai through donations on [GitHub Sponsors](https://github.com/sponsors/SenZmaKi) or [Patreon](https://patreon.com/Senpwai).
 - You can also leave a star on the github for more weebs to know about it.
 - Senpwai is open to pull requests, so if you have ideas for improvements, feel free to contribute!
-
-## Sponsors
-<p>
-<a href="https://github.com/Adam1400"><img src="https://github.com/Adam1400.png" width="80px" alt="Adam1400"/></a>&nbsp;&nbsp;<a href="https://github.com/KeithBoehler"><img src="https://github.com/KeithBoehler.png" width="80px" alt="KeithBoehler" /></a>
-</p>
 
 ## FAQ
 
@@ -109,6 +92,7 @@ you have to click billions of links just to download one episode, so I made Senp
 </details>
 
 <details> <summary> What is HLS mode? </summary>
+ 
 HLS mode attempts to fix the unstability of Gogoanime normal mode. 
 In HLS mode Gogoanime downloads are guaranteed to work, though with a few downsides:
 

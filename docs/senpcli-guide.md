@@ -4,15 +4,23 @@ The CLI alternative for Senpwai.
 
 ## Installation
 
+- **Cross-platform (Linux, Mac, Windows 10/11)**
+
+Needs [Python 3.11](https://www.python.org/downloads/release/python-3111) installed.
+
+Senpwai ships with the Senpcli pre-installed.
+```bash
+pip install senpwai
+```
+
+
 - **Windows 10/11**
 
-Senpwai ships with the Senpcli executable preinstalled but you can install Senpcli as a completely seperate package by downloading and running [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpcli-setup.exe).
+You can install Senpcli as a completely seperate package by downloading and running [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpcli-setup.exe).
 
-If you're using the preinstalled version first add the Senpwai folder to your PATH environment variable. The folder is typically at "%LOCALAPPDATA%\Programs\Senpwai". Here is a [guide](https://www.architectryan.com/2018/03/17/add-to-the-path-on-windows-10/) for adding a folder to PATH.
+- **Other**
 
-- **Linux/Mac**
-
-You'll have to [build from source](#building-from-source).
+[Build from source](#building-from-source).
 
 ## Usage
 
@@ -50,28 +58,19 @@ Open a terminal and run the following commands.
 
 1. **Set everything up.**
 
-- Linux/Mac
+```
+git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && pip install -r dev-requirements.txt && poetry install
+```
+2. **Build the tool into a binary.**
 
 ```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+poetry run poe build_senpcli_binary
 ```
 
-- Windows (Command Prompt)
-
-```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
-```
-
-2. **Build the tool into an executable.**
-
-```
-pip install cx_freeze==6.15.10 && python setup.py --senpcli build
-```
-
-- The executable will be built in `Senpwai\build\Senpcli`
+- The binary will be built in `Senpwai\build\Senpcli`
 
 3. **Alternatively you can run the tool directly via Python.**
 
 ```
-cd src && python senpcli.py --help
+poetry run senpcli --help
 ```

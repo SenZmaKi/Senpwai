@@ -47,6 +47,7 @@ python -m scrapers.test all --site pahe && python -m scrapers.test all --site go
 - `--start_episode, -se`: Specify the starting episode number. Default: 1
 - `--end_episode, -ee`: Specify the ending episode number. Default: 2
 - `--verbose, -v`: Enable verbose mode for more detailed explanations of test results
+- `--silent, -s`: Only output critical information
 - `--help, -h`: Display help message
 
 ## Example:

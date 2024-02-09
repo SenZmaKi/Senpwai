@@ -1,0 +1,106 @@
+[tool.poetry]
+name = "senpwai"
+version = "2.1.0"
+description = "A desktop app for tracking and batch downloading anime"
+authors = ["SenZmaKi <senzmaki@gmail.com>"]
+license = "GPL v3"
+readme = "README.md"
+include = ["senpwai/assets"]
+packages = [{ include = "senpwai" }, { include = "senpcli", from = "senpwai" }]
+exclude = ["src/**/test.py"]
+repository = "https://github.com/SenZmaKi/Senpwai"
+documentation = "https://github.com/SenZmaKi/Senpwai/blob/master/docs"
+keywords = [
+  "anime",
+  "app",
+  "cli",
+  "desktop app",
+  "anime downloader",
+  "anime cli",
+  "anime app",
+  "anime tracker",
+  "batch anime downloader",
+  "bulk anime  downloader",
+  "anime desktop app",
+  "anime tracker app",
+]
+
+[tool.cx_freeze]
+icon = "senpwai/assets/misc/senpwai-icon.ico"
+senpcli_name = "senpcli"
+company = "AKatsuKi Inc."
+copyright = "© AKatsuKi Inc. All rights reserved."
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/SenZmaKi/Senpwai"
+"Discord" = "https://discord.gg/invite/e9UxkuyDX2"
+"Reddit" = "https://www.reddit.com/r/Senpwai"
+
+[tool.poetry.scripts]
+senpwai = "senpwai.senpwai:main"
+senpcli = "senpwai.senpcli.senpcli:main"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.31.0"
+yarl = "^1.9.4"
+cryptography = "^41.0.7"
+anitopy = "^2.1.1"
+bs4 = "^0.0.1"
+appdirs = "^1.4.4"
+tqdm = "^4.66.1"
+argparse = "^1.4.0"
+pylnk3 = "^0.4.2"
+pyqt6 = "^6.6.1"
+
+[tool.poetry.group.dev.dependencies]
+cx-freeze = "^6.15.12"
+ruff = "^0.2.1"
+poethepoet = "^0.24.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poe.tasks]
+generate_release = [
+  { ref = "test" },
+  { ref = "build_binaries" },
+  { ref = "compile_installers" },
+  { ref = "install" },
+]
+generate_release_ddl = [
+  { ref = "test_ddl" },
+  { ref = "build_binaries" },
+  { ref = "compile_installers" },
+  { ref = "install" },
+]
+test = [{ ref = "test_pahe" }, { ref = "test_gogo" }]
+test_pahe = "python -m senpwai.scrapers.test --site pahe all"
+test_gogo = [{ ref = "test_gogo_norm" }, { ref = "test_gogo_hls" }]
+test_gogo_norm = "python -m senpwai.scrapers.test --site gogo all"
+test_gogo_hls = "python -m senpwai.scrapers.test --site gogo all --hls"
+
+test_ddl = [{ ref = "test_pahe_ddl" }, { ref = "test_gogo_ddl" }]
+test_pahe_ddl = "python -m senpwai.scrapers.test --site pahe direct_links"
+test_gogo_ddl = [{ ref = "test_gogo_norm_ddl" }, { ref = "test_gogo_hls_ddl" }]
+test_gogo_norm_ddl = "python -m senpwai.scrapers.test --site gogo direct_links"
+test_gogo_hls_ddl = "python -m senpwai.scrapers.test --site gogo hls_links --hls"
+
+build_binaries = [{ ref = "build_senpwai_binary" }, { ref = "build_senpcli_binary" }]
+build_senpwai_binary = "python setup.py build"
+build_senpcli_binary = "python setup.py --senpcli build"
+
+compile_installers = [
+  { ref = "compile_senpwai_installer" },
+  { ref = "compile_senpcli_installer" },
+]
+compile_senpwai_installer = "iscc setup.iss /Q"
+compile_senpcli_installer = "iscc setup_senpcli.iss /Q"
+
+install = [
+  { ref = "install_senpwai" },
+  { ref = "install_senpcli" },
+]
+install_senpwai = "setups/Senpwai-setup.exe /verysilent"
+install_senpcli = "setups/Senpcli-setup.exe /verysilent"

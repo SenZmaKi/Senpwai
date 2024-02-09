@@ -2,11 +2,11 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Senpwai"
-#define MyAppVersion "2.0.9"
+#define MyAppVersion "2.1.0"
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
 #define MyAppExeName "Senpwai.exe"
-#define ProjectRootDir "C:\Users\PC\OneDrive\Documents\Python\Senpwai"
+#define ProjectRootDir "C:\Users\PC\OneDrive\Documents\Programming\Python\Senpwai"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -14,7 +14,7 @@
 AppId={{B1AC746D-A6F0-44EF-B812-0D93F4571B51}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-VersionInfoVersion=2.0.9.0
+VersionInfoVersion=2.1.0
 ;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
@@ -26,7 +26,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir={#ProjectRootDir}\setups
 OutputBaseFilename=Senpwai-setup
-SetupIconFile="{#ProjectRootDir}\src\assets\misc\senpwai-icon.ico"
+SetupIconFile="{#ProjectRootDir}\senpwai\assets\misc\senpwai-icon.ico"
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -55,6 +55,10 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent 
+
+; Add app folder to path
+[Registry]
+Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Flags: uninsdeletevalue
 
 ; Automatically launch the app after an update install
 [Code]
