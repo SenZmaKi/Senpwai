@@ -87,9 +87,9 @@ test_gogo_ddl = [{ ref = "test_gogo_norm_ddl" }, { ref = "test_gogo_hls_ddl" }]
 test_gogo_norm_ddl = "python -m senpwai.scrapers.test --site gogo direct_links"
 test_gogo_hls_ddl = "python -m senpwai.scrapers.test --site gogo hls_links --hls"
 
-build_exes = [{ ref = "build_senpwai_exe" }, { ref = "build_senpcli_exe" }]
-build_senpwai_exe = "python setup.py build"
-build_senpcli_exe = "python setup.py --senpcli build"
+build_binaries = [{ ref = "build_senpwai_binary" }, { ref = "build_senpcli_binary" }]
+build_senpwai_binary = "python setup.py build"
+build_senpcli_binary = "python setup.py --senpcli build"
 
 compile_installers = [
   { ref = "compile_senpwai_installer" },

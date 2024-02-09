@@ -22,14 +22,19 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
 <img align="center" src="https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/.github/images/one-piece.png" alt="one-piece-screenshot">
 
 ## Installation
+- **Cross-platform (Linux, Mac, Windows 10/11)**
 
+Needs [Python 3.11](https://www.python.org/downloads/release/python-3111) installed.
+```bash
+pip install senpwai
+```
 - **Windows 10/11**
 
 Download [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpwai-setup.exe) then run it.
 
-- **Linux/Mac**
+- **Other**
 
-You'll have to [build from source](#building-from-source).
+[Build from source](#building-from-source).
 
 ## Features
 
@@ -54,30 +59,23 @@ Open a terminal and run the following commands.
 
 1. **Set everything up.**
 
-- Linux/Mac
-
 ```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && pip install -r dev-requirements.txt && poetry install
 ```
 
-- Windows (Command Prompt)
+
+2. **Build the app into a binary.**
 
 ```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
+poe build_senpwai_binary
 ```
 
-2. **Build the app into an executable.**
-
-```
-pip install cx_freeze==6.15.10 && python setup.py build
-```
-
-- The executable will be built in `Senpwai\build\Senpwai`
+- The binary will be built in `Senpwai\build\Senpwai`
 
 3. **Alternatively you can instead run the app directly via Python.**
 
 ```
-cd src && python senpwai.py
+poetry run senpwai
 ```
 
 ## Support

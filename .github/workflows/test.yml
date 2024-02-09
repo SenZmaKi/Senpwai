@@ -1,0 +1,39 @@
+name: test
+
+on:             
+  push:         
+    branches:   
+      - master  
+                
+  pull_request: 
+    branches:   
+      - master
+
+ schedule:
+      # 6:00 A.M UTC  == 9:00 AM EAT
+      - cron: '0 6 * * *'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r dev-requirements.txt
+          poetry install
+
+      - name: Lint with ruff
+        run: ruff .
+
+      - name: Run Tests
+        run: poe test
