@@ -5,6 +5,7 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
 </p>
 
 <p align="center">
+ <a href=https://github.com/SenZmaKi/Senpwai/actions/workflows/test.yml> <img height="30px" src=https://github.com/SenZmaKi/Senpwai/actions/workflows/test.yml/badge.svg alt=test-workflow-status-badge></a>
  <a href="https://github.com/SenZmaKi/Senpwai/releases"><img  height="30px" src="https://img.shields.io/github/downloads/SenZmaKi/Senpwai/total" alt="Downloads"></a>
  <a href="https://discord.gg/invite/e9UxkuyDX2" target="_blank"><img height="30px" alt="Discord" src="https://img.shields.io/discord/1131981618777702540?label=Discord&logo=discord" alt="Discord-icon"></a>
  <a href="https://www.reddit.com/r/Senpwai" target="_blank"><img height="30px" alt="Subreddit subscribers" src="https://img.shields.io/reddit/subreddit-subscribers/senpwai?label=Reddit&logo=reddit" alt="Reddit-icon"</a>
