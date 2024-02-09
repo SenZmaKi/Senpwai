@@ -17,7 +17,7 @@ DEFAULT_START_EPISODE = "1"
 DEFAULT_END_EPISODE = "2"
 DEFAULT_SUB_OR_DUB = "sub"
 DEFAULT_SITE = "pahe"
-DEFAULT_DOWNLOAD_FOLDER_PATH = os.path.join(ROOT_DIRECTORY, "..", "test-downloads")
+DEFAULT_DOWNLOAD_FOLDER_PATH = os.path.join(ROOT_DIRECTORY, "..", ".test-downloads")
 DEFAULT_VERBOSE = False
 DEFAULT_SILENT = False
 SILENT = DEFAULT_SILENT
@@ -37,6 +37,10 @@ COMMANDS = [
 ]
 
 
+class FailedTest(Exception):
+    def __init__(self, msg: str):
+        super().__init__(msg)
+
 def conditional_print(text: str):
     if not SILENT:
         print(text)
@@ -51,16 +55,12 @@ def fail_test(
     expected: Any,
     got: Any,
     execution_time: float,
-    exit_code: int = 0,
     test_variables: str | None = None,
-    exit_on_fail: bool = True,
 ):
-    msg = f"Failed: {name} Test\nExpected: {expected}\nGot: {got}\nExecution time: {round(execution_time, 2)}s"
+    msg = f"{name} Test\nExpected: {expected}\nGot: {got}\nExecution time: {round(execution_time, 2)}s"
     if test_variables:
         msg = f"{msg}\nTest Variables:\n{test_variables}"
-    print(msg)
-    if exit_on_fail:
-        sys.exit(exit_code)
+    raise FailedTest(msg)
 
 
 def pass_test(name: str, execution_time: float):
@@ -79,7 +79,7 @@ def test_search(
         results = gogo.search(anime_title)
     rt = run_time_getter()
     if results == []:
-        fail_if_list_is_empty(results, test_name, "results", rt, 23)
+        fail_if_list_is_empty(results, test_name, "results", rt)
     pass_test(test_name, rt)
     test_name = "Parse search results"
     test_start(test_name)
@@ -96,7 +96,7 @@ def test_search(
             parsed_results.append((title, page_link))
     run_timer = current_time() - c
     if parsed_results == []:
-        fail_test(test_name, "List of parsed results", "Empty list", run_timer, 2)
+        fail_test(test_name, "List of parsed results", "Empty list", run_timer)
     pass_test(test_name, run_timer)
     return parsed_results
 
@@ -124,7 +124,6 @@ def test_check_results_for_anime(
         "A perfect match",
         "No match found",
         run_time(),
-        3,
         f"Anime title was: {anime_title}\nSearch results were: {results}",
     )
 
@@ -159,7 +158,7 @@ def test_get_episode_page_links(
     )
     rt = run_time()
     fail_if_list_is_empty(
-        episode_page_links, test_name, "Episode page links", rt, 4, test_variables
+        episode_page_links, test_name, "Episode page links", rt, test_variables
     )
     pass_test(test_name, run_time())
     return episode_page_links
@@ -192,7 +191,6 @@ def test_get_download_page_links(
             test_name,
             f"Bound to {sub_or_dub} download page links",
             run_time_getter(),
-            69,
             f"Episode page links were: {eps_page_links}\nPahewin page links were: {pahewin_page}",
         )
         download_page_links, download_info = pahe.bind_quality_to_link_info(
@@ -204,7 +202,6 @@ def test_get_download_page_links(
             test_name,
             "Download page links",
             rt,
-            7,
             f"Episode page links were: {eps_page_links}",
         )
     else:
@@ -218,7 +215,6 @@ def test_get_download_page_links(
             test_name,
             "Download page links",
             rt,
-            7,
             f"Anime ID was: {anime_id}\nStart Episode was: {start_episode}\nEnd Episode was: {end_episode}",
         )
     pass_test(test_name, run_time_getter())
@@ -230,7 +226,6 @@ def fail_if_list_is_empty(
     test_name: str,
     list_of: str,
     execution_time: float,
-    exit_code: int,
     test_variables: str | None = None,
 ):
     if array == []:
@@ -239,14 +234,8 @@ def fail_if_list_is_empty(
             f"List of {list_of}",
             "Empty list",
             execution_time,
-            exit_code,
             test_variables,
         )
-
-
-def fail_status(msg: str):
-    print(f"Fail status: {msg}")
-
 
 def test_getting_direct_download_links(
     site: str, download_page_links: list[str], quality: str
@@ -269,7 +258,6 @@ def test_getting_direct_download_links(
         test_name,
         "direct download links",
         rt,
-        8,
         f"Download page links were: {download_page_links}",
     )
     pass_test(test_name, rt)
@@ -287,7 +275,6 @@ def test_getting_hls_links(episode_page_links: list[str]) -> list[str]:
         test_name,
         "HLS links",
         rt,
-        10,
         f"Episode page links were: {episode_page_links}",
     )
     pass_test(test_name, rt)
@@ -307,7 +294,6 @@ def test_matching_quality_to_hls_links(hls_links: list[str], quality: str) -> li
         test_name,
         "Matched HLS links",
         rt,
-        11,
         f"Original HLS links were: {hls_links}",
     )
     pass_test(test_name, rt)
@@ -325,7 +311,6 @@ def test_getting_segments_urls(matched_hls_links: list[str]) -> list[list[str]]:
         test_name,
         "List containing List of Segment URLs",
         rt,
-        12,
         f"Matched HLS links were: {matched_hls_links}",
     )
     fail_if_list_is_empty(
@@ -333,7 +318,6 @@ def test_getting_segments_urls(matched_hls_links: list[str]) -> list[list[str]]:
         test_name,
         "Segment URLs",
         rt,
-        12,
         f"Matched HLS links were: {matched_hls_links}",
     )
     pass_test(test_name, runtime_getter())
@@ -368,7 +352,7 @@ def test_downloading(
         full_name = f"{eps_title}.mp4"
         rt = runtime_getter()
         downloaded_file = os.path.join(download_folder, full_name)
-        if downloaded_file:
+        if os.path.isfile(downloaded_file):
             pass_test(inner_test_name, rt)
             os.unlink(downloaded_file)
             continue
@@ -382,7 +366,6 @@ def test_downloading(
             f"{full_name} file in {download_folder}",
             "Didn't find the file",
             rt,
-            10,
             test_variables,
         )
 
@@ -548,7 +531,6 @@ def test_dub_available(
             "Boolean value",
             type(dub_available),
             rt,
-            90,
             f"The returned value was: {dub_available}",
         )
     pass_test(test_name, rt)
@@ -661,7 +643,6 @@ def run_tests(args: ArgParser):
                                     "An integer",
                                     type(total_download_size),
                                     rt,
-                                    12,
                                     f"Bound download infos were: {download_info}",
                                 )
                             pass_test(test_name, rt)
@@ -733,7 +714,6 @@ def run_tests(args: ArgParser):
                                         "An integer",
                                         type(total_download_size),
                                         rt,
-                                        9,
                                         f"DDLs were: {direct_download_links}",
                                     )
                                 pass_test(test_name, rt)

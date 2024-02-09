@@ -98,7 +98,10 @@ def get_new_home_url_from_readme(site_name: str) -> str:
 
 
 class DomainNameError(Exception):
-    """Raised when it is assumed the domain name has changed"""
+    message = "The domain name has changed"
+
+    def __init__(self) -> None:
+        super().__init__(DomainNameError.message)
 
 
 def has_valid_internet_connection() -> bool:

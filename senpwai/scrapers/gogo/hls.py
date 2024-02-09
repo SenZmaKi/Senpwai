@@ -9,7 +9,7 @@ from senpwai.utils.scraper_utils import (
     match_quality,
 )
 from bs4 import BeautifulSoup, Tag
-from typing import cast, Callable
+from typing import Any, cast, Callable
 from yarl import URL
 import base64
 import re
@@ -76,7 +76,7 @@ class GetHlsLinks(ProgressFunction):
     def get_hls_links(
         self,
         download_page_links: list[str],
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], Any] = lambda _: None,
     ) -> list[str]:
         hls_links: list[str] = []
         for eps_url in download_page_links:

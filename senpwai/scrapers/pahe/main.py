@@ -47,7 +47,6 @@ def site_request(url: str) -> Response:
             url, cookies=COOKIES, exceptions_to_ignore=exceptions_to_ignore
         )
         COOKIES.update(response.cookies)
-        print(COOKIES)
     except DomainNameError:
         global PAHE_HOME_URL
         PAHE_HOME_URL = get_new_home_url_from_readme(FULL_SITE_NAME)

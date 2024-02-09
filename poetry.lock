@@ -396,17 +396,6 @@ files = [
 ]
 
 [[package]]
-name = "iniconfig"
-version = "2.0.0"
-description = "brain-dead simple config-ini parsing"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "iniconfig-2.0.0-py3-none-any.whl", hash = "sha256:b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374"},
-    {file = "iniconfig-2.0.0.tar.gz", hash = "sha256:2d91e135bf72d31a410b17c16da610a82cb55f6b0477d1a902134b24a455b8b3"},
-]
-
-[[package]]
 name = "lief"
 version = "0.13.2"
 description = "Library to instrument executable formats"
@@ -522,17 +511,6 @@ files = [
 ]
 
 [[package]]
-name = "packaging"
-version = "23.2"
-description = "Core utilities for Python packages"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "packaging-23.2-py3-none-any.whl", hash = "sha256:8c491190033a9af7e1d931d0b5dacc2ef47509b34dd0de67ed209b5203fc88c7"},
-    {file = "packaging-23.2.tar.gz", hash = "sha256:048fb0e9405036518eaaf48a55953c750c11e1a1b68e0dd1a9d62ed0c092cfc5"},
-]
-
-[[package]]
 name = "patchelf"
 version = "0.17.2.1"
 description = "A small utility to modify the dynamic linker and RPATH of ELF executables."
@@ -550,21 +528,6 @@ files = [
 
 [package.extras]
 test = ["importlib-metadata", "pytest"]
-
-[[package]]
-name = "pluggy"
-version = "1.4.0"
-description = "plugin and hook calling mechanisms for python"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "pluggy-1.4.0-py3-none-any.whl", hash = "sha256:7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981"},
-    {file = "pluggy-1.4.0.tar.gz", hash = "sha256:8c85c2876142a764e5b7548e7d9a0e0ddb46f5185161049a79b7e974454223be"},
-]
-
-[package.extras]
-dev = ["pre-commit", "tox"]
-testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "pycparser"
@@ -647,26 +610,6 @@ files = [
     {file = "PyQt6_sip-13.6.0-cp39-cp39-win_amd64.whl", hash = "sha256:33ea771fe777eb0d1a2c3ef35bcc3f7a286eb3ff09cd5b2fdd3d87d1f392d7e8"},
     {file = "PyQt6_sip-13.6.0.tar.gz", hash = "sha256:2486e1588071943d4f6657ba09096dc9fffd2322ad2c30041e78ea3f037b5778"},
 ]
-
-[[package]]
-name = "pytest"
-version = "8.0.0"
-description = "pytest: simple powerful testing with Python"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "pytest-8.0.0-py3-none-any.whl", hash = "sha256:50fb9cbe836c3f20f0dfa99c565201fb75dc54c8d76373cd1bde06b06657bdb6"},
-    {file = "pytest-8.0.0.tar.gz", hash = "sha256:249b1b0864530ba251b7438274c4d251c58d868edaaec8762893ad4a0d71c36c"},
-]
-
-[package.dependencies]
-colorama = {version = "*", markers = "sys_platform == \"win32\""}
-iniconfig = "*"
-packaging = "*"
-pluggy = ">=1.3.0,<2.0"
-
-[package.extras]
-testing = ["argcomplete", "attrs (>=19.2.0)", "hypothesis (>=3.56)", "mock", "nose", "pygments (>=2.7.2)", "requests", "setuptools", "xmlschema"]
 
 [[package]]
 name = "requests"
@@ -872,4 +815,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "193f3d8a3f6b130735fdf1962699d4b2771aa9c4618b9d27544f1ccd87914721"
+content-hash = "a0055ead96895dbb4ddbdb4584a9a373c855cd3b78b3fc23dce1730fd5488fdf"

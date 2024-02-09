@@ -1,9 +1,9 @@
 # Poetry plugins
 # - poethepoet@0.24.4
-# = poetry-plugin-export@1.6.0
+# - poetry-plugin-export@1.6.0
 [tool.poetry]
 name = "senpwai"
-version = "2.0.10"
+version = "2.1.0"
 description = "A desktop app for tracking and batch downloading anime"
 authors = ["SenZmaKi <senzmaki@gmail.com>"]
 license = "GPL v3"
@@ -58,7 +58,6 @@ pyqt6 = "^6.6.1"
 
 [tool.poetry.group.dev.dependencies]
 cx-freeze = "^6.15.12"
-pytest = "^8.0.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -78,16 +77,16 @@ generate_release_ddl = [
   { ref = "run_installers" },
 ]
 run_tests = [{ ref = "test_pahe" }, { ref = "test_gogo" }]
-test_pahe = "python -m senpwai.scrapers.test --site pahe all --silent"
-test_gogo = [{ ref = "test_gogo_norm" }, { ref = "test_gogo_hls --silent" }]
-test_gogo_norm = "python -m senpwai.scrapers.test --site gogo all --silent"
-test_gogo_hls = "python -m senpwai.scrapers.test --site gogo all --hls --silent"
+test_pahe = "python -m senpwai.scrapers.test --site pahe all"
+test_gogo = [{ ref = "test_gogo_norm" }, { ref = "test_gogo_hls" }]
+test_gogo_norm = "python -m senpwai.scrapers.test --site gogo all"
+test_gogo_hls = "python -m senpwai.scrapers.test --site gogo all --hls"
 
 ddl_tests = [{ ref = "test_pahe_ddl" }, { ref = "test_gogo_ddl" }]
-test_pahe_ddl = "python -m senpwai.scrapers.test --site pahe direct_links --silent"
+test_pahe_ddl = "python -m senpwai.scrapers.test --site pahe direct_link"
 test_gogo_ddl = [{ ref = "test_gogo_norm_ddl" }, { ref = "test_gogo_hls_ddl" }]
-test_gogo_norm_ddl = "python -m senpwai.scrapers.test --site gogo direct_links --silent"
-test_gogo_hls_ddl = "python -m senpwai.scrapers.test --site gogo hls_links --hls --silent"
+test_gogo_norm_ddl = "python -m senpwai.scrapers.test --site gogo direct_links"
+test_gogo_hls_ddl = "python -m senpwai.scrapers.test --site gogo hls_links --hls"
 
 build_exes = [{ ref = "build_senpwai_exe" }, { ref = "build_senpcli_exe" }]
 build_senpwai_exe = "python setup.py build"
