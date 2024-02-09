@@ -8,8 +8,6 @@ The CLI alternative for Senpwai.
 
 Senpwai ships with the Senpcli executable preinstalled but you can install Senpcli as a completely seperate package by downloading and running [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpcli-setup.exe).
 
-If you're using the preinstalled version first add the Senpwai folder to your PATH environment variable. The folder is typically at "%LOCALAPPDATA%\Programs\Senpwai". Here is a [guide](https://www.architectryan.com/2018/03/17/add-to-the-path-on-windows-10/) for adding a folder to PATH.
-
 - **Linux/Mac**
 
 You'll have to [build from source](#building-from-source).

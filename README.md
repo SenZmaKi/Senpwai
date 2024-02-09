@@ -1,7 +1,5 @@
 <h1 align="center">
-<img align="center" height="80px" width="80px" src="src/assets/misc/senpwai-icon.png" alt="Senpwai-icon">
- Senpwai
-</h1>
+<img align="center" height="80px" width="80px" src="https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/.github/images/senpwai-icon.png" alt="senpwai-icon"> Senpwai</h1>
 <p align="center">
 A blazingly fast desktop app for batch downloading anime and auto-downloading new episodes upon release
 </p>
@@ -21,7 +19,7 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
   <a href="#links">Links</a>
 </p>
 
-![image](https://github.com/SenZmaKi/Senpwai/assets/90490506/04a9cfba-7961-48b8-b8ff-392aaef5b4d4)
+<img align="center" src="https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/.github/images/one-piece.png" alt="one-piece-screenshot">
 
 ## Installation
 

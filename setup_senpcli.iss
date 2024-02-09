@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Senpcli"
-#define MyAppVersion "2.0.9"
+#define MyAppVersion "2.1.0"
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
 #define MyAppExeName "Senpcli.exe"
@@ -14,7 +14,7 @@
 AppId={{7D4A0DD5-EACB-4593-81FC-325FCFF05BB6}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-VersionInfoVersion=2.0.9.0
+VersionInfoVersion=2.1.0
 ;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
@@ -44,5 +44,6 @@ Type: filesandordirs; Name: "{app}"
 [InstallDelete]
 Type: filesandordirs; Name: "{app}"
 
+; Add app folder to path
 [Registry]
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; Flags: uninsdeletevalue

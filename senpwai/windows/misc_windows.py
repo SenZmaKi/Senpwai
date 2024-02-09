@@ -24,6 +24,7 @@ from senpwai.utils.static_utils import (
     GOGO_HOVER_COLOR,
     GOGO_NORMAL_COLOR,
     GOGO_PRESSED_COLOR,
+    IS_EXECUTABLE,
     IS_PIP_INSTALL,
     PAUSE_ICON_PATH,
     RED_HOVER_COLOR,
@@ -173,55 +174,52 @@ class UpdateWindow(AbstractWindow):
         )
         if IS_PIP_INSTALL:
             before_click_label.setText(
-                'Pip install detected run "pip install senpwai --upgrade" to update to the latest version'
+                'Run "pip install senpwai --upgrade" to update to the latest version'
             )
             main_layout.addWidget(before_click_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        elif sys.platform == "win32" and IS_EXECUTABLE:
+            before_click_label.setText(
+                "Before you click the update button, ensure you don't have any active downloads cause Senpwai will restart"
+            )
+            main_layout.addWidget(
+                before_click_label, alignment=Qt.AlignmentFlag.AlignCenter
+            )
+            self.update_button = StyledButton(
+                self,
+                24,
+                "black",
+                RED_NORMAL_COLOR,
+                RED_HOVER_COLOR,
+                RED_PRESSED_COLOR,
+                20,
+            )
+            self.update_button.setText("DOWNLOAD AND INSTALL UPDATE")
+            set_minimum_size_policy(self.update_button)
+            download_widget = QWidget()
+            self.download_layout = QVBoxLayout()
+            self.download_layout.addWidget(
+                self.update_button, alignment=Qt.AlignmentFlag.AlignCenter
+            )
+            main_layout.addWidget(download_widget)
+            download_widget.setLayout(self.download_layout)
+            self.update_button.clicked.connect(
+                DownloadUpdateThread(
+                    main_window, self, download_url, file_name
+                ).start
+            )
         else:
-            if sys.platform == "win32":
-                before_click_label.setText(
-                    "Before you click the update button, ensure you don't have any active downloads cause Senpwai will restart"
-                )
-                main_layout.addWidget(
-                    before_click_label, alignment=Qt.AlignmentFlag.AlignCenter
-                )
-                self.update_button = StyledButton(
-                    self,
-                    24,
-                    "black",
-                    RED_NORMAL_COLOR,
-                    RED_HOVER_COLOR,
-                    RED_PRESSED_COLOR,
-                    20,
-                )
-                self.update_button.setText("DOWNLOAD AND INSTALL UPDATE")
-                set_minimum_size_policy(self.update_button)
-                download_widget = QWidget()
-                self.download_layout = QVBoxLayout()
-                self.download_layout.addWidget(
-                    self.update_button, alignment=Qt.AlignmentFlag.AlignCenter
-                )
-                main_layout.addWidget(download_widget)
-                download_widget.setLayout(self.download_layout)
-                self.update_button.clicked.connect(
-                    DownloadUpdateThread(
-                        main_window, self, download_url, file_name
-                    ).start
-                )
-
-            else:
-                os_name = "Mac OS" if sys.platform == "darwin" else "Linux OS"
-                before_click_label.setText(
-                    f"\n{os_name} detected, you will have to build from source to update to the new version.\nThere is a guide on the README.md in the Github Repository.\n"
-                )
-                main_layout.addWidget(
-                    before_click_label, alignment=Qt.AlignmentFlag.AlignCenter
-                )
-                github_button = IconButton(Icon(300, 100, GITHUB_ICON_PATH), 1.1)
-                github_button.clicked.connect(lambda: open_new_tab(GITHUB_REPO_URL))
-                github_button.setToolTip(GITHUB_REPO_URL)
-                main_layout.addWidget(
-                    github_button, alignment=Qt.AlignmentFlag.AlignCenter
-                )
+            before_click_label.setText(
+                "\nBuild from source to update to the latest version, there is a guide on the README.md in the repository"
+            )
+            main_layout.addWidget(
+                before_click_label, alignment=Qt.AlignmentFlag.AlignCenter
+            )
+            github_button = IconButton(Icon(300, 100, GITHUB_ICON_PATH), 1.1)
+            github_button.clicked.connect(lambda: open_new_tab(GITHUB_REPO_URL))
+            github_button.setToolTip(GITHUB_REPO_URL)
+            main_layout.addWidget(
+                github_button, alignment=Qt.AlignmentFlag.AlignCenter
+            )
 
         set_minimum_size_policy(before_click_label)
         main_widget.setLayout(main_layout)

@@ -23,7 +23,7 @@ else:
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = APP_NAME.lower()
 APP_EXE_PATH = os.path.join(ROOT_DIRECTORY, f"{APP_NAME_LOWER}.exe")
-VERSION = "2.0.9"
+VERSION = "2.1.0"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
 
