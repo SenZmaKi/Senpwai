@@ -1,9 +1,8 @@
 import re
 from math import pow as math_pow
-from typing import Callable, cast
+from typing import Any, Callable, cast
 from requests import Response
-from bs4 import BeautifulSoup, ResultSet, Tag
-from scrapers import pahe
+from bs4 import BeautifulSoup, Tag
 from senpwai.utils.scraper_utils import (
     CLIENT,
     PARSER,
@@ -93,12 +92,12 @@ class GetEpisodePageLinks(ProgressFunction):
         progress_update_callback: Callable = lambda _: None,
     ) -> list[str]:
         page_url = anime_page_link
-        episodes_data = []
+        episodes_data: list[dict[str, Any]] = []
         page_no = 1
         while page_url is not None:
             page_url = LOAD_EPISODES_URL.format(anime_page_link, page_no)
             decoded = site_request(page_url).json()
-            episodes_data += decoded["data"]
+            episodes_data.extend(decoded["data"])
             page_url = decoded["next_page_url"]
             page_no += 1
             self.resume.wait()
@@ -151,7 +150,9 @@ def is_dub(anime_info: str) -> bool:
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
     page_url = LOAD_EPISODES_URL.format(anime_page_link, 1)
     decoded = site_request(page_url).json()
-    episodes_data = decoded["data"]
+    episodes_data = decoded.get("data", None)
+    if episodes_data is None:
+        return False
     episode_sessions = [episode["session"] for episode in episodes_data]
     episode_links = [
         EPISODE_PAGE_URL.format(anime_id, episode_session)

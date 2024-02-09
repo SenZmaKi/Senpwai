@@ -1,6 +1,3 @@
-# Poetry plugins
-# - poethepoet@0.24.4
-# - poetry-plugin-export@1.6.0
 [tool.poetry]
 name = "senpwai"
 version = "2.1.0"
@@ -58,6 +55,8 @@ pyqt6 = "^6.6.1"
 
 [tool.poetry.group.dev.dependencies]
 cx-freeze = "^6.15.12"
+ruff = "^0.2.1"
+poethepoet = "^0.24.4"
 
 [build-system]
 requires = ["poetry-core"]
@@ -65,18 +64,18 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poe.tasks]
 generate_release = [
-  { ref = "run_tests" },
+  { ref = "test" },
   { ref = "build_exes" },
   { ref = "compile_installers" },
-  { ref = "run_installers" },
+  { ref = "install" },
 ]
 generate_release_ddl = [
   { ref = "ddl_tests" },
   { ref = "build_exes" },
   { ref = "compile_installers" },
-  { ref = "run_installers" },
+  { ref = "install" },
 ]
-run_tests = [{ ref = "test_pahe" }, { ref = "test_gogo" }]
+test = [{ ref = "test_pahe" }, { ref = "test_gogo" }]
 test_pahe = "python -m senpwai.scrapers.test --site pahe all"
 test_gogo = [{ ref = "test_gogo_norm" }, { ref = "test_gogo_hls" }]
 test_gogo_norm = "python -m senpwai.scrapers.test --site gogo all"
@@ -99,9 +98,9 @@ compile_installers = [
 compile_senpwai_installer = "iscc setup.iss /Q"
 compile_senpcli_installer = "iscc setup_senpcli.iss /Q"
 
-run_installers = [
-  { ref = "run_senpwai_installer" },
-  { ref = "run_senpcli_installer" },
+install = [
+  { ref = "install_senpwai" },
+  { ref = "install_senpcli" },
 ]
-run_senpwai_installer = "setups/Senpwai-setup.exe /verysilent"
-run_senpcli_installer = "setups/Senpcli-setup.exe /verysilent"
+install_senpwai = "setups/Senpwai-setup.exe /verysilent"
+install_senpcli = "setups/Senpcli-setup.exe /verysilent"

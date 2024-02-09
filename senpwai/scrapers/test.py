@@ -1,4 +1,3 @@
-from ast import parse
 import os
 import sys
 from time import time as current_time

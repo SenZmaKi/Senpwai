@@ -379,17 +379,20 @@ class DownloadButton(StyledButton):
         start_episode = self.chosen_anime_window.start_episode_input.text()
         end_episode = self.chosen_anime_window.end_episode_input.text()
         predicted_start_point = self.anime_details.haved_end
-        if not predicted_start_point:
-            predicted_start_point = 0
-        predicted_start_point += 1
+        predicted_start_point = (
+            predicted_start_point + 1 if predicted_start_point is not None else 1
+        )
         error = self.chosen_anime_window.error
-        if "0" in (start_episode, end_episode):
+        if episode_count == 0:
+            error("This anime has no episodes yet on this site.")
+            invalid_input = True
+        if "0" == start_episode or "0" == end_episode:
             error("What am I supposed to do with a zero?")
             invalid_input = True
-        if start_episode in ("", "0"):
+        if start_episode == "":
             start_episode = 1
             self.chosen_anime_window.start_episode_input.setText("1")
-        if end_episode in ("", "0"):
+        if end_episode == "":
             end_episode = episode_count
             self.chosen_anime_window.end_episode_input.setText("")
         start_episode = int(start_episode)
@@ -423,21 +426,18 @@ class DownloadButton(StyledButton):
             self.chosen_anime_window.end_episode_input.setText("")
             invalid_input = True
 
-        # For testing purposes
-        # end_episode = start_episode + 7
-
-        self.anime_details.lacked_episode_numbers = lacked_episode_numbers(
-            start_episode, end_episode, self.anime_details.haved_episodes
-        )
-        if len(self.anime_details.lacked_episode_numbers) == 0 and not invalid_input:
-            error(
-                "Bakayorou, you already have all episodes within the provided range!!!"
+        if not invalid_input:
+            self.anime_details.lacked_episode_numbers = lacked_episode_numbers(
+                start_episode, end_episode, self.anime_details.haved_episodes
             )
-            invalid_input = True
+            if len(self.anime_details.lacked_episode_numbers) == 0:
+                error(
+                    "Bakayorou, you already have all episodes within the provided range!!!"
+                )
+                invalid_input = True
 
         if invalid_input:
-            self.chosen_anime_window.episode_count.brighten()
-            return
+            return self.chosen_anime_window.episode_count.brighten()
         self.main_window.stacked_windows.setCurrentWidget(
             self.main_window.download_window
         )
