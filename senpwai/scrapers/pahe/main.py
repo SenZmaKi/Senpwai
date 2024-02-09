@@ -3,6 +3,7 @@ from math import pow as math_pow
 from typing import Callable, cast
 from requests import Response
 from bs4 import BeautifulSoup, ResultSet, Tag
+from scrapers import pahe
 from senpwai.utils.scraper_utils import (
     CLIENT,
     PARSER,
@@ -118,37 +119,29 @@ class GetEpisodePageLinks(ProgressFunction):
         return episode_links
 
 
-class GetPahewinDownloadPageLinks(ProgressFunction):
+class GetPahewinPageLinks(ProgressFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    def get_pahewin_download_page_links_and_info(
+    def get_pahewin_page_links_and_info(
         self,
         episode_page_links: list[str],
         progress_update_callback: Callable = lambda _: None,
     ) -> tuple[list[list[str]], list[list[str]]]:
-        download_data: list[ResultSet[BeautifulSoup]] = []
+        pahewin_links: list[list[str]] = []
+        download_info: list[list[str]] = []
         for episode_page_link in episode_page_links:
             page_content = site_request(episode_page_link).content
             soup = BeautifulSoup(page_content, PARSER)
-            download_data.append(
-                soup.find_all("a", class_="dropdown-item", target="_blank")
-            )
+            pahewin_data = soup.find_all("a", class_="dropdown-item", target="_blank")
+            if pahewin_data:
+                pahewin_links.append([cast(str, link["href"]) for link in pahewin_data])
+                download_info.append([li.text.strip() for li in pahewin_data])
             self.resume.wait()
             if self.cancelled:
                 return ([], [])
             progress_update_callback(1)
-        # Scrapes the download data of each episode and stores the links in a list which is contained in another list containing all episodes
-        pahewin_download_page_links: list[list[str]] = [
-            [cast(str, download_link["href"]) for download_link in episode_data]
-            for episode_data in download_data
-        ]
-        # Scrapes the download data of each episode and stores the info for each quality and dub or sub in a list which is contained in another list containing all episodes
-        download_info: list[list[str]] = [
-            [episode_info.text.strip() for episode_info in episode_data]
-            for episode_data in download_data
-        ]
-        return (pahewin_download_page_links, download_info)
+        return (pahewin_links, download_info)
 
 
 def is_dub(anime_info: str) -> bool:
@@ -164,21 +157,17 @@ def dub_available(anime_page_link: str, anime_id: str) -> bool:
         EPISODE_PAGE_URL.format(anime_id, episode_session)
         for episode_session in episode_sessions
     ]
-    episode_links = [episode_links[-1]]
     (
         _,
         download_info,
-    ) = GetPahewinDownloadPageLinks().get_pahewin_download_page_links_and_info(
-        episode_links
+    ) = GetPahewinPageLinks().get_pahewin_page_links_and_info(
+        episode_links[:1]
     )
 
-    for episode in download_info:
-        found_dub = False
-        for info in episode:
-            found_dub = is_dub(info)
-        if not found_dub:
-            return False
-    return True
+    for info in download_info[0]:
+        if is_dub(info):
+            return True
+    return False
 
 
 def bind_sub_or_dub_to_link_info(
@@ -188,19 +177,19 @@ def bind_sub_or_dub_to_link_info(
 ) -> tuple[list[list[str]], list[list[str]]]:
     bound_links: list[list[str]] = []
     bound_info: list[list[str]] = []
-    for idx_out, episode_info in enumerate(download_info):
+    for link_list, episode_info in zip(pahewin_download_page_links, download_info):
         links: list[str] = []
         infos: list[str] = []
-        for idx_in, info in enumerate(episode_info):
+        for link, info in zip(link_list, episode_info):
             is_dub_link = is_dub(info)
             if (sub_or_dub == "sub" and not is_dub_link) or (
                 sub_or_dub == "dub" and is_dub_link
             ):
-                links.append(pahewin_download_page_links[idx_out][idx_in])
+                links.append(link)
                 infos.append(info)
-        bound_links.append(links)
-        bound_info.append(infos)
-
+        if links and infos:
+            bound_links.append(links)
+            bound_info.append(infos)
     return (bound_links, bound_info)
 
 
@@ -211,10 +200,10 @@ def bind_quality_to_link_info(
 ) -> tuple[list[str], list[str]]:
     bound_links: list[str] = []
     bound_info: list[str] = []
-    for idx_out, episode_info in enumerate(download_info):
-        idx_in = match_quality(episode_info, quality)
-        bound_links.append(pahewin_download_page_links[idx_out][idx_in])
-        bound_info.append(episode_info[idx_in])
+    for links, infos in zip(pahewin_download_page_links, download_info):
+        index = match_quality(infos, quality)
+        bound_links.append(links[index])
+        bound_info.append(infos[index])
     return (bound_links, bound_info)
 
 

@@ -364,7 +364,7 @@ class DownloadWindow(AbstractWindow):
     def start_auto_download(self):
         # We only spawn a new thread if one wasn't already running to avoid overwriding the reference to the previous one causing it to get garbage collected/destroyed
         # Cause it can cause this error "QThread: Destroyed while thread is still running"
-        if SETTINGS.tracked_anime != [] and not self.auto_download_thread:
+        if SETTINGS.tracked_anime and not self.auto_download_thread:
             self.auto_download_thread = AutoDownloadThread(
                 self,
                 SETTINGS.tracked_anime,
@@ -1157,10 +1157,10 @@ class PaheGetDownloadPageThread(QThread):
         self.update_bar.connect(progress_bar.update_bar)
 
     def run(self):
-        obj = pahe.GetPahewinDownloadPageLinks()
+        obj = pahe.GetPahewinPageLinks()
         self.progress_bar.pause_callback = obj.pause_or_resume
         self.progress_bar.cancel_callback = obj.cancel
-        d_page, d_info = obj.get_pahewin_download_page_links_and_info(
+        d_page, d_info = obj.get_pahewin_page_links_and_info(
             self.episode_page_links, self.update_bar.emit
         )
         if not obj.cancelled:
@@ -1216,6 +1216,15 @@ class GetDirectDownloadLinksThread(QThread):
                 lambda x: self.update_bar.emit(x),
             )
 
+        if len(self.anime_details.ddls_or_segs_urls) < len(self.download_page_links):
+            self.download_window.main_window.tray_icon.make_notification(
+                "Error",
+                f"Failed to find some {'hls' if self.anime_details.is_hls_download else 'direct download'} links",
+                False,
+                None,
+            )
+        if not self.anime_details.ddls_or_segs_urls:
+            return
         if not obj.cancelled:
             self.finished.emit(self.anime_details)
 
@@ -1297,7 +1306,7 @@ class AutoDownloadThread(QThread):
             anime_details.lacked_episode_numbers = lacked_episode_numbers(
                 start_eps, anime_details.episode_count, anime_details.haved_episodes
             )
-            if anime_details.lacked_episode_numbers == []:
+            if not anime_details.lacked_episode_numbers:
                 haved_end = anime_details.haved_end
                 if anime_details.metadata.airing_status == "FINISHED" and (
                     haved_end and haved_end >= anime_details.episode_count
@@ -1313,15 +1322,15 @@ class AutoDownloadThread(QThread):
                 continue
             if anime_details.sub_or_dub == DUB and not anime_details.dub_available:
                 self.download_window.main_window.tray_icon.make_notification(
-                    "Couldn't find Dub",
-                    f"Couldn't find dub for {anime_details.anime.title}",
+                    "Error",
+                    f"Failed to find dub for {anime_details.anime.title}",
                     False,
                     None,
                 )
                 continue
             queued.append(anime_details.anime.title)
             self.initate_download_pipeline.emit(anime_details)
-        if queued != []:
+        if queued:
             all_str = ", ".join(queued)
             self.download_window.main_window.tray_icon.make_notification(
                 "Queued new episodes",

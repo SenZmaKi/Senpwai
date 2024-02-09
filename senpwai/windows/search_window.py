@@ -189,7 +189,7 @@ class SearchWindow(AbstractWindow):
         AudioPlayer(self, BUNSHIN_POOF_AUDIO_PATH, 10).play()
 
     def show_results(self, site: str, results: list[Anime]):
-        if results == []:
+        if not results:
             self.anime_not_found.start()
             self.bottom_section_stacked_widgets.setCurrentWidget(self.anime_not_found)
         else:
@@ -231,7 +231,7 @@ class NarutoResultsThread(QThread):
     def run(self):
         while self.search_window.kage_bunshin_no_jutsu.isPlaying():
             pass
-        if self.results == []:
+        if not self.results:
             self.start_anime_not_found_animation.emit()
             self.set_curr_wid.emit(self.search_window.anime_not_found)
         else:

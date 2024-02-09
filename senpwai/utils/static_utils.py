@@ -136,7 +136,7 @@ mascots_folder_path = join_from_assets("mascots")
 mascots_files = list(Path(mascots_folder_path).glob("*"))
 RANDOM_MACOT_ICON_PATH = (
     # Incase Senpcli was installed without Senpwai
-    str(random_choice(mascots_files)) if mascots_files != [] else ""
+    str(random_choice(mascots_files)) if mascots_files else ""
 )
 
 

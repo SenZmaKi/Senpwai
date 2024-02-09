@@ -1,3 +1,4 @@
+from ast import parse
 import os
 import sys
 from time import time as current_time
@@ -78,7 +79,7 @@ def test_search(
     else:
         results = gogo.search(anime_title)
     rt = run_time_getter()
-    if results == []:
+    if not results:
         fail_if_list_is_empty(results, test_name, "results", rt)
     pass_test(test_name, rt)
     test_name = "Parse search results"
@@ -95,7 +96,7 @@ def test_search(
         for title, page_link in cast(list[tuple[str, str]], results):
             parsed_results.append((title, page_link))
     run_timer = current_time() - c
-    if parsed_results == []:
+    if not parsed_results:
         fail_test(test_name, "List of parsed results", "Empty list", run_timer)
     pass_test(test_name, run_timer)
     return parsed_results
@@ -180,7 +181,7 @@ def test_get_download_page_links(
         (
             pahewin_page,
             pahewin_info,
-        ) = pahe.GetPahewinDownloadPageLinks().get_pahewin_download_page_links_and_info(
+        ) = pahe.GetPahewinPageLinks().get_pahewin_page_links_and_info(
             eps_page_links
         )
         download_page_links, download_info = pahe.bind_sub_or_dub_to_link_info(
@@ -228,7 +229,7 @@ def fail_if_list_is_empty(
     execution_time: float,
     test_variables: str | None = None,
 ):
-    if array == []:
+    if not array:
         fail_test(
             test_name,
             f"List of {list_of}",

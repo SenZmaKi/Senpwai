@@ -98,10 +98,11 @@ def get_new_home_url_from_readme(site_name: str) -> str:
 
 
 class DomainNameError(Exception):
-    message = "The domain name has changed"
+    message = "The domain might have changed"
 
-    def __init__(self) -> None:
-        super().__init__(DomainNameError.message)
+    def __init__(self, original_exception: Exception) -> None:
+        super().__init__(DomainNameError.message, original_exception)
+        self.original_exception = original_exception
 
 
 def has_valid_internet_connection() -> bool:
@@ -216,7 +217,8 @@ class Client:
             try:
                 return callback()
             except requests.exceptions.RequestException as e:
-                e = DomainNameError() if has_valid_internet_connection() else e
+                if exceptions_to_ignore is not None and DomainNameError in exceptions_to_ignore:
+                    e = DomainNameError(e) if has_valid_internet_connection() else e
                 if exceptions_to_ignore is not None and any(
                     [isinstance(e, exception) for exception in exceptions_to_ignore]
                 ):
@@ -265,7 +267,7 @@ def match_quality(potential_qualities: list[str], user_quality: str) -> int:
             else:
                 detected_qualities.append((int(quality), idx))
     int_user_quality = int(user_quality)
-    if detected_qualities == []:
+    if not detected_qualities:
         if int_user_quality <= 480:
             return 0
         return -1
@@ -359,6 +361,8 @@ def lacked_episode_numbers(
 def lacked_episodes(
     lacking_episode_numbers: list[int], episode_page_links: list[str]
 ) -> list[str]:
+    # Episode count is what is used to generate lacking_episode_numbers, episode count is gotten from anime the page which uses subbed episodes count
+    # so for an anime where sub episodes are ahead of dub the missing episodes will be outside the range of the episode_page_links
     first_eps_number = lacking_episode_numbers[0]
     return [
         episode_page_links[eps_number - first_eps_number]

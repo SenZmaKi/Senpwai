@@ -260,7 +260,7 @@ def pahe_get_download_page_links(
     (
         down_page_links,
         down_info,
-    ) = pahe.GetPahewinDownloadPageLinks().get_pahewin_download_page_links_and_info(
+    ) = pahe.GetPahewinPageLinks().get_pahewin_page_links_and_info(
         episode_page_links, pbar.update
     )
     down_page_links, down_info = pahe.bind_sub_or_dub_to_link_info(
