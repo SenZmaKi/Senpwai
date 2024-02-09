@@ -32,7 +32,7 @@ company = "AKatsuKi Inc."
 copyright = "© AKatsuKi Inc. All rights reserved."
 
 [tool.poetry.urls]
-"Github Issues" = "https://github.com/SenZmaKi/Senpwai"
+"Bug Tracker" = "https://github.com/SenZmaKi/Senpwai"
 "Discord" = "https://discord.gg/invite/e9UxkuyDX2"
 "Reddit" = "https://www.reddit.com/r/Senpwai"
 
