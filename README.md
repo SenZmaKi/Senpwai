@@ -65,13 +65,13 @@ git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && pip install -r de
 ```
 
 
-2. **Build the app into a binary.**
+2. **Build the app into an executable.**
 
 ```
-poetry run poe build_senpwai_binary
+poetry run poe build_senpwai_exe
 ```
 
-- The binary will be built in `Senpwai\build\Senpwai`
+- The executable will be built in `Senpwai\build\Senpwai`
 
 3. **Alternatively you can instead run the app directly via Python.**
 

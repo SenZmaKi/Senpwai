@@ -61,13 +61,13 @@ Open a terminal and run the following commands.
 ```
 git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && pip install -r dev-requirements.txt && poetry install
 ```
-2. **Build the tool into a binary.**
+2. **Build the tool into an executable.**
 
 ```
-poetry run poe build_senpcli_binary
+poetry run poe build_senpcli_exe
 ```
 
-- The binary will be built in `Senpwai\build\Senpcli`
+- The executable will be built in `Senpwai\build\Senpcli`
 
 3. **Alternatively you can run the tool directly via Python.**
 
