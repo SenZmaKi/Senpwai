@@ -64,7 +64,7 @@ git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && pip install -r de
 2. **Build the tool into a binary.**
 
 ```
-poe build_senpcli_binary
+poetry run poe build_senpcli_binary
 ```
 
 - The binary will be built in `Senpwai\build\Senpcli`

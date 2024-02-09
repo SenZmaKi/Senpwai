@@ -33,7 +33,7 @@ jobs:
           poetry install
 
       - name: Lint with ruff
-        run: ruff .
+        run: poetry run ruff .
 
       - name: Run Tests
-        run: poe test
+        run: poetry run poe test_ddl
