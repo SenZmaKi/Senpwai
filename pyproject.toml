@@ -65,13 +65,13 @@ build-backend = "poetry.core.masonry.api"
 [tool.poe.tasks]
 generate_release = [
   { ref = "test" },
-  { ref = "build_exes" },
+  { ref = "build_binaries" },
   { ref = "compile_installers" },
   { ref = "install" },
 ]
 generate_release_ddl = [
   { ref = "ddl_tests" },
-  { ref = "build_exes" },
+  { ref = "build_binaries" },
   { ref = "compile_installers" },
   { ref = "install" },
 ]
