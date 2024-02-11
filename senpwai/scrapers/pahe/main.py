@@ -1,5 +1,5 @@
 import re
-from math import pow as math_pow
+import math
 from typing import Any, Callable, cast
 from requests import Response
 from bs4 import BeautifulSoup, Tag
@@ -71,51 +71,79 @@ def extract_anime_title_page_link_and_id(
     return title, page_link, anime_id
 
 
-def get_total_episode_page_count(anime_page_link: str) -> int:
+def get_episode_pages_info(
+    anime_page_link: str, start_episode: int, end_episode: int
+) -> tuple[int, int, int, dict[str, Any]]:
     page_url = LOAD_EPISODES_URL.format(anime_page_link, 1)
     decoded = site_request(page_url).json()
-    total_episode_page_count: int = decoded["last_page"]
-    return total_episode_page_count
+    per_page: int = decoded["per_page"]
+    start_page = math.ceil(start_episode / per_page)
+    end_page = math.ceil(end_episode / per_page)
+    episode_page_count = (end_page - start_page) + 1
+    return start_page, end_page, episode_page_count, decoded
 
 
 class GetEpisodePageLinks(ProgressFunction):
     def __init__(self) -> None:
         super().__init__()
 
+    @staticmethod
+    def generate_episode_page_links(
+        start_episode: int,
+        end_episode: int,
+        episodes_data: list[dict[str, Any]],
+        anime_id: str,
+    ):
+        # These values should theoritically never remain as they are unless something crashes
+        # as in both of the ifs in the for loop should always eventually evaluate to True
+        start_idx = 0
+        end_idx = 0
+
+        for idx, episode in enumerate(episodes_data):
+            if episode["episode"] == start_episode:
+                start_idx = idx
+            if episode["episode"] == end_episode:
+                end_idx = idx
+                break
+        episodes_data = episodes_data[start_idx : end_idx + 1]
+        episode_sessions = [episode["session"] for episode in episodes_data]
+        return [
+            EPISODE_PAGE_URL.format(anime_id, episode_session)
+            for episode_session in episode_sessions
+        ]
+
     # Retrieves a list of the episode page links (not download links)
     def get_episode_page_links(
         self,
         start_episode: int,
         end_episode: int,
+        start_page_num: int,
+        end_page_num: int,
+        first_page: dict[str, Any],
         anime_page_link: str,
         anime_id: str,
         progress_update_callback: Callable = lambda _: None,
     ) -> list[str]:
         page_url = anime_page_link
         episodes_data: list[dict[str, Any]] = []
-        page_no = 1
-        while page_url is not None:
-            page_url = LOAD_EPISODES_URL.format(anime_page_link, page_no)
+        if start_page_num == 1:
+            episodes_data.extend(first_page["data"])
+            start_page_num += 1
+            progress_update_callback(1)
+        for page_num in range(start_page_num, end_page_num + 1):
+            page_url = LOAD_EPISODES_URL.format(anime_page_link, page_num)
             decoded = site_request(page_url).json()
-            episodes_data.extend(decoded["data"])
+            # To avoid episodes like 7.5 and 5.5 cause they're usually just recaps
+            episodes = [ep for ep in decoded["data"] if isinstance(ep["episode"], int)]
+            episodes_data.extend(episodes)
             page_url = decoded["next_page_url"]
-            page_no += 1
             self.resume.wait()
             if self.cancelled:
                 return []
             progress_update_callback(1)
-        # To avoid episodes like 7.5 and 5.5 cause they're usually just recaps
-        episodes_data = [
-            ep for ep in episodes_data if not isinstance(ep["episode"], float)
-        ]
-        # Take note cause indices work differently from episode numbers
-        episodes_data = episodes_data[start_episode - 1 : end_episode]
-        episode_sessions = [episode["session"] for episode in episodes_data]
-        episode_links = [
-            EPISODE_PAGE_URL.format(anime_id, episode_session)
-            for episode_session in episode_sessions
-        ]
-        return episode_links
+        return GetEpisodePageLinks.generate_episode_page_links(
+            start_episode, end_episode, episodes_data, anime_id
+        )
 
 
 class GetPahewinPageLinks(ProgressFunction):
@@ -161,9 +189,7 @@ def dub_available(anime_page_link: str, anime_id: str) -> bool:
     (
         _,
         download_info,
-    ) = GetPahewinPageLinks().get_pahewin_page_links_and_info(
-        episode_links[:1]
-    )
+    ) = GetPahewinPageLinks().get_pahewin_page_links_and_info(episode_links[:1])
 
     for info in download_info[0]:
         if is_dub(info):
@@ -225,7 +251,7 @@ def get_string(content: str, s1: int) -> int:
     map_string = map_thing[:s2]
     acc = 0
     for index, c in enumerate(reversed(content)):
-        acc += (int(c) if c.isdigit() else 0) * int(math_pow(s1, index))
+        acc += (int(c) if c.isdigit() else 0) * int(math.pow(s1, index))
     k = ""
     while acc > 0:
         k = map_string[acc % s2] + k

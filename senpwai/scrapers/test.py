@@ -153,8 +153,9 @@ def test_get_episode_page_links(
     run_time = get_run_time_later()
     test_variables = f"Anime ID: {anime_id}"
     anime_id = cast(str, anime_id)
+    start_page_num, end_page_num, _, first_page = pahe.get_episode_pages_info(anime_page_link, start_episode, end_episode)
     episode_page_links = pahe.GetEpisodePageLinks().get_episode_page_links(
-        start_episode, end_episode, anime_page_link, anime_id
+        start_episode, end_episode, start_page_num, end_page_num, first_page, anime_page_link, anime_id
     )
     rt = run_time()
     fail_if_list_is_empty(
