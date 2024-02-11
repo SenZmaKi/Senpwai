@@ -362,7 +362,7 @@ class AnimeDetails:
                     continue
                 try:
                     episode_number = int(parsed["episode_number"])
-                except KeyError:
+                except (KeyError, ValueError):
                     continue
                 if episode_number > 0:
                     self.haved_episodes.append(episode_number)
