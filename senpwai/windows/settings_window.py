@@ -1,14 +1,15 @@
 import os
-from sys import platform as sys_platform
 from typing import Callable, cast
-
+import sys
 from pylnk3 import for_file as pylnk3_for_file
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
-from senpwai.utils.class_utils import SETTINGS
-from senpwai.utils.scraper_utils import try_deleting_safely
-from senpwai.utils.static_utils import (
+from utils.classes import SETTINGS
+from utils.scraper import try_deleting
+from utils.static import (
     AMOGUS_EASTER_EGG,
+    APP_EXE_PATH,
+    APP_EXE_ROOT_DIRECTORY,
     APP_NAME,
     DUB,
     GOGO,
@@ -16,6 +17,7 @@ from senpwai.utils.static_utils import (
     GOGO_NORM_MODE,
     GOGO_NORMAL_COLOR,
     GOGO_PRESSED_COLOR,
+    IS_PIP_INSTALL,
     MINIMISED_TO_TRAY_ARG,
     PAHE,
     PAHE_HOVER_COLOR,
@@ -29,11 +31,10 @@ from senpwai.utils.static_utils import (
     RED_NORMAL_COLOR,
     RED_PRESSED_COLOR,
     SETTINGS_WINDOW_BCKG_IMAGE_PATH,
-    ROOT_DIRECTORY,
     SUB,
     requires_admin_access,
 )
-from senpwai.utils.widget_utils import (
+from utils.widgets import (
     ErrorLabel,
     GogoNormOrHlsButton,
     HorizontalLine,
@@ -84,8 +85,6 @@ class SettingsWindow(AbstractWindow):
             self, main_window.download_window
         )
         self.gogo_skip_calculate = GogoSkipCalculate(self)
-        if sys_platform == "win32":
-            self.run_on_startup = RunOnStartUp(self)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
@@ -93,7 +92,8 @@ class SettingsWindow(AbstractWindow):
         left_layout.addWidget(self.gogo_skip_calculate)
         left_layout.addWidget(self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_in_fullscreen)
-        if sys_platform == "win32":
+        if sys.platform == "win32" and not IS_PIP_INSTALL and APP_EXE_PATH:
+            self.run_on_startup = RunOnStartUp(self)
             left_layout.addWidget(self.run_on_startup)
         right_layout.addWidget(self.download_folder_setting)
         right_layout.addWidget(self.auto_download_site)
@@ -223,7 +223,7 @@ class DownloadFoldersSetting(FolderSetting):
             settings_window,
             main_window,
             "Download folders",
-            "Senpwai will search these folders for anime episodes, in the order shown",
+            f"{APP_NAME} will search these folders for anime episodes, in the order shown",
         )
 
     def remove_from_folder_settings(self, folder_widget: QWidget):
@@ -417,7 +417,7 @@ class AutoDownloadSite(SettingWidget):
             settings_window, "Auto download site", [pahe_button, gogo_button]
         )
         self.setting_label.setToolTip(
-            "If Senpwai can't find the anime in the specified site it will try the other"
+            f"If {APP_NAME} can't find the anime in the specified site it will try the other"
         )
 
 
@@ -496,22 +496,17 @@ class RunOnStartUp(YesOrNoSetting):
 
     def make_startup_lnk(self):
         self.remove_startup_lnk()
-        lnk = pylnk3_for_file(
-            os.path.join(ROOT_DIRECTORY, f"{APP_NAME}.exe"),
-            APP_NAME,
+        pylnk3_for_file(
+            APP_EXE_PATH,
+            self.lnk_path,
             MINIMISED_TO_TRAY_ARG,
             "Senpwai startup shortcut",
-            work_dir=os.path.abspath("."),
+            work_dir=APP_EXE_ROOT_DIRECTORY,
         )
-        lnk.save(self.lnk_path)
-        # pylnk3 seems to generate a garbage lnk file with no extension in the current directory
-        garbage_lnk = APP_NAME
-        if os.path.isfile(garbage_lnk):
-            os.unlink(garbage_lnk)
 
     def remove_startup_lnk(self):
         if os.path.isfile(self.lnk_path):
-            try_deleting_safely(self.lnk_path)
+            try_deleting(self.lnk_path)
 
 
 class AllowNotificationsSetting(YesOrNoSetting):

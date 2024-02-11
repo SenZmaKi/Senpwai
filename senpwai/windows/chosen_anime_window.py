@@ -10,9 +10,9 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from senpwai.utils.class_utils import SETTINGS, Anime, AnimeDetails
-from senpwai.utils.scraper_utils import lacked_episode_numbers
-from senpwai.utils.static_utils import (
+from utils.classes import SETTINGS, Anime, AnimeDetails
+from utils.scraper import lacked_episode_numbers
+from utils.static import (
     CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH,
     DUB,
     GOGO,
@@ -26,7 +26,7 @@ from senpwai.utils.static_utils import (
     RED_PRESSED_COLOR,
     SUB,
 )
-from senpwai.utils.widget_utils import (
+from utils.widgets import (
     DualStateButton,
     ErrorLabel,
     FolderButton,
@@ -389,10 +389,10 @@ class DownloadButton(StyledButton):
         if "0" == start_episode or "0" == end_episode:
             error("What am I supposed to do with a zero?")
             invalid_input = True
-        if start_episode == "":
+        if not start_episode:
             start_episode = 1
             self.chosen_anime_window.start_episode_input.setText("1")
-        if end_episode == "":
+        if not end_episode:
             end_episode = episode_count
             self.chosen_anime_window.end_episode_input.setText("")
         start_episode = int(start_episode)

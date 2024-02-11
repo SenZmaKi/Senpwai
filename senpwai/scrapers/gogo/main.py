@@ -3,7 +3,7 @@ from typing import Callable, cast
 
 from bs4 import BeautifulSoup, ResultSet, Tag
 from requests.cookies import RequestsCookieJar
-from senpwai.utils.scraper_utils import (
+from utils.scraper import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     PARSER,
@@ -74,7 +74,7 @@ class GetDirectDownloadLinks(ProgressFunction):
         direct_download_links: list[str] = []
         for eps_pg_link in download_page_links:
             link = ""
-            while link == "":
+            while not link:
                 response = CLIENT.get(eps_pg_link, cookies=get_session_cookies())
                 soup = BeautifulSoup(response.content, PARSER)
                 a_tags = cast(

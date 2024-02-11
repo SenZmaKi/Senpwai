@@ -12,7 +12,7 @@ from webbrowser import open_new_tab
 
 import requests
 
-from senpwai.utils.static_utils import log_exception, try_deleting_safely
+from utils.static import log_exception, try_deleting
 
 PARSER = "html.parser"
 IBYTES_TO_MBS_DIVISOR = 1024 * 1024
@@ -217,7 +217,10 @@ class Client:
             try:
                 return callback()
             except requests.exceptions.RequestException as e:
-                if exceptions_to_ignore is not None and DomainNameError in exceptions_to_ignore:
+                if (
+                    exceptions_to_ignore is not None
+                    and DomainNameError in exceptions_to_ignore
+                ):
                     e = DomainNameError(e) if has_valid_internet_connection() else e
                 if exceptions_to_ignore is not None and any(
                     [isinstance(e, exception) for exception in exceptions_to_ignore]
@@ -420,13 +423,13 @@ class Download(ProgressFunction):
             self.download_folder_path, temporary_file_title
         )
         if os.path.isfile(self.temporary_file_path):
-            try_deleting_safely(self.temporary_file_path)
+            try_deleting(self.temporary_file_path)
 
     @staticmethod
     def get_resource_length(url: str) -> tuple[int, str]:
         response = CLIENT.get(url, stream=True)
         new_location = response.headers.get("Location", "")
-        if new_location != "" and response.status_code in RESOURCE_MOVED_STATUS_CODES:
+        if not new_location and response.status_code in RESOURCE_MOVED_STATUS_CODES:
             return Download.get_resource_length(new_location)
         return (int(response.headers.get("Content-Length", 0)), url)
 
@@ -441,14 +444,14 @@ class Download(ProgressFunction):
             else:
                 download_complete = self.normal_download()
         if self.cancelled:
-            try_deleting_safely(self.temporary_file_path)
+            try_deleting(self.temporary_file_path)
             return
-        try_deleting_safely(self.file_path)
+        try_deleting(self.file_path)
         if self.is_hls_download:
             run_process_silently(
                 ["ffmpeg", "-i", self.temporary_file_path, "-c", "copy", self.file_path]
             )
-            return try_deleting_safely(self.temporary_file_path)
+            return try_deleting(self.temporary_file_path)
         try:
             return os.rename(self.temporary_file_path, self.file_path)
         except PermissionError:  # Maybe they started watching the episode on VLC before it finished downloading now VLC has a handle to the file hence PermissionDenied

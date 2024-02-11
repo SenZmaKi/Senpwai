@@ -4,7 +4,7 @@ import sys
 from PyQt6.QtCore import QCoreApplication, Qt
 from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import QApplication
-from senpwai.utils.static_utils import APP_NAME, custom_exception_handler
+from utils.static import APP_NAME, custom_exception_handler
 from senpwai.windows.primary_windows import MainWindow
 
 

@@ -3,8 +3,8 @@ import sys
 from time import time as current_time
 from typing import Any, Callable, cast
 
-from senpwai.utils.scraper_utils import AnimeMetadata, Download, sanitise_title
-from senpwai.utils.static_utils import ROOT_DIRECTORY
+from utils.scraper import AnimeMetadata, Download, sanitise_title
+from utils.static import ROOT_DIRECTORY
 
 from senpwai.scrapers import gogo, pahe
 

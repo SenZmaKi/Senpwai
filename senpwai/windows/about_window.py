@@ -3,7 +3,7 @@ from webbrowser import open_new_tab
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from senpwai.utils.static_utils import (
+from utils.static import (
     ABOUT_BCKG_IMAGE_PATH,
     DISCORD_ICON_PATH,
     GIGACHAD_AUDIO_PATH,
@@ -19,7 +19,7 @@ from senpwai.utils.static_utils import (
     SEN_ICON_PATH,
     VERSION,
 )
-from senpwai.utils.widget_utils import (
+from utils.widgets import (
     AudioPlayer,
     Icon,
     IconButton,
@@ -130,7 +130,7 @@ class AboutWindow(AbstractWindow):
         set_minimum_size_policy(uninstall_title)
         uninstall_info_label = StyledLabel()
         uninstall_info_label.setText(
-            'To completely remove Senpwai (don\'t know why you would though), post-uninstallation press "Win + R",\ntype "%appdata%\\..\\Local\\Programs" and press enter. Look for a folder named "Senpwai" then delete it'
+            f'To completely remove Senpwai (don\'t know why you would though), post-uninstallation press "Win + R",\ntype "%appdata%\\..\\Local\\Programs" and press enter. Look for a folder named "Senpwai" then delete it'
         )
         set_minimum_size_policy(uninstall_info_label)
 

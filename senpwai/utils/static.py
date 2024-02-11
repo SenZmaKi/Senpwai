@@ -7,29 +7,39 @@ from subprocess import Popen
 from types import TracebackType
 import logging
 
-
-IS_PIP_INSTALL = False
-if getattr(sys, "frozen", False):
-    # Senpwai/senpwai.exe
-    ROOT_DIRECTORY = os.path.dirname(sys.executable)
-    IS_EXECUTABLE = True
-else:
-    # senpwai/utils/static_utils.py
-    ROOT_DIRECTORY = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    if os.path.dirname(ROOT_DIRECTORY).endswith("site-packages"):
-        IS_PIP_INSTALL = True
-    IS_EXECUTABLE = False
-
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = APP_NAME.lower()
-APP_EXE_PATH = os.path.join(ROOT_DIRECTORY, f"{APP_NAME_LOWER}.exe")
 VERSION = "2.1.0"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
+IS_PIP_INSTALL = False
+APP_EXE_PATH = ""
+if getattr(sys, "frozen", False):
+    # C:\Users\PC\AppData\Local\Programs\Senpwai
+    ROOT_DIRECTORY = os.path.dirname(sys.executable)
+    APP_EXE_PATH = sys.executable
+    IS_EXECUTABLE = True
+else:
+    # C:\Users\PC\AppData\Local\Programs\Python\Python311\Lib\site-packages\senpwai
+    ROOT_DIRECTORY = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    # C:\Users\PC\AppData\Local\Programs\Python\Python311\Lib\site-packages
+    maybe_site_packages = os.path.dirname(ROOT_DIRECTORY)
+    if os.path.basename(maybe_site_packages) == "site-packages":
+        IS_PIP_INSTALL = True
+        # C:\Users\PC\AppData\Local\Programs\Python\Python311\Scripts\senpwai.exe
+        if sys.platform == "win32":
+            maybe_app_exe_path = os.path.join(
+                os.path.dirname(os.path.dirname(maybe_site_packages)),
+                "Scripts",
+                f"{APP_NAME_LOWER}.exe",
+            )
+            if os.path.isfile(maybe_app_exe_path):
+                APP_EXE_PATH = maybe_app_exe_path
+    IS_EXECUTABLE = False
+APP_EXE_ROOT_DIRECTORY = os.path.dirname(APP_EXE_PATH) if APP_EXE_PATH else ""
 
 date = datetime.today()
 IS_CHRISTMAS = True if date.month == 12 and date.day >= 20 else False
-
 
 def log_exception(e: Exception):
     custom_exception_handler(type(e), e, e.__traceback__)
@@ -42,7 +52,7 @@ def custom_exception_handler(
     sys.__excepthook__(type_, value, traceback)
 
 
-def try_deleting_safely(path: str):
+def try_deleting(path: str):
     if os.path.isfile(path):
         try:
             os.unlink(path)
@@ -55,7 +65,7 @@ def generate_windows_setup_file_titles(app_name: str) -> tuple[str, str]:
 
 
 for setup in generate_windows_setup_file_titles(APP_NAME):
-    try_deleting_safely(setup)
+    try_deleting(setup)
 
 GITHUB_REPO_URL = "https://github.com/SenZmaKi/Senpwai"
 GITHUB_API_LATEST_RELEASE_ENDPOINT = (
@@ -103,7 +113,7 @@ def requires_admin_access(folder_path):
     try:
         temp_file = os.path.join(folder_path, "temp.txt")
         open(temp_file, "w").close()
-        try_deleting_safely(temp_file)
+        try_deleting(temp_file)
         return False
     except PermissionError:
         return True
@@ -284,4 +294,3 @@ L_ANIME = {
     "seven deadly sins",
     "apothecary",
 }
-

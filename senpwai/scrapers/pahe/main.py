@@ -3,7 +3,7 @@ import math
 from typing import Any, Callable, cast
 from requests import Response
 from bs4 import BeautifulSoup, Tag
-from senpwai.utils.scraper_utils import (
+from utils.scraper import (
     CLIENT,
     PARSER,
     AnimeMetadata,

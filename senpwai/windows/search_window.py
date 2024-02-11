@@ -14,9 +14,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from senpwai.scrapers import gogo, pahe
-from senpwai.utils.class_utils import Anime
-from senpwai.utils.scraper_utils import CLIENT
-from senpwai.utils.static_utils import (
+from utils.classes import Anime
+from utils.scraper import CLIENT
+from utils.static import (
     ANILIST_API_ENTRYPOINY,
     BUNSHIN_POOF_AUDIO_PATH,
     GIGACHAD_AUDIO_PATH,
@@ -43,7 +43,7 @@ from senpwai.utils.static_utils import (
     WHAT_DA_HELL_AUDIO_PATH,
     ZA_WARUDO_AUDIO_PATH,
 )
-from senpwai.utils.widget_utils import (
+from utils.widgets import (
     AnimationAndText,
     AudioPlayer,
     Icon,
@@ -131,7 +131,7 @@ class SearchWindow(AbstractWindow):
         self.fix_hor_scroll_bar()
 
     def search_anime(self, anime_title: str, site: str) -> None:
-        if anime_title == "":
+        if not anime_title:
             return
         if self.search_thread:
             self.search_thread.quit()
@@ -254,9 +254,9 @@ class FetchFavouriteThread(QThread):
         favourite = self.get_random_sen_favourite()
         if not favourite:
             return
-        self.slow_print_favourite_in_search_bar(favourite)
+        self.type_write_favourite_in_search_bar(favourite)
 
-    def slow_print_favourite_in_search_bar(self, favourite_name: str):
+    def type_write_favourite_in_search_bar(self, favourite_name: str):
         self.search_window.search_bar.clear()
         for idx, _ in enumerate(favourite_name):
             self.search_window.search_bar.setText(favourite_name[: idx + 1])

@@ -12,8 +12,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from senpwai.utils.class_utils import SETTINGS, Anime, AnimeDetails
-from senpwai.utils.static_utils import (
+from utils.classes import SETTINGS, Anime, AnimeDetails
+from utils.static import (
     ABOUT_ICON_PATH,
     DOWNLOADS_ICON_PATH,
     MINIMISED_TO_TRAY_ARG,
@@ -23,7 +23,7 @@ from senpwai.utils.static_utils import (
     TASK_COMPLETE_ICON_PATH,
     UPDATE_ICON_PATH,
 )
-from senpwai.utils.widget_utils import Icon, IconButton
+from utils.widgets import Icon, IconButton
 
 
 class MainWindow(QMainWindow):
