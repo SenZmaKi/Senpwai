@@ -33,8 +33,8 @@ def parse_metadata() -> dict[str, str]:
 def get_executables(
     metadata: dict[str, str], senpwai_package_dir: str, senpcli_only: bool
 ) -> list[Executable]:
-    gui_script_path = path.join(senpwai_package_dir, "senpwai.py")
-    cli_script_path = path.join(senpwai_package_dir, "senpcli/senpcli.py")
+    gui_script_path = path.join(senpwai_package_dir, "main.py")
+    cli_script_path = path.join(senpwai_package_dir, "senpcli/main.py")
     gui_base = "WIN32GUI" if sys.platform == "win32" else None
     gui_executable = Executable(
         script=gui_script_path,
@@ -47,7 +47,7 @@ def get_executables(
         script=cli_script_path,
         base=None,
         icon=metadata["icon"],
-        target_name=metadata["senpcli_name"],
+        target_name=metadata["cli_name"],
         copyright=metadata["copyright"],
     )
     return [cli_executable] if senpcli_only else [gui_executable, cli_executable]
@@ -74,7 +74,7 @@ def main():
     senpwai_package_dir = path.join(root_dir, "senpwai")
     sys.path.append(senpwai_package_dir)
     metadata = parse_metadata()
-    name = metadata["senpcli_name"] if senpcli_only else metadata["name"]
+    name = metadata["cli_name"] if senpcli_only else metadata["name"]
     build_dir = path.join(root_dir, "build", name.capitalize())
     assets_dir = path.join(senpwai_package_dir, "assets")
     setup(

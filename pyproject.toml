@@ -27,7 +27,7 @@ keywords = [
 
 [tool.cx_freeze]
 icon = "senpwai/assets/misc/senpwai-icon.ico"
-senpcli_name = "senpcli"
+cli_name = "senpcli"
 company = "AKatsuKi Inc."
 copyright = "© AKatsuKi Inc. All rights reserved."
 
@@ -37,8 +37,8 @@ copyright = "© AKatsuKi Inc. All rights reserved."
 "Reddit" = "https://www.reddit.com/r/Senpwai"
 
 [tool.poetry.scripts]
-senpwai = "senpwai.senpwai:main"
-senpcli = "senpwai.senpcli.senpcli:main"
+senpwai = "senpwai.main:main"
+senpcli = "senpwai.senpcli.main:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -63,14 +63,9 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poe.tasks]
+generate_release_test = [{ ref = "test" }, { ref = "generate_release" }]
+generate_release_ddl = [{ ref = "test_ddl" }, { ref = "generate_release" }]
 generate_release = [
-  { ref = "test" },
-  { ref = "build_exes" },
-  { ref = "compile_installers" },
-  { ref = "install" },
-]
-generate_release_ddl = [
-  { ref = "test_ddl" },
   { ref = "build_exes" },
   { ref = "compile_installers" },
   { ref = "install" },
@@ -98,9 +93,6 @@ compile_installers = [
 compile_senpwai_installer = "iscc setup.iss /Q"
 compile_senpcli_installer = "iscc setup_senpcli.iss /Q"
 
-install = [
-  { ref = "install_senpwai" },
-  { ref = "install_senpcli" },
-]
+install = [{ ref = "install_senpwai" }, { ref = "install_senpcli" }]
 install_senpwai = "setups/Senpwai-setup.exe /verysilent"
 install_senpcli = "setups/Senpcli-setup.exe /verysilent"

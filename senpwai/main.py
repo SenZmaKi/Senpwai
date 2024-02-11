@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import ctypes
 import sys
 
@@ -9,6 +11,9 @@ from senpwai.windows.primary_windows import MainWindow
 
 
 def windows_app_initialisation():
+    # Change App ID to ensure task bar icon is Swnpwai's icon instead of Python for pip installs
+    # StackOverflow Answer link: https://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon-in-windows-7/1552105#1552105
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_NAME)
     # Convert the app title to a null-terminated C string
     app_title_c = (APP_NAME + "\0").encode("UTF-8")
     # Check if the app is already running by searching for its window
