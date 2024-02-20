@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -6,7 +7,6 @@ from random import choice as random_choice
 from subprocess import Popen
 from types import TracebackType
 import logging
-
 
 IS_PIP_INSTALL = False
 if getattr(sys, "frozen", False):
@@ -26,7 +26,6 @@ APP_EXE_PATH = os.path.join(ROOT_DIRECTORY, f"{APP_NAME_LOWER}.exe")
 VERSION = "2.1.0"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
-
 date = datetime.today()
 IS_CHRISTMAS = True if date.month == 12 and date.day >= 20 else False
 
@@ -36,7 +35,7 @@ def log_exception(e: Exception):
 
 
 def custom_exception_handler(
-    type_: type[BaseException], value: BaseException, traceback: TracebackType | None
+        type_: type[BaseException], value: BaseException, traceback: TracebackType | None
 ):
     logging.error(f"Unhandled exception: {type_.__name__}: {value}")
     sys.__excepthook__(type_, value, traceback)
@@ -126,9 +125,16 @@ def join_from_misc(file):
     return os.path.join(misc_path, file)
 
 
+# Define the paths for the loading screens
+loading_screens = [
+    join_from_misc("loading.gif"),
+    join_from_misc("loading_1.gif"),
+    join_from_misc("loading_2.gif")
+]
+
 SENPWAI_ICON_PATH = join_from_misc("senpwai-icon.ico")
 TASK_COMPLETE_ICON_PATH = join_from_misc("task-complete.png")
-LOADING_ANIMATION_PATH = join_from_misc("loading.gif")
+LOADING_ANIMATION_PATH = random.choice(loading_screens)
 SADGE_PIECE_PATH = join_from_misc("sadge-piece.gif")
 FOLDER_ICON_PATH = join_from_misc("folder.png")
 
@@ -139,12 +145,11 @@ RANDOM_MACOT_ICON_PATH = (
     str(random_choice(mascots_files)) if mascots_files else ""
 )
 
-
 bckg_images_path = join_from_assets("background-images")
 
 
 def join_from_bckg_images(
-    img_title,
+        img_title,
 ):  # fix windows path for Qt cause it only accepts forward slashes
     return os.path.join(bckg_images_path, img_title).replace("\\", "/")
 
@@ -284,4 +289,3 @@ L_ANIME = {
     "seven deadly sins",
     "apothecary",
 }
-
