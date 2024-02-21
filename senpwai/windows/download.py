@@ -1,7 +1,6 @@
 import os
-from gc import collect as gccollect
 from threading import Event
-from typing import Any, Callable, cast
+from typing import Any, Callable, cast, TYPE_CHECKING
 
 from PyQt6.QtCore import QMutex, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -50,7 +49,10 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from windows.abstracts import AbstractWindow, MainWindow
+from windows.abstracts import AbstractWindow
+# https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
+if TYPE_CHECKING:
+    from windows.main import MainWindow
 
 
 class CurrentAgainstTotal(StyledLabel):
@@ -72,9 +74,8 @@ class CurrentAgainstTotal(StyledLabel):
 
 
 class HlsEstimatedSize(CurrentAgainstTotal):
-    def __init__(self, download_window, total_episode_count: int):
+    def __init__(self, download_window: 'DownloadWindow', total_episode_count: int):
         super().__init__(0, "MBs", parent=download_window)
-        self.download_window = cast(Download, download_window)
         self.total_episode_count = total_episode_count
         self.current_episode_count = 0
         self.sizes_for_each_eps: list[int] = []
@@ -96,12 +97,11 @@ class HlsEstimatedSize(CurrentAgainstTotal):
 class DownloadedEpisodeCount(CurrentAgainstTotal):
     def __init__(
         self,
-        download_window,
+        download_window: 'DownloadWindow',
         total_episodes: int,
         anime_title: str,
         anime_folder_path: str,
     ):
-        self.download_window = cast(DownloadWindow, download_window)
         self.download_window = download_window
         self.anime_folder_path = anime_folder_path
         self.anime_title = anime_title
@@ -140,7 +140,6 @@ class DownloadedEpisodeCount(CurrentAgainstTotal):
         )
         if queued_downloads_count > 1:
             self.download_window.start_download()
-        gccollect()
 
 
 class CancelAllButton(StyledButton):
@@ -199,7 +198,7 @@ class QueuedDownload(QWidget):
         self,
         anime_details: AnimeDetails,
         progress_bar: ProgressBarWithoutButtons,
-        download_queue,
+        download_queue: 'DownloadQueue',
     ):
         super().__init__()
         label = StyledLabel(font_size=14)
@@ -207,7 +206,6 @@ class QueuedDownload(QWidget):
         self.progress_bar = progress_bar
         label.setText(anime_details.anime.title)
         set_minimum_size_policy(label)
-        download_queue = cast(DownloadQueue, download_queue)
         self.main_layout = QHBoxLayout()
         self.up_button = IconButton(download_queue.up_icon, 1.1, self)
         self.up_button.clicked.connect(
@@ -315,7 +313,7 @@ class DownloadQueue(QWidget):
 
 
 class DownloadWindow(AbstractWindow):
-    def __init__(self, main_window: MainWindow):
+    def __init__(self, main_window: 'MainWindow'):
         super().__init__(main_window, DOWNLOAD_WINDOW_BCKG_IMAGE_PATH)
         self.main_window = main_window
         self.main_layout = QVBoxLayout()
@@ -652,7 +650,7 @@ class DownloadWindow(AbstractWindow):
             )
 
             set_minimum_size_policy(self.downloaded_episode_count)
-            self.folder_button = FolderButton(cast(str, ""), 100, 100, None)
+            self.folder_button = FolderButton("", 100, 100, None)
 
             def download_is_active() -> bool:
                 return not (
@@ -716,7 +714,7 @@ class DownloadWindow(AbstractWindow):
             current_download_manager_thread.pause_or_resume
         )
         self.cancel_button.cancel_callback = current_download_manager_thread.cancel
-        self.folder_button.folder_path = cast(str, anime_details.anime_folder_path)
+        self.folder_button.folder_path = anime_details.anime_folder_path
         current_download_manager_thread.start()
 
     def make_episode_progress_bar(
@@ -871,7 +869,7 @@ class DownloadManagerThread(QThread, ProgressFunction):
                 self.anime_details.is_hls_download,
                 self.anime_details.skip_calculating_size,
                 self.anime_details.quality,
-                cast(str, self.anime_details.anime_folder_path),
+                self.anime_details.anime_folder_path,
                 episode_progress_bar,
                 self.clean_up_finished_download,
                 self.anime_progress_bar,

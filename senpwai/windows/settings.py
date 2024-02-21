@@ -1,5 +1,5 @@
 import os
-from typing import Callable, cast
+from typing import TYPE_CHECKING, Callable, cast
 import sys
 from pylnk3 import for_file as pylnk3_for_file
 from PyQt6.QtCore import Qt
@@ -50,11 +50,13 @@ from utils.widgets import (
 )
 
 from windows.download import DownloadWindow
-from windows.abstracts import AbstractWindow, MainWindow
-
+from windows.main import AbstractWindow
+# https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
+if TYPE_CHECKING:
+    from windows.main import MainWindow
 
 class SettingsWindow(AbstractWindow):
-    def __init__(self, main_window: MainWindow) -> None:
+    def __init__(self, main_window: 'MainWindow') -> None:
         super().__init__(main_window, SETTINGS_WINDOW_BCKG_IMAGE_PATH)
         self.font_size = 15
         main_layout = QHBoxLayout()
@@ -107,7 +109,7 @@ class FolderSetting(QWidget):
     def __init__(
         self,
         settings_window: SettingsWindow,
-        main_window: MainWindow,
+        main_window: 'MainWindow',
         setting_info: str,
         setting_tool_tip: str | None,
     ):
@@ -183,16 +185,14 @@ class FolderSetting(QWidget):
                 cast(QLayoutItem, self.folder_widgets_layout.itemAt(idx)).widget(),
             ).index = idx
 
-    def change_from_folder_settings(self, new_folder_path: str, folder_widget: QWidget):
-        folder_widget = cast(FolderWidget, folder_widget)
+    def change_from_folder_settings(self, new_folder_path: str, folder_widget: 'FolderWidget'):
         SETTINGS.change_download_folder_path(folder_widget.index, new_folder_path)
         folder_widget.folder_path = new_folder_path
         folder_widget.folder_label.setText(new_folder_path)
         set_minimum_size_policy(folder_widget.folder_label)
         folder_widget.folder_label.update()
 
-    def remove_from_folder_settings(self, folder_widget: QWidget):
-        folder_widget = cast(FolderWidget, folder_widget)
+    def remove_from_folder_settings(self, folder_widget: 'FolderWidget'):
         SETTINGS.pop_download_folder_path(folder_widget.index)
         folder_widget.deleteLater()
         self.update_widget_indices()
@@ -218,7 +218,7 @@ class FolderSetting(QWidget):
 
 
 class DownloadFoldersSetting(FolderSetting):
-    def __init__(self, settings_window: SettingsWindow, main_window: MainWindow):
+    def __init__(self, settings_window: SettingsWindow, main_window: 'MainWindow'):
         super().__init__(
             settings_window,
             main_window,
@@ -226,7 +226,7 @@ class DownloadFoldersSetting(FolderSetting):
             f"{APP_NAME} will search these folders for anime episodes, in the order shown",
         )
 
-    def remove_from_folder_settings(self, folder_widget: QWidget):
+    def remove_from_folder_settings(self, folder_widget: 'FolderWidget'):
         if len(SETTINGS.download_folder_paths) == 1:
             return self.error("Yarou!!! You must have at least one download folder")
         return super().remove_from_folder_settings(folder_widget)
@@ -235,7 +235,7 @@ class DownloadFoldersSetting(FolderSetting):
 class FolderWidget(QWidget):
     def __init__(
         self,
-        main_window: MainWindow,
+        main_window: 'MainWindow',
         folder_setting: FolderSetting,
         font_size: int,
         folder_path: str,

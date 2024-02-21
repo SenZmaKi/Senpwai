@@ -7,7 +7,7 @@ from PyQt6.QtCore import QCoreApplication, Qt
 from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import QApplication
 from utils.static import APP_NAME, custom_exception_handler
-from windows.abstracts import MainWindow
+from windows.main import MainWindow
 
 
 def windows_app_initialisation():
