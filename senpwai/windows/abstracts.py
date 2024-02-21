@@ -1,7 +1,7 @@
 from typing import Callable, cast
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction, QGuiApplication, QIcon, QScreen
+from PyQt6.QtCore import QThread, Qt 
+from PyQt6.QtGui import QAction, QCloseEvent, QGuiApplication, QIcon, QScreen
 from PyQt6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
+    QMessageBox,
 )
 from utils.classes import SETTINGS, Anime, AnimeDetails
 from utils.static import (
@@ -50,9 +51,23 @@ class MainWindow(QMainWindow):
         self.stacked_windows.addWidget(self.settings_window)
         self.stacked_windows.addWidget(self.about_window)
         self.setCentralWidget(self.stacked_windows)
-        self.setup_chosen_anime_window_thread = None
+        self.setup_chosen_anime_window_thread: QThread | None = None
         self.download_window.start_auto_download()
-        self.app.aboutToQuit.connect(self.tray_icon.hide)
+
+    def closeEvent(self, a0: QCloseEvent | None) -> None:
+        if not a0:
+            return
+        if self.download_window.is_downloading():
+            message_box = QMessageBox(self)
+            message_box.setIcon(QMessageBox.Icon.Warning)
+            message_box.setStyleSheet("color: black")
+            message_box.setText("You have ongoing downloads, are you sure you want to exit?")
+            message_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            message_box.setDefaultButton(QMessageBox.StandardButton.No)
+            message_box.exec()
+            if message_box.result() == QMessageBox.StandardButton.No:
+                return a0.ignore()
+        a0.accept()
 
     def show_with_settings(self, args: list[str]):
         if MINIMISED_TO_TRAY_ARG in args:
@@ -95,7 +110,7 @@ class MainWindow(QMainWindow):
     def setup_and_switch_to_chosen_anime_window(self, anime: Anime, site: str):
         # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned
         # When a user clicks more than one ResultButton quickly causing the reference to the original thread to be overwridden hence garbage collected/destroyed
-        if not self.setup_chosen_anime_window_thread:
+        if self.setup_chosen_anime_window_thread is None:
             self.search_window.loading.start()
             self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
                 self.search_window.loading
@@ -180,12 +195,12 @@ class TrayIcon(QSystemTrayIcon):
         downloads_action = QAction("Downloads", self.context_menu)
         downloads_action.triggered.connect(main_window.switch_to_download_window)
         downloads_action.triggered.connect(main_window.show)
-        quit_action = QAction("Quit", self.context_menu)
-        quit_action.triggered.connect(main_window.app.quit)
+        exit_action = QAction("Exit", self.context_menu)
+        exit_action.triggered.connect(main_window.app.quit)
         self.context_menu.addAction(check_for_new_episodes_action)
         self.context_menu.addAction(search_action)
         self.context_menu.addAction(downloads_action)
-        self.context_menu.addAction(quit_action)
+        self.context_menu.addAction(exit_action)
         self.messageClicked.connect(main_window.show)
         self.setContextMenu(self.context_menu)
 
@@ -273,13 +288,13 @@ class AbstractTemporaryWindow(AbstractWindow):
 
 # These modules imports must be placed here otherwise an ImportError is experienced cause
 # They import MainWindow and Window resulting to a circular import, so we have to define MainWindow and Window first before importing them
-from windows.about import AboutWindow # noqa: E402
-from windows.chosen_anime import ChosenAnimeWindow, MakeAnimeDetailsThread # noqa: E402
-from windows.download import DownloadWindow # noqa: E402
-from windows.misc import ( # noqa: E402
+from windows.about import AboutWindow  # noqa: E402
+from windows.chosen_anime import ChosenAnimeWindow, MakeAnimeDetailsThread  # noqa: E402
+from windows.download import DownloadWindow  # noqa: E402
+from windows.misc import (  # noqa: E402
     CheckIfUpdateAvailableThread,
     NoFFmpegWindow,
     UpdateWindow,
 )
-from windows.search import SearchWindow # noqa: E402
-from senpwai.windows.settings_window import SettingsWindow # noqa: E402
+from windows.search import SearchWindow  # noqa: E402
+from senpwai.windows.settings_window import SettingsWindow  # noqa: E402

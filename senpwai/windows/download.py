@@ -351,6 +351,13 @@ class DownloadWindow(AbstractWindow):
         self.auto_download_timer.timeout.connect(self.start_auto_download)
         self.setup_auto_download_timer()
         self.auto_download_thread: AutoDownloadThread | None = None
+    
+    def is_downloading(self) -> bool:
+        if self.first_download_since_app_start:
+            return False
+        if self.downloaded_episode_count.is_complete() or self.downloaded_episode_count.cancelled:
+            return False
+        return True
 
     def setup_auto_download_timer(self):
         self.auto_download_timer.stop()
