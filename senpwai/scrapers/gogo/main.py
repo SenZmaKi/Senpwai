@@ -22,8 +22,10 @@ from .constants import (
     GOGO_HOME_URL,
     REGISTERED_ACCOUNT_EMAILS,
 )
+
 SESSION_COOKIES: RequestsCookieJar | None = None
 FIRST_REQUEST = False
+
 
 def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
     search_url = AJAX_SEARCH_URL + keyword
@@ -129,7 +131,9 @@ def get_anime_page_content(anime_page_link: str) -> bytes:
     else:
         exceptions_to_ignore = None
     try:
-        response = CLIENT.get(anime_page_link, exceptions_to_ignore=exceptions_to_ignore)
+        response = CLIENT.get(
+            anime_page_link, exceptions_to_ignore=exceptions_to_ignore
+        )
         return response.content
     except DomainNameError:
         global GOGO_HOME_URL
@@ -146,8 +150,8 @@ def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
         str,
         cast(Tag, cast(Tag, soup.find(class_="anime_info_body_bg")).find("img"))["src"],
     )
+    summary = cast(Tag, soup.find(class_="description")).get_text()
     metadata_tags = soup.find_all("p", class_="type")
-    summary = metadata_tags[1].get_text().replace("Plot Summary: ", "")
     genre_tags = cast(ResultSet[Tag], metadata_tags[2].find_all("a"))
     genres = cast(list[str], [g["title"] for g in genre_tags])
     release_year = int(metadata_tags[3].get_text().replace("Released: ", ""))
@@ -183,7 +187,6 @@ def dub_availability_and_link(anime_title: str) -> tuple[bool, str]:
         if sanitised_dub_title == sanitise_title(res_title, True):
             return True, link
     return False, ""
-
 
 
 def get_session_cookies(fresh=False) -> RequestsCookieJar:
