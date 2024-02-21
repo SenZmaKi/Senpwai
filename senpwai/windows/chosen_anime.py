@@ -40,6 +40,7 @@ from utils.widgets import (
     SubDubButton,
     set_minimum_size_policy,
 )
+import os
 
 from windows.download import DownloadWindow
 from windows.abstracts import AbstractTemporaryWindow, MainWindow
@@ -265,7 +266,7 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
         )
         set_minimum_size_policy(haved_episodes)
         third_row_of_labels_layout.addWidget(haved_episodes)
-        if self.anime_details.anime_folder_path:
+        if os.path.isdir(self.anime_details.anime_folder_path):
             folder_button = FolderButton(self.anime_details.anime_folder_path, 100, 100)
             third_row_of_labels_layout.addSpacerItem(QSpacerItem(20, 0))
             third_row_of_labels_layout.addWidget(folder_button)

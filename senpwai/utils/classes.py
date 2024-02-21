@@ -248,7 +248,7 @@ class AnimeDetails:
         self.sanitised_title = sanitise_title(anime.title)
         self.default_download_path = SETTINGS.download_folder_paths[0]
         self.anime_folder_path = self.get_anime_folder_path()
-        self.potentially_haved_episodes = self.get_potentially_haved_episodes()
+        self.potentially_haved_episodes = list(Path(self.anime_folder_path).glob("*"))
         self.haved_episodes: list[int] = []
         (
             self.haved_start,
@@ -344,12 +344,6 @@ class AnimeDetails:
         else:
             return os.path.join(self.default_download_path, self.sanitised_title)
 
-    def get_potentially_haved_episodes(self) -> list[Path] | None:
-        if not self.anime_folder_path:
-            return None
-        episodes = list(Path(self.anime_folder_path).glob("*"))
-        return episodes
-
     def get_start_end_and_count_of_haved_episodes(
         self,
     ) -> tuple[int, int, int] | tuple[None, None, None]:
@@ -369,7 +363,7 @@ class AnimeDetails:
             self.haved_episodes.sort()
         return (
             (self.haved_episodes[0], self.haved_episodes[-1], len(self.haved_episodes))
-            if len(self.haved_episodes) > 0
+            if self.haved_episodes
             else (None, None, None)
         )
 
