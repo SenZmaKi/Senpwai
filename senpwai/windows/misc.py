@@ -45,8 +45,8 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from senpwai.windows.download_window import ProgressBarWithButtons
-from senpwai.windows.primary_windows import (
+from windows.download import ProgressBarWithButtons
+from windows.abstracts import (
     AbstractTemporaryWindow,
     AbstractWindow,
     MainWindow,

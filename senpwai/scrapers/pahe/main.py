@@ -13,7 +13,6 @@ from utils.scraper import (
     match_quality,
 )
 from .constants import (
-    COOKIES,
     PAHE_HOME_URL,
     FULL_SITE_NAME,
     API_ENTRY_POINT,
@@ -27,7 +26,15 @@ from .constants import (
 )
 
 FIRST_REQUEST = True
-
+COOKIES = {"__ddg1_": "", "__ddg2_": ""}
+"""
+For some reason these cookies just need to be set as in they don't even need to be valid
+If something crashes, try updating to something like: 
+COOKIES = {
+    "__ddg1_": f"; Expires=Tue, 19 Jan 2038 03:14:07 GMT; Domain={PAHE_DOMAIN}; Path=/",
+    "__ddg2_": f"; Expires=Tue, 19 Jan 2038 03:14:07 GMT; Domain={PAHE_DOMAIN}; Path=/",
+}
+"""
 
 def site_request(url: str) -> Response:
     """

@@ -54,7 +54,7 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from senpwai.windows.primary_windows import AbstractWindow, MainWindow
+from windows.abstracts import AbstractWindow, MainWindow
 
 
 class SearchWindow(AbstractWindow):

@@ -50,7 +50,7 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from senpwai.windows.primary_windows import AbstractWindow, MainWindow
+from windows.abstracts import AbstractWindow, MainWindow
 
 
 class CurrentAgainstTotal(StyledLabel):
@@ -1250,7 +1250,7 @@ class GetDirectDownloadLinksThread(QThread):
         if len(self.anime_details.ddls_or_segs_urls) < len(self.download_page_links):
             self.download_window.main_window.tray_icon.make_notification(
                 "Error",
-                f"Failed to find some {'hls' if self.anime_details.is_hls_download else 'direct download'} links",
+                f"Failed to find some {'hls' if self.anime_details.is_hls_download else 'direct download'} links for {self.anime_details.anime.title}",
                 False,
                 None,
             )

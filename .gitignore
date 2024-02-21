@@ -12,6 +12,4 @@ marin.py
 setups
 build
 dist
-senpwai/test.py
-senpwai/windows/test.py
-senpwai/utils/test.py
+crap.py

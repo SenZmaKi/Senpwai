@@ -41,8 +41,8 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from senpwai.windows.download_window import DownloadWindow
-from senpwai.windows.primary_windows import AbstractTemporaryWindow, MainWindow
+from windows.download import DownloadWindow
+from windows.abstracts import AbstractTemporaryWindow, MainWindow
 from senpwai.windows.settings_window import SettingsWindow
 
 

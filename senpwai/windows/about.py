@@ -29,7 +29,7 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from senpwai.windows.primary_windows import AbstractWindow, MainWindow
+from windows.abstracts import AbstractWindow, MainWindow
 
 
 class AboutWindow(AbstractWindow):
@@ -130,7 +130,7 @@ class AboutWindow(AbstractWindow):
         set_minimum_size_policy(uninstall_title)
         uninstall_info_label = StyledLabel()
         uninstall_info_label.setText(
-            f'To completely remove Senpwai (don\'t know why you would though), post-uninstallation press "Win + R",\ntype "%appdata%\\..\\Local\\Programs" and press enter. Look for a folder named "Senpwai" then delete it'
+            'To completely remove Senpwai (don\'t know why you would though), post-uninstallation press "Win + R",\ntype "%appdata%\\..\\Local\\Programs" and press enter. Look for a folder named "Senpwai" then delete it'
         )
         set_minimum_size_policy(uninstall_info_label)
 

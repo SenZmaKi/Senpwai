@@ -49,8 +49,8 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from senpwai.windows.download_window import DownloadWindow
-from senpwai.windows.primary_windows import AbstractWindow, MainWindow
+from windows.download import DownloadWindow
+from windows.abstracts import AbstractWindow, MainWindow
 
 
 class SettingsWindow(AbstractWindow):
@@ -365,7 +365,7 @@ class TrackedAnimeListSetting(SettingWidget):
             False,
         )
         self.setting_label.setToolTip(
-            "When you start the app, Senpwai will check for new episodes\nof these anime then download them automatically"
+            "Senpwai will check for new episodes of your tracked anime when you start the app\nthen in intervals of the hours you specify so long as it is running"
         )
 
     def setup_anime_widget(self, wid: RemovableWidget):

@@ -273,13 +273,13 @@ class AbstractTemporaryWindow(AbstractWindow):
 
 # These modules imports must be placed here otherwise an ImportError is experienced cause
 # They import MainWindow and Window resulting to a circular import, so we have to define MainWindow and Window first before importing them
-from senpwai.windows.about_window import AboutWindow # noqa: E402
-from senpwai.windows.chosen_anime_window import ChosenAnimeWindow, MakeAnimeDetailsThread # noqa: E402
-from senpwai.windows.download_window import DownloadWindow # noqa: E402
-from senpwai.windows.misc_windows import ( # noqa: E402
+from windows.about import AboutWindow # noqa: E402
+from windows.chosen_anime import ChosenAnimeWindow, MakeAnimeDetailsThread # noqa: E402
+from windows.download import DownloadWindow # noqa: E402
+from windows.misc import ( # noqa: E402
     CheckIfUpdateAvailableThread,
     NoFFmpegWindow,
     UpdateWindow,
 )
-from senpwai.windows.search_window import SearchWindow # noqa: E402
+from windows.search import SearchWindow # noqa: E402
 from senpwai.windows.settings_window import SettingsWindow # noqa: E402

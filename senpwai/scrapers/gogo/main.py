@@ -23,6 +23,7 @@ from .constants import (
     REGISTERED_ACCOUNT_EMAILS,
 )
 SESSION_COOKIES: RequestsCookieJar | None = None
+FIRST_REQUEST = False
 
 def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
     search_url = AJAX_SEARCH_URL + keyword
@@ -121,8 +122,14 @@ class CalculateTotalDowloadSize(ProgressFunction):
 
 
 def get_anime_page_content(anime_page_link: str) -> bytes:
+    global FIRST_REQUEST
+    if FIRST_REQUEST:
+        exceptions_to_ignore = [DomainNameError]
+        FIRST_REQUEST = False
+    else:
+        exceptions_to_ignore = None
     try:
-        response = CLIENT.get(anime_page_link, exceptions_to_ignore=[DomainNameError])
+        response = CLIENT.get(anime_page_link, exceptions_to_ignore=exceptions_to_ignore)
         return response.content
     except DomainNameError:
         global GOGO_HOME_URL
