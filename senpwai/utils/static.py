@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -7,52 +8,40 @@ from subprocess import Popen
 from types import TracebackType
 import logging
 
+IS_PIP_INSTALL = False
+if getattr(sys, "frozen", False):
+    # Senpwai/senpwai.exe
+    ROOT_DIRECTORY = os.path.dirname(sys.executable)
+    IS_EXECUTABLE = True
+else:
+    # senpwai/utils/static_utils.py
+    ROOT_DIRECTORY = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    if os.path.dirname(ROOT_DIRECTORY).endswith("site-packages"):
+        IS_PIP_INSTALL = True
+    IS_EXECUTABLE = False
+
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = APP_NAME.lower()
+APP_EXE_PATH = os.path.join(ROOT_DIRECTORY, f"{APP_NAME_LOWER}.exe")
 VERSION = "2.1.0"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
-IS_PIP_INSTALL = False
-APP_EXE_PATH = ""
-if getattr(sys, "frozen", False):
-    # C:\Users\PC\AppData\Local\Programs\Senpwai
-    ROOT_DIRECTORY = os.path.dirname(sys.executable)
-    APP_EXE_PATH = sys.executable
-    IS_EXECUTABLE = True
-else:
-    # C:\Users\PC\AppData\Local\Programs\Python\Python311\Lib\site-packages\senpwai
-    ROOT_DIRECTORY = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    # C:\Users\PC\AppData\Local\Programs\Python\Python311\Lib\site-packages
-    maybe_site_packages = os.path.dirname(ROOT_DIRECTORY)
-    if os.path.basename(maybe_site_packages) == "site-packages":
-        IS_PIP_INSTALL = True
-        # C:\Users\PC\AppData\Local\Programs\Python\Python311\Scripts\senpwai.exe
-        if sys.platform == "win32":
-            maybe_app_exe_path = os.path.join(
-                os.path.dirname(os.path.dirname(maybe_site_packages)),
-                "Scripts",
-                f"{APP_NAME_LOWER}.exe",
-            )
-            if os.path.isfile(maybe_app_exe_path):
-                APP_EXE_PATH = maybe_app_exe_path
-    IS_EXECUTABLE = False
-APP_EXE_ROOT_DIRECTORY = os.path.dirname(APP_EXE_PATH) if APP_EXE_PATH else ""
-
 date = datetime.today()
 IS_CHRISTMAS = True if date.month == 12 and date.day >= 20 else False
+
 
 def log_exception(e: Exception):
     custom_exception_handler(type(e), e, e.__traceback__)
 
 
 def custom_exception_handler(
-    type_: type[BaseException], value: BaseException, traceback: TracebackType | None
+        type_: type[BaseException], value: BaseException, traceback: TracebackType | None
 ):
     logging.error(f"Unhandled exception: {type_.__name__}: {value}")
     sys.__excepthook__(type_, value, traceback)
 
 
-def try_deleting(path: str):
+def try_deleting_safely(path: str):
     if os.path.isfile(path):
         try:
             os.unlink(path)
@@ -65,7 +54,7 @@ def generate_windows_setup_file_titles(app_name: str) -> tuple[str, str]:
 
 
 for setup in generate_windows_setup_file_titles(APP_NAME):
-    try_deleting(setup)
+    try_deleting_safely(setup)
 
 GITHUB_REPO_URL = "https://github.com/SenZmaKi/Senpwai"
 GITHUB_API_LATEST_RELEASE_ENDPOINT = (
@@ -113,7 +102,7 @@ def requires_admin_access(folder_path):
     try:
         temp_file = os.path.join(folder_path, "temp.txt")
         open(temp_file, "w").close()
-        try_deleting(temp_file)
+        try_deleting_safely(temp_file)
         return False
     except PermissionError:
         return True
@@ -136,9 +125,16 @@ def join_from_misc(file):
     return os.path.join(misc_path, file)
 
 
+# Define the paths for the loading screens
+loading_screens = [
+    join_from_misc("loading.gif"),
+    join_from_misc("loading_1.gif"),
+    join_from_misc("loading_2.gif")
+]
+
 SENPWAI_ICON_PATH = join_from_misc("senpwai-icon.ico")
 TASK_COMPLETE_ICON_PATH = join_from_misc("task-complete.png")
-LOADING_ANIMATION_PATH = join_from_misc("loading.gif")
+LOADING_ANIMATION_PATH = random.choice(loading_screens)
 SADGE_PIECE_PATH = join_from_misc("sadge-piece.gif")
 FOLDER_ICON_PATH = join_from_misc("folder.png")
 
@@ -149,12 +145,11 @@ RANDOM_MACOT_ICON_PATH = (
     str(random_choice(mascots_files)) if mascots_files else ""
 )
 
-
 bckg_images_path = join_from_assets("background-images")
 
 
 def join_from_bckg_images(
-    img_title,
+        img_title,
 ):  # fix windows path for Qt cause it only accepts forward slashes
     return os.path.join(bckg_images_path, img_title).replace("\\", "/")
 
