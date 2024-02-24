@@ -14,9 +14,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from senpwai.scrapers import gogo, pahe
-from utils.classes import Anime
-from utils.scraper import CLIENT
-from utils.static import (
+from senpwai.utils.classes import Anime
+from senpwai.utils.scraper import CLIENT
+from senpwai.utils.static import (
     ANILIST_API_ENTRYPOINY,
     BUNSHIN_POOF_AUDIO_PATH,
     GIGACHAD_AUDIO_PATH,
@@ -43,7 +43,7 @@ from utils.static import (
     WHAT_DA_HELL_AUDIO_PATH,
     ZA_WARUDO_AUDIO_PATH,
 )
-from utils.widgets import (
+from senpwai.utils.widgets import (
     AnimationAndText,
     AudioPlayer,
     Icon,
@@ -54,10 +54,10 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from windows.abstracts import AbstractWindow
+from senpwai.windows.abstracts import AbstractWindow
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
-    from windows.main import MainWindow
+    from senpwai.windows.main import MainWindow
 
 class SearchWindow(AbstractWindow):
     def __init__(self, main_window: 'MainWindow'):

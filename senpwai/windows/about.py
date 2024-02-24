@@ -4,7 +4,7 @@ from webbrowser import open_new_tab
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from utils.static import (
+from senpwai.utils.static import (
     ABOUT_BCKG_IMAGE_PATH,
     DISCORD_ICON_PATH,
     GIGACHAD_AUDIO_PATH,
@@ -20,7 +20,7 @@ from utils.static import (
     SEN_ICON_PATH,
     VERSION,
 )
-from utils.widgets import (
+from senpwai.utils.widgets import (
     AudioPlayer,
     Icon,
     IconButton,
@@ -30,11 +30,11 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from windows.abstracts import AbstractWindow
+from senpwai.windows.abstracts import AbstractWindow
 
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
-    from windows.main import MainWindow
+    from senpwai.windows.main import MainWindow
 
 class AboutWindow(AbstractWindow):
     def __init__(self, main_window: 'MainWindow'):

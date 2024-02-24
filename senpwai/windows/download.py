@@ -12,8 +12,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from senpwai.scrapers import gogo, pahe
-from utils.classes import SETTINGS, Anime, AnimeDetails
-from utils.scraper import (
+from senpwai.utils.classes import SETTINGS, Anime, AnimeDetails
+from senpwai.utils.scraper import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
     ProgressFunction,
@@ -22,7 +22,7 @@ from utils.scraper import (
     lacked_episodes,
     sanitise_title,
 )
-from utils.static import (
+from senpwai.utils.static import (
     CANCEL_ICON_PATH,
     DOWNLOAD_WINDOW_BCKG_IMAGE_PATH,
     DUB,
@@ -35,7 +35,7 @@ from utils.static import (
     RESUME_ICON_PATH,
     open_folder,
 )
-from utils.widgets import (
+from senpwai.utils.widgets import (
     FolderButton,
     HorizontalLine,
     Icon,
@@ -49,10 +49,10 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from windows.abstracts import AbstractWindow
+from senpwai.windows.abstracts import AbstractWindow
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
-    from windows.main import MainWindow
+    from senpwai.windows.main import MainWindow
 
 
 class CurrentAgainstTotal(StyledLabel):

@@ -6,15 +6,15 @@ from webbrowser import open_new_tab
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from utils.classes import AnimeDetails, update_available
-from utils.scraper import (
+from senpwai.utils.classes import AnimeDetails, update_available
+from senpwai.utils.scraper import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     RESOURCE_MOVED_STATUS_CODES,
     Download,
     try_installing_ffmpeg,
 )
-from utils.static import (
+from senpwai.utils.static import (
     APP_NAME,
     CANCEL_ICON_PATH,
     CHOPPER_CRYING_PATH,
@@ -35,7 +35,7 @@ from utils.static import (
     UPDATE_BCKG_IMAGE_PATH,
     VERSION,
 )
-from utils.widgets import (
+from senpwai.utils.widgets import (
     Icon,
     IconButton,
     StyledButton,
@@ -45,14 +45,14 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from windows.download import ProgressBarWithButtons
-from windows.abstracts import (
+from senpwai.windows.download import ProgressBarWithButtons
+from senpwai.windows.abstracts import (
     AbstractTemporaryWindow,
     AbstractWindow,
 )
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
-    from windows.main import MainWindow
+    from senpwai.windows.main import MainWindow
 
 
 class MiscWindow(AbstractTemporaryWindow):

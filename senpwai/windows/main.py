@@ -11,26 +11,26 @@ from PyQt6.QtWidgets import (
     QWidget,
     QMessageBox,
 )
-from utils.classes import SETTINGS, Anime, AnimeDetails
-from utils.static import (
+from senpwai.utils.classes import SETTINGS, Anime, AnimeDetails
+from senpwai.utils.static import (
     MINIMISED_TO_TRAY_ARG,
     SENPWAI_ICON_PATH,
     TASK_COMPLETE_ICON_PATH,
     UPDATE_ICON_PATH,
 )
 
-from windows.about import AboutWindow
-from windows.abstracts import AbstractWindow
-from windows.chosen_anime import ChosenAnimeWindow, MakeAnimeDetailsThread
-from windows.download import DownloadWindow
-from windows.misc import (
+from senpwai.windows.about import AboutWindow
+from senpwai.windows.abstracts import AbstractWindow
+from senpwai.windows.chosen_anime import ChosenAnimeWindow, MakeAnimeDetailsThread
+from senpwai.windows.download import DownloadWindow
+from senpwai.windows.misc import (
     CheckIfUpdateAvailableThread,
     NoFFmpegWindow,
     UpdateWindow,
 )
-from windows.search import SearchWindow
-from windows.settings import SettingsWindow
-from windows.abstracts import NavBarButton
+from senpwai.windows.search import SearchWindow
+from senpwai.windows.settings import SettingsWindow
+from senpwai.windows.abstracts import NavBarButton
 
 
 class MainWindow(QMainWindow):

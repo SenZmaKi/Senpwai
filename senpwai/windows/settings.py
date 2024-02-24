@@ -4,9 +4,9 @@ import sys
 from pylnk3 import for_file as pylnk3_for_file
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
-from utils.classes import SETTINGS
-from utils.scraper import try_deleting
-from utils.static import (
+from senpwai.utils.classes import SETTINGS
+from senpwai.utils.scraper import try_deleting
+from senpwai.utils.static import (
     AMOGUS_EASTER_EGG,
     APP_EXE_PATH,
     APP_EXE_ROOT_DIRECTORY,
@@ -34,7 +34,7 @@ from utils.static import (
     SUB,
     requires_admin_access,
 )
-from utils.widgets import (
+from senpwai.utils.widgets import (
     ErrorLabel,
     GogoNormOrHlsButton,
     HorizontalLine,
@@ -49,11 +49,11 @@ from utils.widgets import (
     set_minimum_size_policy,
 )
 
-from windows.download import DownloadWindow
-from windows.main import AbstractWindow
+from senpwai.windows.download import DownloadWindow
+from senpwai.windows.main import AbstractWindow
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
-    from windows.main import MainWindow
+    from senpwai.windows.main import MainWindow
 
 class SettingsWindow(AbstractWindow):
     def __init__(self, main_window: 'MainWindow') -> None:

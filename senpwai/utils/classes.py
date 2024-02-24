@@ -9,12 +9,12 @@ from senpwai.scrapers import gogo, pahe
 import logging
 import re
 
-from utils.scraper import (
+from senpwai.utils.scraper import (
     CLIENT,
     AnimeMetadata,
     sanitise_title,
 )
-from utils.static import (
+from senpwai.utils.static import (
     APP_NAME,
     generate_windows_setup_file_titles,
     VERSION,

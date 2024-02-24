@@ -6,8 +6,8 @@ import sys
 from PyQt6.QtCore import QCoreApplication, Qt
 from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import QApplication
-from utils.static import APP_NAME, custom_exception_handler
-from windows.main import MainWindow
+from senpwai.utils.static import APP_NAME, custom_exception_handler
+from senpwai.windows.main import MainWindow
 
 
 def windows_app_initialisation():

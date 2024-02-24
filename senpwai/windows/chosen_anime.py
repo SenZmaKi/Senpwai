@@ -10,9 +10,9 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from utils.classes import SETTINGS, Anime, AnimeDetails
-from utils.scraper import lacked_episode_numbers
-from utils.static import (
+from senpwai.utils.classes import SETTINGS, Anime, AnimeDetails
+from senpwai.utils.scraper import lacked_episode_numbers
+from senpwai.utils.static import (
     CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH,
     DUB,
     GOGO,
@@ -26,7 +26,7 @@ from utils.static import (
     RED_PRESSED_COLOR,
     SUB,
 )
-from utils.widgets import (
+from senpwai.utils.widgets import (
     DualStateButton,
     ErrorLabel,
     FolderButton,
@@ -42,12 +42,12 @@ from utils.widgets import (
 )
 import os
 
-from windows.download import DownloadWindow
-from windows.settings import SettingsWindow
-from windows.abstracts import AbstractTemporaryWindow
+from senpwai.windows.download import DownloadWindow
+from senpwai.windows.settings import SettingsWindow
+from senpwai.windows.abstracts import AbstractTemporaryWindow
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
-    from windows.main import MainWindow
+    from senpwai.windows.main import MainWindow
 
 class SummaryLabel(StyledLabel):
     def __init__(self, summary: str):
