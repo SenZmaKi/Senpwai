@@ -61,7 +61,7 @@ Open a terminal and run the following commands.
 1. **Set everything up.**
 
 ```
-git clone https://github.com/SenZmaKi/Senpwai && cd Senpwai && pip install -r dev-requirements.txt && poetry install
+git clone https://github.com/SenZmaKi/Senpwai --depth 1 && cd Senpwai && pip install -r dev-requirements.txt && poetry install
 ```
 
 
