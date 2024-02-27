@@ -1,4 +1,3 @@
-from sys import platform as sysplatform
 from typing import TYPE_CHECKING
 from webbrowser import open_new_tab
 
@@ -15,6 +14,7 @@ from senpwai.utils.static import (
     HENTAI_ADDICT_ICON_PATH,
     MORBIUS_AUDIO_PATH,
     MORBIUS_IS_PEAK_ICON_PATH,
+    OS,
     PATREON_ICON_PATH,
     REDDIT_ICON_PATH,
     SEN_ICON_PATH,
@@ -152,7 +152,7 @@ class AboutWindow(AbstractWindow):
         main_layout.addWidget(social_links_title)
         main_layout.addWidget(bug_reports_label)
         main_layout.addWidget(social_links_buttons_widget)
-        if sysplatform == "win32":
+        if OS.is_windows:
             main_layout.addWidget(uninstall_title)
             main_layout.addWidget(uninstall_info_label)
         main_layout.addWidget(version_title)

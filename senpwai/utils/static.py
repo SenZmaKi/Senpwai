@@ -8,12 +8,20 @@ from types import TracebackType
 import logging
 
 APP_NAME = "Senpwai"
-APP_NAME_LOWER = APP_NAME.lower()
+APP_NAME_LOWER = "senpwai"
 VERSION = "2.1.3"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
 IS_PIP_INSTALL = False
 APP_EXE_PATH = ""
+
+
+class OS:
+    is_windows = sys.platform == "win32"
+    is_linux = sys.platform == "linux"
+    is_mac = sys.platform == "darwin"
+
+
 if getattr(sys, "frozen", False):
     # C:\Users\PC\AppData\Local\Programs\Senpwai
     ROOT_DIRECTORY = os.path.dirname(sys.executable)
@@ -26,8 +34,8 @@ else:
     maybe_site_packages = os.path.dirname(ROOT_DIRECTORY)
     if os.path.basename(maybe_site_packages) == "site-packages":
         IS_PIP_INSTALL = True
-        # C:\Users\PC\AppData\Local\Programs\Python\Python311\Scripts\senpwai.exe
-        if sys.platform == "win32":
+        if OS.is_windows:
+            # C:\Users\PC\AppData\Local\Programs\Python\Python311\Scripts\senpwai.exe
             maybe_app_exe_path = os.path.join(
                 os.path.dirname(os.path.dirname(maybe_site_packages)),
                 "Scripts",
@@ -41,18 +49,19 @@ APP_EXE_ROOT_DIRECTORY = os.path.dirname(APP_EXE_PATH) if APP_EXE_PATH else ""
 date = datetime.today()
 IS_CHRISTMAS = True if date.month == 12 and date.day >= 20 else False
 
-def log_exception(e: Exception):
-    custom_exception_handler(type(e), e, e.__traceback__)
+
+def log_exception(exception: Exception) -> None:
+    custom_exception_handler(type(exception), exception, exception.__traceback__)
 
 
 def custom_exception_handler(
     type_: type[BaseException], value: BaseException, traceback: TracebackType | None
-):
+) -> None:
     logging.error(f"Unhandled exception: {type_.__name__}: {value}")
     sys.__excepthook__(type_, value, traceback)
 
 
-def try_deleting(path: str):
+def try_deleting(path: str) -> None:
     if os.path.isfile(path):
         try:
             os.unlink(path)
@@ -101,7 +110,7 @@ AMOGUS_EASTER_EGG = "ඞ"
 
 
 def open_folder(folder_path: str) -> None:
-    if sys.platform == "win32":
+    if OS.is_windows:
         os.startfile(folder_path)
     elif sys.platform == "linux":
         Popen(["xdg-open", folder_path])
@@ -109,14 +118,26 @@ def open_folder(folder_path: str) -> None:
         Popen(["open", folder_path])
 
 
-def requires_admin_access(folder_path):
+def requires_admin_access(folder_path: str) -> bool:
     try:
         temp_file = os.path.join(folder_path, "temp.txt")
         open(temp_file, "w").close()
-        try_deleting(temp_file)
+        os.unlink(temp_file)
         return False
     except PermissionError:
         return True
+
+
+def fix_qt_path_for_windows(path: str) -> str:
+    if OS.is_windows:
+        return path.replace("/", "\\")
+    return path
+
+def fix_windows_path_for_qt(path: str) -> str:
+    if OS.is_windows:
+        return path.replace("\\", "/")
+    return path
+
 
 
 # Paths
@@ -125,15 +146,15 @@ def requires_admin_access(folder_path):
 assets_path = os.path.join(ROOT_DIRECTORY, "assets")
 
 
-def join_from_assets(file):
-    return os.path.join(assets_path, file)
+def join_from_assets(dir_name: str) -> str:
+    return os.path.join(assets_path, dir_name)
 
 
-misc_path = os.path.join(assets_path, "misc")
+misc_path = join_from_assets("misc")
 
 
-def join_from_misc(file):
-    return os.path.join(misc_path, file)
+def join_from_misc(file_name: str) -> str:
+    return os.path.join(misc_path, file_name)
 
 
 SENPWAI_ICON_PATH = join_from_misc("senpwai-icon.ico")
@@ -153,14 +174,14 @@ RANDOM_MACOT_ICON_PATH = (
 bckg_images_path = join_from_assets("background-images")
 
 
-def join_from_bckg_images(
-    img_title,
-):  # fix windows path for Qt cause it only accepts forward slashes
-    return os.path.join(bckg_images_path, img_title).replace("\\", "/")
+def join_from_bckg_images(img_name: str) -> str:
+    return fix_windows_path_for_qt(os.path.join(bckg_images_path, img_name))
 
 
-s = "christmas.jpg" if IS_CHRISTMAS else "search.jpg"
-SEARCH_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images(s)
+SEARCH_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images(
+    "christmas.jpg" if IS_CHRISTMAS else "search.jpg"
+)
+print(SEARCH_WINDOW_BCKG_IMAGE_PATH)
 CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("chosen-anime.jpg")
 SETTINGS_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("settings.jpg")
 DOWNLOAD_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("downloads.png")
@@ -171,8 +192,8 @@ UPDATE_BCKG_IMAGE_PATH = join_from_bckg_images("update.jpg")
 link_icons_folder_path = join_from_assets("link-icons")
 
 
-def join_from_link_icons(icon_path):
-    return os.path.join(link_icons_folder_path, icon_path)
+def join_from_link_icons(icon_name: str) -> str:
+    return os.path.join(link_icons_folder_path, icon_name)
 
 
 GITHUB_SPONSORS_ICON_PATH = join_from_link_icons("github-sponsors.svg")
@@ -184,8 +205,8 @@ DISCORD_ICON_PATH = join_from_link_icons("discord.png")
 download_icons_folder_path = join_from_assets("download-icons")
 
 
-def join_from_download_icons(icon_path):
-    return os.path.join(download_icons_folder_path, icon_path)
+def join_from_download_icons(icon_name: str) -> str:
+    return os.path.join(download_icons_folder_path, icon_name)
 
 
 PAUSE_ICON_PATH = join_from_download_icons("pause.png")
@@ -198,8 +219,8 @@ MOVE_DOWN_QUEUE_ICON_PATH = join_from_download_icons("down.png")
 audio_folder_path = join_from_assets("audio")
 
 
-def join_from_audio(audio_path):
-    return os.path.join(audio_folder_path, audio_path)
+def join_from_audio(audio_name: str) -> str:
+    return os.path.join(audio_folder_path, audio_name)
 
 
 GIGACHAD_AUDIO_PATH = join_from_audio("gigachad.mp3")
@@ -219,19 +240,19 @@ MERRY_CHRISMASU_AUDIO_PATH = join_from_audio("merry-chrismasu.mp3")
 reviewer_profile_pics_folder_path = join_from_assets("reviewer-profile-pics")
 
 
-def join_from_reviewer(icon_path):
-    return os.path.join(reviewer_profile_pics_folder_path, icon_path)
+def join_from_reviewers(icon_name: str) -> str:
+    return os.path.join(reviewer_profile_pics_folder_path, icon_name)
 
 
-SEN_ICON_PATH = join_from_reviewer("sen.png")
-MORBIUS_IS_PEAK_ICON_PATH = join_from_reviewer("morbius-is-peak.png")
-HENTAI_ADDICT_ICON_PATH = join_from_reviewer("hentai-addict.png")
+SEN_ICON_PATH = join_from_reviewers("sen.png")
+MORBIUS_IS_PEAK_ICON_PATH = join_from_reviewers("morbius-is-peak.png")
+HENTAI_ADDICT_ICON_PATH = join_from_reviewers("hentai-addict.png")
 
 navigation_bar_icons_folder_path = join_from_assets("navigation-bar-icons")
 
 
-def join_from_navbar(icon_path):
-    return os.path.join(navigation_bar_icons_folder_path, icon_path)
+def join_from_navbar(icon_name: str) -> str:
+    return os.path.join(navigation_bar_icons_folder_path, icon_name)
 
 
 SEARCH_ICON_PATH = join_from_navbar("search.png")
@@ -277,6 +298,7 @@ W_ANIME = {
     "fire force",
     "mieruko",
     "fumetsu",
+    "frieren",
 }
 L_ANIME = {
     "tokyo ghoul",

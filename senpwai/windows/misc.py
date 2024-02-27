@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 from typing import TYPE_CHECKING, Any, Callable
 from webbrowser import open_new_tab
 
@@ -26,6 +25,7 @@ from senpwai.utils.static import (
     GOGO_PRESSED_COLOR,
     IS_EXECUTABLE,
     IS_PIP_INSTALL,
+    OS,
     PAUSE_ICON_PATH,
     RED_HOVER_COLOR,
     RED_NORMAL_COLOR,
@@ -179,7 +179,7 @@ class UpdateWindow(AbstractWindow):
                 'Run "pip install senpwai --upgrade" to update to the latest version'
             )
             main_layout.addWidget(before_click_label, alignment=Qt.AlignmentFlag.AlignCenter)
-        elif sys.platform == "win32" and IS_EXECUTABLE:
+        elif OS.is_windows and IS_EXECUTABLE:
             before_click_label.setText(
                 "Before you click the update button, ensure you don't have any active downloads cause Senpwai will restart"
             )

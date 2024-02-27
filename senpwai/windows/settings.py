@@ -1,6 +1,5 @@
 import os
 from typing import TYPE_CHECKING, Callable, cast
-import sys
 from pylnk3 import for_file as pylnk3_for_file
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
@@ -19,6 +18,7 @@ from senpwai.utils.static import (
     GOGO_PRESSED_COLOR,
     IS_PIP_INSTALL,
     MINIMISED_TO_TRAY_ARG,
+    OS,
     PAHE,
     PAHE_HOVER_COLOR,
     PAHE_NORMAL_COLOR,
@@ -33,6 +33,7 @@ from senpwai.utils.static import (
     SETTINGS_WINDOW_BCKG_IMAGE_PATH,
     SUB,
     requires_admin_access,
+    fix_qt_path_for_windows
 )
 from senpwai.utils.widgets import (
     ErrorLabel,
@@ -45,7 +46,6 @@ from senpwai.utils.widgets import (
     StyledButton,
     StyledLabel,
     SubDubButton,
-    fix_qt_path_for_windows,
     set_minimum_size_policy,
 )
 
@@ -94,7 +94,7 @@ class SettingsWindow(AbstractWindow):
         left_layout.addWidget(self.gogo_skip_calculate)
         left_layout.addWidget(self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_in_fullscreen)
-        if sys.platform == "win32" and not IS_PIP_INSTALL and APP_EXE_PATH:
+        if  OS.is_windows and not IS_PIP_INSTALL and APP_EXE_PATH:
             self.run_on_startup = RunOnStartUp(self)
             left_layout.addWidget(self.run_on_startup)
         right_layout.addWidget(self.download_folder_setting)

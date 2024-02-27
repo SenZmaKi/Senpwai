@@ -38,7 +38,7 @@ def update_available(
     latest_version = match.group(1)
     download_url = ""
     target_asset_name = ""
-    # Update this logic if u ever officially release on Linux or Mac
+    # NOTE: Update this logic if you ever officially release on Linux or Mac
     target_asset_names = generate_windows_setup_file_titles(app_name)
     update_available = True if latest_version != curr_version else False
     if update_available:
@@ -70,7 +70,7 @@ class Settings:
         self.settings_json_path = os.path.join(self.config_dir, "settings.json")
         # Default settings
         # Only these settings will be saved to settings.json
-        # Everytime you add a new class member that isn't a setting, make sure to pop it from the Settings.dict_settings method
+        # NOTE: Everytime you add a new class member that isn't a setting, make sure  to update the Settings.dict_settings method
         self.sub_or_dub = SUB
         self.quality = Q_720
         self.download_folder_paths = self.setup_default_download_folder()
@@ -134,10 +134,12 @@ class Settings:
         return [downloads_folder]
 
     def dict_settings(self) -> dict:
-        d_settings = {k: v for k, v in self.__dict__.items()}
-        d_settings.pop("settings_json_path")
-        d_settings.pop("config_dir")
-        return d_settings
+        return {
+            k: v
+            for k, v in self.__dict__.items()
+            # NOTE: Everytime you add a new class member that isn't a setting, make sure to include it here
+            if k not in ("config_dir", "settings_json_path", "is_update_install")
+        }
 
     def update_sub_or_dub(self, sub_or_dub: str) -> None:
         self.sub_or_dub = sub_or_dub
@@ -237,7 +239,7 @@ class Anime:
 
 
 class AnimeDetails:
-    def __init__(self, anime: Anime, site: str):
+    def __init__(self, anime: Anime, site: str) -> None:
         self.anime = anime
         self.site = site
         self.is_hls_download = (
@@ -295,7 +297,7 @@ class AnimeDetails:
         anime_type = ""
         parsed = {}
 
-        def init(title: str):
+        def init(title: str) -> None:
             nonlocal \
                 parsed, \
                 parsed_title, \

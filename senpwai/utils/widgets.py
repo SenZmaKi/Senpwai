@@ -1,4 +1,3 @@
-import sys
 from time import time
 from typing import Callable, cast
 
@@ -33,6 +32,7 @@ from senpwai.utils.static import (
     FOLDER_ICON_PATH,
     GOGO_NORM_MODE,
     GOGO_NORMAL_COLOR,
+    OS,
     PAHE_NORMAL_COLOR,
     PAHE_PRESSED_COLOR,
     RED_NORMAL_COLOR,
@@ -44,12 +44,6 @@ from senpwai.utils.static import (
 def set_minimum_size_policy(object):
     object.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
     object.setFixedSize(object.sizeHint())
-
-
-def fix_qt_path_for_windows(path: str) -> str:
-    if sys.platform == "win32":
-        path = path.replace("/", "\\")
-    return path
 
 
 class BckgImg(QLabel):
