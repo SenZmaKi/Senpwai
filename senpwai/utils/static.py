@@ -181,7 +181,6 @@ def join_from_bckg_images(img_name: str) -> str:
 SEARCH_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images(
     "christmas.jpg" if IS_CHRISTMAS else "search.jpg"
 )
-print(SEARCH_WINDOW_BCKG_IMAGE_PATH)
 CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("chosen-anime.jpg")
 SETTINGS_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("settings.jpg")
 DOWNLOAD_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("downloads.png")

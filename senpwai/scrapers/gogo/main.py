@@ -37,9 +37,13 @@ def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
     for a in a_tags:
         title = a.text
         link = f'{GOGO_HOME_URL}/{a["href"]}'
-        if DUB_EXTENSION in title and ignore_dub:
-            continue
         title_and_link.append((title, link))
+    for title, link in title_and_link:
+        if ignore_dub and DUB_EXTENSION in title:
+            sub_title = title.replace(DUB_EXTENSION, "")
+            if any([sub_title == title for title, _ in title_and_link]):
+                title_and_link.remove((title, link))
+
     return title_and_link
 
 
@@ -47,6 +51,10 @@ def extract_anime_id(anime_page_content: bytes) -> int:
     soup = BeautifulSoup(anime_page_content, PARSER)
     anime_id = cast(str, cast(Tag, soup.find("input", id="movie_id"))["value"])
     return int(anime_id)
+
+
+def title_is_dub(title: str) -> bool:
+    return DUB_EXTENSION in title
 
 
 def get_download_page_links(

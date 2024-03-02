@@ -45,9 +45,12 @@ import os
 from senpwai.windows.download import DownloadWindow
 from senpwai.windows.settings import SettingsWindow
 from senpwai.windows.abstracts import AbstractTemporaryWindow
+from senpwai.scrapers import gogo
+
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
     from senpwai.windows.main import MainWindow
+
 
 class SummaryLabel(StyledLabel):
     def __init__(self, summary: str):
@@ -83,7 +86,7 @@ class HavedEpisodes(StyledLabel):
 class MakeAnimeDetailsThread(QThread):
     finished = pyqtSignal(AnimeDetails)
 
-    def __init__(self, window: 'MainWindow', anime: Anime, site: str):
+    def __init__(self, window: "MainWindow", anime: Anime, site: str):
         super().__init__(window)
         self.anime = anime
         self.site = site
@@ -94,7 +97,7 @@ class MakeAnimeDetailsThread(QThread):
 
 
 class ChosenAnimeWindow(AbstractTemporaryWindow):
-    def __init__(self, main_window: 'MainWindow', anime_details: AnimeDetails):
+    def __init__(self, main_window: "MainWindow", anime_details: AnimeDetails):
         super().__init__(main_window, CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH)
         self.main_window = main_window
         self.anime_details = anime_details
@@ -148,7 +151,8 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
         summary_widget.setMaximumHeight(300)
         right_widgets_layout.addWidget(summary_widget)
 
-        self.sub_button = SubDubButton(self, SUB, 18)
+        sub_or_dub = DUB if gogo.title_is_dub(self.anime_details.anime.title) else SUB
+        self.sub_button = SubDubButton(self, sub_or_dub, 18)
         set_minimum_size_policy(self.sub_button)
         self.dub_button = None
         self.sub_button.clicked.connect(lambda: self.update_sub_or_dub(SUB))
@@ -452,7 +456,8 @@ class DownloadButton(StyledButton):
 class EpisodeCount(StyledLabel):
     def __init__(self, count: str):
         super().__init__(None, 21, "rgba(255, 50, 0, 250)")
-        self.setText(f"{count} episodes")
+        eps_str = "episode" if count == "1" else "episodes"
+        self.setText(f"{count} {eps_str}")
         self.normal_style_sheet = self.styleSheet()
         self.setWordWrap(True)
         self.bright_stylesheet = (
