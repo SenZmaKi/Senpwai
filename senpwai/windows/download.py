@@ -50,6 +50,7 @@ from senpwai.utils.widgets import (
 )
 
 from senpwai.windows.abstracts import AbstractWindow
+
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
     from senpwai.windows.main import MainWindow
@@ -74,7 +75,7 @@ class CurrentAgainstTotal(StyledLabel):
 
 
 class HlsEstimatedSize(CurrentAgainstTotal):
-    def __init__(self, download_window: 'DownloadWindow', total_episode_count: int):
+    def __init__(self, download_window: "DownloadWindow", total_episode_count: int):
         super().__init__(0, "MBs", parent=download_window)
         self.total_episode_count = total_episode_count
         self.current_episode_count = 0
@@ -97,7 +98,7 @@ class HlsEstimatedSize(CurrentAgainstTotal):
 class DownloadedEpisodeCount(CurrentAgainstTotal):
     def __init__(
         self,
-        download_window: 'DownloadWindow',
+        download_window: "DownloadWindow",
         total_episodes: int,
         anime_title: str,
         anime_folder_path: str,
@@ -198,7 +199,7 @@ class QueuedDownload(QWidget):
         self,
         anime_details: AnimeDetails,
         progress_bar: ProgressBarWithoutButtons,
-        download_queue: 'DownloadQueue',
+        download_queue: "DownloadQueue",
     ):
         super().__init__()
         label = StyledLabel(font_size=14)
@@ -313,7 +314,7 @@ class DownloadQueue(QWidget):
 
 
 class DownloadWindow(AbstractWindow):
-    def __init__(self, main_window: 'MainWindow'):
+    def __init__(self, main_window: "MainWindow"):
         super().__init__(main_window, DOWNLOAD_WINDOW_BCKG_IMAGE_PATH)
         self.main_window = main_window
         self.main_layout = QVBoxLayout()
@@ -349,11 +350,14 @@ class DownloadWindow(AbstractWindow):
         self.auto_download_timer.timeout.connect(self.start_auto_download)
         self.setup_auto_download_timer()
         self.auto_download_thread: AutoDownloadThread | None = None
-    
+
     def is_downloading(self) -> bool:
         if self.first_download_since_app_start:
             return False
-        if self.downloaded_episode_count.is_complete() or self.downloaded_episode_count.cancelled:
+        if (
+            self.downloaded_episode_count.is_complete()
+            or self.downloaded_episode_count.cancelled
+        ):
             return False
         return True
 

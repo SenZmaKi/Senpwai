@@ -1,4 +1,5 @@
 import re
+
 PAHE = "pahe"
 PAHE_DOMAIN = "animepahe.ru"
 PAHE_HOME_URL = f"https://{PAHE_DOMAIN}"
@@ -27,4 +28,3 @@ KWIK_PAGE_REGEX = re.compile(rf"https?://{KWIK_DOMAIN}/f/([^\"']+)")
 DUB_PATTERN = "eng"
 EPISODE_SIZE_REGEX = re.compile(r"\b(\d+)MB\b")
 PARAM_REGEX = re.compile(r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""")
-

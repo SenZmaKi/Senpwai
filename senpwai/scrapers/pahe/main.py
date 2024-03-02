@@ -36,6 +36,7 @@ COOKIES = {
 }
 """
 
+
 def site_request(url: str) -> Response:
     """
     For requests that go specifically to the domain animepahe.ru instead of e.g., pahe.win or kwik.si

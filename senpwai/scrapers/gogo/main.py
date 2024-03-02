@@ -214,6 +214,6 @@ def get_session_cookies(fresh=False) -> RequestsCookieJar:
     # A valid User-Agent is required during this post request hence the CLIENT is technically only necessary here
     response = CLIENT.post(login_url, form_data, cookies=response.cookies)
     SESSION_COOKIES = response.cookies
-    if len(SESSION_COOKIES) == 0:
+    if not SESSION_COOKIES:
         return get_session_cookies()
     return SESSION_COOKIES

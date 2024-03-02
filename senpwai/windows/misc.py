@@ -50,13 +50,14 @@ from senpwai.windows.abstracts import (
     AbstractTemporaryWindow,
     AbstractWindow,
 )
+
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
     from senpwai.windows.main import MainWindow
 
 
 class MiscWindow(AbstractTemporaryWindow):
-    def __init__(self, main_window: 'MainWindow', misc_info_text: str):
+    def __init__(self, main_window: "MainWindow", misc_info_text: str):
         super().__init__(main_window, CHOPPER_CRYING_PATH)
         self.info_label = StyledLabel(font_size=25)
         self.info_label.setText(misc_info_text)
@@ -76,7 +77,7 @@ class MiscWindow(AbstractTemporaryWindow):
 
 
 class NewVersionInfoWindow(MiscWindow):
-    def __init__(self, main_window: 'MainWindow', info_text: str):
+    def __init__(self, main_window: "MainWindow", info_text: str):
         super().__init__(main_window, info_text)
         title = Title(f"Version {VERSION} Changes")
         set_minimum_size_policy(title)
@@ -86,7 +87,7 @@ class NewVersionInfoWindow(MiscWindow):
 class NoFFmpegWindow(MiscWindow):
     initiate_download_pipeline = pyqtSignal(AnimeDetails)
 
-    def __init__(self, main_window: 'MainWindow', anime_details: AnimeDetails):
+    def __init__(self, main_window: "MainWindow", anime_details: AnimeDetails):
         self.main_window = main_window
         info_text = "Sumanai, in order to use HLS mode you need to have\nFFmpeg installed and properly added to path"
         super().__init__(main_window, info_text)
@@ -155,7 +156,7 @@ class TryInstallingFFmpegThread(QThread):
 class UpdateWindow(AbstractWindow):
     def __init__(
         self,
-        main_window: 'MainWindow',
+        main_window: "MainWindow",
         download_url: str,
         file_name: str,
         update_info: str,
@@ -178,7 +179,9 @@ class UpdateWindow(AbstractWindow):
             before_click_label.setText(
                 'Run "pip install senpwai --upgrade" to update to the latest version'
             )
-            main_layout.addWidget(before_click_label, alignment=Qt.AlignmentFlag.AlignCenter)
+            main_layout.addWidget(
+                before_click_label, alignment=Qt.AlignmentFlag.AlignCenter
+            )
         elif OS.is_windows and IS_EXECUTABLE:
             before_click_label.setText(
                 "Before you click the update button, ensure you don't have any active downloads cause Senpwai will restart"
@@ -205,9 +208,7 @@ class UpdateWindow(AbstractWindow):
             main_layout.addWidget(download_widget)
             download_widget.setLayout(self.download_layout)
             self.update_button.clicked.connect(
-                DownloadUpdateThread(
-                    main_window, self, download_url, file_name
-                ).start
+                DownloadUpdateThread(main_window, self, download_url, file_name).start
             )
         else:
             before_click_label.setText(
@@ -219,9 +220,7 @@ class UpdateWindow(AbstractWindow):
             github_button = IconButton(Icon(300, 100, GITHUB_ICON_PATH), 1.1)
             github_button.clicked.connect(lambda: open_new_tab(GITHUB_REPO_URL))
             github_button.setToolTip(GITHUB_REPO_URL)
-            main_layout.addWidget(
-                github_button, alignment=Qt.AlignmentFlag.AlignCenter
-            )
+            main_layout.addWidget(github_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
         set_minimum_size_policy(before_click_label)
         main_widget.setLayout(main_layout)
@@ -258,7 +257,7 @@ class DownloadUpdateThread(QThread):
 
     def __init__(
         self,
-        main_window: 'MainWindow',
+        main_window: "MainWindow",
         update_window: UpdateWindow,
         download_url: str,
         file_name: str,
@@ -304,7 +303,7 @@ class CheckIfUpdateAvailableThread(QThread):
 
     def __init__(
         self,
-        main_window: 'MainWindow',
+        main_window: "MainWindow",
         finished_callback: Callable[[tuple[bool, str, str, str]], Any],
     ):
         super().__init__(main_window)
@@ -314,4 +313,3 @@ class CheckIfUpdateAvailableThread(QThread):
         self.finished.emit(
             update_available(GITHUB_API_LATEST_RELEASE_ENDPOINT, APP_NAME, VERSION)
         )
-

@@ -36,8 +36,9 @@ from senpwai.windows.abstracts import AbstractWindow
 if TYPE_CHECKING:
     from senpwai.windows.main import MainWindow
 
+
 class AboutWindow(AbstractWindow):
-    def __init__(self, main_window: 'MainWindow'):
+    def __init__(self, main_window: "MainWindow"):
         super().__init__(main_window, ABOUT_BCKG_IMAGE_PATH)
         main_layout = QVBoxLayout()
         main_widget = ScrollableSection(main_layout)

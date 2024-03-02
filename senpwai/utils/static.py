@@ -133,11 +133,11 @@ def fix_qt_path_for_windows(path: str) -> str:
         return path.replace("/", "\\")
     return path
 
+
 def fix_windows_path_for_qt(path: str) -> str:
     if OS.is_windows:
         return path.replace("\\", "/")
     return path
-
 
 
 # Paths
