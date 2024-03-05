@@ -21,6 +21,7 @@ from senpwai.utils.scraper import (
 )
 from senpwai.utils.static import (
     IS_PIP_INSTALL,
+    OS,
     open_folder,
     DUB,
     APP_EXE_PATH as SENPWAI_EXE_PATH,
@@ -609,7 +610,7 @@ def handle_update_check_result(
         )
     if SENPWAI_IS_INSTALLED:
         return print("Update available, install it by updating Senpwai")
-    if sys.platform == "win32":
+    if OS.is_windows:
         print("Update available, would you like to download and install it? (y/n)")
         if input("> ").lower() == "y":
             try:

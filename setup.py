@@ -4,7 +4,9 @@ from typing import cast
 import sys
 
 
-def duo_value_parser(file_path: str, split_str: str, ignore_if_startswith = ["#"]) -> list[tuple[str, str]]:
+def duo_value_parser(
+    file_path: str, split_str: str, ignore_if_startswith=["#"]
+) -> list[tuple[str, str]]:
     extracted: list[tuple[str, str]] = []
 
     def process_str(s: str) -> str:
@@ -91,4 +93,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

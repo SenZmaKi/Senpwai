@@ -6,7 +6,7 @@ import sys
 from PyQt6.QtCore import QCoreApplication, Qt
 from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import QApplication
-from senpwai.utils.static import APP_NAME, custom_exception_handler
+from senpwai.utils.static import APP_NAME, custom_exception_handler, OS
 from senpwai.windows.main import MainWindow
 
 
@@ -26,7 +26,7 @@ def windows_app_initialisation():
 
 
 def main():
-    if sys.platform == "win32":
+    if OS.is_windows:
         windows_app_initialisation()
 
     QCoreApplication.setApplicationName(APP_NAME)

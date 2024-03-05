@@ -33,7 +33,7 @@ class NavBarButton(IconButton):
 
 
 class AbstractWindow(QWidget):
-    def __init__(self, main_window: 'MainWindow', bckg_img_path: str):
+    def __init__(self, main_window: "MainWindow", bckg_img_path: str):
         super().__init__(main_window)
         self.bckg_img_path = bckg_img_path
         self.full_layout = QHBoxLayout()
@@ -66,7 +66,7 @@ class AbstractWindow(QWidget):
 
 
 class AbstractTemporaryWindow(AbstractWindow):
-    def __init__(self, main_window: 'MainWindow', bckg_img_path: str):
+    def __init__(self, main_window: "MainWindow", bckg_img_path: str):
         super().__init__(main_window, bckg_img_path)
         for button in self.nav_bar_buttons:
             button.clicked.connect(

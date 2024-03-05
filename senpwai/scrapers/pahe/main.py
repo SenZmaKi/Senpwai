@@ -13,6 +13,8 @@ from senpwai.utils.scraper import (
     match_quality,
 )
 from .constants import (
+    CHAR_MAP_BASE,
+    CHAR_MAP_DIGITS,
     PAHE_HOME_URL,
     FULL_SITE_NAME,
     API_ENTRY_POINT,
@@ -35,6 +37,7 @@ COOKIES = {
     "__ddg2_": f"; Expires=Tue, 19 Jan 2038 03:14:07 GMT; Domain={PAHE_DOMAIN}; Path=/",
 }
 """
+
 
 def site_request(url: str) -> Response:
     """
@@ -252,22 +255,20 @@ def calculate_total_download_size(bound_info: list[str]) -> int:
     return total_size
 
 
-def get_string(content: str, s1: int) -> int:
-    map_thing = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/"
-    s2 = 10
-    map_string = map_thing[:s2]
-    acc = 0
+def get_char_code(content: str, s1: int) -> int:
+    j = 0
     for index, c in enumerate(reversed(content)):
-        acc += (int(c) if c.isdigit() else 0) * int(math.pow(s1, index))
+        j += (int(c) if c.isdigit() else 0) * int(math.pow(s1, index))
     k = ""
-    while acc > 0:
-        k = map_string[acc % s2] + k
-        acc = (acc - (acc % s2)) // s2
-    return int(k) if k.isdigit() else 0
+    while j > 0:
+        k = CHAR_MAP_DIGITS[j % CHAR_MAP_BASE] + k
+        j = (j - (j % CHAR_MAP_BASE)) // CHAR_MAP_BASE
+    return int(k) if k else 0
 
 
 # Courtesy of Saikou app https://github.com/saikou-app/saikou
-def decrypt_token_and_post_url_page(full_key: str, key: str, v1: int, v2: int) -> str:
+# RIP Saikou
+def decrypt_post_form(full_key: str, key: str, v1: int, v2: int) -> str:
     r = ""
     i = 0
     while i < len(full_key):
@@ -275,9 +276,9 @@ def decrypt_token_and_post_url_page(full_key: str, key: str, v1: int, v2: int) -
         while full_key[i] != key[v2]:
             s += full_key[i]
             i += 1
-        for j in range(len(key)):
-            s = s.replace(key[j], str(j))
-        r += chr(get_string(s, v2) - v1)
+        for idx, c in enumerate(key):
+            s = s.replace(c, str(idx))
+        r += chr(get_char_code(s, v2) - v1)
         i += 1
     return r
 
@@ -294,14 +295,15 @@ class GetDirectDownloadLinks(ProgressFunction):
         direct_download_links: list[str] = []
         for pahewin_link in pahewin_download_page_links:
             # Extract kwik page links
-            html_page = CLIENT.get(pahewin_link).text
-            download_link = cast(
-                re.Match[str], KWIK_PAGE_REGEX.search(html_page)
+            pahewin_html_page = CLIENT.get(pahewin_link).text
+            kwik_page_link = cast(
+                re.Match[str], KWIK_PAGE_REGEX.search(pahewin_html_page)
             ).group()
 
-            # Extract direct download links from kwik page links
-            response = CLIENT.get(download_link)
-            cookies = response.cookies
+            # Extract direct download links from kwik html page
+            response = CLIENT.get(kwik_page_link)
+            with open("kwik.html", "wb") as f:
+                f.write(response.content)
             match = cast(re.Match, PARAM_REGEX.search(response.text))
             full_key, key, v1, v2 = (
                 match.group(1),
@@ -309,14 +311,14 @@ class GetDirectDownloadLinks(ProgressFunction):
                 match.group(3),
                 match.group(4),
             )
-            decrypted = decrypt_token_and_post_url_page(full_key, key, int(v1), int(v2))
-            soup = BeautifulSoup(decrypted, PARSER)
+            form = decrypt_post_form(full_key, key, int(v1), int(v2))
+            soup = BeautifulSoup(form, PARSER)
             post_url = cast(str, cast(Tag, soup.form)["action"])
             token_value = cast(str, cast(Tag, soup.input)["value"])
             response = CLIENT.post(
                 post_url,
-                headers=CLIENT.append_headers({"Referer": download_link}),
-                cookies=cookies,
+                headers=CLIENT.append_headers({"Referer": kwik_page_link}),
+                cookies=response.cookies,
                 data={"_token": token_value},
                 allow_redirects=False,
             )

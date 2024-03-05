@@ -12,7 +12,7 @@ from webbrowser import open_new_tab
 
 import requests
 
-from senpwai.utils.static import log_exception, try_deleting
+from senpwai.utils.static import log_exception, try_deleting, OS
 
 PARSER = "html.parser"
 IBYTES_TO_MBS_DIVISOR = 1024 * 1024
@@ -285,7 +285,7 @@ def match_quality(potential_qualities: list[str], user_quality: str) -> int:
 
 
 def run_process_silently(args: list[str]) -> subprocess.CompletedProcess[bytes]:
-    if sys.platform == "win32":
+    if OS.is_windows:
         return subprocess.run(args, creationflags=subprocess.CREATE_NO_WINDOW)
     return subprocess.run(args)
 
@@ -293,13 +293,13 @@ def run_process_silently(args: list[str]) -> subprocess.CompletedProcess[bytes]:
 def run_process_in_new_console(
     args: list[str] | str,
 ) -> subprocess.CompletedProcess[bytes]:
-    if sys.platform == "win32":
+    if OS.is_windows:
         return subprocess.run(args, creationflags=subprocess.CREATE_NEW_CONSOLE)
     return subprocess.run(args, shell=True)
 
 
 def try_installing_ffmpeg() -> bool:
-    if sys.platform == "win32":
+    if OS.is_windows:
         try:
             run_process_in_new_console("winget install Gyan.FFmpeg")
         # I should probably catch the specific exceptions but I'm too lazy to figure out all the possible exceptions

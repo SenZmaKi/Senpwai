@@ -55,12 +55,14 @@ from senpwai.utils.widgets import (
 )
 
 from senpwai.windows.abstracts import AbstractWindow
+
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
     from senpwai.windows.main import MainWindow
 
+
 class SearchWindow(AbstractWindow):
-    def __init__(self, main_window: 'MainWindow'):
+    def __init__(self, main_window: "MainWindow"):
         super().__init__(main_window, SEARCH_WINDOW_BCKG_IMAGE_PATH)
         self.main_window = main_window
         main_widget = QWidget()
@@ -370,7 +372,7 @@ class ResultButton(OutlinedButton):
     def __init__(
         self,
         anime: Anime,
-        main_window: 'MainWindow',
+        main_window: "MainWindow",
         search_window: SearchWindow,
         site: str,
         paint_x: int,

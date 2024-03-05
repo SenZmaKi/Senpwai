@@ -41,6 +41,7 @@ class FailedTest(Exception):
     def __init__(self, msg: str):
         super().__init__(msg)
 
+
 def conditional_print(text: str):
     if not SILENT:
         print(text)
@@ -153,9 +154,17 @@ def test_get_episode_page_links(
     run_time = get_run_time_later()
     test_variables = f"Anime ID: {anime_id}"
     anime_id = cast(str, anime_id)
-    start_page_num, end_page_num, _, first_page = pahe.get_episode_pages_info(anime_page_link, start_episode, end_episode)
+    start_page_num, end_page_num, _, first_page = pahe.get_episode_pages_info(
+        anime_page_link, start_episode, end_episode
+    )
     episode_page_links = pahe.GetEpisodePageLinks().get_episode_page_links(
-        start_episode, end_episode, start_page_num, end_page_num, first_page, anime_page_link, anime_id
+        start_episode,
+        end_episode,
+        start_page_num,
+        end_page_num,
+        first_page,
+        anime_page_link,
+        anime_id,
     )
     rt = run_time()
     fail_if_list_is_empty(
@@ -181,9 +190,7 @@ def test_get_download_page_links(
         (
             pahewin_page,
             pahewin_info,
-        ) = pahe.GetPahewinPageLinks().get_pahewin_page_links_and_info(
-            eps_page_links
-        )
+        ) = pahe.GetPahewinPageLinks().get_pahewin_page_links_and_info(eps_page_links)
         download_page_links, download_info = pahe.bind_sub_or_dub_to_link_info(
             sub_or_dub, pahewin_page, pahewin_info
         )
@@ -237,6 +244,7 @@ def fail_if_list_is_empty(
             execution_time,
             test_variables,
         )
+
 
 def test_getting_direct_download_links(
     site: str, download_page_links: list[str], quality: str
@@ -742,4 +750,3 @@ def run_tests(args: ArgParser):
 if __name__ == "__main__":
     args = ArgParser(sys.argv)
     run_tests(args)
-
