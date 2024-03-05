@@ -9,7 +9,7 @@ include = ["senpwai/assets"]
 packages = [{ include = "senpwai" }, { include = "senpcli", from = "senpwai" }]
 exclude = ["src/**/test.py"]
 repository = "https://github.com/SenZmaKi/Senpwai"
-documentation = "https://github.com/SenZmaKi/Senpwai/blob/master/readme.md"
+documentation = "https://github.com/SenZmaKi/Senpwai/blob/master/README.md"
 keywords = [
   "anime",
   "app",
