@@ -1,5 +1,6 @@
 from io import TextIOWrapper
 import os
+import subprocess
 
 PREV_VERSION = "2.1.3"
 NEW_VERSION = "2.1.4"
@@ -48,6 +49,7 @@ def main() -> None:
                 continue
             truncate(f, new_content)
             log_info(f'Bumped version in "{file_path}"')
+    subprocess.run("git diff")
 
 
 if __name__ == "__main__":
