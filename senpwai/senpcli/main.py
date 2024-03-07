@@ -456,7 +456,7 @@ def already_has_all_episodes(
     anime_details.lacked_episode_numbers = lacked_episode_numbers(
         start_episode, end_episode, anime_details.haved_episodes
     )
-    if anime_details.lacked_episode_numbers == []:
+    if not anime_details.lacked_episode_numbers:
         print("Bakayorou, you already have all episodes within the provided range!!!")
         return True
     lacked_eps_page_links = lacked_episodes(

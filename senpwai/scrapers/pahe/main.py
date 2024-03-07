@@ -101,6 +101,7 @@ class GetEpisodePageLinks(ProgressFunction):
     def generate_episode_page_links(
         start_episode: int,
         end_episode: int,
+        first_episode: int,
         episodes_data: list[dict[str, Any]],
         anime_id: str,
     ):
@@ -110,9 +111,15 @@ class GetEpisodePageLinks(ProgressFunction):
         end_idx = 0
 
         for idx, episode in enumerate(episodes_data):
-            if episode["episode"] == start_episode:
+            # Some times for sequels animepahe continues the episode numbers from the last episode of the previous season
+            # For instance  "Boku no Hero Academia 2nd Season" episode 1 is shown as episode 14
+            # So we do episode - (first_episode - 1) to get the real episode number e.g.,
+            # 14 - (14 - 1) = 1
+            # 15 - (14 - 1) = 2 and so on
+            episode_num = episode["episode"] - (first_episode - 1)
+            if episode_num == start_episode:
                 start_idx = idx
-            if episode["episode"] == end_episode:
+            if episode_num == end_episode:
                 end_idx = idx
                 break
         episodes_data = episodes_data[start_idx : end_idx + 1]
@@ -151,8 +158,9 @@ class GetEpisodePageLinks(ProgressFunction):
             if self.cancelled:
                 return []
             progress_update_callback(1)
+        first_episode = first_page["data"][0]["episode"]
         return GetEpisodePageLinks.generate_episode_page_links(
-            start_episode, end_episode, episodes_data, anime_id
+            start_episode, end_episode, first_episode, episodes_data, anime_id
         )
 
 
