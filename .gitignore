@@ -7,10 +7,12 @@ test-downloads/
 __pycache__/
 .ruff_cache/
 .pytest_cache
-allanime.py
-marin.py
-setups
-build
-dist
+setups/
+build/
+dist/
 .scraps/
+.credentials/
+
 crap.py
+.todo
+scripts/changelog.md

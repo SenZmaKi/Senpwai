@@ -2,6 +2,7 @@ from cx_Freeze import setup, Executable
 from os import path, unlink as os_unlink
 from typing import cast
 import sys
+from .utils import ROOT_DIR
 
 
 def duo_value_parser(
@@ -72,23 +73,23 @@ def main():
     senpcli_only = "--senpcli" in sys.argv
     if senpcli_only:
         sys.argv.remove("--senpcli")
-    root_dir = path.dirname(path.realpath(__file__))
-    senpwai_package_dir = path.join(root_dir, "senpwai")
-    sys.path.append(senpwai_package_dir)
+    senpwai_package_dir = ROOT_DIR.joinpath("senpwai")
+    sys.path.append(str(senpwai_package_dir))
     metadata = parse_metadata()
     name = metadata["cli_name"] if senpcli_only else metadata["name"]
-    build_dir = path.join(root_dir, "build", name.capitalize())
+    build_dir = ROOT_DIR.joinpath("build", name.capitalize())
+    assets_dir = ROOT_DIR.joinpath(senpwai_package_dir, "assets")
     assets_dir = path.join(senpwai_package_dir, "assets")
     setup(
         name=name,
         version=metadata["version"],
-        options=get_options(build_dir, assets_dir, senpcli_only),
-        executables=get_executables(metadata, senpwai_package_dir, senpcli_only),
+        options=get_options(str(build_dir), assets_dir, senpcli_only),
+        executables=get_executables(metadata, str(senpwai_package_dir), senpcli_only),
     )
-    license_file = path.join(build_dir, "frozen_application_license.txt")
+    license_file = build_dir.joinpath("frozen_application_license.txt")
     if path.isfile(license_file):
         os_unlink(license_file)
-    print(f"Built at: {path.abspath(build_dir)}")
+    print(f"Built at: {build_dir}")
 
 
 if __name__ == "__main__":
