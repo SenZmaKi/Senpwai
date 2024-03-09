@@ -310,8 +310,6 @@ class GetDirectDownloadLinks(ProgressFunction):
 
             # Extract direct download links from kwik html page
             response = CLIENT.get(kwik_page_link)
-            with open("kwik.html", "wb") as f:
-                f.write(response.content)
             match = cast(re.Match, PARAM_REGEX.search(response.text))
             full_key, key, v1, v2 = (
                 match.group(1),

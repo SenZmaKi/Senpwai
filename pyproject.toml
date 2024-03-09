@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "senpwai"
-version = "2.1.4"
+version = "2.1.5"
 description = "A desktop app for tracking and batch downloading anime"
 authors = ["SenZmaKi <senzmaki@gmail.com>"]
 license = "GPL v3"
@@ -63,6 +63,8 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poe.tasks]
+release = "python -m scripts.release"
+bump_version = "python -m scripts.bump_version"
 generate_release_test = [{ ref = "test" }, { ref = "generate_release" }]
 generate_release_ddl = [{ ref = "test_ddl" }, { ref = "generate_release" }]
 generate_release = [
@@ -83,15 +85,15 @@ test_gogo_norm_ddl = "python -m senpwai.scrapers.test --site gogo direct_links"
 test_gogo_hls_ddl = "python -m senpwai.scrapers.test --site gogo hls_links --hls"
 
 build_exes = [{ ref = "build_senpwai_exe" }, { ref = "build_senpcli_exe" }]
-build_senpwai_exe = "python setup.py build"
-build_senpcli_exe = "python setup.py --senpcli build"
+build_senpwai_exe = "python -m scripts.setup build"
+build_senpcli_exe = "python -m scripts.setup --senpcli build"
 
 compile_installers = [
   { ref = "compile_senpwai_installer" },
   { ref = "compile_senpcli_installer" },
 ]
-compile_senpwai_installer = "iscc setup.iss /Q"
-compile_senpcli_installer = "iscc setup_senpcli.iss /Q"
+compile_senpwai_installer = "iscc scripts/setup.iss /Q"
+compile_senpcli_installer = "iscc scripts/setup_senpcli.iss /Q"
 
 install = [{ ref = "install_senpwai" }, { ref = "install_senpcli" }]
 install_senpwai = "setups/Senpwai-setup.exe /verysilent"

@@ -9,7 +9,7 @@ import logging
 
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = "senpwai"
-VERSION = "2.1.4"
+VERSION = "2.1.5"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
 IS_PIP_INSTALL = False
