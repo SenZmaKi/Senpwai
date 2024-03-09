@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Senpwai"
-#define MyAppVersion "2.1.4"
+#define MyAppVersion "2.1.5"
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
 #define MyAppExeName "Senpwai.exe"
@@ -14,7 +14,7 @@
 AppId={{B1AC746D-A6F0-44EF-B812.1.8-0DF4571B51}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-VersionInfoVersion=2.1.4.0
+VersionInfoVersion=2.1.5.0
 ;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}

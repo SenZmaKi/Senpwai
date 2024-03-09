@@ -28,7 +28,8 @@ def main(title: str, release_notes: str) -> None:
             ]
         )
 
-        message = f"# {title}\n\n" + smaller_titles
+        everyone = "@everyone\n" if "--ping_everyone" in ARGS else ""
+        message = f"{everyone}# {title}\n\n" + smaller_titles
         payload = {
             "content": message,
         }

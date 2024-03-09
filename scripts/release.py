@@ -38,7 +38,8 @@ def get_release_notes() -> str:
             f"git log --oneline master..{BRANCH_NAME}", capture_output=True, text=True
         )
         new_commits_completed_process.check_returncode()
-        return add_change_log_link(new_commits_completed_process.stdout)
+        release_notes = f"# Changes\n\n{new_commits_completed_process.stdout}"
+        return add_change_log_link(release_notes)
 
     with open(ROOT_DIR.joinpath("scripts/changelog.md"), "r+") as f:
         full_release_notes = add_change_log_link(f.read())
@@ -72,13 +73,14 @@ def main() -> None:
     if "--skip_release" not in ARGS:
         log_info(f"Publishing release {BRANCH_NAME}")
         publish_release(release_notes)
-    if "--skip_pip" not in ARGS:
-        log_info("Building pip dist")
-        subprocess.run("poetry build").check_returncode()
+    if "--skip_pypi" not in ARGS:
         log_info("Publishing to PyPi")
+        subprocess.run("poetry publish")
     if "--skip_announce" not in ARGS:
         log_info("Announcing")
-        announce.main(f"Version {bump_version.get_new_version()} is Out!", release_notes)
+        announce.main(
+            f"Version {bump_version.get_new_version()} is Out!", release_notes
+        )
 
 
 if __name__ == "__main__":
