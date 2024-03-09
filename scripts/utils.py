@@ -9,6 +9,7 @@ ROOT_DIR = Path(os.path.dirname(os.path.dirname(__file__)))
 REPO_URL = "https://github.com/SenZmaKi/Senpwai"
 ARGS = sys.argv[1:]
 
+
 def get_piped_input() -> str:
     full_input = ""
     try:
@@ -24,6 +25,7 @@ def log_error(msg: str, exit=False) -> None:
     if exit:
         sys.exit(1)
 
+
 def overwrite(file: TextIOWrapper, content: str) -> None:
     file.seek(0)
     file.write(content)
@@ -35,6 +37,7 @@ def get_current_branch_name() -> str:
     return subprocess.run(
         "git branch --show-current", capture_output=True, text=True
     ).stdout.strip()
+
 
 def log_info(msg: str) -> None:
     print(f"[+] Info: {msg}")
