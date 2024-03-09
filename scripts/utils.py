@@ -7,6 +7,16 @@ from io import TextIOWrapper
 
 ROOT_DIR = Path(os.path.dirname(os.path.dirname(__file__)))
 REPO_URL = "https://github.com/SenZmaKi/Senpwai"
+ARGS = sys.argv[1:]
+
+def get_piped_input() -> str:
+    full_input = ""
+    try:
+        while True:
+            full_input = f"{full_input}\n{input()}"
+    except EOFError:
+        pass
+    return full_input
 
 
 def log_error(msg: str, exit=False) -> None:

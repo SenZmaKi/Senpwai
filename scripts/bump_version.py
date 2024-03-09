@@ -6,6 +6,7 @@ import re
 from typing import cast
 from .utils import (
     ROOT_DIR,
+    ARGS,
     get_current_branch_name,
     log_error as utils_log_error,
     log_info,
@@ -84,13 +85,12 @@ def bump_version(prev_version: str, new_version: str, ignore_same: bool):
 
 
 def main(ignore_same=False) -> None:
-    args = sys.argv[1:]
-    if len(args) == 1 and args[0] in ("--help", "-h"):
+    if len(ARGS) == 1 and ARGS[0] in ("--help", "-h"):
         print(USAGE)
         return
-    if len(args) == 2:
-        prev_version = args[0]
-        new_version = args[1]
+    if len(ARGS) == 2:
+        prev_version = ARGS[0]
+        new_version = ARGS[1]
     else:
         prev_version, new_version = get_versions()
     if not ignore_same and prev_version == new_version:

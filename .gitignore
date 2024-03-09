@@ -11,6 +11,7 @@ setups/
 build/
 dist/
 .scraps/
+.credentials/
 
 crap.py
 .todo
