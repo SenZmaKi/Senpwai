@@ -1,4 +1,4 @@
-from io import TextIOWrapper
+from functools import cache
 import os
 import subprocess
 import sys
@@ -10,6 +10,7 @@ from .utils import (
     log_error as utils_log_error,
     log_info,
     log_warning,
+    overwrite,
 )
 
 
@@ -28,18 +29,13 @@ ENCOUNTERED_ERROR = False
 VERSION_REGEX = re.compile(r"(\d+(\.\d+)*)")
 
 
-def truncate(file: TextIOWrapper, content: str) -> None:
-    file.seek(0)
-    file.write(content)
-    file.truncate()
-
-
 def log_error(msg: str, exit=False) -> None:
     utils_log_error(msg, exit)
     global ENCOUNTERED_ERROR
     ENCOUNTERED_ERROR = True
 
 
+@cache
 def get_prev_version() -> str:
     prev_version = ""
     with open(PYPROJECT_FILE_PATH, "r") as f:
@@ -51,6 +47,7 @@ def get_prev_version() -> str:
     return prev_version
 
 
+@cache
 def get_new_version() -> str:
     branch_name = get_current_branch_name()
     if branch_name == "master":
@@ -82,13 +79,13 @@ def bump_version(prev_version: str, new_version: str, ignore_same: bool):
                 else:
                     log_error(f'Failed to find previous version in "{file_path}"')
                 continue
-            truncate(f, new_content)
+            overwrite(f, new_content)
             log_info(f'Bumped version in "{file_path}"')
 
 
 def main(ignore_same=False) -> None:
     args = sys.argv[1:]
-    if len(args) == 1 and args[1] in ("--help", "-h"):
+    if len(args) == 1 and args[0] in ("--help", "-h"):
         print(USAGE)
         return
     if len(args) == 2:
@@ -98,9 +95,12 @@ def main(ignore_same=False) -> None:
         prev_version, new_version = get_versions()
     if not ignore_same and prev_version == new_version:
         log_error(f"Previous and New version are the same: {prev_version}", True)
-    log_info(f"Bumping version from {prev_version} -> {new_version}")
+    log_info(f"Bumping version from {prev_version} --> {new_version}")
     bump_version(prev_version, new_version, ignore_same)
-    subprocess.run("git --no-pager diff")
+    subprocess.run("git --no-pager diff").check_returncode()
+    subprocess.run(
+        f'git commit -am "Bump version from {prev_version} --> {new_version}"'
+    )
     if ENCOUNTERED_ERROR:
         sys.exit(1)
 
