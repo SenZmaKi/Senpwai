@@ -40,7 +40,7 @@ def get_current_branch_name() -> str:
 
 
 def log_info(msg: str) -> None:
-    print(f"[+] Info: {msg}")
+    print(f"[*] Info: {msg}")
 
 
 def log_warning(msg: str) -> None:
