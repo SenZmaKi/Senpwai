@@ -3,7 +3,7 @@ import requests
 import re
 
 from scripts.utils import ARGS, ROOT_DIR, get_piped_input
-from .utils import FailedToAnnounce
+from scripts.announce.utils import FailedToAnnounce
 
 CHANNEL_URL = "https://discord.com/api/v10/channels/1142774130689720370/messages"
 URL_REGEX = re.compile(r"https://\S+")

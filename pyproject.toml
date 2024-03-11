@@ -65,6 +65,9 @@ build-backend = "poetry.core.masonry.api"
 [tool.poe.tasks]
 release = "python -m scripts.release"
 bump_version = "python -m scripts.bump_version"
+announce = "python -m scripts.announce"
+announce_discord = "python scripts/announce/discord.py"
+announce_reddit = "python  scripts/announce/reddit.py"
 ruff = [{ ref = "lint_fix" }, { ref = "format" }]
 lint = "python -m scripts.ruff"
 lint_fix = "python -m scripts.ruff --lint_fix"

@@ -33,18 +33,16 @@ def add_change_log_link(release_notes: str) -> str:
 
 
 def get_release_notes() -> str:
-    if "--from_commits" in ARGS:
+    with open(ROOT_DIR.joinpath("RELEASE_NOTES.md"), "r+") as f:
+        if "--from_commits" not in ARGS:
+            return add_change_log_link(f.read())
         new_commits_completed_process = subprocess.run(
             f"git log --oneline master..{BRANCH_NAME}", capture_output=True, text=True
         )
         new_commits_completed_process.check_returncode()
         release_notes = f"# Changes\n\n{new_commits_completed_process.stdout}"
+        overwrite(f, release_notes)
         return add_change_log_link(release_notes)
-
-    with open(ROOT_DIR.joinpath("scripts/changelog.md"), "r+") as f:
-        full_release_notes = add_change_log_link(f.read())
-        overwrite(f, full_release_notes)
-        return full_release_notes
 
 
 def publish_release(release_notes: str) -> None:
@@ -55,7 +53,6 @@ def publish_release(release_notes: str) -> None:
     subprocess.run(
         f'gh release upload  {BRANCH_NAME} {ROOT_DIR.joinpath("setups/Senpwai-setup.exe")} {ROOT_DIR.joinpath("setups/Senpcli-setup.exe")}'
     ).check_returncode()
-
 
 
 def main() -> None:
