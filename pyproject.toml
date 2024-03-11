@@ -65,7 +65,11 @@ build-backend = "poetry.core.masonry.api"
 [tool.poe.tasks]
 release = "python -m scripts.release"
 bump_version = "python -m scripts.bump_version"
-generate_release_test = [{ ref = "test" }, { ref = "generate_release" }]
+ruff = [{ ref = "lint_fix" }, { ref = "format" }]
+lint = "python -m scripts.ruff"
+lint_fix = "python -m scripts.ruff --lint_fix"
+format = "python -m scripts.ruff --format"
+generate_release_test = [{ref = "lint"}, { ref = "test" }, { ref = "generate_release" }]
 generate_release_ddl = [{ ref = "test_ddl" }, { ref = "generate_release" }]
 generate_release = [
   { ref = "build_exes" },

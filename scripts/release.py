@@ -9,7 +9,7 @@ from scripts.utils import (
     ROOT_DIR,
     overwrite,
 )
-from scripts import bump_version
+from scripts import bump_version, ruff
 from scripts import announce
 
 BRANCH_NAME = get_current_branch_name()
@@ -57,12 +57,15 @@ def publish_release(release_notes: str) -> None:
     ).check_returncode()
 
 
+
 def main() -> None:
     if BRANCH_NAME == "master":
         log_error("On master branch, switch to version branch", True)
     if "--skip_bump" not in ARGS:
         log_info("Bumping version")
         bump_version.main(True)
+    if "--skip_ruff" not in ARGS:
+        ruff.main(True, True)
     if "--skip_build" not in ARGS:
         log_info("Generating release")
         subprocess.run("poe generate_release_ddl").check_returncode()
