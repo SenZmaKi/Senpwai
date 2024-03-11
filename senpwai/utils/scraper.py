@@ -6,13 +6,14 @@ from base64 import b64decode
 from string import ascii_letters, digits, printable
 from threading import Event
 from time import sleep as timesleep
-from typing import TypeVar, Callable, Iterator, Sequence, cast
+from typing import  TypeVar, Callable, Iterator, cast
 from random import choice as random_choice
 from webbrowser import open_new_tab
 
 import requests
 
 from senpwai.utils.static import log_exception, try_deleting, OS
+
 T = TypeVar("T")
 PARSER = "html.parser"
 IBYTES_TO_MBS_DIVISOR = 1024 * 1024
@@ -136,7 +137,7 @@ class Client:
         json: dict | None = None,
         allow_redirects=False,
         timeout: int | None = None,
-        exceptions_to_ignore: Sequence[type[Exception]] | None = None,
+        exceptions_to_ignore: tuple[type[Exception], ...] = (type(KeyboardInterrupt),),
     ) -> requests.Response:
         if not headers:
             headers = self.headers
@@ -172,7 +173,7 @@ class Client:
         headers: dict | None = None,
         timeout: int | None = None,
         cookies={},
-        exceptions_to_ignore: Sequence[type[Exception]] | None = None,
+        exceptions_to_raise: tuple[type[Exception], ...] = (type(KeyboardInterrupt),),
     ) -> requests.Response:
         return self.make_request(
             "GET",
@@ -181,7 +182,7 @@ class Client:
             stream=stream,
             timeout=timeout,
             cookies=cookies,
-            exceptions_to_ignore=exceptions_to_ignore,
+            exceptions_to_ignore=exceptions_to_raise,
         )
 
     def post(
@@ -192,7 +193,7 @@ class Client:
         headers: dict | None = None,
         cookies={},
         allow_redirects=False,
-        exceptions_to_ignore: Sequence[type[Exception]] | None = None,
+        exceptions_to_ignore: tuple[type[Exception], ...] = (type(KeyboardInterrupt),),
     ) -> requests.Response:
         return self.make_request(
             "POST",
@@ -208,7 +209,7 @@ class Client:
     def network_error_retry_wrapper(
         self,
         callback: Callable[[], T],
-        exceptions_to_ignore: Sequence[type[Exception]] | None = None,
+        exceptions_to_ignore: tuple[type[Exception], ...] = (type(KeyboardInterrupt),),
     ) -> T:
         while True:
             try:

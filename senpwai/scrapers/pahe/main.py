@@ -49,13 +49,14 @@ def site_request(url: str) -> Response:
         # This is to avoid raising DomainNameError when the something else broke instead
         global FIRST_REQUEST
         if FIRST_REQUEST:
-            exceptions_to_ignore = [DomainNameError]
             FIRST_REQUEST = False
+            response = CLIENT.get(
+                url,
+                cookies=COOKIES,
+                exceptions_to_raise=(DomainNameError, type(KeyboardInterrupt)),
+            )
         else:
-            exceptions_to_ignore = None
-        response = CLIENT.get(
-            url, cookies=COOKIES, exceptions_to_ignore=exceptions_to_ignore
-        )
+            response = CLIENT.get(url, cookies=COOKIES)
         COOKIES.update(response.cookies)
     except DomainNameError:
         global PAHE_HOME_URL

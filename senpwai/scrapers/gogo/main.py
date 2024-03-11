@@ -134,22 +134,22 @@ class CalculateTotalDowloadSize(ProgressFunction):
 def get_anime_page_content(anime_page_link: str) -> bytes:
     global FIRST_REQUEST
     if FIRST_REQUEST:
-        exceptions_to_ignore = [DomainNameError]
-        FIRST_REQUEST = False
-    else:
-        exceptions_to_ignore = None
-    try:
-        response = CLIENT.get(
-            anime_page_link, exceptions_to_ignore=exceptions_to_ignore
-        )
-        return response.content
-    except DomainNameError:
-        global GOGO_HOME_URL
-        prev_home_url = GOGO_HOME_URL
-        GOGO_HOME_URL = get_new_home_url_from_readme(FULL_SITE_NAME)
-        return get_anime_page_content(
-            anime_page_link.replace(prev_home_url, GOGO_HOME_URL)
-        )
+        try:
+            FIRST_REQUEST = False
+            return CLIENT.get(
+                anime_page_link,
+                exceptions_to_raise=(DomainNameError, type(KeyboardInterrupt)),
+            ).content
+        except DomainNameError:
+            global GOGO_HOME_URL
+            prev_home_url = GOGO_HOME_URL
+            GOGO_HOME_URL = get_new_home_url_from_readme(FULL_SITE_NAME)
+            return get_anime_page_content(
+                anime_page_link.replace(prev_home_url, GOGO_HOME_URL)
+            )
+    return CLIENT.get(
+        anime_page_link,
+    ).content
 
 
 def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
