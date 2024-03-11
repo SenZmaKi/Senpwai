@@ -6,14 +6,14 @@ from base64 import b64decode
 from string import ascii_letters, digits, printable
 from threading import Event
 from time import sleep as timesleep
-from typing import Any, Callable, Iterator, Sequence, cast
+from typing import TypeVar, Callable, Iterator, Sequence, cast
 from random import choice as random_choice
 from webbrowser import open_new_tab
 
 import requests
 
 from senpwai.utils.static import log_exception, try_deleting, OS
-
+T = TypeVar("T")
 PARSER = "html.parser"
 IBYTES_TO_MBS_DIVISOR = 1024 * 1024
 QUALITY_REGEX_1 = re.compile(r"\b(\d{3,4})p\b")
@@ -163,10 +163,7 @@ class Client:
                     allow_redirects=allow_redirects,
                 )
 
-        return cast(
-            requests.Response,
-            self.network_error_retry_wrapper(callback, exceptions_to_ignore),
-        )
+        return self.network_error_retry_wrapper(callback, exceptions_to_ignore)
 
     def get(
         self,
@@ -210,13 +207,15 @@ class Client:
 
     def network_error_retry_wrapper(
         self,
-        callback: Callable[[], Any],
+        callback: Callable[[], T],
         exceptions_to_ignore: Sequence[type[Exception]] | None = None,
-    ) -> Any:
+    ) -> T:
         while True:
             try:
                 return callback()
             except requests.exceptions.RequestException as e:
+                if isinstance(e, KeyboardInterrupt):
+                    raise
                 if (
                     exceptions_to_ignore is not None
                     and DomainNameError in exceptions_to_ignore
@@ -474,27 +473,27 @@ class Download(ProgressFunction):
             self.link_or_segment_urls, stream=True, timeout=30, cookies=self.cookies
         )
 
-        def response_ranged(start_byte):
+        def response_ranged(start_byte_num: int) -> requests.Response:
             self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
             return CLIENT.get(
                 self.link_or_segment_urls,
                 stream=True,
-                headers=CLIENT.append_headers({"Range": f"bytes={start_byte}-"}),
+                headers=CLIENT.append_headers({"Range": f"bytes={start_byte_num}-"}),
                 timeout=30,
                 cookies=self.cookies,
             )
 
         total = int(response.headers.get("Content-Length", 0))
 
-        def download(start_byte: int = 0) -> bool:
-            mode = "wb" if start_byte == 0 else "ab"
+        def download(start_byte_num=0) -> bool:
+            mode = "wb" if start_byte_num == 0 else "ab"
             with open(self.temporary_file_path, mode) as file:
                 iter_content = cast(
                     Iterator[bytes],
                     response.iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR)
-                    if start_byte == 0
+                    if start_byte_num == 0
                     else CLIENT.network_error_retry_wrapper(
-                        lambda: response_ranged(start_byte).iter_content(
+                        lambda: response_ranged(start_byte_num).iter_content(
                             chunk_size=IBYTES_TO_MBS_DIVISOR
                         )
                     ),
@@ -502,10 +501,10 @@ class Download(ProgressFunction):
                 while True:
                     try:
 
-                        def get_data():
+                        def get_data() -> bytes:
                             return next(iter_content)
 
-                        data = cast(bytes, CLIENT.network_error_retry_wrapper(get_data))
+                        data = CLIENT.network_error_retry_wrapper(get_data)
                         self.resume.wait()
                         if self.cancelled:
                             return False

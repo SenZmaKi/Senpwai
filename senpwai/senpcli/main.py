@@ -573,11 +573,11 @@ def handle_gogo(parsed: Namespace, anime: Anime, anime_details: AnimeDetails):
         )
 
 
-def check_for_update_thread(queue: Queue) -> None:
-    is_available, download_url, file_name, _ = update_available(
+def check_for_update_thread(queue: Queue[tuple[bool, str, str, str]]) -> None:
+    is_available, download_url, file_name, release_notes = update_available(
         GITHUB_API_LATEST_RELEASE_ENDPOINT, APP_NAME, VERSION
     )
-    queue.put((is_available, download_url, file_name))
+    queue.put((is_available, download_url, file_name, release_notes))
 
 
 def download_and_install_update(
@@ -602,33 +602,29 @@ def download_and_install_update(
 
 
 def handle_update_check_result(
-    is_available: bool, download_url, file_name: str
+    is_available: bool, download_url: str, file_name: str, release_notes: str
 ) -> None:
     if not is_available:
         return
+    print(f"\nUpdate available!!!\n\n{release_notes}\n")
     if IS_PIP_INSTALL:
-        return print(
-            'Update available, install it by running "pip install senpwai --upgrade"'
-        )
+        print('Install it by running "pip install senpwai --upgrade"')
+        return
     if SENPWAI_IS_INSTALLED:
-        return print("Update available, install it by updating Senpwai")
+        print("Install it by updating my big sister, Senpwai")
+        return
     if OS.is_windows:
-        print("Update available, would you like to download and install it? (y/n)")
+        print("Would you like to download and install it? (y/n)")
         if input("> ").lower() == "y":
-            try:
-                download_and_install_update(download_url, file_name)
-            except PermissionError:
-                print(
-                    "Retry in an admin shell e.g., if you're using Command Prompt run it as an administrator"
-                )
+            download_and_install_update(download_url, file_name)
         return
     print(
         f"A new version is available, but to install it you'll have to build from source\nThere is a guide at: {GITHUB_REPO_URL}"
     )
 
 
-def start_update_check_thread() -> tuple[Thread, Queue]:
-    update_check_result_queue = Queue()
+def start_update_check_thread() -> tuple[Thread, Queue[tuple[bool, str, str, str]]]:
+    update_check_result_queue: Queue[tuple[bool, str, str, str]] = Queue()
     update_check_thread = Thread(
         target=check_for_update_thread, args=(update_check_result_queue,)
     )
