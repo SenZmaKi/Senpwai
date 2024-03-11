@@ -9,7 +9,7 @@ from scripts.utils import (
     ROOT_DIR,
     overwrite,
 )
-from scripts import bump_version
+from scripts import bump_version, ruff
 from scripts import announce
 
 BRANCH_NAME = get_current_branch_name()
@@ -33,18 +33,16 @@ def add_change_log_link(release_notes: str) -> str:
 
 
 def get_release_notes() -> str:
-    if "--from_commits" in ARGS:
+    with open(ROOT_DIR.joinpath("RELEASE_NOTES.md"), "r+") as f:
+        if "--from_commits" not in ARGS:
+            return add_change_log_link(f.read())
         new_commits_completed_process = subprocess.run(
             f"git log --oneline master..{BRANCH_NAME}", capture_output=True, text=True
         )
         new_commits_completed_process.check_returncode()
         release_notes = f"# Changes\n\n{new_commits_completed_process.stdout}"
+        overwrite(f, release_notes)
         return add_change_log_link(release_notes)
-
-    with open(ROOT_DIR.joinpath("scripts/changelog.md"), "r+") as f:
-        full_release_notes = add_change_log_link(f.read())
-        overwrite(f, full_release_notes)
-        return full_release_notes
 
 
 def publish_release(release_notes: str) -> None:
@@ -63,6 +61,8 @@ def main() -> None:
     if "--skip_bump" not in ARGS:
         log_info("Bumping version")
         bump_version.main(True)
+    if "--skip_ruff" not in ARGS:
+        ruff.main(True, True)
     if "--skip_build" not in ARGS:
         log_info("Generating release")
         subprocess.run("poe generate_release_ddl").check_returncode()

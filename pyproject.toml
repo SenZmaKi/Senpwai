@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "senpwai"
-version = "2.1.5"
+version = "2.1.6"
 description = "A desktop app for tracking and batch downloading anime"
 authors = ["SenZmaKi <senzmaki@gmail.com>"]
 license = "GPL v3"
@@ -65,7 +65,14 @@ build-backend = "poetry.core.masonry.api"
 [tool.poe.tasks]
 release = "python -m scripts.release"
 bump_version = "python -m scripts.bump_version"
-generate_release_test = [{ ref = "test" }, { ref = "generate_release" }]
+announce = "python -m scripts.announce"
+announce_discord = "python scripts/announce/discord.py"
+announce_reddit = "python  scripts/announce/reddit.py"
+ruff = [{ ref = "lint_fix" }, { ref = "format" }]
+lint = "python -m scripts.ruff"
+lint_fix = "python -m scripts.ruff --lint_fix"
+format = "python -m scripts.ruff --format"
+generate_release_test = [{ref = "lint"}, { ref = "test" }, { ref = "generate_release" }]
 generate_release_ddl = [{ ref = "test_ddl" }, { ref = "generate_release" }]
 generate_release = [
   { ref = "build_exes" },
