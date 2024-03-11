@@ -220,6 +220,8 @@ def validate_start_and_end_episode(
 ) -> tuple[int, int]:
     if end_episode == -1:
         end_episode = total_episode_count
+    if start_episode == -1:
+        start_episode = total_episode_count
     if end_episode > total_episode_count:
         print(
             f"Setting end episode to {total_episode_count} since the anime only has {total_episode_count} episodes"
@@ -671,16 +673,16 @@ def initiate_download_pipeline(
 
 
 def validate_args(parsed: Namespace) -> bool:
-    if parsed.end_episode < parsed.start_episode:
+    if parsed.end_episode < parsed.start_episode and parsed.end_episode != -1:
         print("End episode cannot be less than start episode, hontoni baka ga")
         return False
-    elif parsed.start_episode < 1 and parsed.start_episode != -1:
+    if parsed.start_episode < 1 and parsed.start_episode != -1:
         print("Start episode cannot be less than 1, is that your IQ?")
         return False
-    elif parsed.end_episode < 1 and parsed.end_episode != -1:
+    if parsed.end_episode < 1 and parsed.end_episode != -1:
         print("End episode cannot be less than 1, is that your brain cell count?")
         return False
-    elif parsed.site != GOGO and parsed.hls:
+    if parsed.site != GOGO and parsed.hls:
         print("Setting site to Gogo since HLS mode is only available for Gogo")
         parsed.site = GOGO
 
