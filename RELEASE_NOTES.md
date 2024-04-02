@@ -1,7 +1,3 @@
 # Bug fixes
 
-- senpcli: Fix rejected downloads when start episode is specified but end episode isn't
-
-# New features
-
-- senpcli: Show release notes when about to update
+- pahe: Fix issue with alleged episode count exceeding actual number of episodes

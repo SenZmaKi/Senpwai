@@ -81,6 +81,11 @@ def main() -> None:
         announce.main(
             f"Version {bump_version.get_new_version()} is Out!", release_notes
         )
+    log_info(f"Finished release {BRANCH_NAME}")
+    if "--skip_new_branch" not in ARGS:
+        new_branch_name = input("Enter new branch name\n> ")
+        if new_branch_name:
+            subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
 
 
 if __name__ == "__main__":
