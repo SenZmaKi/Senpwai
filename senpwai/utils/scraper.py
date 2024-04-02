@@ -367,6 +367,9 @@ def lacked_episodes(
     # Episode count is what is used to generate lacking_episode_numbers, episode count is gotten from anime the page which uses subbed episodes count
     # so for an anime where sub episodes are ahead of dub the missing episodes will be outside the range of the episode_page_links
     first_eps_number = lacking_episode_numbers[0]
+    # If the alleged episode count is more than the actual number of episodes the site has e.g., Gintama on animpahe
+    if len(lacking_episode_numbers) > len(episode_page_links):
+        lacking_episode_numbers = lacking_episode_numbers[: len(episode_page_links)]
     return [
         episode_page_links[eps_number - first_eps_number]
         for eps_number in lacking_episode_numbers
