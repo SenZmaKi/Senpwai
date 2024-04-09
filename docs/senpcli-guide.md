@@ -16,7 +16,7 @@ pip install senpwai
 
 - **Windows 10/11**
 
-You can install Senpcli as a completely seperate package by downloading and running [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpcli-setup.exe).
+You can install Senpcli as a completely separate package by downloading and running [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpcli-setup.exe).
 
 - **Other**
 
