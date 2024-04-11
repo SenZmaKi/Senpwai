@@ -1,12 +1,11 @@
 import os
 import re
 import subprocess
-import sys
 from base64 import b64decode
 from string import ascii_letters, digits, printable
 from threading import Event
 from time import sleep as timesleep
-from typing import  TypeVar, Callable, Iterator, cast
+from typing import TypeVar, Callable, Iterator, cast
 from random import choice as random_choice
 from webbrowser import open_new_tab
 
@@ -137,7 +136,7 @@ class Client:
         json: dict | None = None,
         allow_redirects=False,
         timeout: int | None = None,
-        exceptions_to_ignore: tuple[type[Exception], ...] = (type(KeyboardInterrupt),),
+        exceptions_to_ignore: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> requests.Response:
         if not headers:
             headers = self.headers
@@ -173,7 +172,7 @@ class Client:
         headers: dict | None = None,
         timeout: int | None = None,
         cookies={},
-        exceptions_to_raise: tuple[type[Exception], ...] = (type(KeyboardInterrupt),),
+        exceptions_to_raise: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> requests.Response:
         return self.make_request(
             "GET",
@@ -193,7 +192,7 @@ class Client:
         headers: dict | None = None,
         cookies={},
         allow_redirects=False,
-        exceptions_to_ignore: tuple[type[Exception], ...] = (type(KeyboardInterrupt),),
+        exceptions_to_ignore: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> requests.Response:
         return self.make_request(
             "POST",
@@ -209,7 +208,7 @@ class Client:
     def network_error_retry_wrapper(
         self,
         callback: Callable[[], T],
-        exceptions_to_ignore: tuple[type[Exception], ...] = (type(KeyboardInterrupt),),
+        exceptions_to_ignore: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> T:
         while True:
             try:
@@ -287,7 +286,7 @@ def match_quality(potential_qualities: list[str], user_quality: str) -> int:
 def run_process_silently(args: list[str]) -> subprocess.CompletedProcess[bytes]:
     if OS.is_windows:
         return subprocess.run(args, creationflags=subprocess.CREATE_NO_WINDOW)
-    return subprocess.run(args)
+    return subprocess.run(args, capture_output=True)
 
 
 def run_process_in_new_console(
@@ -311,7 +310,7 @@ def try_installing_ffmpeg() -> bool:
         else:
             open_new_tab(FFMPEG_WINDOWS_INSTALLATION_GUIDE)
             return False
-    elif sys.platform == "linux":
+    elif OS.is_linux:
         try:
             run_process_in_new_console(
                 "sudo apt-get update && sudo apt-get install ffmpeg"
@@ -322,6 +321,19 @@ def try_installing_ffmpeg() -> bool:
             return True
         else:
             open_new_tab(FFMPEG_LINUX_INSTALLATION_GUIDE)
+            return False
+
+    elif OS.is_android:
+        try:
+            run_process_in_new_console("pkg update -y && pkg install ffmpeg -y")
+        except Exception:
+            pass
+        if ffmpeg_is_installed():
+            return True
+        else:
+            print(
+                'Try running "pkg update && pkg install ffmpeg", if it doesn\'t work look up a guide on the internet'
+            )
             return False
 
     else:

@@ -1,0 +1,11 @@
+# version for cryptography not specified cause termux source doesn't seem to only have latest versions
+cryptography ; python_version >= "3.11" and python_version < "4.0" 
+anitopy==2.1.1 ; python_version >= "3.11" and python_version < "4.0"
+appdirs==1.4.4 ; python_version >= "3.11" and python_version < "4.0"
+argparse==1.4.0 ; python_version >= "3.11" and python_version < "4.0" 
+beautifulsoup4==4.12.2 ; python_version >= "3.11" and python_version < "4.0"
+bs4==0.0.1 ; python_version >= "3.11" and python_version < "4.0"
+pylnk3==0.4.2 ; python_version >= "3.11" and python_version < "4.0"
+requests==2.31.0 ; python_version >= "3.11" and python_version < "4.0"
+tqdm==4.66.1 ; python_version >= "3.11" and python_version < "4.0"
+yarl==1.9.4 ; python_version >= "3.11" and python_version < "4.0"

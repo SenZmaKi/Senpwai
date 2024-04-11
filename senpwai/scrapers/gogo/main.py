@@ -1,4 +1,5 @@
 from random import choice as random_choice
+import re
 from typing import Callable, cast
 
 from bs4 import BeautifulSoup, ResultSet, Tag
@@ -7,6 +8,7 @@ from senpwai.utils.scraper import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     PARSER,
+    RESOURCE_MOVED_STATUS_CODES,
     AnimeMetadata,
     DomainNameError,
     ProgressFunction,
@@ -16,6 +18,7 @@ from senpwai.utils.scraper import (
 )
 from .constants import (
     AJAX_SEARCH_URL,
+    BASE_URL_REGEX,
     DUB_EXTENSION,
     FULL_SITE_NAME,
     AJAX_LOAD_EPS_URL,
@@ -24,7 +27,7 @@ from .constants import (
 )
 
 SESSION_COOKIES: RequestsCookieJar | None = None
-FIRST_REQUEST = False
+FIRST_REQUEST = True
 
 
 def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
@@ -131,25 +134,35 @@ class CalculateTotalDowloadSize(ProgressFunction):
         return total_size
 
 
-def get_anime_page_content(anime_page_link: str) -> bytes:
+def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
     global FIRST_REQUEST
+    global GOGO_HOME_URL
     if FIRST_REQUEST:
         try:
             FIRST_REQUEST = False
-            return CLIENT.get(
+            response = CLIENT.get(
                 anime_page_link,
-                exceptions_to_raise=(DomainNameError, type(KeyboardInterrupt)),
-            ).content
+                exceptions_to_raise=(DomainNameError, KeyboardInterrupt),
+            )
+            if response.status_code not in RESOURCE_MOVED_STATUS_CODES:
+                return response.content, anime_page_link
+            new_anime_page_link = response.headers.get("Location", GOGO_HOME_URL)
+            # The url in location seems to be in http instead of https but the http one doesn't work
+            if new_anime_page_link != GOGO_HOME_URL:
+                new_anime_page_link = new_anime_page_link.replace("http://", "https://")
+            match = cast(re.Match[str], BASE_URL_REGEX.search(new_anime_page_link))
+            GOGO_HOME_URL = match.group(1)
+            return get_anime_page_content(new_anime_page_link)
         except DomainNameError:
-            global GOGO_HOME_URL
             prev_home_url = GOGO_HOME_URL
             GOGO_HOME_URL = get_new_home_url_from_readme(FULL_SITE_NAME)
             return get_anime_page_content(
                 anime_page_link.replace(prev_home_url, GOGO_HOME_URL)
             )
-    return CLIENT.get(
+    response = CLIENT.get(
         anime_page_link,
-    ).content
+    )
+    return response.content, anime_page_link
 
 
 def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import subprocess
 import sys
 from argparse import ArgumentParser, Namespace
@@ -110,17 +110,19 @@ ANIME_REFERENCES = (
 )
 
 
-def parse_args(args: list[str]) -> Namespace:
+def parse_args(args: list[str]) -> tuple[Namespace, ArgumentParser]:
     parser = ArgumentParser(prog=APP_NAME_LOWER, description=DESCRIPTION)
     parser.add_argument("-v", "--version", action="version", version=VERSION)
     parser.add_argument(
-        "-sd",
-        "--sub_or_dub",
-        help="Whether to download the subbed or dubbed version of the anime",
-        choices=[SUB, DUB],
-        default=SETTINGS.sub_or_dub,
+        "title", help="Title of the anime to download", nargs="?", default=None
     )
-    parser.add_argument("title", help="Title of the anime to download")
+    parser.add_argument(
+        "-c",
+        "--config",
+        help="Show config file contents and location",
+        action="store_true",
+    )
+    parser.add_argument("-u", "--update", help="Check for updates", action="store_true")
     parser.add_argument(
         "-s",
         "--site",
@@ -150,6 +152,13 @@ def parse_args(args: list[str]) -> Namespace:
         default=SETTINGS.quality,
     )
     parser.add_argument(
+        "-sd",
+        "--sub_or_dub",
+        help="Whether to download the subbed or dubbed version of the anime",
+        choices=[SUB, DUB],
+        default=SETTINGS.sub_or_dub,
+    )
+    parser.add_argument(
         "-hls",
         "--hls",
         help="Use HLS mode to download the anime (Gogo only and requires FFmpeg to be installed)",
@@ -175,7 +184,7 @@ def parse_args(args: list[str]) -> Namespace:
         help="Maximum number of simultaneous downloads",
         default=SETTINGS.max_simultaneous_downloads,
     )
-    return parser.parse_args(args)
+    return parser.parse_args(args), parser
 
 
 def search(title: str, site: str) -> Anime | None:
@@ -292,9 +301,9 @@ def pahe_get_download_page_links(
 
 
 def gogo_get_download_page_links(
-    start_episode: int, end_episode: int, anime_page_link: str
+    start_episode: int, end_episode: int, anime_page_content: bytes
 ) -> list[str]:
-    anime_id = gogo.extract_anime_id(gogo.get_anime_page_content(anime_page_link))
+    anime_id = gogo.extract_anime_id(anime_page_content)
     return gogo.get_download_page_links(start_episode, end_episode, anime_id)
 
 
@@ -506,18 +515,16 @@ def gogo_get_hls_segments_urls(matched_quality_links: list[str]) -> list[list[st
     return results
 
 
-def handle_pahe(parsed: Namespace, anime: Anime, anime_details: AnimeDetails):
+def handle_pahe(parsed: Namespace, anime_details: AnimeDetails):
     episode_page_links = pahe_get_episode_page_links(
-        parsed.start_episode, parsed.end_episode, cast(str, anime.id), anime.page_link
+        parsed.start_episode,
+        parsed.end_episode,
+        cast(str, anime_details.anime.id),
+        anime_details.anime.page_link,
     )
     if already_has_all_episodes(
         anime_details, parsed.start_episode, parsed.end_episode, episode_page_links
     ):
-        return
-    if parsed.sub_or_dub == DUB and not pahe.dub_available(
-        anime.page_link, cast(str, anime.id)
-    ):
-        print("Dub not available for this anime")
         return
     download_page_links = pahe_get_download_page_links(
         episode_page_links, parsed.quality, parsed.sub_or_dub
@@ -528,11 +535,13 @@ def handle_pahe(parsed: Namespace, anime: Anime, anime_details: AnimeDetails):
     )
 
 
-def handle_gogo(parsed: Namespace, anime: Anime, anime_details: AnimeDetails):
+def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
     if parsed.hls:
         if install_ffmpeg_prompt():
             download_page_links = gogo_get_download_page_links(
-                parsed.start_episode, parsed.end_episode, anime.page_link
+                parsed.start_episode,
+                parsed.end_episode,
+                anime_details.anime_page_content,
             )
             if already_has_all_episodes(
                 anime_details,
@@ -554,7 +563,7 @@ def handle_gogo(parsed: Namespace, anime: Anime, anime_details: AnimeDetails):
             )
     else:
         download_page_links = gogo_get_download_page_links(
-            parsed.start_episode, parsed.end_episode, anime.page_link
+            parsed.start_episode, parsed.end_episode, anime_details.anime_page_content
         )
         if already_has_all_episodes(
             anime_details, parsed.start_episode, parsed.end_episode, download_page_links
@@ -607,20 +616,23 @@ def handle_update_check_result(
     if not is_available:
         return
     print(f"\nUpdate available!!!\n\n{release_notes}\n")
-    if IS_PIP_INSTALL:
+    if OS.is_android:
+        print(
+            'To update run:\n"pkg update -y && curl https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/termux/install.sh | bash"'
+        )
+    elif IS_PIP_INSTALL:
         print('Install it by running "pip install senpwai --upgrade"')
         return
-    if SENPWAI_IS_INSTALLED:
+    elif SENPWAI_IS_INSTALLED:
         print("Install it by updating my big sister, Senpwai")
-        return
-    if OS.is_windows:
+    elif OS.is_windows:
         print("Would you like to download and install it? (y/n)")
         if input("> ").lower() == "y":
             download_and_install_update(download_url, file_name)
-        return
-    print(
-        f"A new version is available, but to install it you'll have to build from source\nThere is a guide at: {GITHUB_REPO_URL}"
-    )
+    else:
+        print(
+            f"A new version is available, but to install it you'll have to build from source\nThere is a guide at: {GITHUB_REPO_URL}"
+        )
 
 
 def start_update_check_thread() -> tuple[Thread, Queue[tuple[bool, str, str, str]]]:
@@ -632,16 +644,20 @@ def start_update_check_thread() -> tuple[Thread, Queue[tuple[bool, str, str, str
     return update_check_thread, update_check_result_queue
 
 
-def get_anime_and_anime_details(parsed) -> tuple[Anime, AnimeDetails] | None:
+def get_anime_details(parsed) -> AnimeDetails | None:
     anime = search(parsed.title, parsed.site)
     if anime is None:
         return None
     if parsed.sub_or_dub == DUB and parsed.site == GOGO:
         dub_available, anime.page_link = gogo.dub_availability_and_link(anime.title)
         if not dub_available:
-            print("Dub not available for this anime")
             return None
     anime_details = AnimeDetails(anime, parsed.site)
+    if parsed.sub_or_dub == DUB:
+        if not anime_details.dub_available:
+            print("Dub not available for this anime")
+            return None
+
     if parsed.start_episode == -1:
         if (
             anime_details.haved_end is not None
@@ -653,17 +669,15 @@ def get_anime_and_anime_details(parsed) -> tuple[Anime, AnimeDetails] | None:
     parsed.start_episode, parsed.end_episode = validate_start_and_end_episode(
         parsed.start_episode, parsed.end_episode, anime_details.metadata.episode_count
     )
-    return anime, anime_details
+    return anime_details
 
 
-def initiate_download_pipeline(
-    parsed: Namespace, anime: Anime, anime_details: AnimeDetails
-):
+def initiate_download_pipeline(parsed: Namespace, anime_details: AnimeDetails):
     print(f"Downloading to: {anime_details.anime_folder_path}")
     if parsed.site == PAHE:
-        handle_pahe(parsed, anime, anime_details)
+        handle_pahe(parsed, anime_details)
     else:
-        handle_gogo(parsed, anime, anime_details)
+        handle_gogo(parsed, anime_details)
     if parsed.open_folder:
         open_folder(anime_details.anime_folder_path)
 
@@ -689,14 +703,33 @@ def main():
     try:
         args = sys.argv[1:]
         print(ASCII_APP_NAME)
-        parsed = parse_args(args)
+        parsed, parser = parse_args(args)
+
+        if parsed.config:
+            with open(SETTINGS.settings_json_path) as f:
+                contents = f.read()
+                print(f"{contents}\n\n{SETTINGS.settings_json_path}")
+            return
+        elif parsed.update:
+            update_check_thread, update_check_result_queue = start_update_check_thread()
+            update_check_thread.join()
+            result = update_check_result_queue.get()
+            if not result[0]:
+                print("No update available, already at latest version")
+            handle_update_check_result(*result)
+            return
+        elif parsed.title is None:
+            print(
+                f"{parser.format_usage()}senpcli: error: the following arguments are required: title"
+            )
+            return
         if not validate_args(parsed):
             return
         update_check_thread, update_check_result_queue = start_update_check_thread()
-        anime_and_anime_details = get_anime_and_anime_details(parsed)
-        if anime_and_anime_details is None:
+        anime_details = get_anime_details(parsed)
+        if anime_details is None:
             return
-        initiate_download_pipeline(parsed, *anime_and_anime_details)
+        initiate_download_pipeline(parsed, anime_details)
         update_check_thread.join()
         handle_update_check_result(*update_check_result_queue.get())
 

@@ -2,6 +2,7 @@
 .setup-scripts/
 .vscode/
 .venv/
+.venv-termux
 tests/
 test-downloads/
 __pycache__/

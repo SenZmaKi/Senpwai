@@ -53,7 +53,7 @@ def site_request(url: str) -> Response:
             response = CLIENT.get(
                 url,
                 cookies=COOKIES,
-                exceptions_to_raise=(DomainNameError, type(KeyboardInterrupt)),
+                exceptions_to_raise=(DomainNameError, KeyboardInterrupt),
             )
         else:
             response = CLIENT.get(url, cookies=COOKIES)

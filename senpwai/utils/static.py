@@ -17,9 +17,10 @@ APP_EXE_PATH = ""
 
 
 class OS:
-    is_windows = sys.platform == "win32"
-    is_linux = sys.platform == "linux"
-    is_mac = sys.platform == "darwin"
+    is_android = "ANDROID_ROOT" in os.environ 
+    is_windows = sys.platform == "win32" and not is_android
+    is_linux = sys.platform == "linux" and not is_android
+    is_mac = sys.platform == "darwin" and not is_android
 
 
 if getattr(sys, "frozen", False):
