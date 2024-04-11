@@ -9,14 +9,20 @@ The CLI alternative for Senpwai.
 Needs [Python 3.11](https://www.python.org/downloads/release/python-3111) installed.
 
 Senpwai ships with the Senpcli pre-installed.
+
 ```bash
 pip install senpwai
 ```
 
-
 - **Windows 10/11**
 
 You can install Senpcli as a completely separate package by downloading and running [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpcli-setup.exe).
+
+- **Android (Using [termux](https://github.com/termux/termux-app))**
+
+```sh
+pkg update -y && curl https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/termux/install.sh | bash
+```
 
 - **Other**
 
@@ -36,11 +42,13 @@ senpcli [-h] [-v] [-sd {sub,dub}] [-s {pahe,gogo}] [-se START_EPISODE] [-ee END_
 
 - `-h, --help`: Show help message and exit
 - `-v, --version`: Show program's version number and exit
-- `-sd {sub,dub}, --sub_or_dub {sub,dub}`: Whether to download the subbed or dubbed version of the anime
+- `-c, --config` Show config file contents and location
+- `-u, --update` Check for updates
 - `-s {pahe,gogo}, --site {pahe,gogo}`: Site to download from
 - `-se START_EPISODE, --start_episode START_EPISODE`: Episode to start downloading at
 - `-ee END_EPISODE, --end_episode END_EPISODE`: Episode to stop downloading at
 - `-q {1080p,720p,480p,360p}, --quality {1080p,720p,480p,360p}`: Quality to download the anime in
+- `-sd {sub,dub}, --sub_or_dub {sub,dub}`: Whether to download the subbed or dubbed version of the anime
 - `-hls, --hls`: Use HLS mode to download the anime (Gogo only and requires FFmpeg to be installed)
 - `-sc, --skip_calculating`: Skip calculating the total download size (Gogo only)
 - `-of, --open_folder`: Open the folder containing the downloaded anime once the download finishes
@@ -48,7 +56,11 @@ senpcli [-h] [-v] [-sd {sub,dub}] [-s {pahe,gogo}] [-se START_EPISODE] [-ee END_
 
 ### Settings
 
-Senpcli by default uses your settings from Senpwai. If you don't have Senpwai installed and want to edit the settings you can find the settings.json at "%LOCALAPPDATA%\Senpwai\settings.json" on Windows and "~/.config/Senpwai/settings.json" on Linux/Mac.
+Senpcli by default uses your settings from Senpwai. You can find the location of settings.json by running
+
+```sh
+senpcli --config
+```
 
 ## Building from Source
 
@@ -61,6 +73,7 @@ Open a terminal and run the following commands.
 ```
 git clone https://github.com/SenZmaKi/Senpwai --depth 1 && cd Senpwai && pip install -r dev-requirements.txt && poetry install
 ```
+
 2. **Build the tool into an executable.**
 
 ```

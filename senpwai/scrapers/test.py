@@ -68,9 +68,7 @@ def pass_test(name: str, execution_time: float):
     conditional_print(f"Passed: {name} Test\nTook: {round(execution_time, 2)}s\n")
 
 
-def test_search(
-    anime_title: str, site: str
-) -> list[tuple[str, str]] | list[tuple[str, str, str]]:
+def test_search(anime_title: str, site: str) -> list[list[str]]:
     test_name = "Search"
     test_start(test_name)
     run_time_getter = get_run_time_later()
@@ -85,16 +83,15 @@ def test_search(
     test_name = "Parse search results"
     test_start(test_name)
     c = current_time()
-    parsed_results: list[tuple[str, str]] | list[tuple[str, str, str]] = []
+    parsed_results: list[list[str]] = []
     if site == PAHE:
         parsed_results = [
-            pahe.extract_anime_title_page_link_and_id(r)
+            list(pahe.extract_anime_title_page_link_and_id(r))
             for r in cast(list[dict[str, str]], results)
         ]
     else:
-        parsed_results = cast(list[tuple[str, str]], parsed_results)
         for title, page_link in cast(list[tuple[str, str]], results):
-            parsed_results.append((title, page_link))
+            parsed_results.append([title, page_link])
     run_timer = current_time() - c
     if not parsed_results:
         fail_test(test_name, "List of parsed results", "Empty list", run_timer)
@@ -109,8 +106,8 @@ def get_run_time_later() -> Callable[[], float]:
 
 def test_check_results_for_anime(
     anime_title: str,
-    results: list[tuple[str, str]] | list[tuple[str, str, str]],
-) -> tuple[str, str] | tuple[str, str, str] | None:
+    results: list[list[str]] | list[list[str]],
+) -> list[str] | None:
     test_name = f"Matching results to {anime_title}"
     test_start(test_name)
     run_time = get_run_time_later()
@@ -130,17 +127,17 @@ def test_check_results_for_anime(
 
 
 def test_get_metadata(
-    site: str, target_result: tuple[str, str] | tuple[str, str, str]
+    site: str, target_result: list[str]
 ) -> tuple[AnimeMetadata, bytes]:
     test_name = "Get Metadata"
     test_start(test_name)
     run_time = get_run_time_later()
     page_content = b""
     if site == PAHE:
-        target_result = cast(tuple[str, str, str], target_result)
+        target_result = cast(list[str], target_result)
         metadata = pahe.get_anime_metadata(target_result[2])
     else:
-        page_content = gogo.get_anime_page_content(target_result[1])
+        page_content, target_result[1] = gogo.get_anime_page_content(target_result[1])
         metadata = gogo.extract_anime_metadata(page_content)
     pass_test(test_name, run_time())
     return metadata, page_content
@@ -521,15 +518,12 @@ class ArgParser:
         self.invalid_usage(f"Expected: {target_args}")
 
 
-def test_dub_available(
-    site: str, target_result: tuple[str, str] | tuple[str, str, str]
-) -> tuple[bool, str]:
+def test_dub_available(site: str, target_result: list[str]) -> tuple[bool, str]:
     test_name = "Dub availability checking"
     test_start(test_name)
     runtime_getter = get_run_time_later()
     dub_link = ""
     if site == PAHE:
-        target_result = cast(tuple[str, str, str], target_result)
         dub_available = pahe.dub_available(target_result[1], target_result[2])
     else:
         dub_available, dub_link = gogo.dub_availability_and_link(target_result[0])
@@ -553,7 +547,7 @@ def run_tests(args: ArgParser):
         if args.verbose:
             conditional_print(f"Search Results: {results}\n")
         target_result = cast(
-            tuple[str, str] | tuple[str, str, str],
+            list[str],
             test_check_results_for_anime(args.anime_title, results),
         )
         if args.verbose:
@@ -593,13 +587,12 @@ def run_tests(args: ArgParser):
                         )
                     elif args.site == GOGO and dub_available:
                         metadata, page_content = test_get_metadata(
-                            args.site, ("", dub_link)
+                            args.site, ["", dub_link]
                         )
                         if args.verbose:
                             conditional_print("Dub metadata")
                             print_metadata(metadata)  # type: ignore
                     if args.site == PAHE:
-                        target_result = cast(tuple[str, str, str], target_result)
                         episode_page_links = test_get_episode_page_links(
                             target_result[2],
                             target_result[1],

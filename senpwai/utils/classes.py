@@ -258,7 +258,7 @@ class AnimeDetails:
             self.haved_count,
         ) = self.get_start_end_and_count_of_haved_episodes()
         self.dub_available, self.dub_page_link = self.get_dub_availablilty_status()
-        self.metadata = self.get_metadata()
+        self.metadata, self.anime_page_content = self.get_metadata()
         self.episode_count = self.metadata.episode_count
         self.quality = SETTINGS.quality
         self.sub_or_dub = SETTINGS.sub_or_dub
@@ -379,10 +379,11 @@ class AnimeDetails:
             dub_available, link = gogo.dub_availability_and_link(self.anime.title)
         return dub_available, link
 
-    def get_metadata(self) -> AnimeMetadata:
+    def get_metadata(self) -> tuple[AnimeMetadata, bytes]:
         if self.site == PAHE:
             metadata = pahe.get_anime_metadata(cast(str, self.anime.id))
+            page_content = b""
         else:
-            page_content = gogo.get_anime_page_content(self.anime.page_link)
+            page_content, self.anime.page_link = gogo.get_anime_page_content(self.anime.page_link)
             metadata = gogo.extract_anime_metadata(page_content)
-        return metadata
+        return metadata, page_content

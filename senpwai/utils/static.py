@@ -9,7 +9,7 @@ import logging
 
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = "senpwai"
-VERSION = "2.1.7"
+VERSION = "2.1.8"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
 IS_PIP_INSTALL = False
@@ -17,9 +17,10 @@ APP_EXE_PATH = ""
 
 
 class OS:
-    is_windows = sys.platform == "win32"
-    is_linux = sys.platform == "linux"
-    is_mac = sys.platform == "darwin"
+    is_android = "ANDROID_ROOT" in os.environ 
+    is_windows = sys.platform == "win32" and not is_android
+    is_linux = sys.platform == "linux" and not is_android
+    is_mac = sys.platform == "darwin" and not is_android
 
 
 if getattr(sys, "frozen", False):
