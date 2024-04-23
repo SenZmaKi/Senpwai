@@ -40,7 +40,7 @@ python -m scrapers.test all --site pahe && python -m scrapers.test all --site go
 ## Options:
 
 - `--site, -s`: Specify the site (i.e., pahe, gogo). Default: pahe
-- `--title, -t`: Specify the anime title. Default: Senyuu
+- `--title, -t`: Specify the anime title. Default: "Boku no Hero Academia"
 - `--quality, -q`: Specify the video quality (i.e., 360p, 480p, 720p, 1080p). Default: 360p
 - `--sub_or_dub, -sd`: Specify sub or dub. Default: sub
 - `--path, -p`: Specify the download folder path. Default: ./src/test-downloads

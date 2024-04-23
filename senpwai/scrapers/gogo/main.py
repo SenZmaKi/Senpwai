@@ -137,28 +137,35 @@ class CalculateTotalDowloadSize(ProgressFunction):
 def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
     global FIRST_REQUEST
     global GOGO_HOME_URL
-    if FIRST_REQUEST:
-        try:
-            FIRST_REQUEST = False
-            response = CLIENT.get(
-                anime_page_link,
-                exceptions_to_raise=(DomainNameError, KeyboardInterrupt),
-            )
-            if response.status_code not in RESOURCE_MOVED_STATUS_CODES:
-                return response.content, anime_page_link
-            new_anime_page_link = response.headers.get("Location", GOGO_HOME_URL)
-            # The url in location seems to be in http instead of https but the http one doesn't work
-            if new_anime_page_link != GOGO_HOME_URL:
-                new_anime_page_link = new_anime_page_link.replace("http://", "https://")
-            match = cast(re.Match[str], BASE_URL_REGEX.search(new_anime_page_link))
-            GOGO_HOME_URL = match.group(1)
-            return get_anime_page_content(new_anime_page_link)
-        except DomainNameError:
-            prev_home_url = GOGO_HOME_URL
-            GOGO_HOME_URL = get_new_home_url_from_readme(FULL_SITE_NAME)
-            return get_anime_page_content(
-                anime_page_link.replace(prev_home_url, GOGO_HOME_URL)
-            )
+    try:
+        response = CLIENT.get(
+            anime_page_link,
+            exceptions_to_raise=(DomainNameError, KeyboardInterrupt),
+        )
+        if response.status_code not in RESOURCE_MOVED_STATUS_CODES:
+            return response.content, anime_page_link
+        new_anime_page_link = response.headers.get("Location", anime_page_link)
+        # The url in location seems to be in http instead of https but the http one doesn't work
+        new_anime_page_link = new_anime_page_link.replace("http://", "https://")
+        # If the link is not different we assume they changed their domain name but didn't pass
+        # the link with the new one in the location headers
+        if new_anime_page_link == anime_page_link:
+            raise DomainNameError(Exception("Received resource moved status code"))
+        match = cast(re.Match[str], BASE_URL_REGEX.search(new_anime_page_link))
+        GOGO_HOME_URL = match.group(1)
+        return get_anime_page_content(new_anime_page_link)
+    except DomainNameError:
+        # Only check for a new domain name in the readme if this was the first raised error
+        # otherwise sth else probably broke
+        if not FIRST_REQUEST:
+            raise
+        FIRST_REQUEST = False
+        prev_home_url = GOGO_HOME_URL
+        GOGO_HOME_URL = get_new_home_url_from_readme(FULL_SITE_NAME)
+        return get_anime_page_content(
+            anime_page_link.replace(prev_home_url, GOGO_HOME_URL)
+        )
+
     response = CLIENT.get(
         anime_page_link,
     )

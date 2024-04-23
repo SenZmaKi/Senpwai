@@ -11,7 +11,7 @@ from senpwai.scrapers import gogo, pahe
 PAHE = pahe.PAHE
 GOGO = gogo.GOGO
 
-DEFAULT_ANIME_TITLE = "Senyuu"
+DEFAULT_ANIME_TITLE = "Boku no Hero Academia"
 DEFAULT_QUALITY = "360p"
 DEFAULT_START_EPISODE = "1"
 DEFAULT_END_EPISODE = "2"
@@ -446,7 +446,7 @@ class ArgParser:
 
         Options:
         --site, -s              Specify the site (i.e., pahe, gogo). Default: pahe
-        --title, -t             Specify the anime title. Default: Senyuu
+        --title, -t             Specify the anime title. Default: "Boku no Hero Academia"
         --quality, -q           Specify the video quality (i.e., 360p, 480p, 720p, 1080p). Default: 360p
         --sub_or_dub, -sd       Specify sub or dub. Default: sub
         --path, -p              Specify the download folder path. Default: ./src/test-downloads

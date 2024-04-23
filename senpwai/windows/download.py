@@ -389,8 +389,6 @@ class DownloadWindow(AbstractWindow):
             self.cancel_icon = Icon(30, 30, CANCEL_ICON_PATH)
             self.download_queue = DownloadQueue(self)
 
-        if anime_details.sub_or_dub == DUB:
-            anime_details.anime.page_link = anime_details.dub_page_link
         if anime_details.site == PAHE:
             return PaheGetEpisodePageInfo(
                 self,
@@ -1000,6 +998,11 @@ class GogoGetDownloadPageLinksThread(QThread):
         self.finished.connect(callback)
 
     def run(self):
+        if self.anime_details.sub_or_dub == DUB:
+            (
+                self.anime_details.anime_page_content,
+                self.anime_details.anime.page_link,
+            ) = gogo.get_anime_page_content(self.anime_details.dub_page_link)
         anime_id = gogo.extract_anime_id(self.anime_details.anime_page_content)
         download_page_links = gogo.get_download_page_links(
             self.anime_details.lacked_episode_numbers[0],
