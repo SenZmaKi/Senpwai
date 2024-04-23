@@ -1,4 +1,4 @@
-# version for cryptography not specified cause termux source doesn't seem to only have latest versions
+# Version for cryptography not specified cause termux source doesn't seem to have latest versions so we install whatever version they have
 cryptography ; python_version >= "3.11" and python_version < "4.0" 
 anitopy==2.1.1 ; python_version >= "3.11" and python_version < "4.0"
 appdirs==1.4.4 ; python_version >= "3.11" and python_version < "4.0"
