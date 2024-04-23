@@ -1,7 +1,7 @@
 import re
 
 GOGO = "gogo"
-GOGO_HOME_URL = "https://anitaku.to"
+GOGO_HOME_URL = "https://anitaku.so"
 AJAX_ENTRY_POINT = "https://ajax.gogocdn.net"
 AJAX_SEARCH_URL = f"{AJAX_ENTRY_POINT}/site/loadAjaxSearch?keyword="
 AJAX_LOAD_EPS_URL = (
