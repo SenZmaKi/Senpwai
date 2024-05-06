@@ -111,7 +111,7 @@ install_senpwai = "setups/Senpwai-setup.exe /verysilent"
 install_senpcli = "setups/Senpcli-setup.exe /verysilent"
 
 build_pip = [{ ref = "rb_dist" }, { ref = "poetry_build" }]
-rb_dist = "rb dist -r"
+trash_dist = "trash dist"
 poetry_build = "poetry build"
 install_pip = "python -m scripts.install_pip"
 publish_pip = "poetry publish"

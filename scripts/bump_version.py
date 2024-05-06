@@ -1,5 +1,4 @@
 from functools import cache
-import os
 import subprocess
 import sys
 import re
@@ -8,6 +7,7 @@ from .utils import (
     ROOT_DIR,
     ARGS,
     get_current_branch_name,
+    git_commit,
     log_error as utils_log_error,
     log_info,
     log_warning,
@@ -66,7 +66,7 @@ def get_versions() -> tuple[str, str]:
 
 def bump_version(prev_version: str, new_version: str, ignore_same: bool):
     for file_path in FILES_PATHS:
-        if not os.path.isfile(file_path):
+        if not file_path.is_file():
             log_error(f'"{file_path}" not found')
             continue
         with open(file_path, "r+") as f:
@@ -98,9 +98,7 @@ def main(ignore_same=False) -> None:
     log_info(f"Bumping version from {prev_version} --> {new_version}")
     bump_version(prev_version, new_version, ignore_same)
     subprocess.run("git --no-pager diff").check_returncode()
-    subprocess.run(
-        f'git commit -am "Bump version from {prev_version} --> {new_version}"'
-    )
+    git_commit(f"Bump version from {prev_version} --> {new_version}")
     if ENCOUNTERED_ERROR:
         sys.exit(1)
 

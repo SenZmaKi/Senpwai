@@ -1,13 +1,16 @@
 from pathlib import Path
-import os
 import subprocess
 import sys
 from functools import cache
 from io import TextIOWrapper
 
-ROOT_DIR = Path(os.path.dirname(os.path.dirname(__file__)))
+ROOT_DIR = Path(__file__).parent.parent
 REPO_URL = "https://github.com/SenZmaKi/Senpwai"
 ARGS = sys.argv[1:]
+
+
+def git_commit(msg: str) -> None:
+    subprocess.run(f'git commit -am "scripts: {msg}"')
 
 
 def get_piped_input() -> str:
