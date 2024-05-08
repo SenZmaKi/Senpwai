@@ -507,7 +507,6 @@ class ProgressBarWithoutButtons(QWidget):
         self.mutex = QMutex()
         self.items_layout = QHBoxLayout(self)
         self.delete_on_completion = delete_on_completion
-        self.destructLater = lambda: QTimer(self).singleShot(40000, self.deleteLater)
         self.setLayout(self.items_layout)
         self.paused = False
         self.cancelled = False
@@ -549,6 +548,9 @@ class ProgressBarWithoutButtons(QWidget):
         self.items_layout.addWidget(self.current_against_max_values)
         self.prev_time = time()
 
+    def delete_after_timer(self) -> None:
+        QTimer(self).singleShot(40000, self.deleteLater)
+
     def is_complete(self) -> bool:
         return True if self.bar.value() >= self.total_value else False
 
@@ -558,7 +560,7 @@ class ProgressBarWithoutButtons(QWidget):
             self.cancelled = True
             self.bar.setStyleSheet(self.cancelled_stylesheet)
             if self.delete_on_completion:
-                self.destructLater()
+                self.delete_after_timer()
 
     def pause_or_resume(self):
         if not self.cancelled and not self.is_complete():
@@ -572,8 +574,8 @@ class ProgressBarWithoutButtons(QWidget):
 
     def update_bar(self, added_value: int):
         self.mutex.lock()
-        new_value = self.bar.value() + added_value
         curr_time = time()
+        new_value = self.bar.value() + added_value
         time_elapsed = curr_time - self.prev_time
         max_value = self.bar.maximum()
         complete = False
@@ -588,7 +590,7 @@ class ProgressBarWithoutButtons(QWidget):
         self.current_against_max_values.setText(
             f" {round(new_value/self.units_divisor)}/{round(max_value/self.units_divisor)} {self.units}"
         )
-        # If statement to handle cases of annoying division by zero error where downloads update super quick so elapsed time is roughly zero
+        # If statement to handle division by zero error where downloads update super quick so elapsed time is roughly zero
         if time_elapsed > 0 and added_value > 0:
             rate = added_value / time_elapsed
             eta = (max_value - new_value) * (1 / rate)
@@ -600,9 +602,9 @@ class ProgressBarWithoutButtons(QWidget):
                 self.eta.setText(f"{round(eta)} secs left")
             self.rate.setText(f" {round(rate/self.units_divisor, 1)} {self.units}/s")
             self.prev_time = curr_time
-        self.mutex.unlock()
         if complete and self.delete_on_completion:
-            self.destructLater()
+            self.delete_after_timer()
+        self.mutex.unlock()
 
 
 class ProgressBarWithButtons(ProgressBarWithoutButtons):
