@@ -1,6 +1,6 @@
-from random import choice as randomchoice
-from time import sleep as timesleep
-from typing import TYPE_CHECKING, cast
+from random import choice as random_choice
+from time import sleep as time_sleep
+from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QEvent, QObject, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtGui import QKeyEvent
@@ -160,13 +160,13 @@ class SearchWindow(AbstractWindow):
             AudioPlayer(self, ZA_WARUDO_AUDIO_PATH, 100).play()
             for _ in range(180):
                 self.main_window.app.processEvents()
-                timesleep(0.01)
+                time_sleep(0.01)
             for x in range(20):
                 self.main_window.app.processEvents()
-                timesleep(x * 0.01)
-            timesleep(2)
+                time_sleep(x * 0.01)
+            time_sleep(2)
             AudioPlayer(self, TOKI_WA_UGOKI_DASU_AUDIO_PATH, 100).play()
-            timesleep(1.8)
+            time_sleep(1.8)
         elif anime_title_lower in W_ANIME:
             AudioPlayer(self, GIGACHAD_AUDIO_PATH, 25).play()
         elif anime_title_lower in L_ANIME:
@@ -245,7 +245,7 @@ class NarutoResultsThread(QThread):
                 self.send_result.emit(result, self.site)
                 if idx <= 5:
                     self.play_bunshin.emit()
-                    timesleep(0.35)
+                    time_sleep(0.35)
             self.search_window.search_thread = None
 
 
@@ -262,12 +262,12 @@ class FetchFavouriteThread(QThread):
 
     def type_write_favourite_in_search_bar(self, favourite_name: str):
         self.search_window.search_bar.clear()
-        for idx, _ in enumerate(favourite_name):
+        for idx in range(len(favourite_name)):
             self.search_window.search_bar.setText(favourite_name[: idx + 1])
-            timesleep(0.1)
+            time_sleep(0.1)
 
     def get_random_sen_favourite(self) -> str | None:
-        page = randomchoice((1, 2))
+        page = random_choice((1, 2))
         query = """
         query getUserFavourite($id: Int, $page: Int){
         User(id: $id) {
@@ -295,13 +295,14 @@ class FetchFavouriteThread(QThread):
         )
         if response.status_code != 200:
             return None
-        data = response.json()
-        favourite_anime = data["data"]["User"]["favourites"]["anime"]["nodes"]
-        count = len(favourite_anime)
-        if count <= 0:
+        response_json = response.json()
+        favourites: list[dict["str", Any]] = response_json["data"]["User"][
+            "favourites"
+        ]["anime"]["nodes"]
+        if favourites:
             return None
-        chosen = randomchoice(favourite_anime)
-        anime_title = chosen["title"]["romaji"]
+        chosen_favourite = random_choice(favourites)
+        anime_title = chosen_favourite["title"]["romaji"]
         return anime_title
 
 

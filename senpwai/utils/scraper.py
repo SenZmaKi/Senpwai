@@ -4,7 +4,7 @@ import subprocess
 from base64 import b64decode
 from string import ascii_letters, digits, printable
 from threading import Event
-from time import sleep as timesleep
+from time import sleep as time_sleep
 from typing import TypeVar, Callable, Iterator, cast
 from random import choice as random_choice
 from webbrowser import open_new_tab
@@ -226,7 +226,7 @@ class Client:
                 ):
                     raise e
                 log_exception(e)
-                timesleep(1)
+                time_sleep(1)
 
 
 CLIENT = Client()
