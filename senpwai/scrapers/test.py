@@ -1,4 +1,5 @@
 import os
+from shutil import rmtree as shutil_rmtree
 import sys
 from time import time as current_time
 from typing import Any, Callable, cast
@@ -377,7 +378,7 @@ def test_downloading(
 
     rt = runtime_getter()
     pass_test(test_name, rt)
-    os.removedirs(download_folder)
+    shutil_rmtree(download_folder)
 
 
 class ArgParser:
@@ -693,7 +694,8 @@ def run_tests(args: ArgParser):
                                             args.end_eps,
                                             args.path,
                                         )
-                        if args.arg_in_group_was_passed(COMMANDS):
+                                        COMMANDS.remove("download")
+                        if args.arg_in_group_was_passed(["direct_links", "all"]):
                             direct_download_links = test_getting_direct_download_links(
                                 args.site, download_page_links, args.quality
                             )
@@ -733,6 +735,7 @@ def run_tests(args: ArgParser):
                                     args.end_eps,
                                     args.path,
                                 )
+                                COMMANDS.remove("download")
     if args.site == PAHE:
         return print(f"Specified {PAHE} tests passed")
     if was_hls:
