@@ -1,17 +1,17 @@
 name: test
 
-on:             
-  push:         
-    branches:   
-      - master  
-                
-  pull_request: 
-    branches:   
+on:
+  push:
+    branches:
+      - master
+
+  pull_request:
+    branches:
       - master
 
   schedule:
-      # 6:00 A.M UTC  == 9:00 AM EAT
-      - cron: '0 6 * * *'
+    # 6:00 A.M UTC  == 9:00 AM EAT
+    - cron: "0 6 * * *"
 
 jobs:
   test:
@@ -28,12 +28,50 @@ jobs:
 
       - name: Install dependencies
         run: |
+
           python -m pip install --upgrade pip
           pip install -r dev-requirements.txt
           poetry install
 
-      - name: Lint with ruff
+      - name: Lint
+        id: lint
+        continue-on-error: true
         run: poetry run ruff .
 
-      - name: Run Tests
-        run: poetry run poe test_ddl
+      - name: Test Pahe
+        id: test_pahe
+        continue-on-error: true
+        run: poetry run poe test_pahe_ddl
+
+      - name: Test Gogo Norm
+        id: test_gogo_norm
+        continue-on-error: true
+        run: poetry run poe test_gogo_norm_ddl
+
+      - name: Test Gogo HLS
+        id: test_gogo_hls
+        continue-on-error: true
+        run: poetry run poe test_gogo_hls_ddl
+
+      - name: Check results
+        run: |
+          failed=false
+          if [ ${{ steps.lint.outcome }} == "failure" ]; then
+            echo "Lint failed"
+            failed=true
+          fi
+          if [ ${{ steps.test_pahe.outcome }} == "failure" ]; then
+            echo "Test Pahe failed"
+            failed=true
+          fi
+          if [ ${{ steps.test_gogo_norm.outcome }} == "failure" ]; then
+            echo "Test Gogo Norm failed"
+            failed=true
+          fi
+          if [ ${{ steps.test_gogo_hls.outcome }} == "failure" ]; then
+            echo "Test Gogo HLS failed"
+            failed=true
+          fi
+          if [ $failed  = true ]; then
+            exit 1
+          fi
