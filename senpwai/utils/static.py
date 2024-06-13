@@ -81,6 +81,7 @@ GITHUB_REPO_URL = "https://github.com/SenZmaKi/Senpwai"
 GITHUB_API_LATEST_RELEASE_ENDPOINT = (
     "https://api.github.com/repos/SenZmaKi/Senpwai/releases/latest"
 )
+DISCORD_INVITE_LINK = "https://discord.gg/e9UxkuyDX2"
 SEN_ANILIST_ID = 5363369
 ANILIST_API_ENTRYPOINY = "https://graphql.anilist.co"
 PAHE = "pahe"

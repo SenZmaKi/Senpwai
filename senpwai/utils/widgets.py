@@ -34,6 +34,7 @@ from senpwai.utils.static import (
     GOGO_NORMAL_COLOR,
     PAHE_NORMAL_COLOR,
     PAHE_PRESSED_COLOR,
+    Q_480,
     RED_NORMAL_COLOR,
     RED_PRESSED_COLOR,
     open_folder,
@@ -729,6 +730,8 @@ class QualityButton(OptionButton):
             window, quality, quality, font_size, PAHE_NORMAL_COLOR, PAHE_PRESSED_COLOR
         )
         self.quality = quality
+        if quality == Q_480:
+            self.setToolTip("Usually only available on Gogoanime")
 
 
 class SubDubButton(OptionButton):

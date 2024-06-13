@@ -72,6 +72,13 @@ class SettingsWindow(AbstractWindow):
         main_layout.addWidget(left_widget)
         main_layout.addWidget(right_widget)
 
+        self.file_location_label = StyledLabel(self)
+        self.file_location_label.setText(SETTINGS.settings_json_path)
+        self.file_location_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self.file_location_label.setToolTip("Location of detected settings file")
+        set_minimum_size_policy(self.file_location_label)
         self.sub_dub_setting = SubDubSetting(self)
         self.quality_setting = QualitySetting(self)
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(self)
@@ -89,6 +96,7 @@ class SettingsWindow(AbstractWindow):
             self, main_window.download_window
         )
         self.gogo_skip_calculate = GogoSkipCalculate(self)
+        left_layout.addWidget(self.file_location_label)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
@@ -253,6 +261,9 @@ class FolderWidget(QWidget):
         main_layout = QHBoxLayout()
         self.folder_label = StyledLabel(font_size=font_size)
         self.folder_label.setText(folder_path)
+        self.folder_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
         set_minimum_size_policy(self.folder_label)
         self.change_button = StyledButton(
             self,
@@ -364,7 +375,7 @@ class TrackedAnimeListSetting(SettingWidget):
         line.setFixedHeight(7)
         super().__init__(
             settings_window,
-            "Track for new episodes then auto download",
+            "Tracked",
             [line, main_widget],
             False,
         )
@@ -553,7 +564,6 @@ class GogoNormOrHlsSetting(SettingWidget):
         super().__init__(
             settings_window, "Gogo Normal or HLS mode", [norm_button, hls_button]
         )
-        self.setting_label.setToolTip(hls_button.toolTip())
 
 
 class NonZeroNumberInputSetting(SettingWidget):
@@ -669,6 +679,7 @@ class QualitySetting(SettingWidget):
             if button.quality == SETTINGS.quality:
                 button.set_picked_status(True)
         super().__init__(settings_window, "Download quality", self.quality_buttons_list)
+        self.setToolTip("480p is usually only available on Gogoanime")
 
     def update_quality(self, quality: str):
         SETTINGS.update_quality(quality)

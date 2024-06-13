@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from senpwai.utils.static import (
     ABOUT_BCKG_IMAGE_PATH,
     DISCORD_ICON_PATH,
+    DISCORD_INVITE_LINK,
     GIGACHAD_AUDIO_PATH,
     GITHUB_ICON_PATH,
     GITHUB_REPO_URL,
@@ -26,12 +27,14 @@ from senpwai.utils.widgets import (
     IconButton,
     ScrollableSection,
     StyledLabel,
+    StyledTextBrowser,
     Title,
     set_minimum_size_policy,
 )
 
 from senpwai.windows.abstracts import AbstractWindow
 
+# To avoid circular imports cause we only need this for type checking
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
     from senpwai.windows.main import MainWindow
@@ -42,6 +45,26 @@ class AboutWindow(AbstractWindow):
         super().__init__(main_window, ABOUT_BCKG_IMAGE_PATH)
         main_layout = QVBoxLayout()
         main_widget = ScrollableSection(main_layout)
+        tips_title = Title("Tips")
+        set_minimum_size_policy(tips_title)
+        tips = StyledTextBrowser(self)
+        startup_text = ""
+        if OS.is_linux:
+            startup_text = "- To start minimised to tray on startup, follow [this guide](https://stackoverflow.com/a/29247942/17193072) then pass `--minimised_to_tray` to Senpwai e.g., `senpwai --minimised_to_tray`"
+        elif OS.is_mac:
+            startup_text = "- To start minimised to tray on startup, follow [this guide](https://stackoverflow.com/a/6445525/17193072) then pass `--minimised_to_tray` to Senpwai e.g., `senpwai --minimised_to_tray`"
+        tips.setMarkdown(f"""
+{startup_text}
+- If you don't specify end episode Senpwai will assume you mean the last episode
+- Senpwai is smart enough to detect episodes you don't have e.g., if you have One Piece episode 1 to 100 but don't have episode 50 you can just specify 1 to 100 and it will only download 50
+- If Senpwai can't find the quality you want it will pick the closest one under it e.g., if you choose 720p but only 1080p and 360p is available it'll pick 360p
+- [Hover](https://open.spotify.com/playlist/460b5y4LB8Dixh0XajVVaL?si=fce0f0f762464e81) over something that you don't understand there's probably a tool tip for it
+- If the app screen is white after you minimised it to tray and opened it again (usually on Windows), click the tray icon to fix it
+- You can use a custom font family by editing the value of `font_family` in the settings file, check the top left of the settings window for its location, if you leave it empty it will use your default Operating System setting
+- Hate the background images? Check out the [discord]({DISCORD_INVITE_LINK}) for [senptheme](https://discord.com/channels/1131981618777702540/1211137093955362837/1211175899895038033)
+        """)
+        tips.setMinimumHeight(200)
+
         reviews_title = Title("Reviews")
         set_minimum_size_policy(reviews_title)
         reviews_widget = QWidget()
@@ -117,10 +140,8 @@ class AboutWindow(AbstractWindow):
         )
         reddit_button.setToolTip("https://reddit.com/r/Senpwai")
         discord_button = IconButton(Icon(80, 80, DISCORD_ICON_PATH), 1.1)
-        discord_button.clicked.connect(
-            lambda: open_new_tab("https://discord.gg/e9UxkuyDX2")
-        )
-        discord_button.setToolTip("https://discord.gg/e9UxkuyDX2")
+        discord_button.clicked.connect(lambda: open_new_tab(DISCORD_INVITE_LINK))
+        discord_button.setToolTip(DISCORD_INVITE_LINK)
         social_links_buttons_widget = QWidget()
         social_links_buttons_layout = QHBoxLayout()
         social_links_buttons_layout.addWidget(github_button)
@@ -142,6 +163,9 @@ class AboutWindow(AbstractWindow):
         version_title = Title(f"Version {VERSION}")
         set_minimum_size_policy(version_title)
 
+        main_layout.addSpacing(40)
+        main_layout.addWidget(tips_title)
+        main_layout.addWidget(tips)
         main_layout.addSpacing(40)
         main_layout.addWidget(reviews_title, Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(reviews_widget, Qt.AlignmentFlag.AlignCenter)

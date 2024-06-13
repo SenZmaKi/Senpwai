@@ -87,7 +87,7 @@ class MainWindow(QMainWindow):
             self.hide()
         elif SETTINGS.start_in_fullscreen:
             self.showMaximized()
-            # For whatever reason on linux I have to do this monkeypatch even after
+            # HACK: For whatever reason on linux I have to do this monkeypatch even after
             # calling self.showMaximized(), sometimes it still doesn't work, gyaaah
             if OS.is_linux:
                 QTimer(self).singleShot(1, self.showMaximized)
