@@ -16,7 +16,7 @@ from senpwai.utils.scraper import (
 )
 from senpwai.utils.static import (
     APP_NAME,
-    generate_windows_setup_file_titles,
+    windows_setup_file_titles,
     VERSION,
     GOGO,
     GOGO_HLS_MODE,
@@ -39,7 +39,7 @@ def update_available(
     download_url = ""
     target_asset_name = ""
     # NOTE: Update this logic if you ever officially release on Linux or Mac
-    target_asset_names = generate_windows_setup_file_titles(app_name)
+    target_asset_names = windows_setup_file_titles(app_name)
     update_available = True if latest_version != curr_version else False
     if update_available:
         for asset in latest_version_json["assets"]:
@@ -70,11 +70,12 @@ class Settings:
         self.settings_json_path = os.path.join(self.config_dir, "settings.json")
         # Default settings
         # Only these settings will be saved to settings.json
-        # NOTE: Everytime you add a new class member that isn't a setting, make sure  to update the Settings.dict_settings method
+        # NOTE: Everytime you add a new class member that isn't a setting, make sure  to update the Settings.dict_settings() method
         self.sub_or_dub = SUB
         self.quality = Q_720
         self.download_folder_paths = self.setup_default_download_folder()
         self.max_simultaneous_downloads = 2
+        self.font_family = "Berlin Sans FB Demi"
         self.allow_notifications = True
         self.start_in_fullscreen = True
         self.run_on_startup = False
@@ -108,20 +109,18 @@ class Settings:
         return config_dir
 
     def configure_settings(self) -> None:
-        failed_to_load_settings = (
-            False if os.path.isfile(self.settings_json_path) else True
-        )
-        if not failed_to_load_settings:
+        failed = False
+        if os.path.isfile(self.settings_json_path):
             with open(self.settings_json_path, "r") as f:
                 try:
                     settings = cast(dict, json.load(f))
                     try:
                         self.__dict__.update(settings)
                     except ValueError:
-                        failed_to_load_settings = True
+                        failed = True
                 except json.decoder.JSONDecodeError:
-                    failed_to_load_settings = True
-        if failed_to_load_settings:
+                    failed = True
+        if failed:
             with open(self.settings_json_path, "w") as f:
                 json.dump(self.dict_settings(), f, indent=4)
 
@@ -384,6 +383,8 @@ class AnimeDetails:
             metadata = pahe.get_anime_metadata(cast(str, self.anime.id))
             page_content = b""
         else:
-            page_content, self.anime.page_link = gogo.get_anime_page_content(self.anime.page_link)
+            page_content, self.anime.page_link = gogo.get_anime_page_content(
+                self.anime.page_link
+            )
             metadata = gogo.extract_anime_metadata(page_content)
         return metadata, page_content

@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from senpwai.utils.classes import Settings
+from senpwai.utils.classes import SETTINGS, Settings
 from senpwai.utils.static import (
     FOLDER_ICON_PATH,
     GOGO_NORM_MODE,
@@ -88,7 +88,7 @@ class StyledLabel(QLabel):
                     QLabel {{
                         color: {font_color};
                         font-size: {font_size}px;
-                        font-family: "Berlin Sans FB Demi";
+                        font-family: {SETTINGS.font_family};
                         background-color: {bckg_color};
                         border-radius: {border_radius}px;
                         border: 1px solid black;
@@ -114,7 +114,7 @@ class StyledTextBrowser(QTextBrowser):
                     QTextEdit {{
                         color: {font_color};
                         font-size: {font_size}px;
-                        font-family: "Berlin Sans FB Demi";
+                        font-family: {SETTINGS.font_family};
                         background-color: {bckg_color};
                         border-radius: {border_radius}px;
                         border: 1px solid black;
@@ -146,7 +146,7 @@ class StyledButton(QPushButton):
                 background-color: {normal_color};
                 border: 1px solid black;
                 font-size: {font_size}px;
-                font-family: "Berlin Sans FB Demi";
+                font-family: {SETTINGS.font_family};
                 padding: 10px;
                 border-radius: {border_radius}px;
             }}
@@ -334,7 +334,7 @@ class AnimationAndText(QWidget):
                     OutlinedLabel {{
                         color: #FFEF00;
                         font-size: {font_size}px;
-                        font-family: "Berlin Sans FB Demi";
+                        font-family: {SETTINGS.font_family};
                         }}
                         """
         )
@@ -456,7 +456,7 @@ class ProgressBarWithoutButtons(QWidget):
                 border-radius: 10px;
                 background-color: rgba(255, 255, 255, 150);
                 font-size: 22px;
-                font-family: "Berlin Sans FB Demi";
+                font-family: {SETTINGS.font_family};
             }}
 
             QProgressBar::chunk {{
@@ -481,12 +481,12 @@ class ProgressBarWithoutButtons(QWidget):
             background-color: {RED_NORMAL_COLOR}
             }}"""
     cancelled_stylesheet = ongoing_stylesheet + styles_to_overwride
-    text_style_sheet = """
-                    OutlinedLabel {
+    text_style_sheet = f"""
+                    OutlinedLabel {{
                     color: white;
                     font-size: 26px;
-                    font-family: "Berlin Sans FB Demi";
-                        }
+                    font-family: {SETTINGS.font_family};
+                        }}
                         """
 
     def __init__(
@@ -693,7 +693,7 @@ class NumberInput(QLineEdit):
                 padding: 5px;
                 color: black;
                 font-size: {font_size}px;
-                font-family: "Berlin Sans FB Demi";
+                font-family: {SETTINGS.font_family};
                 background-color: white;
             }}
         """

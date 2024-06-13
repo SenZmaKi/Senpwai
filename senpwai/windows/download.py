@@ -50,7 +50,6 @@ from senpwai.utils.widgets import (
 )
 
 from senpwai.windows.abstracts import AbstractWindow
-
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
     from senpwai.windows.main import MainWindow
@@ -233,12 +232,12 @@ class DownloadQueue(QWidget):
         super().__init__(download_window)
         label = OutlinedLabel(None, 1, 25)
         label.setStyleSheet(
-            """
-            OutlinedLabel {
+            f"""
+            OutlinedLabel {{
                 color: #4169e1;
                 font-size: 25px;
-                font-family: "Berlin Sans FB Demi";
-                    }
+                font-family: {SETTINGS.font_family};
+                    }}
                     """
         )
         label.setText("Download queue")

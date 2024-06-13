@@ -88,10 +88,9 @@ class MainWindow(QMainWindow):
         elif SETTINGS.start_in_fullscreen:
             self.showMaximized()
             # For whatever reason on linux I have to do this monkeypatch even after
-            # calling self.showMaximized()
+            # calling self.showMaximized(), sometimes it still doesn't work, gyaaah
             if OS.is_linux:
-                # Works with 1 ms too but occasionally doesn't
-                QTimer(self).singleShot(10, self.showMaximized)
+                QTimer(self).singleShot(1, self.showMaximized)
         else:
             self.showNormal()
             self.center_window()

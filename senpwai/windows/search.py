@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 from senpwai.scrapers import gogo, pahe
 from senpwai.utils.classes import Anime
 from senpwai.utils.scraper import CLIENT
+from senpwai.utils.classes import SETTINGS
 from senpwai.utils.static import (
     ANILIST_API_ENTRYPOINY,
     BUNSHIN_POOF_AUDIO_PATH,
@@ -312,16 +313,16 @@ class SearchBar(QLineEdit):
         self.setPlaceholderText("Enter anime title")
         self.installEventFilter(self)
         self.setStyleSheet(
-            """
-            QLineEdit{
+            f"""
+            QLineEdit{{
                 border: 1px solid black;
                 border-radius: 15px;
                 padding: 5px;
                 background-color: white;
                 color: black;
                 font-size: 30px;
-                font-family: "Berlin Sans FB Demi";
-            }
+                font-family: {SETTINGS.font_family};
+            }}
         """
         )
 

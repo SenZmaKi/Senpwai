@@ -70,11 +70,11 @@ def try_deleting(path: str) -> None:
             pass
 
 
-def generate_windows_setup_file_titles(app_name: str) -> tuple[str, str]:
+def windows_setup_file_titles(app_name: str) -> tuple[str, str]:
     return (f"{app_name}-setup.exe", f"{app_name}-setup.msi")
 
 
-for setup in generate_windows_setup_file_titles(APP_NAME):
+for setup in windows_setup_file_titles(APP_NAME):
     try_deleting(setup)
 
 GITHUB_REPO_URL = "https://github.com/SenZmaKi/Senpwai"
