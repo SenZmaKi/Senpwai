@@ -99,8 +99,6 @@ class SearchWindow(AbstractWindow):
         search_buttons_layout.addWidget(self.gogo_search_button)
         search_buttons_widget.setLayout(search_buttons_layout)
         main_layout.addWidget(search_buttons_widget)
-        self.bottom_section_stacked_widgets = QStackedWidget()
-
         self.results_layout = QVBoxLayout()
         self.results_widget = ScrollableSection(self.results_layout)
         self.res_wid_hor_scroll_bar = cast(
@@ -113,24 +111,26 @@ class SearchWindow(AbstractWindow):
         self.anime_not_found = AnimationAndText(
             SADGE_PIECE_PATH, 400, 300, ":( couldn't find that anime ", 1, 48, 50
         )
+        self.bottom_section_stacked_widgets = QStackedWidget()
         self.bottom_section_stacked_widgets.addWidget(self.results_widget)
         self.bottom_section_stacked_widgets.addWidget(self.loading)
         self.bottom_section_stacked_widgets.addWidget(self.anime_not_found)
         self.bottom_section_stacked_widgets.setCurrentWidget(self.results_widget)
         main_layout.addWidget(self.bottom_section_stacked_widgets)
-        self.search_thread = None
+        self.search_thread: SearchThread | None = None
         main_widget.setLayout(main_layout)
         self.full_layout.addWidget(main_widget)
         self.setLayout(self.full_layout)
-        # We use a timer instead of calling setFocus normally cause apparently Qt wont really set the widget in focus if the widget isn't shown on screen/rendered,
-        # So we gotta wait a bit first till the UI is rendered. StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
+        # We use a timer instead of calling setFocus normally cause apparently Qt wont really set the widget in focus if the widget isn't shown on screen,
+        # So we gotta wait a bit first till the UI is rendered.
+        # StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
         QTimer.singleShot(0, self.search_bar.setFocus)
 
     # Qt pushes the horizontal scroll bar to the center automatically sometimes
     def fix_hor_scroll_bar(self):
         self.res_wid_hor_scroll_bar.setValue(self.res_wid_hor_scroll_bar.minimum())
 
-    def on_focus(self):
+    def set_focus(self):
         self.search_bar.setFocus()
         self.fix_hor_scroll_bar()
 
@@ -139,12 +139,12 @@ class SearchWindow(AbstractWindow):
             return
         if self.search_thread:
             self.search_thread.quit()
-        prev_top_was_anime_not_found = (
+        was_anime_not_found = (
             self.bottom_section_stacked_widgets.currentWidget() == self.anime_not_found
         )
         self.loading.start()
         self.bottom_section_stacked_widgets.setCurrentWidget(self.loading)
-        if prev_top_was_anime_not_found:
+        if was_anime_not_found:
             self.anime_not_found.stop()
         for idx in reversed(range(self.results_layout.count())):
             item = cast(
@@ -176,7 +176,6 @@ class SearchWindow(AbstractWindow):
                 self, KAGE_BUNSHIN_AUDIO_PATH, volume=50
             )
             self.kage_bunshin_no_jutsu.play()
-        # Has to be the last check to avoid faiing to set self.kage_bunshin_no_jutsu incase is_naruto == True
         elif IS_CHRISTMAS:
             AudioPlayer(self, MERRY_CHRISMASU_AUDIO_PATH, 30).play()
 
@@ -318,6 +317,7 @@ class SearchBar(QLineEdit):
                 border: 1px solid black;
                 border-radius: 15px;
                 padding: 5px;
+                background-color: white;
                 color: black;
                 font-size: 30px;
                 font-family: "Berlin Sans FB Demi";
@@ -442,7 +442,7 @@ class ResultButton(OutlinedButton):
             ):
                 # It doesn't work without the QTimer for some reason, probably cause the horizontal scroll bar centering bug happens
                 # after this event is processed so the fix is overwridden hence we wait for the bug to happen first then fix it thus we need the QTimer
-                QTimer.singleShot(0, self.search_window.fix_hor_scroll_bar)
+                QTimer(self).singleShot(0, self.search_window.fix_hor_scroll_bar)
         return super().eventFilter(a0, a1)
 
 

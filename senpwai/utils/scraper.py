@@ -502,12 +502,13 @@ class Download(ProgressFunction):
         total = int(response.headers.get("Content-Length", 0))
 
         def download(start_byte_num=0) -> bool:
-            mode = "wb" if start_byte_num == 0 else "ab"
-            with open(self.temporary_file_path, mode) as file:
+            with open(
+                self.temporary_file_path, "wb" if start_byte_num else "ab"
+            ) as file:
                 iter_content = cast(
                     Iterator[bytes],
                     response.iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR)
-                    if start_byte_num == 0
+                    if start_byte_num
                     else CLIENT.network_error_retry_wrapper(
                         lambda: response_ranged(start_byte_num).iter_content(
                             chunk_size=IBYTES_TO_MBS_DIVISOR
@@ -516,11 +517,9 @@ class Download(ProgressFunction):
                 )
                 while True:
                     try:
-
-                        def get_data() -> bytes:
-                            return next(iter_content)
-
-                        data = CLIENT.network_error_retry_wrapper(get_data)
+                        data = CLIENT.network_error_retry_wrapper(
+                            lambda: next(iter_content)
+                        )
                         self.resume.wait()
                         if self.cancelled:
                             return False

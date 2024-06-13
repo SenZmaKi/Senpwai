@@ -1,6 +1,6 @@
 from typing import Callable, cast
 
-from PyQt6.QtCore import QThread, Qt
+from PyQt6.QtCore import QThread, QTimer, Qt
 from PyQt6.QtGui import QAction, QCloseEvent, QGuiApplication, QIcon, QScreen
 from PyQt6.QtWidgets import (
     QApplication,
@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
 from senpwai.utils.classes import SETTINGS, Anime, AnimeDetails
 from senpwai.utils.static import (
     MINIMISED_TO_TRAY_ARG,
+    OS,
     SENPWAI_ICON_PATH,
     TASK_COMPLETE_ICON_PATH,
     UPDATE_ICON_PATH,
@@ -83,20 +84,27 @@ class MainWindow(QMainWindow):
         if MINIMISED_TO_TRAY_ARG in args:
             if SETTINGS.start_in_fullscreen:
                 self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
-            return self.hide()
+            self.hide()
         elif SETTINGS.start_in_fullscreen:
             self.showMaximized()
+            # For whatever reason on linux I have to do this monkeypatch even after
+            # calling self.showMaximized()
+            if OS.is_linux:
+                # Works with 1 ms too but occasionally doesn't
+                QTimer(self).singleShot(10, self.showMaximized)
         else:
             self.showNormal()
             self.center_window()
             self.setWindowState(Qt.WindowState.WindowActive)
 
-    def show(self):
+    def show_(self):
         self.activateWindow()
         if Qt.WindowState.WindowMaximized in self.windowState():
-            return self.showMaximized()
-        self.showNormal()
-        self.center_window()
+            self.showMaximized()
+        elif Qt.WindowState.WindowFullScreen in self.windowState():
+            self.showFullScreen()
+        else:
+            self.showNormal()
 
     def handle_update_check_result(self, result: tuple[bool, str, str, str]):
         is_available, download_url, file_name, update_info = result
@@ -167,7 +175,7 @@ class MainWindow(QMainWindow):
     def switch_to_search_window(self):
         self.switch_to_window(self.search_window)
         self.search_window.search_bar.setFocus()
-        self.search_window.on_focus()
+        self.search_window.set_focus()
 
     def switch_to_download_window(self):
         self.switch_to_window(self.download_window)
@@ -200,22 +208,23 @@ class TrayIcon(QSystemTrayIcon):
         )
         search_action = QAction("Search", self.context_menu)
         search_action.triggered.connect(main_window.switch_to_search_window)
-        search_action.triggered.connect(main_window.show)
+        search_action.triggered.connect(main_window.show_)
         downloads_action = QAction("Downloads", self.context_menu)
         downloads_action.triggered.connect(main_window.switch_to_download_window)
-        downloads_action.triggered.connect(main_window.show)
+        downloads_action.triggered.connect(main_window.show_)
         exit_action = QAction("Exit", self.context_menu)
         exit_action.triggered.connect(main_window.app.quit)
         self.context_menu.addAction(check_for_new_episodes_action)
         self.context_menu.addAction(search_action)
         self.context_menu.addAction(downloads_action)
         self.context_menu.addAction(exit_action)
-        self.messageClicked.connect(main_window.show)
+        self.messageClicked.connect(main_window.show_)
         self.setContextMenu(self.context_menu)
 
     def focus_or_hide_window(self):
         if not self.main_window.isVisible():
-            return self.main_window.show()
+            self.main_window.show_()
+            return
         self.main_window.hide()
 
     def on_tray_icon_click(self, reason: QSystemTrayIcon.ActivationReason):
