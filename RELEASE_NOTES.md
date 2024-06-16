@@ -1,3 +1,6 @@
-# Bug fixes
+# New features
+- Add tips in about section
+- Add configurable font family
 
-- Fix Gogoanime dub downloading sub instead
+# Bug fixes
+- Fix some linux port issues
