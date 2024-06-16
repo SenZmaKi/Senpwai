@@ -32,6 +32,7 @@ from senpwai.utils.static import (
     RED_PRESSED_COLOR,
     SETTINGS_WINDOW_BCKG_IMAGE_PATH,
     SUB,
+    open_folder,
     requires_admin_access,
     fix_qt_path_for_windows,
 )
@@ -71,14 +72,13 @@ class SettingsWindow(AbstractWindow):
         right_widget.setLayout(right_layout)
         main_layout.addWidget(left_widget)
         main_layout.addWidget(right_widget)
-
-        self.file_location_label = StyledLabel(self)
-        self.file_location_label.setText(SETTINGS.settings_json_path)
-        self.file_location_label.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
+        self.file_location_button = StyledButton(self, self.font_size, "white", "black", "grey", "black")
+        self.file_location_button.setText(SETTINGS.settings_json_path)
+        self.file_location_button.setToolTip("Location of detected settings file")
+        self.file_location_button.clicked.connect(
+            lambda: open_folder(os.path.dirname(SETTINGS.settings_json_path))
         )
-        self.file_location_label.setToolTip("Location of detected settings file")
-        set_minimum_size_policy(self.file_location_label)
+        set_minimum_size_policy(self.file_location_button)
         self.sub_dub_setting = SubDubSetting(self)
         self.quality_setting = QualitySetting(self)
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(self)
@@ -96,7 +96,7 @@ class SettingsWindow(AbstractWindow):
             self, main_window.download_window
         )
         self.gogo_skip_calculate = GogoSkipCalculate(self)
-        left_layout.addWidget(self.file_location_label)
+        left_layout.addWidget(self.file_location_button)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
