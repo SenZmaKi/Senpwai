@@ -36,6 +36,7 @@ COOKIES = {
     "__ddg1_": f"; Expires=Tue, 19 Jan 2038 03:14:07 GMT; Domain={PAHE_DOMAIN}; Path=/",
     "__ddg2_": f"; Expires=Tue, 19 Jan 2038 03:14:07 GMT; Domain={PAHE_DOMAIN}; Path=/",
 }
+Also it seems currently only __ddg2_ is necessary
 """
 
 

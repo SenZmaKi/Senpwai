@@ -41,7 +41,7 @@ jobs:
       - name: Test Pahe
         id: test_pahe
         continue-on-error: true
-        run: poetry run poe test_pahe_ddl
+        run: poetry run poe test_pahe_dpl
 
       - name: Test Gogo Norm
         id: test_gogo_norm

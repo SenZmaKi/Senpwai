@@ -91,6 +91,7 @@ test_gogo_hls = "python -m senpwai.scrapers.test --site gogo hls_links download"
 
 test_ddl = [{ ref = "test_pahe_ddl" }, { ref = "test_gogo_ddl" }]
 test_pahe_ddl = "python -m senpwai.scrapers.test --site pahe direct_links"
+test_pahe_dpl = "python -m senpwai.scrapers.test --site pahe download_page"
 test_gogo_ddl = [{ ref = "test_gogo_norm_ddl" }, { ref = "test_gogo_hls_ddl" }]
 test_gogo_norm_ddl = "python -m senpwai.scrapers.test --site gogo direct_links"
 test_gogo_hls_ddl = "python -m senpwai.scrapers.test --site gogo hls_links"
