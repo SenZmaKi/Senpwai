@@ -33,7 +33,7 @@ def add_change_log_link(release_notes: str) -> str:
 
 
 def get_release_notes() -> str:
-    with open(ROOT_DIR.joinpath("RELEASE_NOTES.md"), "r+") as f:
+    with open(ROOT_DIR.joinpath("docs" , "release-notes.md"), "r+") as f:
         if "--from_commits" not in ARGS:
             return add_change_log_link(f.read())
         new_commits_completed_process = subprocess.run(

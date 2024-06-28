@@ -166,11 +166,6 @@ def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
             anime_page_link.replace(prev_home_url, GOGO_HOME_URL)
         )
 
-    response = CLIENT.get(
-        anime_page_link,
-    )
-    return response.content, anime_page_link
-
 
 def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
     soup = BeautifulSoup(anime_page_content, PARSER)

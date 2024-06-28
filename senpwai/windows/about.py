@@ -59,10 +59,11 @@ class AboutWindow(AbstractWindow):
 - If you don't specify end episode, Senpwai will assume you mean the last episode
 - Senpwai can detect missing episodes e.g., if you have One Piece episodes 1 to 100 but are missing episode 50, specify 1 to 100, and it will only download episode 50
 - If Senpwai can't find the quality you want it will pick the closest lower one  it e.g., if you choose 720p but only 1080p and 360p is available it'll pick 360p
+- So long as the app is open Senpwai will try to resume ongoing downloads even if you lose an internet connection
 - [Hover](https://open.spotify.com/playlist/460b5y4LB8Dixh0XajVVaL?si=fce0f0f762464e81) over something that you don't understand there's probably a tool tip for it
 - If the app screen is white after you minimised it to tray and reopened it (usually on Windows), click the tray icon to fix it
 - Open the settings folder by clicking the button with its location in the top left corner of the settings window
-- To completely remove Senpwai, (don't know why you would though), post-uninstallation delete the settings folder
+- To completely remove Senpwai (don't know why you would though), post-uninstallation delete the settings folder
 - To use a custom font family, edit the `font_family` value in the settings file, if left empty, it will default to your OS setting
 - Hate the background images? Check out the [discord]({DISCORD_INVITE_LINK}) for [senptheme](https://discord.com/channels/1131981618777702540/1211137093955362837/1211175899895038033)
         """)

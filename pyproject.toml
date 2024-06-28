@@ -110,7 +110,7 @@ install = [{ ref = "install_senpwai" }, { ref = "install_senpcli" }]
 install_senpwai = "setups/Senpwai-setup.exe /verysilent"
 install_senpcli = "setups/Senpcli-setup.exe /verysilent"
 
-build_pip = [{ ref = "rb_dist" }, { ref = "poetry_build" }]
+build_pip = [{ ref = "trash_dist" }, { ref = "poetry_build" }]
 trash_dist = "trash dist"
 poetry_build = "poetry build"
 install_pip = "python -m scripts.install_pip"

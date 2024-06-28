@@ -24,17 +24,17 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
 
 ## Installation
 
+- **Windows 10/11**
+
+Download [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpwai-setup.exe) then run it. (Recommended)
+
 - **Cross-platform (Linux, Mac, Windows 10/11)**
 
-Needs [Python 3.11](https://www.python.org/downloads/release/python-3111) installed.
+Needs [Python 3.11+](https://www.python.org/downloads/release/python-3111) installed.
 
 ```bash
 pip install senpwai
 ```
-
-- **Windows 10/11**
-
-Download [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpwai-setup.exe) then run it.
 
 - **Android**
 
@@ -61,7 +61,7 @@ Check [Senpcli](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-gui
 
 ## Building from Source
 
-Ensure you have [Python 3.11](https://www.python.org/downloads/release/python-3111) and [Git](https://github.com/git-guides/install-git) installed.
+Ensure you have [Python 3.11+](https://www.python.org/downloads/release/python-3111) and [Git](https://github.com/git-guides/install-git) installed.
 
 Open a terminal and run the following commands.
 

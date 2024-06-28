@@ -353,7 +353,6 @@ class SearchButton(StyledButton):
                 PAHE_PRESSED_COLOR,
             )
             self.setText("Animepahe")
-            self.setToolTip("Stable 🌲")
         else:
             super().__init__(
                 window,
@@ -364,7 +363,6 @@ class SearchButton(StyledButton):
                 GOGO_PRESSED_COLOR,
             )
             self.setText("Gogoanime")
-            self.setToolTip("Experimental 🧪")
         self.clicked.connect(
             lambda: window.search_anime(window.get_search_bar_text(), site)
         )
