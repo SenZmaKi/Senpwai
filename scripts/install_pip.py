@@ -1,6 +1,6 @@
 import subprocess
 
-from scripts.utils import ROOT_DIR
+from scripts.common import ROOT_DIR
 
 
 def main() -> None:

@@ -1,6 +1,6 @@
 import subprocess
 
-from scripts.utils import (
+from scripts.common import (
     ARGS,
     REPO_URL,
     get_current_branch_name,

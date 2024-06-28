@@ -14,10 +14,10 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from senpwai.scrapers import gogo, pahe
-from senpwai.utils.classes import Anime
-from senpwai.utils.scraper import CLIENT
-from senpwai.utils.classes import SETTINGS
-from senpwai.utils.static import (
+from senpwai.common.classes import Anime
+from senpwai.common.scraper import CLIENT
+from senpwai.common.classes import SETTINGS
+from senpwai.common.static import (
     ANILIST_API_ENTRYPOINY,
     BUNSHIN_POOF_AUDIO_PATH,
     GIGACHAD_AUDIO_PATH,
@@ -44,7 +44,7 @@ from senpwai.utils.static import (
     WHAT_DA_HELL_AUDIO_PATH,
     ZA_WARUDO_AUDIO_PATH,
 )
-from senpwai.utils.widgets import (
+from senpwai.common.widgets import (
     AnimationAndText,
     AudioPlayer,
     Icon,

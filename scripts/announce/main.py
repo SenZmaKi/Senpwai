@@ -1,6 +1,6 @@
 from scripts.announce import discord
 from scripts.announce import reddit
-from scripts.utils import log_info
+from scripts.common import log_info
 
 
 def main(title: str, release_notes: str) -> None:

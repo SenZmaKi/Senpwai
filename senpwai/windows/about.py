@@ -3,7 +3,7 @@ from webbrowser import open_new_tab
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from senpwai.utils.static import (
+from senpwai.common.static import (
     ABOUT_BCKG_IMAGE_PATH,
     DISCORD_ICON_PATH,
     DISCORD_INVITE_LINK,
@@ -21,7 +21,7 @@ from senpwai.utils.static import (
     SEN_ICON_PATH,
     VERSION,
 )
-from senpwai.utils.widgets import (
+from senpwai.common.widgets import (
     AudioPlayer,
     Icon,
     IconButton,
@@ -55,12 +55,15 @@ class AboutWindow(AbstractWindow):
             startup_text = "- To start minimised to tray on startup, follow [this guide](https://stackoverflow.com/a/6445525/17193072) then pass `--minimised_to_tray` to Senpwai e.g., `senpwai --minimised_to_tray`"
         tips.setMarkdown(f"""
 {startup_text}
-- If you don't specify end episode Senpwai will assume you mean the last episode
-- Senpwai is smart enough to detect episodes you don't have e.g., if you have One Piece episode 1 to 100 but don't have episode 50 you can just specify 1 to 100 and it will only download 50
-- If Senpwai can't find the quality you want it will pick the closest one under it e.g., if you choose 720p but only 1080p and 360p is available it'll pick 360p
+- When searching use the anime's Romaji title instead of the English title
+- If you don't specify end episode, Senpwai will assume you mean the last episode
+- Senpwai can detect missing episodes e.g., if you have One Piece episodes 1 to 100 but are missing episode 50, specify 1 to 100, and it will only download episode 50
+- If Senpwai can't find the quality you want it will pick the closest lower one  it e.g., if you choose 720p but only 1080p and 360p is available it'll pick 360p
 - [Hover](https://open.spotify.com/playlist/460b5y4LB8Dixh0XajVVaL?si=fce0f0f762464e81) over something that you don't understand there's probably a tool tip for it
-- If the app screen is white after you minimised it to tray and opened it again (usually on Windows), click the tray icon to fix it
-- You can use a custom font family by editing the value of `font_family` in the settings file, check the top left of the settings window for its location, if you leave it empty it will use your default Operating System setting
+- If the app screen is white after you minimised it to tray and reopened it (usually on Windows), click the tray icon to fix it
+- Open the settings folder by clicking the button with its location in the top left corner of the settings window
+- To completely remove Senpwai, (don't know why you would though), post-uninstallation delete the settings folder
+- To use a custom font family, edit the `font_family` value in the settings file, if left empty, it will default to your OS setting
 - Hate the background images? Check out the [discord]({DISCORD_INVITE_LINK}) for [senptheme](https://discord.com/channels/1131981618777702540/1211137093955362837/1211175899895038033)
         """)
         tips.setMinimumHeight(200)
@@ -151,15 +154,6 @@ class AboutWindow(AbstractWindow):
         social_links_buttons_layout.addWidget(discord_button)
         social_links_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         social_links_buttons_widget.setLayout(social_links_buttons_layout)
-
-        uninstall_title = Title("Uninstall Info")
-        set_minimum_size_policy(uninstall_title)
-        uninstall_info_label = StyledLabel()
-        uninstall_info_label.setText(
-            'To completely remove Senpwai (don\'t know why you would though), post-uninstallation press "Win + R",\ntype "%appdata%\\..\\Local\\Programs" and press enter. Look for a folder named "Senpwai" then delete it'
-        )
-        set_minimum_size_policy(uninstall_info_label)
-
         version_title = Title(f"Version {VERSION}")
         set_minimum_size_policy(version_title)
 
@@ -177,9 +171,6 @@ class AboutWindow(AbstractWindow):
         main_layout.addWidget(social_links_title)
         main_layout.addWidget(bug_reports_label)
         main_layout.addWidget(social_links_buttons_widget)
-        if OS.is_windows:
-            main_layout.addWidget(uninstall_title)
-            main_layout.addWidget(uninstall_info_label)
         main_layout.addWidget(version_title)
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignTop)
         self.setLayout(self.full_layout)

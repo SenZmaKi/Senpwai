@@ -3,9 +3,9 @@ from typing import TYPE_CHECKING, Callable, cast
 from pylnk3 import for_file as pylnk3_for_file
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
-from senpwai.utils.classes import SETTINGS
-from senpwai.utils.scraper import try_deleting
-from senpwai.utils.static import (
+from senpwai.common.classes import SETTINGS
+from senpwai.common.scraper import try_deleting
+from senpwai.common.static import (
     AMOGUS_EASTER_EGG,
     APP_EXE_PATH,
     APP_EXE_ROOT_DIRECTORY,
@@ -36,7 +36,7 @@ from senpwai.utils.static import (
     requires_admin_access,
     fix_qt_path_for_windows,
 )
-from senpwai.utils.widgets import (
+from senpwai.common.widgets import (
     ErrorLabel,
     GogoNormOrHlsButton,
     HorizontalLine,

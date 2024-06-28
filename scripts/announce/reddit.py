@@ -1,10 +1,10 @@
 from typing import Any, cast
-from scripts.announce.utils import FailedToAnnounce
-from scripts.utils import ARGS, ROOT_DIR, get_piped_input
+from scripts.announce.common import FailedToAnnounce
+from scripts.common import ARGS, ROOT_DIR, get_piped_input
 import json
 import requests
 import re
-from scripts.utils import log_info
+from scripts.common import log_info
 
 ACCESS_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 SUBMIT_POST_URL = "https://oauth.reddit.com/api/submit"

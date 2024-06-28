@@ -11,8 +11,8 @@ from PyQt6.QtWidgets import (
     QWidget,
     QMessageBox,
 )
-from senpwai.utils.classes import SETTINGS, Anime, AnimeDetails
-from senpwai.utils.static import (
+from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
+from senpwai.common.static import (
     MINIMISED_TO_TRAY_ARG,
     OS,
     SENPWAI_ICON_PATH,

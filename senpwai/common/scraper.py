@@ -11,7 +11,7 @@ from webbrowser import open_new_tab
 
 import requests
 
-from senpwai.utils.static import log_exception, try_deleting, OS
+from senpwai.common.static import log_exception, try_deleting, OS
 
 T = TypeVar("T")
 PARSER = "html.parser"
@@ -136,7 +136,7 @@ class Client:
         json: dict | None = None,
         allow_redirects=False,
         timeout: int | None = None,
-        exceptions_to_ignore: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
+        exceptions_to_raise: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> requests.Response:
         if not headers:
             headers = self.headers
@@ -163,7 +163,7 @@ class Client:
                     allow_redirects=allow_redirects,
                 )
 
-        return self.network_error_retry_wrapper(callback, exceptions_to_ignore)
+        return self.network_error_retry_wrapper(callback, exceptions_to_raise)
 
     def get(
         self,
@@ -181,7 +181,7 @@ class Client:
             stream=stream,
             timeout=timeout,
             cookies=cookies,
-            exceptions_to_ignore=exceptions_to_raise,
+            exceptions_to_raise=exceptions_to_raise,
         )
 
     def post(
@@ -192,7 +192,7 @@ class Client:
         headers: dict | None = None,
         cookies={},
         allow_redirects=False,
-        exceptions_to_ignore: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
+        exceptions_to_raise: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> requests.Response:
         return self.make_request(
             "POST",
@@ -202,13 +202,13 @@ class Client:
             json=json,
             cookies=cookies,
             allow_redirects=allow_redirects,
-            exceptions_to_ignore=exceptions_to_ignore,
+            exceptions_to_raise=exceptions_to_raise,
         )
 
     def network_error_retry_wrapper(
         self,
         callback: Callable[[], T],
-        exceptions_to_ignore: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
+        exceptions_to_raise: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> T:
         while True:
             try:
@@ -217,12 +217,12 @@ class Client:
                 if isinstance(e, KeyboardInterrupt):
                     raise
                 if (
-                    exceptions_to_ignore is not None
-                    and DomainNameError in exceptions_to_ignore
+                    exceptions_to_raise is not None
+                    and DomainNameError in exceptions_to_raise
                 ):
                     e = DomainNameError(e) if has_valid_internet_connection() else e
-                if exceptions_to_ignore is not None and any(
-                    [isinstance(e, exception) for exception in exceptions_to_ignore]
+                if exceptions_to_raise is not None and any(
+                    [isinstance(e, exception) for exception in exceptions_to_raise]
                 ):
                     raise e
                 log_exception(e)

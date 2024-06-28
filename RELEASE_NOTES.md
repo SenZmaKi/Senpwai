@@ -4,3 +4,4 @@
 
 # Bug fixes
 - Fix some linux port issues
+- pahe: Fix infinite loading for some anime #43

@@ -12,8 +12,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from senpwai.scrapers import gogo, pahe
-from senpwai.utils.classes import SETTINGS, Anime, AnimeDetails
-from senpwai.utils.scraper import (
+from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
+from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
     ProgressFunction,
@@ -22,7 +22,7 @@ from senpwai.utils.scraper import (
     lacked_episodes,
     sanitise_title,
 )
-from senpwai.utils.static import (
+from senpwai.common.static import (
     CANCEL_ICON_PATH,
     DOWNLOAD_WINDOW_BCKG_IMAGE_PATH,
     DUB,
@@ -35,7 +35,7 @@ from senpwai.utils.static import (
     RESUME_ICON_PATH,
     open_folder,
 )
-from senpwai.utils.widgets import (
+from senpwai.common.widgets import (
     FolderButton,
     HorizontalLine,
     Icon,

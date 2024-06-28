@@ -3,12 +3,12 @@ import subprocess
 import sys
 import re
 from typing import cast
-from .utils import (
+from .common import (
     ROOT_DIR,
     ARGS,
     get_current_branch_name,
     git_commit,
-    log_error as utils_log_error,
+    log_error as common_log_error,
     log_info,
     log_warning,
     overwrite,
@@ -18,7 +18,7 @@ from .utils import (
 PYPROJECT_FILE_PATH = ROOT_DIR.joinpath("pyproject.toml")
 FILES_PATHS = [
     PYPROJECT_FILE_PATH,
-    ROOT_DIR.joinpath("senpwai/utils/static.py"),
+    ROOT_DIR.joinpath("senpwai/common/static.py"),
     ROOT_DIR.joinpath("scripts/setup.iss"),
     ROOT_DIR.joinpath("scripts/setup_senpcli.iss"),
 ]
@@ -31,7 +31,7 @@ VERSION_REGEX = re.compile(r"(\d+(\.\d+)*)")
 
 
 def log_error(msg: str, exit=False) -> None:
-    utils_log_error(msg, exit)
+    common_log_error(msg, exit)
     global ENCOUNTERED_ERROR
     ENCOUNTERED_ERROR = True
 

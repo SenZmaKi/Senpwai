@@ -2,7 +2,7 @@ import subprocess
 import time
 
 from scripts.bump_version import log_error
-from scripts.utils import ARGS
+from scripts.common import ARGS
 
 
 def run_process(command: str) -> None:

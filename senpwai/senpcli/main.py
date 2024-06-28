@@ -8,9 +8,9 @@ from typing import Callable, cast
 from queue import Queue
 from os import path
 
-from senpwai.utils.classes import SETTINGS, Anime, AnimeDetails, update_available
+from senpwai.common.classes import SETTINGS, Anime, AnimeDetails, update_available
 from senpwai.scrapers import gogo, pahe
-from senpwai.utils.scraper import (
+from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
     ffmpeg_is_installed,
@@ -19,7 +19,7 @@ from senpwai.utils.scraper import (
     lacked_episodes,
     try_installing_ffmpeg,
 )
-from senpwai.utils.static import (
+from senpwai.common.static import (
     IS_PIP_INSTALL,
     OS,
     open_folder,

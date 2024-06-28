@@ -5,15 +5,15 @@ from webbrowser import open_new_tab
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from senpwai.utils.classes import AnimeDetails, update_available
-from senpwai.utils.scraper import (
+from senpwai.common.classes import AnimeDetails, update_available
+from senpwai.common.scraper import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     RESOURCE_MOVED_STATUS_CODES,
     Download,
     try_installing_ffmpeg,
 )
-from senpwai.utils.static import (
+from senpwai.common.static import (
     APP_NAME,
     CANCEL_ICON_PATH,
     CHOPPER_CRYING_PATH,
@@ -35,7 +35,7 @@ from senpwai.utils.static import (
     UPDATE_BCKG_IMAGE_PATH,
     VERSION,
 )
-from senpwai.utils.widgets import (
+from senpwai.common.widgets import (
     Icon,
     IconButton,
     StyledButton,

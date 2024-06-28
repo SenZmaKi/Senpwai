@@ -6,13 +6,13 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from senpwai.utils.static import (
+from senpwai.common.static import (
     ABOUT_ICON_PATH,
     DOWNLOADS_ICON_PATH,
     SEARCH_ICON_PATH,
     SETTINGS_ICON_PATH,
 )
-from senpwai.utils.widgets import IconButton, Icon
+from senpwai.common.widgets import IconButton, Icon
 
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
