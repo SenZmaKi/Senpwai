@@ -1,13 +1,12 @@
 import json
+import logging
 import os
+import re
 from pathlib import Path
-from typing import cast
+from typing import NamedTuple, cast
 
 import anitopy
 from appdirs import user_config_dir
-from senpwai.scrapers import gogo, pahe
-import logging
-import re
 
 from senpwai.common.scraper import (
     CLIENT,
@@ -16,50 +15,56 @@ from senpwai.common.scraper import (
 )
 from senpwai.common.static import (
     APP_NAME,
-    windows_setup_file_titles,
-    VERSION,
     GOGO,
     GOGO_HLS_MODE,
     GOGO_NORM_MODE,
     PAHE,
     Q_720,
     SUB,
+    VERSION,
+    windows_setup_file_titles,
 )
+from senpwai.scrapers import gogo, pahe
 
 VERSION_REGEX = re.compile(r"(\d+(\.\d+)*)")
 
 
+class UpdateInfo(NamedTuple):
+    is_update_available: bool
+    download_url: str
+    file_name: str
+    release_notes: str
+
+
+
+
 def update_available(
     latest_release_api_url: str, app_name: str, curr_version: str
-) -> tuple[bool, str, str, str]:
+) -> UpdateInfo:
     latest_version_json = CLIENT.get(latest_release_api_url).json()
     latest_version_tag = latest_version_json["tag_name"]
     match = cast(re.Match, VERSION_REGEX.search(latest_version_tag))
     latest_version = match.group(1)
-    download_url = ""
-    target_asset_name = ""
+    download_url: str = ""
+    file_name = ""
     # NOTE: Update this logic if you ever officially release on Linux or Mac
-    target_asset_names = windows_setup_file_titles(app_name)
-    update_available = True if latest_version != curr_version else False
-    if update_available:
+    target_file_names = windows_setup_file_titles(app_name)
+    is_update_available = True if latest_version != curr_version else False
+    if is_update_available:
         for asset in latest_version_json["assets"]:
-            matched_asset = None
-            for tan in target_asset_names:
-                if asset["name"] == tan:
-                    matched_asset = tan
+            matched_file_name = None
+            for target_file_name in target_file_names:
+                if asset["name"] == target_file_name:
+                    matched_file_name = target_file_name
                     break
-            if matched_asset is not None:
-                download_url, target_asset_name = (
+            if matched_file_name is not None:
+                download_url, file_name = (
                     asset["browser_download_url"],
-                    matched_asset,
+                    matched_file_name,
                 )
                 break
-    return (
-        update_available,
-        download_url,
-        target_asset_name,
-        latest_version_json["body"],
-    )
+    release_notes: str = latest_version_json["body"]
+    return UpdateInfo(is_update_available, download_url, file_name, release_notes)
 
 
 class Settings:

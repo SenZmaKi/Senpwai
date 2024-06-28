@@ -2,14 +2,21 @@
 import subprocess
 import sys
 from argparse import ArgumentParser, Namespace
+from os import path
+from queue import Queue
 from random import choice as random_choice
 from threading import Event, Lock, Thread
 from typing import Callable, cast
-from queue import Queue
-from os import path
 
-from senpwai.common.classes import SETTINGS, Anime, AnimeDetails, update_available
-from senpwai.scrapers import gogo, pahe
+from tqdm import tqdm
+
+from senpwai.common.classes import (
+    SETTINGS,
+    Anime,
+    AnimeDetails,
+    UpdateInfo,
+    update_available,
+)
 from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
@@ -20,12 +27,15 @@ from senpwai.common.scraper import (
     try_installing_ffmpeg,
 )
 from senpwai.common.static import (
+    APP_EXE_PATH as SENPWAI_EXE_PATH,
+)
+from senpwai.common.static import (
+    DUB,
+    GITHUB_API_LATEST_RELEASE_ENDPOINT,
+    GITHUB_REPO_URL,
+    GOGO,
     IS_PIP_INSTALL,
     OS,
-    open_folder,
-    DUB,
-    APP_EXE_PATH as SENPWAI_EXE_PATH,
-    GOGO,
     PAHE,
     Q_360,
     Q_480,
@@ -33,11 +43,10 @@ from senpwai.common.static import (
     Q_1080,
     SUB,
     VERSION,
-    GITHUB_API_LATEST_RELEASE_ENDPOINT,
-    GITHUB_REPO_URL,
-    ROOT_DIRECTORY,
+    open_folder,
+    senpwai_tempdir,
 )
-from tqdm import tqdm
+from senpwai.scrapers import gogo, pahe
 
 APP_NAME = "Senpcli"
 SENPWAI_IS_INSTALLED = path.isfile(SENPWAI_EXE_PATH)
@@ -582,11 +591,11 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
         )
 
 
-def check_for_update_thread(queue: Queue[tuple[bool, str, str, str]]) -> None:
-    is_available, download_url, file_name, release_notes = update_available(
+def check_for_update_thread(queue: Queue[UpdateInfo]) -> None:
+    update_info = update_available(
         GITHUB_API_LATEST_RELEASE_ENDPOINT, APP_NAME, VERSION
     )
-    queue.put((is_available, download_url, file_name, release_notes))
+    queue.put((update_info))
 
 
 def download_and_install_update(
@@ -602,20 +611,17 @@ def download_and_install_update(
         leave=False,
     )
     file_name_no_ext, file_ext = path.splitext(file_name)
-    download = Download(
-        download_url, file_name_no_ext, ROOT_DIRECTORY, pbar.update, file_ext
-    )
+    tempdir = senpwai_tempdir()
+    download = Download(download_url, file_name_no_ext, tempdir, pbar.update, file_ext)
     download.start_download()
     pbar.close()
-    subprocess.Popen([path.join(ROOT_DIRECTORY, file_name), "/silent", "/update"])
+    subprocess.Popen([path.join(tempdir, file_name), "/silent", "/update"])
 
 
-def handle_update_check_result(
-    is_available: bool, download_url: str, file_name: str, release_notes: str
-) -> None:
-    if not is_available:
+def handle_update_check_result(update_info: UpdateInfo) -> None:
+    if not update_info.is_update_available:
         return
-    print(f"\nUpdate available!!!\n\n{release_notes}\n")
+    print(f"\nUpdate available!!!\n\n{update_info.release_notes}\n")
     if OS.is_android:
         print(
             'To update run:\n"pkg update -y && curl https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/termux/install.sh | bash"'
@@ -628,15 +634,15 @@ def handle_update_check_result(
     elif OS.is_windows:
         print("Would you like to download and install it? (y/n)")
         if input("> ").lower() == "y":
-            download_and_install_update(download_url, file_name)
+            download_and_install_update(update_info.download_url, update_info.file_name)
     else:
         print(
             f"A new version is available, but to install it you'll have to build from source\nThere is a guide at: {GITHUB_REPO_URL}"
         )
 
 
-def start_update_check_thread() -> tuple[Thread, Queue[tuple[bool, str, str, str]]]:
-    update_check_result_queue: Queue[tuple[bool, str, str, str]] = Queue()
+def start_update_check_thread() -> tuple[Thread, Queue[UpdateInfo]]:
+    update_check_result_queue: Queue[UpdateInfo] = Queue()
     update_check_thread = Thread(
         target=check_for_update_thread, args=(update_check_result_queue,)
     )
@@ -713,10 +719,10 @@ def main():
         elif parsed.update:
             update_check_thread, update_check_result_queue = start_update_check_thread()
             update_check_thread.join()
-            result = update_check_result_queue.get()
-            if not result[0]:
+            update_info = update_check_result_queue.get()
+            if not update_info.is_update_available:
                 print("No update available, already at latest version")
-            handle_update_check_result(*result)
+            handle_update_check_result(update_info)
             return
         elif parsed.title is None:
             print(
@@ -731,7 +737,8 @@ def main():
             return
         initiate_download_pipeline(parsed, anime_details)
         update_check_thread.join()
-        handle_update_check_result(*update_check_result_queue.get())
+        update_info = update_check_result_queue.get()
+        handle_update_check_result(update_info)
 
     except KeyboardInterrupt:
         print("\n\nAborted")

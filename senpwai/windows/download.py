@@ -16,6 +16,7 @@ from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
 from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
+    NoResourceLengthException,
     ProgressFunction,
     ffmpeg_is_installed,
     lacked_episode_numbers,
@@ -49,7 +50,9 @@ from senpwai.common.widgets import (
     set_minimum_size_policy,
 )
 
+
 from senpwai.windows.abstracts import AbstractWindow
+
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
     from senpwai.windows.main import MainWindow
@@ -841,11 +844,18 @@ class DownloadManagerThread(QThread, ProgressFunction):
             if self.anime_details.is_hls_download:
                 episode_size_or_segs = len(ddl_or_seg_urls)
             else:
-                (episode_size_or_segs, ddl_or_seg_urls) = Download.get_resource_length(
-                    cast(str, ddl_or_seg_urls)
-                )
-                if episode_size_or_segs == 0:
+                try:
+                    (episode_size_or_segs, ddl_or_seg_urls) = (
+                        Download.get_resource_length(cast(str, ddl_or_seg_urls))
+                    )
+                except NoResourceLengthException:
+                    self.download_window.main_window.tray_icon.make_notification(
+                        "Invalid Download Link",
+                        f"Skipping {episode_title}",
+                        False,
+                    )
                     continue
+
             # This is specifcally at this point instead of at the top cause of the above http request made in self.get_exact_episode_size such that if a user pauses or cancels as the request is in progress the input will be captured
             self.resume.wait()
             if self.cancelled:

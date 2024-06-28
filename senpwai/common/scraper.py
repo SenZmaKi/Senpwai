@@ -2,16 +2,16 @@ import os
 import re
 import subprocess
 from base64 import b64decode
+from random import choice as random_choice
 from string import ascii_letters, digits, printable
 from threading import Event
 from time import sleep as time_sleep
-from typing import TypeVar, Callable, Iterator, cast
-from random import choice as random_choice
+from typing import Callable, Iterator, TypeVar, cast
 from webbrowser import open_new_tab
 
 import requests
 
-from senpwai.common.static import log_exception, try_deleting, OS
+from senpwai.common.static import OS, log_exception, try_deleting
 
 T = TypeVar("T")
 PARSER = "html.parser"
@@ -79,6 +79,16 @@ USER_AGENTS = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15",
 )
+
+
+class NoResourceLengthException(Exception):
+    def __init__(self, url: str, redirect_url: str) -> None:
+        msg = (
+            f'Received no resource length from "{url}"'
+            if url == redirect_url
+            else f'Received no resource length from "{redirect_url}" redirected from "{url}"'
+        )
+        super().__init__(msg)
 
 
 def get_new_home_url_from_readme(site_name: str) -> str:
@@ -172,6 +182,7 @@ class Client:
         headers: dict | None = None,
         timeout: int | None = None,
         cookies={},
+        allow_redirects=False,
         exceptions_to_raise: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> requests.Response:
         return self.make_request(
@@ -182,6 +193,7 @@ class Client:
             timeout=timeout,
             cookies=cookies,
             exceptions_to_raise=exceptions_to_raise,
+            allow_redirects=allow_redirects,
         )
 
     def post(
@@ -442,11 +454,12 @@ class Download(ProgressFunction):
 
     @staticmethod
     def get_resource_length(url: str) -> tuple[int, str]:
-        response = CLIENT.get(url, stream=True)
-        new_location = response.headers.get("Location", "")
-        if not new_location and response.status_code in RESOURCE_MOVED_STATUS_CODES:
-            return Download.get_resource_length(new_location)
-        return (int(response.headers.get("Content-Length", 0)), url)
+        response = CLIENT.get(url, stream=True, allow_redirects=True)
+        resource_length_str = response.headers.get("Content-Length", None)
+        redirect_url = response.url
+        if resource_length_str is None:
+            raise NoResourceLengthException(url, redirect_url)
+        return (int(resource_length_str), redirect_url)
 
     def cancel(self):
         return super().cancel()

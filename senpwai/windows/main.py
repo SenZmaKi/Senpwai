@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget,
     QMessageBox,
 )
-from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
+from senpwai.common.classes import SETTINGS, Anime, AnimeDetails, UpdateInfo
 from senpwai.common.static import (
     MINIMISED_TO_TRAY_ARG,
     OS,
@@ -105,11 +105,15 @@ class MainWindow(QMainWindow):
         else:
             self.showNormal()
 
-    def handle_update_check_result(self, result: tuple[bool, str, str, str]):
-        is_available, download_url, file_name, update_info = result
-        if not is_available:
+    def handle_update_check_result(self, update_info: UpdateInfo):
+        if not update_info.is_update_available:
             return
-        self.update_window = UpdateWindow(self, download_url, file_name, update_info)
+        self.update_window = UpdateWindow(
+            self,
+            update_info.download_url,
+            update_info.file_name,
+            update_info.release_notes,
+        )
         self.stacked_windows.addWidget(self.update_window)
         update_icon = NavBarButton(UPDATE_ICON_PATH, self.switch_to_update_window)
         self.search_window.nav_bar_layout.addWidget(update_icon)
