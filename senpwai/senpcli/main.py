@@ -115,7 +115,7 @@ ANIME_REFERENCES = (
     "Huuuero Zabimaru",
     "Nah I'd Code",
     "Nah I'd Exception",
-    "Senpwai: Stand proud Senpcli, you are strong",
+    "Senpwai: Stand proud Senpcli, you can download",
     "We are the exception",
     "As the strongest curse Jogoat fought the fraud.. .",
     "Goodbye friend",
@@ -355,7 +355,10 @@ def pahe_get_download_page_links(
     )
     total_download_size = pahe.calculate_total_download_size(down_info)
     pbar.close_()
-    size_text = add_color(f"{total_download_size} MB", Color.MAGENTA)
+    size_text = add_color(
+        f"{total_download_size} MB{', go shower' if total_download_size >= 1000 else ''}",
+        Color.MAGENTA,
+    )
     print_info(f"Total download size: {size_text}")
     return down_page_links
 
@@ -377,7 +380,11 @@ def gogo_calculate_total_download_size(direct_download_links: list[str]) -> None
         direct_download_links, pbar.update_
     )
     pbar.close_()
-    print_info(f"Total download size: {total // IBYTES_TO_MBS_DIVISOR} MB")
+    size = total // IBYTES_TO_MBS_DIVISOR
+    size_text = add_color(
+        f"{size} MB { ', go shower' if size >= 1000 else ''}", Color.MAGENTA
+    )
+    print_info(f"Total download size: {size_text}")
 
 
 def gogo_get_direct_download_links(
