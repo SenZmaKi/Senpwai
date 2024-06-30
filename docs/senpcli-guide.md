@@ -4,7 +4,11 @@ The CLI alternative for Senpwai.
 
 ## Installation
 
-- **Cross-platform (Linux, Mac, Windows 10/11)**
+-   **Windows 10/11**
+
+You can install Senpcli as a completely separate package by downloading and running [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpcli-setup.exe).
+
+-   **Cross-platform (Linux, Mac, Windows 10/11)**
 
 Needs [Python 3.11](https://www.python.org/downloads/release/python-3111) installed.
 
@@ -14,17 +18,13 @@ Senpwai ships with the Senpcli pre-installed.
 pip install senpwai
 ```
 
-- **Windows 10/11**
-
-You can install Senpcli as a completely separate package by downloading and running [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpcli-setup.exe).
-
-- **Android (Using [termux](https://github.com/termux/termux-app))**
+-   **Android (Using [termux](https://github.com/termux/termux-app))**
 
 ```sh
 pkg update -y && curl https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/termux/install.sh | bash
 ```
 
-- **Other**
+-   **Other**
 
 [Build from source](#building-from-source).
 
@@ -36,23 +36,23 @@ senpcli [-h] [-v] [-sd {sub,dub}] [-s {pahe,gogo}] [-se START_EPISODE] [-ee END_
 
 ### Positional Arguments
 
-- `title`: Title of the anime to download
+-   `title`: Title of the anime to download
 
 ### Options
 
-- `-h, --help`: Show help message and exit
-- `-v, --version`: Show program's version number and exit
-- `-c, --config` Show config file contents and location
-- `-u, --update` Check for updates
-- `-s {pahe,gogo}, --site {pahe,gogo}`: Site to download from
-- `-se START_EPISODE, --start_episode START_EPISODE`: Episode to start downloading at
-- `-ee END_EPISODE, --end_episode END_EPISODE`: Episode to stop downloading at
-- `-q {1080p,720p,480p,360p}, --quality {1080p,720p,480p,360p}`: Quality to download the anime in
-- `-sd {sub,dub}, --sub_or_dub {sub,dub}`: Whether to download the subbed or dubbed version of the anime
-- `-hls, --hls`: Use HLS mode to download the anime (Gogo only and requires FFmpeg to be installed)
-- `-sc, --skip_calculating`: Skip calculating the total download size (Gogo only)
-- `-of, --open_folder`: Open the folder containing the downloaded anime once the download finishes
-- `-msd MAX_SIMULTANEOUS_DOWNLOADS, --max_simultaneous_downloads MAX_SIMULTANEOUS_DOWNLOADS`: Maximum number of simultaneous downloads
+-   `-h, --help`: Show help message and exit
+-   `-v, --version`: Show program's version number and exit
+-   `-c, --config` Show config file contents and location
+-   `-u, --update` Check for updates
+-   `-s {pahe,gogo}, --site {pahe,gogo}`: Site to download from
+-   `-se START_EPISODE, --start_episode START_EPISODE`: Episode to start downloading at
+-   `-ee END_EPISODE, --end_episode END_EPISODE`: Episode to stop downloading at
+-   `-q {1080p,720p,480p,360p}, --quality {1080p,720p,480p,360p}`: Quality to download the anime in
+-   `-sd {sub,dub}, --sub_or_dub {sub,dub}`: Whether to download the subbed or dubbed version of the anime
+-   `-hls, --hls`: Use HLS mode to download the anime (Gogo only and requires FFmpeg to be installed)
+-   `-sc, --skip_calculating`: Skip calculating the total download size (Gogo only)
+-   `-of, --open_folder`: Open the folder containing the downloaded anime once the download finishes
+-   `-msd MAX_SIMULTANEOUS_DOWNLOADS, --max_simultaneous_downloads MAX_SIMULTANEOUS_DOWNLOADS`: Maximum number of simultaneous downloads
 
 ### Settings
 
@@ -80,9 +80,23 @@ git clone https://github.com/SenZmaKi/Senpwai --depth 1 && cd Senpwai && pip ins
 poetry run poe build_senpcli_exe
 ```
 
-- The executable will be built in `Senpwai\build\Senpcli`
+-   The executable will be built in `Senpwai\build\Senpcli`
 
-3. **Alternatively you can run the tool directly via Python.**
+3. **Alternatively you can instead run the tool directly via Python.**
+
+-   Activate virtual environment
+
+```
+poetry shell
+```
+
+-   Run the tool
+
+```
+python -m senpcli --help
+```
+
+-   Both steps at once, but it is slower since it activates the virtual environment every time
 
 ```
 poetry run senpcli --help

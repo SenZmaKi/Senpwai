@@ -58,6 +58,13 @@ if TYPE_CHECKING:
     from senpwai.windows.main import MainWindow
 
 
+class FolderButton(StyledButton):
+    def __init__(self, parent: QWidget | None, font_size: int, folder_path: str):
+        super().__init__(parent, font_size, "white", "black", "grey", "black")
+        self.setText(folder_path)
+        self.clicked.connect(lambda: open_folder(os.path.dirname(folder_path)))
+
+
 class SettingsWindow(AbstractWindow):
     def __init__(self, main_window: "MainWindow") -> None:
         super().__init__(main_window, SETTINGS_WINDOW_BCKG_IMAGE_PATH)
@@ -72,11 +79,8 @@ class SettingsWindow(AbstractWindow):
         right_widget.setLayout(right_layout)
         main_layout.addWidget(left_widget)
         main_layout.addWidget(right_widget)
-        self.file_location_button = StyledButton(self, self.font_size, "white", "black", "grey", "black")
-        self.file_location_button.setText(SETTINGS.settings_json_path)
-        self.file_location_button.setToolTip("Location of detected settings file")
-        self.file_location_button.clicked.connect(
-            lambda: open_folder(os.path.dirname(SETTINGS.settings_json_path))
+        self.file_location_button = FolderButton(
+            self, self.font_size, SETTINGS.settings_json_path
         )
         set_minimum_size_policy(self.file_location_button)
         self.sub_dub_setting = SubDubSetting(self)
@@ -200,9 +204,9 @@ class FolderSetting(QWidget):
     ):
         SETTINGS.change_download_folder_path(folder_widget.index, new_folder_path)
         folder_widget.folder_path = new_folder_path
-        folder_widget.folder_label.setText(new_folder_path)
-        set_minimum_size_policy(folder_widget.folder_label)
-        folder_widget.folder_label.update()
+        folder_widget.folder_button.setText(new_folder_path)
+        set_minimum_size_policy(folder_widget.folder_button)
+        folder_widget.folder_button.update()
 
     def remove_from_folder_settings(self, folder_widget: "FolderWidget"):
         SETTINGS.pop_download_folder_path(folder_widget.index)
@@ -259,12 +263,8 @@ class FolderWidget(QWidget):
         self.folder_setting = folder_setting
         self.index = index
         main_layout = QHBoxLayout()
-        self.folder_label = StyledLabel(font_size=font_size)
-        self.folder_label.setText(folder_path)
-        self.folder_label.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
-        set_minimum_size_policy(self.folder_label)
+        self.folder_button = FolderButton(self, font_size, folder_path)
+        set_minimum_size_policy(self.folder_button)
         self.change_button = StyledButton(
             self,
             font_size,
@@ -289,7 +289,7 @@ class FolderWidget(QWidget):
             lambda: self.folder_setting.remove_from_folder_settings(self)
         )
         set_minimum_size_policy(remove_button)
-        main_layout.addWidget(self.folder_label)
+        main_layout.addWidget(self.folder_button)
         main_layout.addWidget(self.change_button)
         main_layout.addWidget(remove_button)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
