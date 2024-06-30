@@ -4,6 +4,8 @@ import sys
 from time import time as current_time
 from typing import Any, Callable, cast
 
+from common.selenium import BrowserName
+
 from senpwai.common.scraper import AnimeMetadata, Download, sanitise_title
 from senpwai.common.static import ROOT_DIRECTORY
 
@@ -22,6 +24,7 @@ DEFAULT_DOWNLOAD_FOLDER_PATH = os.path.join(ROOT_DIRECTORY, "..", ".test-downloa
 DEFAULT_VERBOSE = False
 DEFAULT_SILENT = False
 SILENT = DEFAULT_SILENT
+DEFAULT_BROWSER = "any"
 COMMANDS = [
     "search",
     "dub_available",
@@ -245,7 +248,7 @@ def fail_if_list_is_empty(
 
 
 def test_getting_direct_download_links(
-    site: str, download_page_links: list[str], quality: str
+    site: str, download_page_links: list[str], quality: str, browser_name: BrowserName
 ) -> list[str]:
     test_name = "Get Direct download links"
     test_start(test_name)
@@ -253,7 +256,8 @@ def test_getting_direct_download_links(
     ddls: list[str] = []
     if site == PAHE:
         ddls = pahe.GetDirectDownloadLinks().get_direct_download_links(
-            download_page_links
+            download_page_links,
+            browser_name,
         )
     else:
         ddls = gogo.GetDirectDownloadLinks().get_direct_download_links(
@@ -390,6 +394,7 @@ class ArgParser:
     arg_path = ("--path", "-p")
     arg_help = ("--help", "-h")
     arg_silent = ("--silent", "-s")
+    arg_browser = ("--browser", "-b")
 
     def __init__(self, args: list[str]):
         self.passed_args = args[1:]
@@ -425,6 +430,12 @@ class ArgParser:
         self.path = self.arg_value_finder(
             args, self.arg_path, DEFAULT_DOWNLOAD_FOLDER_PATH
         )
+        self.browser = self.arg_value_finder(args, self.arg_browser, DEFAULT_BROWSER)
+        self.validate_arg_value(
+            self.arg_browser,
+            ("any", "edge", "chrome", "firefox", "safari", "webkit", "ie"),
+            self.browser,
+        )
 
     def print_usage(self):
         usage = """
@@ -446,15 +457,17 @@ class ArgParser:
         
 
         Options:
-        --site, -s              Specify the site (i.e., pahe, gogo). Default: pahe
+        --site, -s              Specify the site [pahe, gogo]. Default: pahe
         --title, -t             Specify the anime title. Default: "Boku no Hero Academia"
-        --quality, -q           Specify the video quality (i.e., 360p, 480p, 720p, 1080p). Default: 360p
+        --quality, -q           Specify the video quality [360p, 480p, 720p, 1080p]. Default: 360p
         --sub_or_dub, -sd       Specify sub or dub. Default: sub
         --path, -p              Specify the download folder path. Default: ./src/test-downloads
         --start_episode, -se    Specify the starting episode number. Default: 1
         --end_episode, -ee      Specify the ending episode number. Default: 2
         --verbose, -v           Enable verbose mode for more detailed explanations of test results
-        --silent, s             Only output critical information
+        --silent, -s            Only output critical information
+        --browser, -b           Specify scraping browser when static scraping fails e.g., bot detection on Animepahe
+                                [any, edge, chrome, firefox, safari, webkit, ie]. Default: any
         --help, -h              Display this help message
 
 
@@ -696,8 +709,12 @@ def run_tests(args: ArgParser):
                                         )
                                         COMMANDS.remove("download")
                         if args.arg_in_group_was_passed(["direct_links", "all"]):
+                            browser_name = BrowserName.from_string(args.browser)
                             direct_download_links = test_getting_direct_download_links(
-                                args.site, download_page_links, args.quality
+                                args.site,
+                                download_page_links,
+                                args.quality,
+                                browser_name,
                             )
                             if args.verbose:
                                 conditional_print(f"DDLs: {direct_download_links}\n")

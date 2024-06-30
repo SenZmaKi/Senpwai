@@ -7,6 +7,7 @@ from typing import NamedTuple, cast
 
 import anitopy
 from appdirs import user_config_dir
+from common.selenium import BrowserName
 
 from senpwai.common.scraper import (
     CLIENT,
@@ -34,8 +35,6 @@ class UpdateInfo(NamedTuple):
     download_url: str
     file_name: str
     release_notes: str
-
-
 
 
 def update_available(
@@ -68,7 +67,7 @@ def update_available(
 
 
 class Settings:
-    types = str | int | bool | list[str]
+    types = str | int | bool | list[str] 
 
     def __init__(self) -> None:
         self.config_dir = self.setup_config_dir()
@@ -89,6 +88,7 @@ class Settings:
         self.auto_download_site = PAHE
         self.check_for_new_eps_after = 24
         self.gogo_skip_calculate = False
+        self.browser = BrowserName.any.value
         self.version = VERSION
 
         self.configure_settings()
@@ -142,8 +142,17 @@ class Settings:
             k: v
             for k, v in self.__dict__.items()
             # NOTE: Everytime you add a new class member that isn't a setting, make sure to include it here
-            if k not in ("config_dir", "settings_json_path", "is_update_install")
+            if k
+            not in (
+                "config_dir",
+                "settings_json_path",
+                "is_update_install",
+            )
         }
+
+    def update_browser(self, browser_name: BrowserName) -> None:
+        self.browser = browser_name.value
+        self.save_settings()
 
     def update_sub_or_dub(self, sub_or_dub: str) -> None:
         self.sub_or_dub = sub_or_dub

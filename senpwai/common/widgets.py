@@ -1,5 +1,5 @@
 from time import time
-from typing import Callable, cast
+from typing import Callable, TypeVar, cast
 
 from PyQt6.QtCore import QEvent, QMutex, QObject, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import (
@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
@@ -26,6 +27,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from common.selenium import BrowserName
 
 from senpwai.common.classes import SETTINGS, Settings
 from senpwai.common.static import (
@@ -40,10 +42,39 @@ from senpwai.common.static import (
     open_folder,
 )
 
+T = TypeVar("T")
 
 def set_minimum_size_policy(object):
     object.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
     object.setFixedSize(object.sizeHint())
+
+
+class YesOrNoMessageBox(QMessageBox):
+    def __init__(
+        self,
+        parent: QWidget | None,
+        prompt: str,
+        default_yes: bool,
+        icon: QMessageBox.Icon,
+    ):
+        super().__init__(parent)
+        self.setIcon(icon)
+        self.setStyleSheet("color: black;")
+        self.setText(prompt)
+        self.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        default_button = (
+            QMessageBox.StandardButton.Yes
+            if default_yes
+            else QMessageBox.StandardButton.No
+        )
+        self.setDefaultButton(default_button)
+
+    def execute(self):
+        super().exec()
+        is_yes = self.result() == QMessageBox.StandardButton.Yes
+        return is_yes
 
 
 class BckgImg(QLabel):
@@ -228,7 +259,7 @@ class OptionButton(StyledButton):
     def __init__(
         self,
         parent: QWidget | None,
-        option: Settings.types,
+        option: Settings.types | BrowserName,
         option_displayed: str,
         font_size: int,
         chosen_color: str,

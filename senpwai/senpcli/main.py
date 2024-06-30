@@ -7,7 +7,9 @@ from queue import Queue
 from random import choice as random_choice
 from threading import Event, Lock, Thread
 from typing import Callable, cast
+from webbrowser import open_new_tab
 
+from common.selenium import DRIVER_MANAGER, BrowserName, NoSuchBrowserException
 from tqdm import tqdm
 
 from senpwai.common.classes import (
@@ -78,7 +80,6 @@ ANIME_REFERENCES = (
     "Korega jyuu da",
     "Mendokusai",
     "Dattebayo",
-    "Bankaiiyeeeahhh, Ryuuumon Hooozokimaru!!!",
     "Kono asuratonkachi",
     "I devoured Barou and he devoured me right back",
     "United of States of Smaaaaash",
@@ -110,11 +111,13 @@ ANIME_REFERENCES = (
     "Ban.. .Kai Tensa Zangetsu",
     "Bankai Senbonzakura Kageyoshi",
     "Bankai Hihio Zabimaru",
+    "Bankaiiyeeeahhh, Ryuuumon Hooozokimaru!!!",
     "Huuuero Zabimaru",
     "Nah I'd Code",
     "Senpwai: Stand proud Senpcli, you are strong",
     "We are the exception",
     "As the strongest curse Jogoat fought the fraud.. .",
+    "Enough time has passed, KaguraBachi is peak"
     "Goodbye friend",
 )
 
@@ -353,9 +356,21 @@ def pahe_get_direct_download_links(download_page_links: list[str]) -> list[str]:
         unit="eps",
         leave=False,
     )
-    results = pahe.GetDirectDownloadLinks().get_direct_download_links(
-        download_page_links, pbar.update
-    )
+    browser_name = BrowserName.from_string(SETTINGS.browser)
+    try:
+        results = pahe.GetDirectDownloadLinks().get_direct_download_links(
+            download_page_links, browser_name, pbar.update
+        )
+    except NoSuchBrowserException:
+        is_yes = input(f"""Failed to fetch retrieve download links, Animepahe has detected Senpwai as a bot. 
+I tried to fetch the links using the set browser "{browser_name.value.capitalize()}" but it is not installed, or some drivers are unavailable.
+Please install a different browser from the listed ones and update the setting.
+Or would you like to manually download the episodes from your browser? 
+> """)
+        if is_yes:
+            for link in download_page_links:
+                open_new_tab(link)
+        results = []
     pbar.close()
     return results
 
@@ -741,6 +756,7 @@ def main():
         handle_update_check_result(update_info)
 
     except KeyboardInterrupt:
+        DRIVER_MANAGER.close_driver()
         print("\n\nAborted")
 
 
