@@ -36,8 +36,6 @@ class UpdateInfo(NamedTuple):
     release_notes: str
 
 
-
-
 def update_available(
     latest_release_api_url: str, app_name: str, curr_version: str
 ) -> UpdateInfo:
@@ -82,7 +80,7 @@ class Settings:
         self.max_simultaneous_downloads = 2
         self.font_family = "Berlin Sans FB Demi"
         self.allow_notifications = True
-        self.start_in_fullscreen = True
+        self.start_maximized = True
         self.run_on_startup = False
         self.gogo_norm_or_hls_mode = GOGO_NORM_MODE
         self.tracked_anime: list[str] = []
@@ -114,20 +112,22 @@ class Settings:
         return config_dir
 
     def configure_settings(self) -> None:
-        failed = False
-        if os.path.isfile(self.settings_json_path):
-            with open(self.settings_json_path, "r") as f:
-                try:
-                    settings = cast(dict, json.load(f))
-                    try:
-                        self.__dict__.update(settings)
-                    except ValueError:
-                        failed = True
-                except json.decoder.JSONDecodeError:
-                    failed = True
-        if failed:
-            with open(self.settings_json_path, "w") as f:
-                json.dump(self.dict_settings(), f, indent=4)
+        if not os.path.isfile(self.settings_json_path):
+            self.save_settings()
+            return
+        with open(self.settings_json_path, "r") as f:
+            try:
+                settings = cast(dict, json.load(f))
+                # TODO: DEPRECATION: Remove in version 2.1.11+ cause we use start_maximized now
+                start_in_fullscreen = settings.get("start_in_fullscreen", None)
+                if start_in_fullscreen is not None:
+                    self.start_maximized = start_in_fullscreen
+                    settings.pop("start_in_fullscreen")
+                    f.close()
+                    self.save_settings()
+                self.__dict__.update(settings)
+            except json.decoder.JSONDecodeError:
+                self.save_settings()
 
     def setup_default_download_folder(self) -> list[str]:
         downloads_folder = os.path.join(Path.home(), "Downloads", "Anime")
@@ -183,8 +183,8 @@ class Settings:
         self.allow_notifications = allow_notifications
         self.save_settings()
 
-    def update_start_in_fullscreen(self, start_in_fullscreen: bool) -> None:
-        self.start_in_fullscreen = start_in_fullscreen
+    def update_start_maximized(self, start_maximized: bool) -> None:
+        self.start_maximized = start_maximized
         self.save_settings()
 
     def update_run_on_startup(self, run_on_startup: bool) -> None:

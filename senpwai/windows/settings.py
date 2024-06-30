@@ -59,10 +59,19 @@ if TYPE_CHECKING:
 
 
 class FolderButton(StyledButton):
-    def __init__(self, parent: QWidget | None, font_size: int, folder_path: str):
+    def __init__(
+        self,
+        parent: QWidget | None,
+        font_size: int,
+        folder_path: str,
+        shown_text: str | None = None,
+    ):
         super().__init__(parent, font_size, "white", "black", "grey", "black")
-        self.setText(folder_path)
-        self.clicked.connect(lambda: open_folder(os.path.dirname(folder_path)))
+        if shown_text is not None:
+            self.setText(shown_text)
+        else:
+            self.setText(folder_path)
+        self.clicked.connect(lambda: open_folder(folder_path))
 
 
 class SettingsWindow(AbstractWindow):
@@ -80,7 +89,7 @@ class SettingsWindow(AbstractWindow):
         main_layout.addWidget(left_widget)
         main_layout.addWidget(right_widget)
         self.file_location_button = FolderButton(
-            self, self.font_size, SETTINGS.settings_json_path
+            self, self.font_size, SETTINGS.config_dir, SETTINGS.settings_json_path
         )
         set_minimum_size_policy(self.file_location_button)
         self.sub_dub_setting = SubDubSetting(self)
@@ -89,7 +98,7 @@ class SettingsWindow(AbstractWindow):
         self.make_download_complete_notification_setting = AllowNotificationsSetting(
             self
         )
-        self.start_in_fullscreen = StartInFullscreenSetting(self)
+        self.start_maximized = StartMaximized(self)
         self.download_folder_setting = DownloadFoldersSetting(self, main_window)
         self.gogo_norm_or_hls_mode_setting = GogoNormOrHlsSetting(self)
         self.tracked_anime = TrackedAnimeListSetting(
@@ -107,7 +116,7 @@ class SettingsWindow(AbstractWindow):
         left_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
         left_layout.addWidget(self.gogo_skip_calculate)
         left_layout.addWidget(self.make_download_complete_notification_setting)
-        left_layout.addWidget(self.start_in_fullscreen)
+        left_layout.addWidget(self.start_maximized)
         if OS.is_windows and not IS_PIP_INSTALL and APP_EXE_PATH:
             self.run_on_startup = RunOnStartUp(self)
             left_layout.addWidget(self.run_on_startup)
@@ -472,25 +481,21 @@ class GogoSkipCalculate(YesOrNoSetting):
         )
 
 
-class StartInFullscreenSetting(YesOrNoSetting):
+class StartMaximized(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Start app in fullscreen")
-        if SETTINGS.start_in_fullscreen:
+        super().__init__(settings_window, "Start app maximized")
+        if SETTINGS.start_maximized:
             self.yes_button.set_picked_status(True)
         else:
             self.no_button.set_picked_status(True)
-        self.yes_button.clicked.connect(
-            lambda: SETTINGS.update_start_in_fullscreen(True)
-        )
-        self.no_button.clicked.connect(
-            lambda: SETTINGS.update_start_in_fullscreen(False)
-        )
+        self.yes_button.clicked.connect(lambda: SETTINGS.update_start_maximized(True))
+        self.no_button.clicked.connect(lambda: SETTINGS.update_start_maximized(False))
 
 
 class RunOnStartUp(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Run on start up")
-        appdata_folder = cast(str, os.environ.get("APPDATA"))
+        appdata_folder = os.environ["APPDATA"]
         self.lnk_path = os.path.join(
             appdata_folder,
             "Microsoft",

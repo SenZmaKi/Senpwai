@@ -75,6 +75,12 @@ def windows_setup_file_titles(app_name: str) -> tuple[str, str]:
     return (f"{app_name}-setup.exe", f"{app_name}-setup.msi")
 
 
+# TODO: DEPRECATION Remove in version 2.1.11+ since we download updates to temp
+for title in windows_setup_file_titles(APP_NAME):
+    try_deleting(os.path.join(ROOT_DIRECTORY, title))
+for title in windows_setup_file_titles("Senpcli"):
+    try_deleting(os.path.join(ROOT_DIRECTORY, title))
+
 GITHUB_REPO_URL = "https://github.com/SenZmaKi/Senpwai"
 GITHUB_API_LATEST_RELEASE_ENDPOINT = (
     "https://api.github.com/repos/SenZmaKi/Senpwai/releases/latest"

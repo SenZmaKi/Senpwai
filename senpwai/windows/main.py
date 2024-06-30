@@ -82,10 +82,10 @@ class MainWindow(QMainWindow):
 
     def show_with_settings(self, args: list[str]):
         if MINIMISED_TO_TRAY_ARG in args:
-            if SETTINGS.start_in_fullscreen:
+            if SETTINGS.start_maximized:
                 self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
             self.hide()
-        elif SETTINGS.start_in_fullscreen:
+        elif SETTINGS.start_maximized:
             self.showMaximized()
             # HACK: For whatever reason on linux I have to do this monkeypatch even after
             # calling self.showMaximized(), sometimes it still doesn't work, gyaaah
