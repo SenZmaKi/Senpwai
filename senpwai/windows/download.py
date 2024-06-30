@@ -833,9 +833,6 @@ class DownloadManagerThread(QThread, ProgressFunction):
                 eps_size = round(os.path.getsize(eps_file_path) / IBYTES_TO_MBS_DIVISOR)
                 hls_est_size.update_count(eps_size)
 
-    # Gogo's direct download link sometimes doesn't work, it returns a 301 - 308 status code meaning the resource has been moved, this attempts to redirect to that link
-    # It is applied to Pahe too just in case and to make everything streamlined
-
     def run(self):
         ddls_or_segs_urls = self.anime_details.ddls_or_segs_urls
         for idx, ddl_or_seg_urls in enumerate(ddls_or_segs_urls):
@@ -856,7 +853,8 @@ class DownloadManagerThread(QThread, ProgressFunction):
                     )
                     continue
 
-            # This is specifcally at this point instead of at the top cause of the above http request made in self.get_exact_episode_size such that if a user pauses or cancels as the request is in progress the input will be captured
+            # This is specifcally at this point instead of at the top cause of the above http request made in
+            # self.get_exact_episode_size such that if a user pauses or cancels as the request is in progress the input will be captured
             self.resume.wait()
             if self.cancelled:
                 break

@@ -64,11 +64,12 @@ def custom_exception_handler(
 
 
 def try_deleting(path: str) -> None:
-    if os.path.isfile(path):
-        try:
-            os.unlink(path)
-        except PermissionError:
-            pass
+    if not os.path.isfile(path):
+        return
+    try:
+        os.unlink(path)
+    except PermissionError:
+        pass
 
 
 def windows_setup_file_titles(app_name: str) -> tuple[str, str]:

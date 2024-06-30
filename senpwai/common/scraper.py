@@ -449,8 +449,7 @@ class Download(ProgressFunction):
         self.temporary_file_path = os.path.join(
             self.download_folder_path, temporary_file_title
         )
-        if os.path.isfile(self.temporary_file_path):
-            try_deleting(self.temporary_file_path)
+        try_deleting(self.temporary_file_path)
 
     @staticmethod
     def get_resource_length(url: str) -> tuple[int, str]:
@@ -484,6 +483,7 @@ class Download(ProgressFunction):
             return os.rename(self.temporary_file_path, self.file_path)
         except PermissionError:  # Maybe they started watching the episode on VLC before it finished downloading now VLC has a handle to the file hence PermissionDenied
             pass
+
 
     def hls_download(self) -> bool:
         with open(self.temporary_file_path, "wb") as f:
