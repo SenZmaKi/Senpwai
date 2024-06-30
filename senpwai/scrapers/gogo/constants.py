@@ -34,4 +34,4 @@ REGISTERED_ACCOUNT_EMAILS = [
 
 KEYS_REGEX = re.compile(rb"(?:container|videocontent)-(\d+)")
 ENCRYPTED_DATA_REGEX = re.compile(rb'data-value="(.+?)"')
-BASE_URL_REGEX = re.compile(r'(http[s]?://[a-zA-Z0-9\.\-]+)')
+BASE_URL_REGEX = re.compile(r"(http[s]?://[a-zA-Z0-9\.\-]+)")

@@ -10,9 +10,9 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from senpwai.utils.classes import SETTINGS, Anime, AnimeDetails
-from senpwai.utils.scraper import lacked_episode_numbers
-from senpwai.utils.static import (
+from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
+from senpwai.common.scraper import lacked_episode_numbers
+from senpwai.common.static import (
     CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH,
     DUB,
     GOGO,
@@ -26,7 +26,7 @@ from senpwai.utils.static import (
     RED_PRESSED_COLOR,
     SUB,
 )
-from senpwai.utils.widgets import (
+from senpwai.common.widgets import (
     DualStateButton,
     ErrorLabel,
     FolderButton,

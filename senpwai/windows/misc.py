@@ -1,19 +1,20 @@
 import os
 import subprocess
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Callable
 from webbrowser import open_new_tab
 
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
-from senpwai.utils.classes import AnimeDetails, update_available
-from senpwai.utils.scraper import (
+
+from senpwai.common.classes import AnimeDetails, UpdateInfo, update_available
+from senpwai.common.scraper import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     RESOURCE_MOVED_STATUS_CODES,
     Download,
     try_installing_ffmpeg,
 )
-from senpwai.utils.static import (
+from senpwai.common.static import (
     APP_NAME,
     CANCEL_ICON_PATH,
     CHOPPER_CRYING_PATH,
@@ -31,11 +32,11 @@ from senpwai.utils.static import (
     RED_NORMAL_COLOR,
     RED_PRESSED_COLOR,
     RESUME_ICON_PATH,
-    ROOT_DIRECTORY,
     UPDATE_BCKG_IMAGE_PATH,
     VERSION,
+    senpwai_tempdir,
 )
-from senpwai.utils.widgets import (
+from senpwai.common.widgets import (
     Icon,
     IconButton,
     StyledButton,
@@ -44,12 +45,11 @@ from senpwai.utils.widgets import (
     Title,
     set_minimum_size_policy,
 )
-
-from senpwai.windows.download import ProgressBarWithButtons
 from senpwai.windows.abstracts import (
     AbstractTemporaryWindow,
     AbstractWindow,
 )
+from senpwai.windows.download import ProgressBarWithButtons
 
 # https://stackoverflow.com/questions/39740632/python-type-hinting-without-cyclic-imports/3957388#39757388
 if TYPE_CHECKING:
@@ -159,7 +159,7 @@ class UpdateWindow(AbstractWindow):
         main_window: "MainWindow",
         download_url: str,
         file_name: str,
-        update_info: str,
+        release_notes: str,
     ):
         super().__init__(main_window, UPDATE_BCKG_IMAGE_PATH)
         main_widget = QWidget()
@@ -167,13 +167,13 @@ class UpdateWindow(AbstractWindow):
         self.progress_bar: ProgressBarWithButtons | None = None
         before_click_label = StyledLabel(font_size=20)
         before_click_label.setWordWrap(True)
-        update_info_text_browser = StyledTextBrowser(font_size=20)
-        update_info_text_browser.setMarkdown(update_info)
-        update_info_text_browser.setMinimumWidth(500)
-        update_info_text_browser.setMinimumHeight(300)
+        release_notes_text_browser = StyledTextBrowser(font_size=20)
+        release_notes_text_browser.setMarkdown(release_notes)
+        release_notes_text_browser.setMinimumWidth(500)
+        release_notes_text_browser.setMinimumHeight(300)
 
         main_layout.addWidget(
-            update_info_text_browser, alignment=Qt.AlignmentFlag.AlignCenter
+            release_notes_text_browser, alignment=Qt.AlignmentFlag.AlignCenter
         )
         if IS_PIP_INSTALL:
             before_click_label.setText(
@@ -184,7 +184,7 @@ class UpdateWindow(AbstractWindow):
             )
         elif OS.is_windows and IS_EXECUTABLE:
             before_click_label.setText(
-                "Before you click the update button, ensure you don't have any active downloads cause Senpwai will restart"
+                "Ensure you don't have any active downloads cause Senpwai will restart"
             )
             main_layout.addWidget(
                 before_click_label, alignment=Qt.AlignmentFlag.AlignCenter
@@ -281,10 +281,11 @@ class DownloadUpdateThread(QThread):
             continue
         self.update_bar.connect(self.update_window.progress_bar.update_bar)
         file_name_no_ext, ext = os.path.splitext(self.file_name)
+        tempdir = senpwai_tempdir()
         download = Download(
             self.download_url,
             file_name_no_ext,
-            ROOT_DIRECTORY,
+            tempdir,
             self.update_bar.emit,
             ext,
         )
@@ -293,7 +294,7 @@ class DownloadUpdateThread(QThread):
         download.start_download()
         if not download.cancelled:
             subprocess.Popen(
-                [os.path.join(ROOT_DIRECTORY, self.file_name), "/silent", "/update"]
+                [os.path.join(tempdir, self.file_name), "/silent", "/update"]
             )
             self.quit_app.emit()
 
@@ -304,7 +305,7 @@ class CheckIfUpdateAvailableThread(QThread):
     def __init__(
         self,
         main_window: "MainWindow",
-        finished_callback: Callable[[tuple[bool, str, str, str]], Any],
+        finished_callback: Callable[[UpdateInfo], None],
     ):
         super().__init__(main_window)
         self.finished.connect(finished_callback)

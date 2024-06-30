@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "senpwai"
-version = "2.1.9"
+version = "2.1.10"
 description = "A desktop app for tracking and batch downloading anime"
 authors = ["SenZmaKi <senzmaki@gmail.com>"]
 license = "GPL v3"
@@ -91,6 +91,7 @@ test_gogo_hls = "python -m senpwai.scrapers.test --site gogo hls_links download"
 
 test_ddl = [{ ref = "test_pahe_ddl" }, { ref = "test_gogo_ddl" }]
 test_pahe_ddl = "python -m senpwai.scrapers.test --site pahe direct_links"
+test_pahe_dpl = "python -m senpwai.scrapers.test --site pahe download_page"
 test_gogo_ddl = [{ ref = "test_gogo_norm_ddl" }, { ref = "test_gogo_hls_ddl" }]
 test_gogo_norm_ddl = "python -m senpwai.scrapers.test --site gogo direct_links"
 test_gogo_hls_ddl = "python -m senpwai.scrapers.test --site gogo hls_links"
@@ -110,7 +111,7 @@ install = [{ ref = "install_senpwai" }, { ref = "install_senpcli" }]
 install_senpwai = "setups/Senpwai-setup.exe /verysilent"
 install_senpcli = "setups/Senpcli-setup.exe /verysilent"
 
-build_pip = [{ ref = "rb_dist" }, { ref = "poetry_build" }]
+build_pip = [{ ref = "trash_dist" }, { ref = "poetry_build" }]
 trash_dist = "trash dist"
 poetry_build = "poetry build"
 install_pip = "python -m scripts.install_pip"

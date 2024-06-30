@@ -3,9 +3,9 @@ from typing import TYPE_CHECKING, Callable, cast
 from pylnk3 import for_file as pylnk3_for_file
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
-from senpwai.utils.classes import SETTINGS
-from senpwai.utils.scraper import try_deleting
-from senpwai.utils.static import (
+from senpwai.common.classes import SETTINGS
+from senpwai.common.scraper import try_deleting
+from senpwai.common.static import (
     AMOGUS_EASTER_EGG,
     APP_EXE_PATH,
     APP_EXE_ROOT_DIRECTORY,
@@ -32,10 +32,11 @@ from senpwai.utils.static import (
     RED_PRESSED_COLOR,
     SETTINGS_WINDOW_BCKG_IMAGE_PATH,
     SUB,
+    open_folder,
     requires_admin_access,
     fix_qt_path_for_windows,
 )
-from senpwai.utils.widgets import (
+from senpwai.common.widgets import (
     ErrorLabel,
     GogoNormOrHlsButton,
     HorizontalLine,
@@ -57,6 +58,22 @@ if TYPE_CHECKING:
     from senpwai.windows.main import MainWindow
 
 
+class FolderButton(StyledButton):
+    def __init__(
+        self,
+        parent: QWidget | None,
+        font_size: int,
+        folder_path: str,
+        shown_text: str | None = None,
+    ):
+        super().__init__(parent, font_size, "white", "black", "grey", "black")
+        if shown_text is not None:
+            self.setText(shown_text)
+        else:
+            self.setText(folder_path)
+        self.clicked.connect(lambda: open_folder(folder_path))
+
+
 class SettingsWindow(AbstractWindow):
     def __init__(self, main_window: "MainWindow") -> None:
         super().__init__(main_window, SETTINGS_WINDOW_BCKG_IMAGE_PATH)
@@ -71,14 +88,17 @@ class SettingsWindow(AbstractWindow):
         right_widget.setLayout(right_layout)
         main_layout.addWidget(left_widget)
         main_layout.addWidget(right_widget)
-
+        self.file_location_button = FolderButton(
+            self, self.font_size, SETTINGS.config_dir, SETTINGS.settings_json_path
+        )
+        set_minimum_size_policy(self.file_location_button)
         self.sub_dub_setting = SubDubSetting(self)
         self.quality_setting = QualitySetting(self)
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(self)
         self.make_download_complete_notification_setting = AllowNotificationsSetting(
             self
         )
-        self.start_in_fullscreen = StartInFullscreenSetting(self)
+        self.start_maximized = StartMaximized(self)
         self.download_folder_setting = DownloadFoldersSetting(self, main_window)
         self.gogo_norm_or_hls_mode_setting = GogoNormOrHlsSetting(self)
         self.tracked_anime = TrackedAnimeListSetting(
@@ -89,13 +109,14 @@ class SettingsWindow(AbstractWindow):
             self, main_window.download_window
         )
         self.gogo_skip_calculate = GogoSkipCalculate(self)
+        left_layout.addWidget(self.file_location_button)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
         left_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
         left_layout.addWidget(self.gogo_skip_calculate)
         left_layout.addWidget(self.make_download_complete_notification_setting)
-        left_layout.addWidget(self.start_in_fullscreen)
+        left_layout.addWidget(self.start_maximized)
         if OS.is_windows and not IS_PIP_INSTALL and APP_EXE_PATH:
             self.run_on_startup = RunOnStartUp(self)
             left_layout.addWidget(self.run_on_startup)
@@ -192,9 +213,9 @@ class FolderSetting(QWidget):
     ):
         SETTINGS.change_download_folder_path(folder_widget.index, new_folder_path)
         folder_widget.folder_path = new_folder_path
-        folder_widget.folder_label.setText(new_folder_path)
-        set_minimum_size_policy(folder_widget.folder_label)
-        folder_widget.folder_label.update()
+        folder_widget.folder_button.setText(new_folder_path)
+        set_minimum_size_policy(folder_widget.folder_button)
+        folder_widget.folder_button.update()
 
     def remove_from_folder_settings(self, folder_widget: "FolderWidget"):
         SETTINGS.pop_download_folder_path(folder_widget.index)
@@ -251,9 +272,8 @@ class FolderWidget(QWidget):
         self.folder_setting = folder_setting
         self.index = index
         main_layout = QHBoxLayout()
-        self.folder_label = StyledLabel(font_size=font_size)
-        self.folder_label.setText(folder_path)
-        set_minimum_size_policy(self.folder_label)
+        self.folder_button = FolderButton(self, font_size, folder_path)
+        set_minimum_size_policy(self.folder_button)
         self.change_button = StyledButton(
             self,
             font_size,
@@ -278,7 +298,7 @@ class FolderWidget(QWidget):
             lambda: self.folder_setting.remove_from_folder_settings(self)
         )
         set_minimum_size_policy(remove_button)
-        main_layout.addWidget(self.folder_label)
+        main_layout.addWidget(self.folder_button)
         main_layout.addWidget(self.change_button)
         main_layout.addWidget(remove_button)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -364,7 +384,7 @@ class TrackedAnimeListSetting(SettingWidget):
         line.setFixedHeight(7)
         super().__init__(
             settings_window,
-            "Track for new episodes then auto download",
+            "Tracked",
             [line, main_widget],
             False,
         )
@@ -461,25 +481,21 @@ class GogoSkipCalculate(YesOrNoSetting):
         )
 
 
-class StartInFullscreenSetting(YesOrNoSetting):
+class StartMaximized(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Start app in fullscreen")
-        if SETTINGS.start_in_fullscreen:
+        super().__init__(settings_window, "Start app maximized")
+        if SETTINGS.start_maximized:
             self.yes_button.set_picked_status(True)
         else:
             self.no_button.set_picked_status(True)
-        self.yes_button.clicked.connect(
-            lambda: SETTINGS.update_start_in_fullscreen(True)
-        )
-        self.no_button.clicked.connect(
-            lambda: SETTINGS.update_start_in_fullscreen(False)
-        )
+        self.yes_button.clicked.connect(lambda: SETTINGS.update_start_maximized(True))
+        self.no_button.clicked.connect(lambda: SETTINGS.update_start_maximized(False))
 
 
 class RunOnStartUp(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Run on start up")
-        appdata_folder = cast(str, os.environ.get("APPDATA"))
+        appdata_folder = os.environ["APPDATA"]
         self.lnk_path = os.path.join(
             appdata_folder,
             "Microsoft",
@@ -553,7 +569,6 @@ class GogoNormOrHlsSetting(SettingWidget):
         super().__init__(
             settings_window, "Gogo Normal or HLS mode", [norm_button, hls_button]
         )
-        self.setting_label.setToolTip(hls_button.toolTip())
 
 
 class NonZeroNumberInputSetting(SettingWidget):
@@ -669,6 +684,7 @@ class QualitySetting(SettingWidget):
             if button.quality == SETTINGS.quality:
                 button.set_picked_status(True)
         super().__init__(settings_window, "Download quality", self.quality_buttons_list)
+        self.setToolTip("480p is usually only available on Gogoanime")
 
     def update_quality(self, quality: str):
         SETTINGS.update_quality(quality)

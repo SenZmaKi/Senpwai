@@ -1,65 +1,68 @@
 import json
+import logging
 import os
+import re
 from pathlib import Path
-from typing import cast
+from typing import NamedTuple, cast
 
 import anitopy
 from appdirs import user_config_dir
-from senpwai.scrapers import gogo, pahe
-import logging
-import re
 
-from senpwai.utils.scraper import (
+from senpwai.common.scraper import (
     CLIENT,
     AnimeMetadata,
     sanitise_title,
 )
-from senpwai.utils.static import (
+from senpwai.common.static import (
     APP_NAME,
-    generate_windows_setup_file_titles,
-    VERSION,
     GOGO,
     GOGO_HLS_MODE,
     GOGO_NORM_MODE,
     PAHE,
     Q_720,
     SUB,
+    VERSION,
+    windows_setup_file_titles,
 )
+from senpwai.scrapers import gogo, pahe
 
 VERSION_REGEX = re.compile(r"(\d+(\.\d+)*)")
 
 
+class UpdateInfo(NamedTuple):
+    is_update_available: bool
+    download_url: str
+    file_name: str
+    release_notes: str
+
+
 def update_available(
     latest_release_api_url: str, app_name: str, curr_version: str
-) -> tuple[bool, str, str, str]:
+) -> UpdateInfo:
     latest_version_json = CLIENT.get(latest_release_api_url).json()
     latest_version_tag = latest_version_json["tag_name"]
     match = cast(re.Match, VERSION_REGEX.search(latest_version_tag))
     latest_version = match.group(1)
-    download_url = ""
-    target_asset_name = ""
+    download_url: str = ""
+    file_name = ""
     # NOTE: Update this logic if you ever officially release on Linux or Mac
-    target_asset_names = generate_windows_setup_file_titles(app_name)
-    update_available = True if latest_version != curr_version else False
-    if update_available:
+    target_file_names = windows_setup_file_titles(app_name)
+    is_update_available = True if latest_version != curr_version else False
+    if is_update_available:
         for asset in latest_version_json["assets"]:
-            matched_asset = None
-            for tan in target_asset_names:
-                if asset["name"] == tan:
-                    matched_asset = tan
+            matched_file_name = None
+            for target_file_name in target_file_names:
+                if asset["name"] == target_file_name:
+                    matched_file_name = target_file_name
                     break
-            if matched_asset is not None:
-                download_url, target_asset_name = (
+            if matched_file_name is not None:
+                download_url, file_name = (
                     asset["browser_download_url"],
-                    matched_asset,
+                    matched_file_name,
                 )
                 break
-    return (
-        update_available,
-        download_url,
-        target_asset_name,
-        latest_version_json["body"],
-    )
+    release_notes: str = latest_version_json["body"]
+    return UpdateInfo(is_update_available, download_url, file_name, release_notes)
 
 
 class Settings:
@@ -70,13 +73,14 @@ class Settings:
         self.settings_json_path = os.path.join(self.config_dir, "settings.json")
         # Default settings
         # Only these settings will be saved to settings.json
-        # NOTE: Everytime you add a new class member that isn't a setting, make sure  to update the Settings.dict_settings method
+        # NOTE: Everytime you add a new class member that isn't a setting, make sure  to update the Settings.dict_settings() method
         self.sub_or_dub = SUB
         self.quality = Q_720
         self.download_folder_paths = self.setup_default_download_folder()
         self.max_simultaneous_downloads = 2
+        self.font_family = "Berlin Sans FB Demi"
         self.allow_notifications = True
-        self.start_in_fullscreen = True
+        self.start_maximized = True
         self.run_on_startup = False
         self.gogo_norm_or_hls_mode = GOGO_NORM_MODE
         self.tracked_anime: list[str] = []
@@ -108,22 +112,22 @@ class Settings:
         return config_dir
 
     def configure_settings(self) -> None:
-        failed_to_load_settings = (
-            False if os.path.isfile(self.settings_json_path) else True
-        )
-        if not failed_to_load_settings:
-            with open(self.settings_json_path, "r") as f:
-                try:
-                    settings = cast(dict, json.load(f))
-                    try:
-                        self.__dict__.update(settings)
-                    except ValueError:
-                        failed_to_load_settings = True
-                except json.decoder.JSONDecodeError:
-                    failed_to_load_settings = True
-        if failed_to_load_settings:
-            with open(self.settings_json_path, "w") as f:
-                json.dump(self.dict_settings(), f, indent=4)
+        if not os.path.isfile(self.settings_json_path):
+            self.save_settings()
+            return
+        with open(self.settings_json_path, "r") as f:
+            try:
+                settings = cast(dict, json.load(f))
+                # TODO: DEPRECATION: Remove in version 2.1.11+ cause we use start_maximized now
+                start_in_fullscreen = settings.get("start_in_fullscreen", None)
+                if start_in_fullscreen is not None:
+                    self.start_maximized = start_in_fullscreen
+                    settings.pop("start_in_fullscreen")
+                    f.close()
+                    self.save_settings()
+                self.__dict__.update(settings)
+            except json.decoder.JSONDecodeError:
+                self.save_settings()
 
     def setup_default_download_folder(self) -> list[str]:
         downloads_folder = os.path.join(Path.home(), "Downloads", "Anime")
@@ -179,8 +183,8 @@ class Settings:
         self.allow_notifications = allow_notifications
         self.save_settings()
 
-    def update_start_in_fullscreen(self, start_in_fullscreen: bool) -> None:
-        self.start_in_fullscreen = start_in_fullscreen
+    def update_start_maximized(self, start_maximized: bool) -> None:
+        self.start_maximized = start_maximized
         self.save_settings()
 
     def update_run_on_startup(self, run_on_startup: bool) -> None:
@@ -384,6 +388,8 @@ class AnimeDetails:
             metadata = pahe.get_anime_metadata(cast(str, self.anime.id))
             page_content = b""
         else:
-            page_content, self.anime.page_link = gogo.get_anime_page_content(self.anime.page_link)
+            page_content, self.anime.page_link = gogo.get_anime_page_content(
+                self.anime.page_link
+            )
             metadata = gogo.extract_anime_metadata(page_content)
         return metadata, page_content

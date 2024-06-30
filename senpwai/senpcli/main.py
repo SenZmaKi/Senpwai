@@ -2,15 +2,22 @@
 import subprocess
 import sys
 from argparse import ArgumentParser, Namespace
+from os import path
+from queue import Queue
 from random import choice as random_choice
 from threading import Event, Lock, Thread
 from typing import Callable, cast
-from queue import Queue
-from os import path
 
-from senpwai.utils.classes import SETTINGS, Anime, AnimeDetails, update_available
-from senpwai.scrapers import gogo, pahe
-from senpwai.utils.scraper import (
+from tqdm import tqdm
+
+from senpwai.common.classes import (
+    SETTINGS,
+    Anime,
+    AnimeDetails,
+    UpdateInfo,
+    update_available,
+)
+from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
     ffmpeg_is_installed,
@@ -19,13 +26,16 @@ from senpwai.utils.scraper import (
     lacked_episodes,
     try_installing_ffmpeg,
 )
-from senpwai.utils.static import (
+from senpwai.common.static import (
+    APP_EXE_PATH as SENPWAI_EXE_PATH,
+)
+from senpwai.common.static import (
+    DUB,
+    GITHUB_API_LATEST_RELEASE_ENDPOINT,
+    GITHUB_REPO_URL,
+    GOGO,
     IS_PIP_INSTALL,
     OS,
-    open_folder,
-    DUB,
-    APP_EXE_PATH as SENPWAI_EXE_PATH,
-    GOGO,
     PAHE,
     Q_360,
     Q_480,
@@ -33,11 +43,11 @@ from senpwai.utils.static import (
     Q_1080,
     SUB,
     VERSION,
-    GITHUB_API_LATEST_RELEASE_ENDPOINT,
-    GITHUB_REPO_URL,
-    ROOT_DIRECTORY,
+    open_folder,
+    senpwai_tempdir,
 )
-from tqdm import tqdm
+from senpwai.scrapers import gogo, pahe
+from enum import Enum
 
 APP_NAME = "Senpcli"
 SENPWAI_IS_INSTALLED = path.isfile(SENPWAI_EXE_PATH)
@@ -51,6 +61,7 @@ ASCII_APP_NAME = r"""
 /____  >\___  >___|  /   __/ \___  >____/__|
      \/     \/     \/|__|        \/         
 """
+
 
 ANIME_REFERENCES = (
     "Hello friend",
@@ -103,11 +114,61 @@ ANIME_REFERENCES = (
     "Bankai Hihio Zabimaru",
     "Huuuero Zabimaru",
     "Nah I'd Code",
-    "Senpwai: Stand proud Senpcli, you are strong",
+    "Nah I'd Exception",
+    "Senpwai: Stand proud Senpcli, you can download",
     "We are the exception",
     "As the strongest curse Jogoat fought the fraud.. .",
     "Goodbye friend",
 )
+
+
+class Color(Enum):
+    RED = "\033[91m"
+    YELLOW = "\033[33m"
+    GREEN = "\033[32m"
+    CYAN = "\033[36m"
+    LIGHT_BLUE = "\033[96m"
+    BLUE = "\033[34m"
+    MAGENTA = "\033[95m"
+    RESET = "\033[0m"
+
+
+class ProgressBar(tqdm):
+    active: list["ProgressBar"] = []
+
+    def __init__(
+        self,
+        total: int,
+        desc: str,
+        unit: str,
+        unit_scale=False,
+    ):
+        super().__init__(
+            total=total,
+            desc=desc,
+            unit=unit,
+            unit_scale=unit_scale,
+            leave=False,
+        )
+        ProgressBar.active.append(self)
+
+    @staticmethod
+    def cancel_all_active():
+        for pbar in ProgressBar.active:
+            pbar.close_(False)
+        ProgressBar.active.clear()
+
+    def update_(self, added: int):
+        result = super().update(added)
+        return result
+
+    def close_(self, remove_from_active=True) -> None:
+        if self not in ProgressBar.active:
+            return
+        if remove_from_active:
+            ProgressBar.active.remove(self)
+        result = super().close()
+        return result
 
 
 def parse_args(args: list[str]) -> tuple[Namespace, ArgumentParser]:
@@ -203,22 +264,22 @@ def search(title: str, site: str) -> Anime | None:
             results = a
             break
     if results is None:
-        print(f'No anime found with the title "{title}"')
+        print_error(f'No anime found with the title "{title}"')
         len_animes = len(animes)
         if len_animes > 0:
             results_str = "\n".join(
                 [f"{idx + 1}: {a.title}" for idx, a in enumerate(animes)]
             )
-            print(
+            print_info(
                 f"Here are the results:\n{results_str}\nPick one of the results by entering its number"
             )
             num = input("> ")
             if not num.isdigit():
-                print("Invalid input")
+                print_error("Invalid input")
                 return None
             num = int(num)
             if num < 1 or num > len_animes:
-                print("Invalid input")
+                print_error("Invalid input")
                 return None
             results = animes[num - 1]
     return results
@@ -232,12 +293,12 @@ def validate_start_and_end_episode(
     if start_episode == -1:
         start_episode = total_episode_count
     if end_episode > total_episode_count:
-        print(
+        print_warn(
             f"Setting end episode to {total_episode_count} since the anime only has {total_episode_count} episodes"
         )
         end_episode = total_episode_count
     if start_episode > total_episode_count:
-        print(
+        print_warn(
             f"Setting start episode to {total_episode_count} since the anime only has {total_episode_count} episodes"
         )
         start_episode = end_episode
@@ -253,11 +314,10 @@ def pahe_get_episode_page_links(
         episode_page_count,
         first_page,
     ) = pahe.get_episode_pages_info(anime_page_link, start_episode, end_episode)
-    pbar = tqdm(
+    pbar = ProgressBar(
         total=episode_page_count,
         desc="Getting episode page links",
         unit="eps",
-        leave=False,
     )
     results = pahe.GetEpisodePageLinks().get_episode_page_links(
         start_episode,
@@ -267,26 +327,25 @@ def pahe_get_episode_page_links(
         first_page,
         anime_page_link,
         anime_id,
-        pbar.update,
+        pbar.update_,
     )
-    pbar.close()
+    pbar.close_()
     return results
 
 
 def pahe_get_download_page_links(
     episode_page_links: list[str], quality: str, sub_or_dub: str
 ) -> list[str]:
-    pbar = tqdm(
+    pbar = ProgressBar(
         total=len(episode_page_links),
         desc="Fetching download page links",
         unit="eps",
-        leave=False,
     )
     (
         down_page_links,
         down_info,
     ) = pahe.GetPahewinPageLinks().get_pahewin_page_links_and_info(
-        episode_page_links, pbar.update
+        episode_page_links, pbar.update_
     )
     down_page_links, down_info = pahe.bind_sub_or_dub_to_link_info(
         sub_or_dub, down_page_links, down_info
@@ -295,8 +354,12 @@ def pahe_get_download_page_links(
         quality, down_page_links, down_info
     )
     total_download_size = pahe.calculate_total_download_size(down_info)
-    pbar.close()
-    print(f"Total download size: {total_download_size} MB")
+    pbar.close_()
+    size_text = add_color(
+        f"{total_download_size} MB{', go shower' if total_download_size >= 1000 else ''}",
+        Color.MAGENTA,
+    )
+    print_info(f"Total download size: {size_text}")
     return down_page_links
 
 
@@ -308,87 +371,89 @@ def gogo_get_download_page_links(
 
 
 def gogo_calculate_total_download_size(direct_download_links: list[str]) -> None:
-    pbar = tqdm(
+    pbar = ProgressBar(
         total=len(direct_download_links),
         desc="Calculating total download size",
         unit="eps",
-        leave=False,
     )
     total = gogo.CalculateTotalDowloadSize().calculate_total_download_size(
-        direct_download_links, pbar.update
+        direct_download_links, pbar.update_
     )
-    pbar.close()
-    print(f"Total download size: {total // IBYTES_TO_MBS_DIVISOR} MB")
+    pbar.close_()
+    size = total // IBYTES_TO_MBS_DIVISOR
+    size_text = add_color(
+        f"{size} MB { ', go shower' if size >= 1000 else ''}", Color.MAGENTA
+    )
+    print_info(f"Total download size: {size_text}")
 
 
 def gogo_get_direct_download_links(
     download_page_links: list[str], quality: str
 ) -> list[str]:
-    pbar = tqdm(
+    pbar = ProgressBar(
         total=len(download_page_links),
         desc="Retrieving direct download links",
         unit="eps",
-        leave=False,
     )
     results = gogo.GetDirectDownloadLinks().get_direct_download_links(
-        download_page_links, quality, pbar.update
+        download_page_links, quality, pbar.update_
     )
-    pbar.close()
+    pbar.close_()
     return results
 
 
 def pahe_get_direct_download_links(download_page_links: list[str]) -> list[str]:
-    pbar = tqdm(
+    pbar = ProgressBar(
         total=len(download_page_links),
         desc="Retrieving direct download links",
         unit="eps",
-        leave=False,
     )
     results = pahe.GetDirectDownloadLinks().get_direct_download_links(
-        download_page_links, pbar.update
+        download_page_links, pbar.update_
     )
-    pbar.close()
+    pbar.close_()
     return results
 
 
-def download_thread(
-    episode_title: str,
-    link_or_segs_urls: str | list[str],
-    anime_details: AnimeDetails,
-    is_hls_download: bool,
-    progress_updater: Callable,
-):
+def create_progress_bar(
+    episode_title: str, link_or_segs_urls: str | list[str], is_hls_download: bool
+) -> ProgressBar:
     if is_hls_download:
         episode_size = len(link_or_segs_urls)
-    else:
-        episode_size, link_or_segs_urls = Download.get_resource_length(
-            cast(str, link_or_segs_urls)
-        )
-    if is_hls_download:
-        pbar = tqdm(
+        pbar = ProgressBar(
             total=episode_size,
             unit="segs",
             desc=f"Downloading [HLS] {episode_title}",
-            leave=False,
         )
     else:
-        pbar = tqdm(
+        episode_size, _ = Download.get_resource_length(cast(str, link_or_segs_urls))
+        pbar = ProgressBar(
             total=episode_size,
             unit="iB",
             unit_scale=True,
             desc=f"Downloading {episode_title}",
-            leave=False,
         )
+    return pbar
+
+
+def download_thread(
+    pbar: ProgressBar,
+    episode_title: str,
+    link_or_segs_urls: str | list[str],
+    anime_details: AnimeDetails,
+    is_hls_download: bool,
+    finished_callback: Callable[[], None],
+):
     download = Download(
         link_or_segs_urls,
         episode_title,
         anime_details.anime_folder_path,
-        pbar.update,
+        pbar.update_,
         is_hls_download=is_hls_download,
     )
     download.start_download()
-    pbar.close()
-    progress_updater(1)
+    pbar.close_()
+    finished_callback()
 
 
 def download_manager(
@@ -403,57 +468,67 @@ def download_manager(
         if is_hls_download
         else f"Downloading {anime_details.sanitised_title}"
     )
-    episodes_pbar = tqdm(
-        total=len(ddls_or_segs_urls), desc=desc, unit="eps", leave=False
-    )
+    episodes_pbar = ProgressBar(total=len(ddls_or_segs_urls), desc=desc, unit="eps")
     download_slot_available = Event()
     download_slot_available.set()
     downloads_complete = Event()
     curr_simultaneous_downloads = 0
     update_lock = Lock()
 
-    def update_progress(added):
-        update_lock.acquire()
-        nonlocal curr_simultaneous_downloads
-        curr_simultaneous_downloads -= 1
-        if curr_simultaneous_downloads < max_simultaneous_downloads:
-            download_slot_available.set()
-        episodes_pbar.update(added)
-        if episodes_pbar.n == episodes_pbar.total:
-            downloads_complete.set()
-        update_lock.release()
+    def update_progress():
+        with update_lock:
+            nonlocal curr_simultaneous_downloads
+            curr_simultaneous_downloads -= 1
+            if curr_simultaneous_downloads < max_simultaneous_downloads:
+                download_slot_available.set()
+            episodes_pbar.update_(1)
+            if episodes_pbar.n == episodes_pbar.total:
+                downloads_complete.set()
+
+    def wait(event: Event):
+        # HACK: https://stackoverflow.com/a/14421297/17193072
+        while not event.wait(0.1):
+            pass
 
     for idx, link in enumerate(ddls_or_segs_urls):
-        download_slot_available.wait()
+        wait(download_slot_available)
         episode_title = anime_details.episode_title(idx)
+        pbar = create_progress_bar(episode_title, link, is_hls_download)
         Thread(
             target=download_thread,
-            args=(episode_title, link, anime_details, is_hls_download, update_progress),
+            args=(
+                pbar,
+                episode_title,
+                link,
+                anime_details,
+                is_hls_download,
+                update_progress,
+            ),
+            daemon=True,
         ).start()
         curr_simultaneous_downloads += 1
         if curr_simultaneous_downloads == max_simultaneous_downloads:
             download_slot_available.clear()
 
-    downloads_complete.wait()
-    episodes_pbar.close()
+    wait(downloads_complete)
+    episodes_pbar.close_()
 
-    print(
+    print_rainbow(
         f"Download complete uWu, Senpcli ga saikou no stando da!!!\n{random_choice(ANIME_REFERENCES)}"
     )
 
 
 def install_ffmpeg_prompt() -> bool:
     if not ffmpeg_is_installed():
-        print(
+        print_error(
             "HLS mode requires FFmpeg to be installed, would you like to install it? (y/n)"
         )
         if input("> ").lower() == "y":
             successfully_installed = try_installing_ffmpeg()
             if not successfully_installed:
-                print("Failed to automatically install FFmpeg")
+                print_error("Failed to automatically install FFmpeg")
             return successfully_installed
         else:
-            print("Aborting")
             return False
     return True
 
@@ -468,7 +543,9 @@ def already_has_all_episodes(
         start_episode, end_episode, anime_details.haved_episodes
     )
     if not anime_details.lacked_episode_numbers:
-        print("Bakayorou, you already have all episodes within the provided range!!!")
+        print_error(
+            "Bakayorou, you already have all episodes within the provided range!!!"
+        )
         return True
     lacked_eps_page_links = lacked_episodes(
         anime_details.lacked_episode_numbers, page_links
@@ -479,39 +556,39 @@ def already_has_all_episodes(
 
 
 def gogo_get_hls_links(download_page_links: list[str]) -> list[str]:
-    pbar = tqdm(
+    pbar = ProgressBar(
         total=len(download_page_links),
         desc="Getting HLS links",
         unit="eps",
-        leave=False,
     )
-    results = gogo.GetHlsLinks().get_hls_links(download_page_links, pbar.update)
-    pbar.close()
+    results = gogo.GetHlsLinks().get_hls_links(download_page_links, pbar.update_)
+    pbar.close_()
     return results
 
 
 def gogo_get_hls_matched_quality_links(hls_links: list[str], quality: str) -> list[str]:
-    pbar = tqdm(
-        total=len(hls_links), desc="Matching quality to links", unit="eps", leave=False
+    pbar = ProgressBar(
+        total=len(hls_links),
+        desc="Matching quality to links",
+        unit="eps",
     )
     results = gogo.GetHlsMatchedQualityLinks().get_hls_matched_quality_links(
-        hls_links, quality, pbar.update
+        hls_links, quality, pbar.update_
     )
-    pbar.close()
+    pbar.close_()
     return results
 
 
 def gogo_get_hls_segments_urls(matched_quality_links: list[str]) -> list[list[str]]:
-    pbar = tqdm(
+    pbar = ProgressBar(
         total=len(matched_quality_links),
         desc="Getting segment links",
         unit="segs",
-        leave=False,
     )
     results = gogo.GetHlsSegmentsUrls().get_hls_segments_urls(
-        matched_quality_links, pbar.update
+        matched_quality_links, pbar.update_
     )
-    pbar.close()
+    pbar.close_()
     return results
 
 
@@ -582,11 +659,11 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
         )
 
 
-def check_for_update_thread(queue: Queue[tuple[bool, str, str, str]]) -> None:
-    is_available, download_url, file_name, release_notes = update_available(
+def check_for_update_thread(queue: Queue[UpdateInfo]) -> None:
+    update_info = update_available(
         GITHUB_API_LATEST_RELEASE_ENDPOINT, APP_NAME, VERSION
     )
-    queue.put((is_available, download_url, file_name, release_notes))
+    queue.put((update_info))
 
 
 def download_and_install_update(
@@ -594,51 +671,48 @@ def download_and_install_update(
     file_name: str,
 ) -> None:
     download_size, download_url = Download.get_resource_length(download_url)
-    pbar = tqdm(
+    pbar = ProgressBar(
         total=download_size,
         desc="Downloading update",
         unit="iB",
         unit_scale=True,
-        leave=False,
     )
     file_name_no_ext, file_ext = path.splitext(file_name)
-    download = Download(
-        download_url, file_name_no_ext, ROOT_DIRECTORY, pbar.update, file_ext
-    )
+    tempdir = senpwai_tempdir()
+    download = Download(download_url, file_name_no_ext, tempdir, pbar.update_, file_ext)
     download.start_download()
-    pbar.close()
-    subprocess.Popen([path.join(ROOT_DIRECTORY, file_name), "/silent", "/update"])
+    pbar.close_()
+    subprocess.Popen([path.join(tempdir, file_name), "/silent", "/update"])
 
 
-def handle_update_check_result(
-    is_available: bool, download_url: str, file_name: str, release_notes: str
-) -> None:
-    if not is_available:
+def handle_update_check_result(update_info: UpdateInfo) -> None:
+    if not update_info.is_update_available:
         return
-    print(f"\nUpdate available!!!\n\n{release_notes}\n")
+    print_rainbow("\nUpdate available!!!\n")
+    print_info(f"{update_info.release_notes}\n")
     if OS.is_android:
-        print(
+        print_info(
             'To update run:\n"pkg update -y && curl https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/termux/install.sh | bash"'
         )
     elif IS_PIP_INSTALL:
-        print('Install it by running "pip install senpwai --upgrade"')
+        print_info('Install it by running "pip install senpwai --upgrade"')
         return
     elif SENPWAI_IS_INSTALLED:
-        print("Install it by updating my big sister, Senpwai")
+        print_info("Install it by updating my big sister, Senpwai")
     elif OS.is_windows:
-        print("Would you like to download and install it? (y/n)")
+        print_info("Would you like to download and install it? (y/n)")
         if input("> ").lower() == "y":
-            download_and_install_update(download_url, file_name)
+            download_and_install_update(update_info.download_url, update_info.file_name)
     else:
-        print(
+        print_info(
             f"A new version is available, but to install it you'll have to build from source\nThere is a guide at: {GITHUB_REPO_URL}"
         )
 
 
-def start_update_check_thread() -> tuple[Thread, Queue[tuple[bool, str, str, str]]]:
-    update_check_result_queue: Queue[tuple[bool, str, str, str]] = Queue()
+def start_update_check_thread() -> tuple[Thread, Queue[UpdateInfo]]:
+    update_check_result_queue: Queue[UpdateInfo] = Queue()
     update_check_thread = Thread(
-        target=check_for_update_thread, args=(update_check_result_queue,)
+        target=check_for_update_thread, args=(update_check_result_queue,), daemon=True
     )
     update_check_thread.start()
     return update_check_thread, update_check_result_queue
@@ -655,7 +729,7 @@ def get_anime_details(parsed) -> AnimeDetails | None:
     anime_details = AnimeDetails(anime, parsed.site)
     if parsed.sub_or_dub == DUB:
         if not anime_details.dub_available:
-            print("Dub not available for this anime")
+            print_error("Dub not available for this anime")
             return None
 
     if parsed.start_episode == -1:
@@ -663,7 +737,11 @@ def get_anime_details(parsed) -> AnimeDetails | None:
             anime_details.haved_end is not None
             and anime_details.haved_end < anime_details.metadata.episode_count
         ):
-            parsed.start_episode = anime_details.haved_end + 1
+            new_start = anime_details.haved_end + 1
+            if parsed.end_episode != -1 and new_start > parsed.end_episode:
+                parsed.start_episode = parsed.end_episode
+            else:
+                parsed.start_episode = new_start
         else:
             parsed.start_episode = 1
     parsed.start_episode, parsed.end_episode = validate_start_and_end_episode(
@@ -673,7 +751,7 @@ def get_anime_details(parsed) -> AnimeDetails | None:
 
 
 def initiate_download_pipeline(parsed: Namespace, anime_details: AnimeDetails):
-    print(f"Downloading to: {anime_details.anime_folder_path}")
+    print_info(f"Downloading to: {anime_details.anime_folder_path}")
     if parsed.site == PAHE:
         handle_pahe(parsed, anime_details)
     else:
@@ -684,25 +762,55 @@ def initiate_download_pipeline(parsed: Namespace, anime_details: AnimeDetails):
 
 def validate_args(parsed: Namespace) -> bool:
     if parsed.end_episode < parsed.start_episode and parsed.end_episode != -1:
-        print("End episode cannot be less than start episode, hontoni baka ga")
+        print_error("End episode cannot be less than start episode, hontoni baka ga")
         return False
     if parsed.start_episode < 1 and parsed.start_episode != -1:
-        print("Start episode cannot be less than 1, is that your IQ?")
+        print_error("Start episode cannot be less than 1, is that your IQ?")
         return False
     if parsed.end_episode < 1 and parsed.end_episode != -1:
-        print("End episode cannot be less than 1, is that your brain cell count?")
+        print_error("End episode cannot be less than 1, is that your brain cell count?")
         return False
     if parsed.site != GOGO and parsed.hls:
-        print("Setting site to Gogo since HLS mode is only available for Gogo")
+        print_error("Setting site to Gogo since HLS mode is only available for Gogo")
         parsed.site = GOGO
 
     return True
 
 
+def add_color(text: str, color: Color):
+    return f"{color.value}{text}{Color.RESET.value}"
+
+
+def print_rainbow(text: str):
+    rainbowed_text = ""
+    color_index = 0
+
+    for line in text.split("\n"):
+        for char in line:
+            color = Color(list(Color)[color_index % len(Color)])
+            rainbowed_text += add_color(char, color)
+            color_index += 1
+        rainbowed_text += "\n"
+
+    print(rainbowed_text)
+
+
+def print_error(text: str):
+    print(add_color(text, Color.RED))
+
+
+def print_info(text: str):
+    print(add_color(text, Color.LIGHT_BLUE))
+
+
+def print_warn(text: str):
+    print(add_color(text, Color.YELLOW))
+
+
 def main():
     try:
         args = sys.argv[1:]
-        print(ASCII_APP_NAME)
+        print_rainbow(ASCII_APP_NAME)
         parsed, parser = parse_args(args)
 
         if parsed.config:
@@ -713,10 +821,10 @@ def main():
         elif parsed.update:
             update_check_thread, update_check_result_queue = start_update_check_thread()
             update_check_thread.join()
-            result = update_check_result_queue.get()
-            if not result[0]:
+            update_info = update_check_result_queue.get()
+            if not update_info.is_update_available:
                 print("No update available, already at latest version")
-            handle_update_check_result(*result)
+            handle_update_check_result(update_info)
             return
         elif parsed.title is None:
             print(
@@ -731,10 +839,11 @@ def main():
             return
         initiate_download_pipeline(parsed, anime_details)
         update_check_thread.join()
-        handle_update_check_result(*update_check_result_queue.get())
+        update_info = update_check_result_queue.get()
+        handle_update_check_result(update_info)
 
     except KeyboardInterrupt:
-        print("\n\nAborted")
+        ProgressBar.cancel_all_active()
 
 
 if __name__ == "__main__":

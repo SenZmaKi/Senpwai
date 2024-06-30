@@ -2,16 +2,16 @@ import os
 import re
 import subprocess
 from base64 import b64decode
+from random import choice as random_choice
 from string import ascii_letters, digits, printable
 from threading import Event
 from time import sleep as time_sleep
-from typing import TypeVar, Callable, Iterator, cast
-from random import choice as random_choice
+from typing import Callable, Iterator, TypeVar, cast
 from webbrowser import open_new_tab
 
 import requests
 
-from senpwai.utils.static import log_exception, try_deleting, OS
+from senpwai.common.static import OS, log_exception, try_deleting
 
 T = TypeVar("T")
 PARSER = "html.parser"
@@ -81,6 +81,16 @@ USER_AGENTS = (
 )
 
 
+class NoResourceLengthException(Exception):
+    def __init__(self, url: str, redirect_url: str) -> None:
+        msg = (
+            f'Received no resource length from "{url}"'
+            if url == redirect_url
+            else f'Received no resource length from "{redirect_url}" redirected from "{url}"'
+        )
+        super().__init__(msg)
+
+
 def get_new_home_url_from_readme(site_name: str) -> str:
     """
     If the either Animepahe's or Gogoanime's domain name changes be sure to update it in the readme, specifically in the hyperlinks i.e., [Animepahe](https://animepahe.ru)
@@ -136,7 +146,7 @@ class Client:
         json: dict | None = None,
         allow_redirects=False,
         timeout: int | None = None,
-        exceptions_to_ignore: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
+        exceptions_to_raise: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> requests.Response:
         if not headers:
             headers = self.headers
@@ -163,7 +173,7 @@ class Client:
                     allow_redirects=allow_redirects,
                 )
 
-        return self.network_error_retry_wrapper(callback, exceptions_to_ignore)
+        return self.network_error_retry_wrapper(callback, exceptions_to_raise)
 
     def get(
         self,
@@ -172,6 +182,7 @@ class Client:
         headers: dict | None = None,
         timeout: int | None = None,
         cookies={},
+        allow_redirects=False,
         exceptions_to_raise: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> requests.Response:
         return self.make_request(
@@ -181,7 +192,8 @@ class Client:
             stream=stream,
             timeout=timeout,
             cookies=cookies,
-            exceptions_to_ignore=exceptions_to_raise,
+            exceptions_to_raise=exceptions_to_raise,
+            allow_redirects=allow_redirects,
         )
 
     def post(
@@ -192,7 +204,7 @@ class Client:
         headers: dict | None = None,
         cookies={},
         allow_redirects=False,
-        exceptions_to_ignore: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
+        exceptions_to_raise: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> requests.Response:
         return self.make_request(
             "POST",
@@ -202,13 +214,13 @@ class Client:
             json=json,
             cookies=cookies,
             allow_redirects=allow_redirects,
-            exceptions_to_ignore=exceptions_to_ignore,
+            exceptions_to_raise=exceptions_to_raise,
         )
 
     def network_error_retry_wrapper(
         self,
         callback: Callable[[], T],
-        exceptions_to_ignore: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
+        exceptions_to_raise: tuple[type[BaseException], ...] = (KeyboardInterrupt,),
     ) -> T:
         while True:
             try:
@@ -217,12 +229,12 @@ class Client:
                 if isinstance(e, KeyboardInterrupt):
                     raise
                 if (
-                    exceptions_to_ignore is not None
-                    and DomainNameError in exceptions_to_ignore
+                    exceptions_to_raise is not None
+                    and DomainNameError in exceptions_to_raise
                 ):
                     e = DomainNameError(e) if has_valid_internet_connection() else e
-                if exceptions_to_ignore is not None and any(
-                    [isinstance(e, exception) for exception in exceptions_to_ignore]
+                if exceptions_to_raise is not None and any(
+                    [isinstance(e, exception) for exception in exceptions_to_raise]
                 ):
                     raise e
                 log_exception(e)
@@ -437,16 +449,16 @@ class Download(ProgressFunction):
         self.temporary_file_path = os.path.join(
             self.download_folder_path, temporary_file_title
         )
-        if os.path.isfile(self.temporary_file_path):
-            try_deleting(self.temporary_file_path)
+        try_deleting(self.temporary_file_path)
 
     @staticmethod
     def get_resource_length(url: str) -> tuple[int, str]:
-        response = CLIENT.get(url, stream=True)
-        new_location = response.headers.get("Location", "")
-        if not new_location and response.status_code in RESOURCE_MOVED_STATUS_CODES:
-            return Download.get_resource_length(new_location)
-        return (int(response.headers.get("Content-Length", 0)), url)
+        response = CLIENT.get(url, stream=True, allow_redirects=True)
+        resource_length_str = response.headers.get("Content-Length", None)
+        redirect_url = response.url
+        if resource_length_str is None:
+            raise NoResourceLengthException(url, redirect_url)
+        return (int(resource_length_str), redirect_url)
 
     def cancel(self):
         return super().cancel()
@@ -502,12 +514,13 @@ class Download(ProgressFunction):
         total = int(response.headers.get("Content-Length", 0))
 
         def download(start_byte_num=0) -> bool:
-            mode = "wb" if start_byte_num == 0 else "ab"
-            with open(self.temporary_file_path, mode) as file:
+            with open(
+                self.temporary_file_path, "wb" if start_byte_num else "ab"
+            ) as file:
                 iter_content = cast(
                     Iterator[bytes],
                     response.iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR)
-                    if start_byte_num == 0
+                    if start_byte_num
                     else CLIENT.network_error_retry_wrapper(
                         lambda: response_ranged(start_byte_num).iter_content(
                             chunk_size=IBYTES_TO_MBS_DIVISOR
@@ -516,11 +529,9 @@ class Download(ProgressFunction):
                 )
                 while True:
                     try:
-
-                        def get_data() -> bytes:
-                            return next(iter_content)
-
-                        data = CLIENT.network_error_retry_wrapper(get_data)
+                        data = CLIENT.network_error_retry_wrapper(
+                            lambda: next(iter_content)
+                        )
                         self.resume.wait()
                         if self.cancelled:
                             return False

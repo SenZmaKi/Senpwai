@@ -1,15 +1,17 @@
+import logging
 import os
 import sys
 from datetime import datetime
+from functools import cache
 from pathlib import Path
 from random import choice as random_choice
 from subprocess import Popen
+from tempfile import gettempdir
 from types import TracebackType
-import logging
 
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = "senpwai"
-VERSION = "2.1.9"
+VERSION = "2.1.10"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
 IS_PIP_INSTALL = False
@@ -17,26 +19,26 @@ APP_EXE_PATH = ""
 
 
 class OS:
-    is_android = "ANDROID_ROOT" in os.environ 
+    is_android = "ANDROID_ROOT" in os.environ
     is_windows = sys.platform == "win32" and not is_android
     is_linux = sys.platform == "linux" and not is_android
     is_mac = sys.platform == "darwin" and not is_android
 
 
 if getattr(sys, "frozen", False):
-    # C:\Users\PC\AppData\Local\Programs\Senpwai
+    # C:\Users\Username\AppData\Local\Programs\Senpwai
     ROOT_DIRECTORY = os.path.dirname(sys.executable)
     APP_EXE_PATH = sys.executable
     IS_EXECUTABLE = True
 else:
-    # C:\Users\PC\AppData\Local\Programs\Python\Python311\Lib\site-packages\senpwai
+    # C:\Users\Username\AppData\Local\Programs\Python\Python311\Lib\site-packages\senpwai
     ROOT_DIRECTORY = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-    # C:\Users\PC\AppData\Local\Programs\Python\Python311\Lib\site-packages
+    # C:\Users\Username\AppData\Local\Programs\Python\Python311\Lib\site-packages
     maybe_site_packages = os.path.dirname(ROOT_DIRECTORY)
     if os.path.basename(maybe_site_packages) == "site-packages":
         IS_PIP_INSTALL = True
         if OS.is_windows:
-            # C:\Users\PC\AppData\Local\Programs\Python\Python311\Scripts\senpwai.exe
+            # C:\Users\Username\AppData\Local\Programs\Python\Python311\Scripts\senpwai.exe
             maybe_app_exe_path = os.path.join(
                 os.path.dirname(os.path.dirname(maybe_site_packages)),
                 "Scripts",
@@ -46,7 +48,6 @@ else:
                 APP_EXE_PATH = maybe_app_exe_path
     IS_EXECUTABLE = False
 APP_EXE_ROOT_DIRECTORY = os.path.dirname(APP_EXE_PATH) if APP_EXE_PATH else ""
-
 date = datetime.today()
 IS_CHRISTMAS = True if date.month == 12 and date.day >= 20 else False
 
@@ -63,24 +64,29 @@ def custom_exception_handler(
 
 
 def try_deleting(path: str) -> None:
-    if os.path.isfile(path):
-        try:
-            os.unlink(path)
-        except PermissionError:
-            pass
+    if not os.path.isfile(path):
+        return
+    try:
+        os.unlink(path)
+    except PermissionError:
+        pass
 
 
-def generate_windows_setup_file_titles(app_name: str) -> tuple[str, str]:
+def windows_setup_file_titles(app_name: str) -> tuple[str, str]:
     return (f"{app_name}-setup.exe", f"{app_name}-setup.msi")
 
 
-for setup in generate_windows_setup_file_titles(APP_NAME):
-    try_deleting(setup)
+# TODO: DEPRECATION Remove in version 2.1.11+ since we download updates to temp
+for title in windows_setup_file_titles(APP_NAME):
+    try_deleting(os.path.join(ROOT_DIRECTORY, title))
+for title in windows_setup_file_titles("Senpcli"):
+    try_deleting(os.path.join(ROOT_DIRECTORY, title))
 
 GITHUB_REPO_URL = "https://github.com/SenZmaKi/Senpwai"
 GITHUB_API_LATEST_RELEASE_ENDPOINT = (
     "https://api.github.com/repos/SenZmaKi/Senpwai/releases/latest"
 )
+DISCORD_INVITE_LINK = "https://discord.gg/e9UxkuyDX2"
 SEN_ANILIST_ID = 5363369
 ANILIST_API_ENTRYPOINY = "https://graphql.anilist.co"
 PAHE = "pahe"
@@ -119,9 +125,17 @@ def open_folder(folder_path: str) -> None:
         Popen(["open", folder_path])
 
 
+@cache
+def senpwai_tempdir() -> str:
+    tempdir = os.path.join(gettempdir(), "Senpwai")
+    if not os.path.isdir(tempdir):
+        os.mkdir(tempdir)
+    return tempdir
+
+
 def requires_admin_access(folder_path: str) -> bool:
     try:
-        temp_file = os.path.join(folder_path, "temp.txt")
+        temp_file = os.path.join(folder_path, "senpwai_admin_test_temp")
         open(temp_file, "w").close()
         os.unlink(temp_file)
         return False

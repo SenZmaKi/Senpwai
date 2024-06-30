@@ -1,5 +1,5 @@
 import subprocess
-from scripts.utils import ARGS, ROOT_DIR, git_commit
+from scripts.common import ARGS, ROOT_DIR, git_commit
 
 
 def main(

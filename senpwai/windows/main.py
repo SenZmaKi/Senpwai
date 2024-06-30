@@ -1,6 +1,6 @@
 from typing import Callable, cast
 
-from PyQt6.QtCore import QThread, Qt
+from PyQt6.QtCore import QThread, QTimer, Qt
 from PyQt6.QtGui import QAction, QCloseEvent, QGuiApplication, QIcon, QScreen
 from PyQt6.QtWidgets import (
     QApplication,
@@ -11,9 +11,10 @@ from PyQt6.QtWidgets import (
     QWidget,
     QMessageBox,
 )
-from senpwai.utils.classes import SETTINGS, Anime, AnimeDetails
-from senpwai.utils.static import (
+from senpwai.common.classes import SETTINGS, Anime, AnimeDetails, UpdateInfo
+from senpwai.common.static import (
     MINIMISED_TO_TRAY_ARG,
+    OS,
     SENPWAI_ICON_PATH,
     TASK_COMPLETE_ICON_PATH,
     UPDATE_ICON_PATH,
@@ -81,28 +82,38 @@ class MainWindow(QMainWindow):
 
     def show_with_settings(self, args: list[str]):
         if MINIMISED_TO_TRAY_ARG in args:
-            if SETTINGS.start_in_fullscreen:
+            if SETTINGS.start_maximized:
                 self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
-            return self.hide()
-        elif SETTINGS.start_in_fullscreen:
+            self.hide()
+        elif SETTINGS.start_maximized:
             self.showMaximized()
+            # HACK: For whatever reason on linux I have to do this monkeypatch even after
+            # calling self.showMaximized(), sometimes it still doesn't work, gyaaah
+            if OS.is_linux:
+                QTimer(self).singleShot(1, self.showMaximized)
         else:
             self.showNormal()
             self.center_window()
             self.setWindowState(Qt.WindowState.WindowActive)
 
-    def show(self):
+    def show_(self):
         self.activateWindow()
         if Qt.WindowState.WindowMaximized in self.windowState():
-            return self.showMaximized()
-        self.showNormal()
-        self.center_window()
+            self.showMaximized()
+        elif Qt.WindowState.WindowFullScreen in self.windowState():
+            self.showFullScreen()
+        else:
+            self.showNormal()
 
-    def handle_update_check_result(self, result: tuple[bool, str, str, str]):
-        is_available, download_url, file_name, update_info = result
-        if not is_available:
+    def handle_update_check_result(self, update_info: UpdateInfo):
+        if not update_info.is_update_available:
             return
-        self.update_window = UpdateWindow(self, download_url, file_name, update_info)
+        self.update_window = UpdateWindow(
+            self,
+            update_info.download_url,
+            update_info.file_name,
+            update_info.release_notes,
+        )
         self.stacked_windows.addWidget(self.update_window)
         update_icon = NavBarButton(UPDATE_ICON_PATH, self.switch_to_update_window)
         self.search_window.nav_bar_layout.addWidget(update_icon)
@@ -167,7 +178,7 @@ class MainWindow(QMainWindow):
     def switch_to_search_window(self):
         self.switch_to_window(self.search_window)
         self.search_window.search_bar.setFocus()
-        self.search_window.on_focus()
+        self.search_window.set_focus()
 
     def switch_to_download_window(self):
         self.switch_to_window(self.download_window)
@@ -200,22 +211,23 @@ class TrayIcon(QSystemTrayIcon):
         )
         search_action = QAction("Search", self.context_menu)
         search_action.triggered.connect(main_window.switch_to_search_window)
-        search_action.triggered.connect(main_window.show)
+        search_action.triggered.connect(main_window.show_)
         downloads_action = QAction("Downloads", self.context_menu)
         downloads_action.triggered.connect(main_window.switch_to_download_window)
-        downloads_action.triggered.connect(main_window.show)
+        downloads_action.triggered.connect(main_window.show_)
         exit_action = QAction("Exit", self.context_menu)
         exit_action.triggered.connect(main_window.app.quit)
         self.context_menu.addAction(check_for_new_episodes_action)
         self.context_menu.addAction(search_action)
         self.context_menu.addAction(downloads_action)
         self.context_menu.addAction(exit_action)
-        self.messageClicked.connect(main_window.show)
+        self.messageClicked.connect(main_window.show_)
         self.setContextMenu(self.context_menu)
 
     def focus_or_hide_window(self):
         if not self.main_window.isVisible():
-            return self.main_window.show()
+            self.main_window.show_()
+            return
         self.main_window.hide()
 
     def on_tray_icon_click(self, reason: QSystemTrayIcon.ActivationReason):

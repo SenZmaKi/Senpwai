@@ -2,19 +2,19 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Senpwai"
-#define MyAppVersion "2.1.9"
+#define MyAppVersion "2.1.10"
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
 #define MyAppExeName "Senpwai.exe"
-#define ProjectRootDir "C:\Users\PC\OneDrive\Documents\Programming\Python\Senpwai"
+#define ProjectRootDir "C:\Users\PC\Dev\Python\Senpwai"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
-AppId={{B1AC746D-A6F0-44EF-B812.1.9-0DF4571B51}}
+AppId={{B1AC746D-A6F0-44EF-B812.1.10-0DF4571B51}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-VersionInfoVersion=2.1.9.0
+VersionInfoVersion=2.1.10.0
 ;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}

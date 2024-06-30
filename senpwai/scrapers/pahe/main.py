@@ -3,7 +3,7 @@ import math
 from typing import Any, Callable, cast
 from requests import Response
 from bs4 import BeautifulSoup, Tag
-from senpwai.utils.scraper import (
+from senpwai.common.scraper import (
     CLIENT,
     PARSER,
     AnimeMetadata,
@@ -36,6 +36,7 @@ COOKIES = {
     "__ddg1_": f"; Expires=Tue, 19 Jan 2038 03:14:07 GMT; Domain={PAHE_DOMAIN}; Path=/",
     "__ddg2_": f"; Expires=Tue, 19 Jan 2038 03:14:07 GMT; Domain={PAHE_DOMAIN}; Path=/",
 }
+Also it seems currently only __ddg2_ is necessary
 """
 
 
@@ -345,14 +346,17 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     poster = soup.find(class_="youtube-preview")
     if not isinstance(poster, Tag):
         poster = cast(Tag, soup.find(class_="poster-image"))
-    poster_link = cast(str, poster["href"])
+    poster_url = cast(str, poster["href"])
     summary = cast(Tag, soup.find(class_="anime-synopsis")).get_text()
-    genres_tags = cast(
-        Tag, cast(Tag, soup.find(class_="anime-genre font-weight-bold")).find("ul")
-    ).find_all("li")
-    genres: list[str] = []
-    for genre in genres_tags:
-        genres.append(cast(str, cast(Tag, genre.find("a"))["title"]))
+    genres_tag = cast(Tag, soup.find(class_="anime-genre font-weight-bold"))
+    genres = (
+        [
+            cast(str, cast(Tag, genre_tag.find("a")["title"]))
+            for genre_tag in genres_tag.find_all("li")
+        ]
+        if genres_tag
+        else []
+    )
     season_and_year = cast(
         str, cast(Tag, soup.select_one('a[href*="/anime/season/"]'))["title"]
     )
@@ -368,5 +372,5 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     else:
         status = "FINISHED"
     return AnimeMetadata(
-        poster_link, summary, episode_count, status, genres, int(release_year)
+        poster_url, summary, episode_count, status, genres, int(release_year)
     )

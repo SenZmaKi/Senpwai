@@ -4,7 +4,7 @@ from typing import Callable, cast
 
 from bs4 import BeautifulSoup, ResultSet, Tag
 from requests.cookies import RequestsCookieJar
-from senpwai.utils.scraper import (
+from senpwai.common.scraper import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     PARSER,
@@ -165,11 +165,6 @@ def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
         return get_anime_page_content(
             anime_page_link.replace(prev_home_url, GOGO_HOME_URL)
         )
-
-    response = CLIENT.get(
-        anime_page_link,
-    )
-    return response.content, anime_page_link
 
 
 def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:

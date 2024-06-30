@@ -24,44 +24,56 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
 
 ## Installation
 
-- **Cross-platform (Linux, Mac, Windows 10/11)**
+-   **Windows 10/11**
 
-Needs [Python 3.11](https://www.python.org/downloads/release/python-3111) installed.
+Download [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpwai-setup.exe) then run it. (Recommended)
+
+-   **Cross-platform (Linux, Mac, Windows 10/11)**
+
+Needs [Python 3.11+](https://www.python.org/downloads/release/python-3111) installed.
 
 ```bash
 pip install senpwai
 ```
 
-- **Windows 10/11**
-
-Download [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/download/Senpwai-setup.exe) then run it.
-
-- **Android**
+-   **Android**
 
 Check [Senpcli](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-guide.md)
 
-- **Other**
+-   **Other**
 
 [Build from source](#building-from-source).
 
 ## Features
 
-- Download any anime from [Animepahe](https://animepahe.ru) or [Gogoanime](https://anitaku.so).
-- Keep track of an anime and automatically download new episodes when they release.
-- Download a complete season or episodes within a range (e.g., 69-420).
-- Choose between video qualities: 360p, 480p (Gogoanime only), 720p, or 1080p.
-- Download in sub or dub (if available) depending on the user's preference.
-- Automatically detects episodes you already have and avoids re-downloading them.
-- Robust and graceful download error management.
-- GUI and [CLI](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-guide.md).
+-   Download any anime from [Animepahe](https://animepahe.ru) or [Gogoanime](https://anitaku.so).
+-   Keep track of an anime and automatically download new episodes when they release.
+-   Download a complete season or episodes within a range (e.g., 69-420).
+-   Choose between video qualities: 360p, 480p (Gogoanime only), 720p, or 1080p.
+-   Download in sub or dub (if available) depending on the user's preference.
+-   Automatically detects episodes you already have and avoids re-downloading them.
+-   Robust and graceful download error management.
+-   GUI and [CLI](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-guide.md).
 
 ## CLI
 
-[Senpcli](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-guide.md) is a minimalist and lightweight CLI alternative for Senpwai. Senpwai is already efficient and lightweight, Senpcli basically strips off the GUI while maintaining most of the basic functionality.
+[Senpcli](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-guide.md) is a CLI alternative for Senpwai. Senpwai is already efficient and lightweight, Senpcli basically strips off the GUI while maintaining most of the basic functionality.
+
+## Support
+
+-   You can support the development of Senpwai through donations on [GitHub Sponsors](https://github.com/sponsors/SenZmaKi) or [Patreon](https://patreon.com/Senpwai).
+-   You can also leave a star on the github for more weebs to know about it.
+-   Senpwai is open to pull requests, so if you have ideas for improvements, feel free to contribute!
+
+## Sponsors
+
+<p>
+<a href="https://github.com/Adam1400"><img src="https://github.com/Adam1400.png" width="80px" alt="Adam1400"/></a>&nbsp;&nbsp;<a href="https://github.com/KeithBoehler"><img src="https://github.com/KeithBoehler.png" width="80px" alt="KeithBoehler" /></a>
+</p>
 
 ## Building from Source
 
-Ensure you have [Python 3.11](https://www.python.org/downloads/release/python-3111) and [Git](https://github.com/git-guides/install-git) installed.
+Ensure you have [Python 3.11](https://www.python.org/downloads/release/python-3119) (3.11 specifically!!!) and [Git](https://github.com/git-guides/install-git) installed.
 
 Open a terminal and run the following commands.
 
@@ -77,25 +89,27 @@ git clone https://github.com/SenZmaKi/Senpwai --depth 1 && cd Senpwai && pip ins
 poetry run poe build_senpwai_exe
 ```
 
-- The executable will be built in `Senpwai\build\Senpwai`
+-   The executable will be built in `Senpwai\build\Senpwai`
 
 3. **Alternatively you can instead run the app directly via Python.**
+
+-   Activate virtual environment
+
+```
+poetry shell
+```
+
+-   Run the app
+
+```
+python -m senpwai
+```
+
+-   Both steps at once, but it is slower since it activates the virtual environment every time
 
 ```
 poetry run senpwai
 ```
-
-## Support
-
-- You can support the development of Senpwai through donations on [GitHub Sponsors](https://github.com/sponsors/SenZmaKi) or [Patreon](https://patreon.com/Senpwai).
-- You can also leave a star on the github for more weebs to know about it.
-- Senpwai is open to pull requests, so if you have ideas for improvements, feel free to contribute!
-
-## Sponsors
-
-<p>
-<a href="https://github.com/Adam1400"><img src="https://github.com/Adam1400.png" width="80px" alt="Adam1400"/></a>&nbsp;&nbsp;<a href="https://github.com/KeithBoehler"><img src="https://github.com/KeithBoehler.png" width="80px" alt="KeithBoehler" /></a>
-</p>
 
 ## FAQ
 
@@ -109,8 +123,8 @@ you have to click billions of links just to download one episode, so I made Senp
 HLS mode attempts to fix the unstability of Gogoanime normal mode. 
 In HLS mode Gogoanime downloads are guaranteed to work, though with a few downsides:
 
-- Requires [FFmpeg](https://www.hostinger.com/tutorials/how-to-install-ffmpeg) to be installed, though Senpwai can attempt to automatically install it for you.
-- No download size indication but Senpwai will estimate the total download size after the first download.
+-   Requires [FFmpeg](https://www.hostinger.com/tutorials/how-to-install-ffmpeg) to be installed, though Senpwai can attempt to automatically install it for you.
+-   No download size indication but Senpwai will estimate the total download size after the first download.
 
 </details>
 

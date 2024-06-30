@@ -2,7 +2,7 @@ from cx_Freeze import setup, Executable
 from os import path, unlink as os_unlink
 from typing import cast
 import sys
-from .utils import ROOT_DIR
+from .common import ROOT_DIR
 
 
 def duo_value_parser(
