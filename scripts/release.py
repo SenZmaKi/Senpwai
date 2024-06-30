@@ -1,4 +1,5 @@
 import subprocess
+import sys
 
 from scripts.common import (
     ARGS,
@@ -28,7 +29,15 @@ def publish_branch() -> None:
 
 
 def add_change_log_link(release_notes: str) -> str:
-    change_log_link = f"\n\n**Full Changelog**: {REPO_URL}/compare/v{bump_version.get_prev_version()}...v{bump_version.get_new_version()}"
+    prev_version = bump_version.get_prev_version()
+    new_version = bump_version.get_new_version()
+    if new_version == prev_version:
+        new_version = input("Failed to get prev version, manual input required\n> ")
+        if not new_version:
+            sys.exit()
+    change_log_link = (
+        f"\n\n**Full Changelog**: {REPO_URL}/compare/v{prev_version}...v{new_version}"
+    )
     return release_notes + change_log_link
 
 
@@ -46,7 +55,10 @@ def get_release_notes() -> str:
 
 
 def publish_release(release_notes: str) -> None:
-    subprocess.run("glow", input=release_notes.encode()).check_returncode()
+    try:
+        subprocess.run("glow", input=release_notes.encode()).check_returncode()
+    except FileNotFoundError:
+        print(release_notes)
     subprocess.run(
         f'gh release create {BRANCH_NAME} --notes "{release_notes}"'
     ).check_returncode()

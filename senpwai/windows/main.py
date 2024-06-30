@@ -128,31 +128,34 @@ class MainWindow(QMainWindow):
         x = (screen_geometry.width() - self.width()) // 2
         self.move(x, 0)
 
-    def setup_and_switch_to_chosen_anime_window(self, anime: Anime, site: str):
+    def switch_to_chosen_anime_window(self, anime: Anime, site: str):
         # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned
-        # When a user clicks more than one ResultButton quickly causing the reference to the original thread to be overwridden hence garbage collected/destroyed
-        if self.setup_chosen_anime_window_thread is None:
-            self.search_window.loading.start()
-            self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
-                self.search_window.loading
+        # when a user clicks more than one ResultButton quickly causing the reference to the original thread to be overwridden hence garbage collected/destroyed
+        if self.setup_chosen_anime_window_thread is not None:
+            return
+        self.search_window.loading.start()
+        self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
+            self.search_window.loading
+        )
+        self.setup_chosen_anime_window_thread = MakeAnimeDetailsThread(
+            self, anime, site
+        )
+        self.setup_chosen_anime_window_thread.finished.connect(
+            lambda anime_details: self.real_switch_to_chosen_anime_window(
+                anime_details
             )
-            self.setup_chosen_anime_window_thread = MakeAnimeDetailsThread(
-                self, anime, site
-            )
-            self.setup_chosen_anime_window_thread.finished.connect(
-                lambda anime_details: self.make_chosen_anime_window(anime_details)
-            )
-            self.setup_chosen_anime_window_thread.start()
+        )
+        self.setup_chosen_anime_window_thread.start()
 
-    def make_chosen_anime_window(self, anime_details: AnimeDetails):
+    def real_switch_to_chosen_anime_window(self, anime_details: AnimeDetails):
         self.setup_chosen_anime_window_thread = None
         self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
             self.search_window.results_widget
         )
-        self.search_window.loading.stop()
         chosen_anime_window = ChosenAnimeWindow(self, anime_details)
         self.stacked_windows.addWidget(chosen_anime_window)
         self.set_bckg_img(chosen_anime_window.bckg_img_path)
+        self.search_window.loading.stop()
         self.stacked_windows.setCurrentWidget(chosen_anime_window)
         self.setup_chosen_anime_window_thread = None
 

@@ -414,7 +414,7 @@ class ResultButton(OutlinedButton):
         }}"""
         )
         self.clicked.connect(
-            lambda: main_window.setup_and_switch_to_chosen_anime_window(anime, site)
+            lambda: main_window.switch_to_chosen_anime_window(anime, site)
         )
         self.installEventFilter(self)
 

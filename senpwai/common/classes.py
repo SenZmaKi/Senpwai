@@ -92,6 +92,9 @@ class Settings:
         self.configure_settings()
         self.setup_logger()
         self.is_update_install = self.version != VERSION
+        if self.is_update_install:
+            self.version = VERSION
+            self.save_settings()
 
     def setup_logger(self) -> None:
         error_logs_file_path = os.path.join(self.config_dir, "errors.log")
