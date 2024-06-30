@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "senpwai"
-version = "2.1.9"
+version = "2.1.10"
 description = "A desktop app for tracking and batch downloading anime"
 authors = ["SenZmaKi <senzmaki@gmail.com>"]
 license = "GPL v3"
