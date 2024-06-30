@@ -11,7 +11,6 @@ from PyQt6.QtWidgets import (
     QWidget,
     QMessageBox,
 )
-from common.selenium import DRIVER_MANAGER
 from senpwai.common.classes import SETTINGS, Anime, AnimeDetails, UpdateInfo
 from senpwai.common.static import (
     MINIMISED_TO_TRAY_ARG,
@@ -21,7 +20,6 @@ from senpwai.common.static import (
     UPDATE_ICON_PATH,
 )
 
-from senpwai.common.widgets import YesOrNoMessageBox
 from senpwai.windows.about import AboutWindow
 from senpwai.windows.abstracts import AbstractWindow
 from senpwai.windows.chosen_anime import ChosenAnimeWindow, MakeAnimeDetailsThread
@@ -67,15 +65,19 @@ class MainWindow(QMainWindow):
         if not a0:
             return
         if self.download_window.is_downloading():
-            is_yes = YesOrNoMessageBox(self,
-                "You have ongoing downloads, are you sure you want to exit?",
-                False,
-                QMessageBox.Icon.Warning,
-            ).execute()
-            if not is_yes:
-                a0.ignore()
-                return
-        DRIVER_MANAGER.close_driver()
+            message_box = QMessageBox(self)
+            message_box.setIcon(QMessageBox.Icon.Warning)
+            message_box.setStyleSheet("color: black")
+            message_box.setText(
+                "You have ongoing downloads, are you sure you want to exit?"
+            )
+            message_box.setStandardButtons(
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            message_box.setDefaultButton(QMessageBox.StandardButton.No)
+            message_box.exec()
+            if message_box.result() == QMessageBox.StandardButton.No:
+                return a0.ignore()
         a0.accept()
 
     def show_with_settings(self, args: list[str]):

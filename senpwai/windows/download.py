@@ -6,16 +6,13 @@ from PyQt6.QtCore import QMutex, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLayoutItem,
-    QMessageBox,
     QSpacerItem,
     QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
 )
-from common.selenium import BrowserName, NoSuchBrowserException
 from senpwai.scrapers import gogo, pahe
 from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
-from webbrowser import open_new_tab
 from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
@@ -50,7 +47,6 @@ from senpwai.common.widgets import (
     ScrollableSection,
     StyledButton,
     StyledLabel,
-    YesOrNoMessageBox,
     set_minimum_size_policy,
 )
 
@@ -579,7 +575,6 @@ class DownloadWindow(AbstractWindow):
             anime_details,
             self.calculate_download_size,
             direct_download_links_progress_bar,
-            self.pahe_no_browser_exception_handler,
         ).start()
 
     def calculate_download_size(self, anime_details: AnimeDetails):
@@ -694,25 +689,6 @@ class DownloadWindow(AbstractWindow):
         if self.hls_est_size:
             self.hls_est_size.deleteLater()
             self.hls_est_size = None
-
-    def pahe_no_browser_exception_handler(
-        self,
-        browser_name: BrowserName,
-        bound_links: list[str],
-        progress_bar: ProgressBarWithButtons,
-    ):
-        progress_bar.cancel()
-        if YesOrNoMessageBox(
-            self,
-            f"""Failed to retrieve direct download links, Animepahe has detected Senpwai as a bot. 
-I tried to fetch the links using the set browser "{browser_name.value.capitalize()}" but it is not installed, or some drivers are unavailable.
-Please install a different browser from the listed ones and update the setting.
-Or would you like to manually download the episodes from your browser?""",
-            True,
-            QMessageBox.Icon.Critical,
-        ).execute():
-            for link in bound_links:
-                open_new_tab(link)
 
     def start_download(self):
         self.clean_out_previous_download()
@@ -1245,7 +1221,6 @@ class PaheGetDownloadPageThread(QThread):
 class GetDirectDownloadLinksThread(QThread):
     finished = pyqtSignal(AnimeDetails)
     update_bar = pyqtSignal(int)
-    pahe_no_browser_exception = pyqtSignal(BrowserName, list, ProgressBarWithButtons)
 
     def __init__(
         self,
@@ -1255,9 +1230,6 @@ class GetDirectDownloadLinksThread(QThread):
         anime_details: AnimeDetails,
         finished_callback: Callable[[AnimeDetails], None],
         progress_bar: ProgressBarWithButtons,
-        pahe_no_browser_callback: Callable[
-            [BrowserName, list[str],  ProgressBarWithButtons], None
-        ],
     ):
         super().__init__(download_window)
         self.download_window = download_window
@@ -1267,7 +1239,6 @@ class GetDirectDownloadLinksThread(QThread):
         self.finished.connect(finished_callback)
         self.progress_bar = progress_bar
         self.update_bar.connect(progress_bar.update_bar)
-        self.pahe_no_browser_exception.connect(pahe_no_browser_callback)
 
     def run(self):
         if self.anime_details.site == PAHE:
@@ -1283,18 +1254,9 @@ class GetDirectDownloadLinksThread(QThread):
             obj = pahe.GetDirectDownloadLinks()
             self.progress_bar.pause_callback = obj.pause_or_resume
             self.progress_bar.cancel_callback = obj.cancel
-            browser_name = BrowserName.from_string(SETTINGS.browser)
-            try:
-                self.anime_details.ddls_or_segs_urls = obj.get_direct_download_links(
-                    bound_links,
-                    browser_name,
-                    lambda x: self.update_bar.emit(x),
-                )
-            except NoSuchBrowserException:
-                self.pahe_no_browser_exception.emit(
-                    browser_name, bound_links, self.progress_bar
-                )
-
+            self.anime_details.ddls_or_segs_urls = obj.get_direct_download_links(
+                bound_links, lambda x: self.update_bar.emit(x)
+            )
         else:
             obj = gogo.GetDirectDownloadLinks()
             self.progress_bar.pause_callback = obj.pause_or_resume
@@ -1307,7 +1269,7 @@ class GetDirectDownloadLinksThread(QThread):
 
         if len(self.anime_details.ddls_or_segs_urls) < len(self.download_page_links):
             self.download_window.main_window.tray_icon.make_notification(
-                "Download Error",
+                "Error",
                 f"Failed to find some {'hls' if self.anime_details.is_hls_download else 'direct download'} links for {self.anime_details.anime.title}",
                 False,
                 None,
@@ -1411,7 +1373,7 @@ class AutoDownloadThread(QThread):
                 continue
             if anime_details.sub_or_dub == DUB and not anime_details.dub_available:
                 self.download_window.main_window.tray_icon.make_notification(
-                    "Download Error",
+                    "Error",
                     f"Failed to find dub for {anime_details.anime.title}",
                     False,
                     None,

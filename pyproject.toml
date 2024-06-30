@@ -53,7 +53,6 @@ argparse = "^1.4.0"
 pylnk3 = "^0.4.2"
 pyqt6 = "^6.6.1"
 
-selenium = "^4.22.0"
 [tool.poetry.group.dev.dependencies]
 cx-freeze = "^6.15.12"
 ruff = "^0.2.1"

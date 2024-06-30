@@ -5,7 +5,6 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
 from senpwai.common.classes import SETTINGS
 from senpwai.common.scraper import try_deleting
-from senpwai.common.selenium import BrowserName
 from senpwai.common.static import (
     AMOGUS_EASTER_EGG,
     APP_EXE_PATH,
@@ -73,9 +72,7 @@ class SettingsWindow(AbstractWindow):
         right_widget.setLayout(right_layout)
         main_layout.addWidget(left_widget)
         main_layout.addWidget(right_widget)
-        self.file_location_button = StyledButton(
-            self, self.font_size, "white", "black", "grey", "black"
-        )
+        self.file_location_button = StyledButton(self, self.font_size, "white", "black", "grey", "black")
         self.file_location_button.setText(SETTINGS.settings_json_path)
         self.file_location_button.setToolTip("Location of detected settings file")
         self.file_location_button.clicked.connect(
@@ -99,7 +96,6 @@ class SettingsWindow(AbstractWindow):
             self, main_window.download_window
         )
         self.gogo_skip_calculate = GogoSkipCalculate(self)
-        self.browser = ScrapingBrowserSetting(self)
         left_layout.addWidget(self.file_location_button)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
@@ -112,7 +108,6 @@ class SettingsWindow(AbstractWindow):
             self.run_on_startup = RunOnStartUp(self)
             left_layout.addWidget(self.run_on_startup)
         right_layout.addWidget(self.download_folder_setting)
-        right_layout.addWidget(self.browser)
         right_layout.addWidget(self.auto_download_site)
         right_layout.addWidget(self.check_for_new_eps_after)
         right_layout.addWidget(self.tracked_anime)
@@ -326,7 +321,7 @@ class SettingWidget(QWidget):
         self,
         settings_window: SettingsWindow,
         setting_info: str,
-        widgets_to_add: tuple[QWidget, ...],
+        widgets_to_add: list,
         horizontal_layout=True,
     ):
         super().__init__()
@@ -342,51 +337,6 @@ class SettingWidget(QWidget):
             main_layout.addWidget(button)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.setLayout(main_layout)
-
-
-class ScrapingBrowserSetting(SettingWidget):
-    def __init__(self, settings_window: SettingsWindow):
-        font_size = settings_window.font_size
-        self.settings_window = settings_window
-
-        def make_button(browser_name: BrowserName):
-            return OptionButton(
-                settings_window,
-                browser_name,
-                browser_name.value.upper(),
-                font_size,
-                RED_PRESSED_COLOR,
-                RED_NORMAL_COLOR,
-            )
-
-        self.browser_button = tuple(make_button(browser) for browser in BrowserName)
-        for button in self.browser_button:
-            set_minimum_size_policy(button)
-            browser = cast(BrowserName, button.option)
-            if browser == BrowserName.webkit:
-                button.setToolTip("WebKit based browsers like Epiphany")
-            elif browser == BrowserName.ie:
-                button.setToolTip("Internet Explorer")
-            elif browser == BrowserName.any:
-                button.setToolTip(
-                    "Senpwai will try all of the listed ones till it finds one that is installed"
-                )
-            button.clicked.connect(
-                lambda _, browser=browser: self.update_browser(browser)
-            )
-            if browser.value == SETTINGS.browser:
-                button.set_picked_status(True)
-        super().__init__(settings_window, "Scraping browser", self.browser_button)
-        self.setting_label.setToolTip(
-            "Browser to use in cases where static scraping fails e.g., when Senpwai is detected as a bot on Animepahe"
-        )
-
-    def update_browser(self, browser: BrowserName):
-        for button in self.browser_button:
-            if button.option != browser:
-                button.set_picked_status(False)
-            else:
-                SETTINGS.update_browser(browser)
 
 
 class RemovableWidget(QWidget):
@@ -426,7 +376,7 @@ class TrackedAnimeListSetting(SettingWidget):
         super().__init__(
             settings_window,
             "Tracked",
-            (line, main_widget),
+            [line, main_widget],
             False,
         )
         self.setting_label.setToolTip(
@@ -479,7 +429,7 @@ class AutoDownloadSite(SettingWidget):
             gogo_button.set_picked_status(True)
 
         super().__init__(
-            settings_window, "Auto download site", (pahe_button, gogo_button)
+            settings_window, "Auto download site", [pahe_button, gogo_button]
         )
         self.setting_label.setToolTip(
             f"If {APP_NAME} can't find the anime in the specified site it will try the other"
@@ -500,7 +450,7 @@ class YesOrNoSetting(SettingWidget):
         set_minimum_size_policy(self.yes_button)
         set_minimum_size_policy(self.no_button)
         super().__init__(
-            settings_window, setting_info, (self.yes_button, self.no_button)
+            settings_window, setting_info, [self.yes_button, self.no_button]
         )
 
         if tooltip:
@@ -612,7 +562,7 @@ class GogoNormOrHlsSetting(SettingWidget):
             lambda: SETTINGS.update_gogo_norm_or_hls_mode(GOGO_HLS_MODE)
         )
         super().__init__(
-            settings_window, "Gogo Normal or HLS mode", (norm_button, hls_button)
+            settings_window, "Gogo Normal or HLS mode", [norm_button, hls_button]
         )
 
 
@@ -647,7 +597,7 @@ class NonZeroNumberInputSetting(SettingWidget):
                 units_label, alignment=Qt.AlignmentFlag.AlignLeft
             )
         else:
-            # Just to avoid type errors
+            # just to avoid type errors
             units_label = None
         main_layout = QVBoxLayout()
         self.error = ErrorLabel(settings_window.font_size)
@@ -659,7 +609,7 @@ class NonZeroNumberInputSetting(SettingWidget):
         main_widget.setLayout(main_layout)
         main_layout.addWidget(self.error)
         main_layout.addWidget(input_widget)
-        super().__init__(settings_window, setting_info, (main_widget,))
+        super().__init__(settings_window, setting_info, [main_widget])
         self.number_input.textChanged.connect(self.text_changed)
         if tooltip:
             self.setting_label.setToolTip(tooltip)
@@ -719,8 +669,8 @@ class QualitySetting(SettingWidget):
         button_720 = QualityButton(settings_window, Q_720, font_size)
         button_480 = QualityButton(settings_window, Q_480, font_size)
         button_360 = QualityButton(settings_window, Q_360, font_size)
-        self.quality_buttons = (button_1080, button_720, button_480, button_360)
-        for button in self.quality_buttons:
+        self.quality_buttons_list = [button_1080, button_720, button_480, button_360]
+        for button in self.quality_buttons_list:
             set_minimum_size_policy(button)
             quality = button.quality
             button.clicked.connect(
@@ -728,12 +678,12 @@ class QualitySetting(SettingWidget):
             )
             if button.quality == SETTINGS.quality:
                 button.set_picked_status(True)
-        super().__init__(settings_window, "Download quality", self.quality_buttons)
+        super().__init__(settings_window, "Download quality", self.quality_buttons_list)
         self.setToolTip("480p is usually only available on Gogoanime")
 
     def update_quality(self, quality: str):
         SETTINGS.update_quality(quality)
-        for button in self.quality_buttons:
+        for button in self.quality_buttons_list:
             if button.quality != quality:
                 button.set_picked_status(False)
 
@@ -752,4 +702,4 @@ class SubDubSetting(SettingWidget):
         dub_button.clicked.connect(lambda: sub_button.set_picked_status(False))
         sub_button.clicked.connect(lambda: SETTINGS.update_sub_or_dub(SUB))
         dub_button.clicked.connect(lambda: SETTINGS.update_sub_or_dub(DUB))
-        super().__init__(settings_window, "Sub or Dub", (sub_button, dub_button))
+        super().__init__(settings_window, "Sub or Dub", [sub_button, dub_button])

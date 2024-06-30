@@ -1,7 +1,6 @@
 import re
 import math
 from typing import Any, Callable, cast
-from common.selenium import DRIVER_MANAGER, BrowserName, DriverManager
 from requests import Response
 from bs4 import BeautifulSoup, Tag
 from senpwai.common.scraper import (
@@ -39,22 +38,6 @@ COOKIES = {
 }
 Also it seems currently only __ddg2_ is necessary
 """
-
-
-class DetectedAsBotException(Exception):
-    def __init__(
-        self,
-    ) -> None:
-        super().__init__(
-            "Animepahe has detected the request to have been made by a bot"
-        )
-
-
-class PahewinError(Exception):
-    def __init__(self, page_link: str, page_contents: str) -> None:
-        super().__init__(
-            f"Failed to extract kwik direct download links\nPage contents:\n{page_contents}\nPage link: {page_link}"
-        )
 
 
 def site_request(url: str) -> Response:
@@ -314,42 +297,19 @@ class GetDirectDownloadLinks(ProgressFunction):
     def __init__(self) -> None:
         super().__init__()
 
-    @staticmethod
-    def get_kwik_page_link(
-        pahewin_link: str, browser_name: BrowserName | None = None
-    ) -> str:
-        use_selenium = browser_name is not None
-        if DRIVER_MANAGER.driver and use_selenium:
-            DRIVER_MANAGER.driver.get(pahewin_link)
-            pahewin_html_page = DRIVER_MANAGER.driver.page_source
-        else:
-            response = CLIENT.get(pahewin_link)
-            if response.status_code == 403:
-                if browser_name is None:
-                    raise DetectedAsBotException()
-                else:
-                    DRIVER_MANAGER.setup_driver(browser_name)
-                    driver = cast(DriverManager.type_driver, DRIVER_MANAGER.driver)
-                    driver.get(pahewin_link)
-                    pahewin_html_page = driver.page_source
-            else:
-                pahewin_html_page = response.text
-        kwik_page_link = cast(
-            re.Match[str], KWIK_PAGE_REGEX.search(pahewin_html_page)
-        ).group()
-        return kwik_page_link
-
     def get_direct_download_links(
         self,
         pahewin_download_page_links: list[str],
-        browser_name: BrowserName | None,
         progress_update_callback: Callable = lambda _: None,
     ) -> list[str]:
         direct_download_links: list[str] = []
         for pahewin_link in pahewin_download_page_links:
-            kwik_page_link = GetDirectDownloadLinks.get_kwik_page_link(
-                pahewin_link, browser_name
-            )
+            # Extract kwik page links
+            pahewin_html_page = CLIENT.get(pahewin_link).text
+            kwik_page_link = cast(
+                re.Match[str], KWIK_PAGE_REGEX.search(pahewin_html_page)
+            ).group()
+
             # Extract direct download links from kwik html page
             response = CLIENT.get(kwik_page_link)
             match = cast(re.Match, PARAM_REGEX.search(response.text))
@@ -376,7 +336,6 @@ class GetDirectDownloadLinks(ProgressFunction):
             if self.cancelled:
                 return []
             progress_update_callback(1)
-        DRIVER_MANAGER.close_driver()
         return direct_download_links
 
 
