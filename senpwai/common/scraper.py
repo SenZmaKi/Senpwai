@@ -484,7 +484,6 @@ class Download(ProgressFunction):
         except PermissionError:  # Maybe they started watching the episode on VLC before it finished downloading now VLC has a handle to the file hence PermissionDenied
             pass
 
-
     def hls_download(self) -> bool:
         with open(self.temporary_file_path, "wb") as f:
             for seg in self.link_or_segment_urls:

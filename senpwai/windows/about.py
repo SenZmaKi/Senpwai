@@ -53,7 +53,8 @@ class AboutWindow(AbstractWindow):
             startup_text = "- To start minimised to tray on startup, follow [this guide](https://stackoverflow.com/a/29247942/17193072) then pass `--minimised_to_tray` to Senpwai e.g., `senpwai --minimised_to_tray`"
         elif OS.is_mac:
             startup_text = "- To start minimised to tray on startup, follow [this guide](https://stackoverflow.com/a/6445525/17193072) then pass `--minimised_to_tray` to Senpwai e.g., `senpwai --minimised_to_tray`"
-        tips.setMarkdown(f"""
+        tips.setMarkdown(
+            f"""
 {startup_text}
 - When searching use the anime's Romaji title instead of the English title
 - If you don't specify end episode, Senpwai will assume you mean the last episode
@@ -66,7 +67,8 @@ class AboutWindow(AbstractWindow):
 - To completely remove Senpwai (don't know why you would though), post-uninstallation delete the settings folder
 - To use a custom font family, edit the `font_family` value in the settings file, if left empty, it will default to your OS setting
 - Hate the background images? Check out the [discord]({DISCORD_INVITE_LINK}) for [senptheme](https://discord.com/channels/1131981618777702540/1211137093955362837/1211175899895038033)
-        """)
+        """
+        )
         tips.setMinimumHeight(200)
 
         reviews_title = Title("Reviews")

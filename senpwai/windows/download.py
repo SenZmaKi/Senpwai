@@ -842,9 +842,10 @@ class DownloadManagerThread(QThread, ProgressFunction):
                 episode_size_or_segs = len(ddl_or_seg_urls)
             else:
                 try:
-                    (episode_size_or_segs, ddl_or_seg_urls) = (
-                        Download.get_resource_length(cast(str, ddl_or_seg_urls))
-                    )
+                    (
+                        episode_size_or_segs,
+                        ddl_or_seg_urls,
+                    ) = Download.get_resource_length(cast(str, ddl_or_seg_urls))
                 except NoResourceLengthException:
                     self.download_window.main_window.tray_icon.make_notification(
                         "Invalid Download Link",
