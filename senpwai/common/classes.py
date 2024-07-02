@@ -89,7 +89,8 @@ class Settings:
         self.gogo_skip_calculate = False
         self.version = VERSION
 
-        self.configure_settings()
+        self.load_settings()
+        self.save_settings()
         self.setup_logger()
         self.is_update_install = self.version != VERSION
         if self.is_update_install:
@@ -114,23 +115,20 @@ class Settings:
             os.makedirs(config_dir)
         return config_dir
 
-    def configure_settings(self) -> None:
+    def load_settings(self) -> None:
         if not os.path.isfile(self.settings_json_path):
-            self.save_settings()
             return
-        with open(self.settings_json_path, "r") as f:
-            try:
+        try:
+            with open(self.settings_json_path, "r") as f:
                 settings = cast(dict, json.load(f))
                 # TODO: DEPRECATION: Remove in version 2.1.11+ cause we use start_maximized now
                 start_in_fullscreen = settings.get("start_in_fullscreen", None)
                 if start_in_fullscreen is not None:
                     self.start_maximized = start_in_fullscreen
                     settings.pop("start_in_fullscreen")
-                    f.close()
-                    self.save_settings()
                 self.__dict__.update(settings)
-            except json.decoder.JSONDecodeError:
-                self.save_settings()
+        except json.JSONDecodeError:
+            pass
 
     def setup_default_download_folder(self) -> list[str]:
         downloads_folder = os.path.join(Path.home(), "Downloads", "Anime")
