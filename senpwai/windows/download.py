@@ -1266,10 +1266,10 @@ class GetDirectDownloadLinksThread(QThread):
                 lambda x: self.update_bar.emit(x),
             )
 
-        if len(self.anime_details.ddls_or_segs_urls) < len(self.download_page_links):
+        if not obj.cancelled and len(self.anime_details.ddls_or_segs_urls) < len(self.download_page_links):
             self.download_window.main_window.tray_icon.make_notification(
                 "Error",
-                f"Failed to find some {'hls' if self.anime_details.is_hls_download else 'direct download'} links for {self.anime_details.anime.title}",
+                f"Failed to retrieve some {'hls' if self.anime_details.is_hls_download else 'direct download'} links for {self.anime_details.anime.title}",
                 False,
                 None,
             )
