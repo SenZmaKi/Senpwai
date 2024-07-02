@@ -299,7 +299,7 @@ class FetchFavouriteThread(QThread):
         favourites: list[dict["str", Any]] = response_json["data"]["User"][
             "favourites"
         ]["anime"]["nodes"]
-        if favourites:
+        if not favourites:
             return None
         chosen_favourite = random_choice(favourites)
         anime_title = chosen_favourite["title"]["romaji"]
