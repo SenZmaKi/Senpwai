@@ -678,6 +678,9 @@ class FolderButton(IconButton):
         self, path: str, size_x: int, size_y: int, parent: QWidget | None = None
     ):
         super().__init__(Icon(size_x, size_y, FOLDER_ICON_PATH), 1.3, parent)
+        self.set_folder_path(path)
+
+    def set_folder_path(self, path: str):
         self.folder_path = path
         self.setToolTip(path)
         self.clicked.connect(lambda: open_folder(self.folder_path))

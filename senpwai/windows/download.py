@@ -654,7 +654,9 @@ class DownloadWindow(AbstractWindow):
             )
 
             set_minimum_size_policy(self.downloaded_episode_count)
-            self.folder_button = FolderButton("", 100, 100, None)
+            self.folder_button = FolderButton(
+                anime_details.anime_folder_path, 100, 100, None
+            )
 
             def download_is_active() -> bool:
                 return not (
@@ -718,7 +720,7 @@ class DownloadWindow(AbstractWindow):
             current_download_manager_thread.pause_or_resume
         )
         self.cancel_button.cancel_callback = current_download_manager_thread.cancel
-        self.folder_button.folder_path = anime_details.anime_folder_path
+        self.folder_button.set_folder_path(anime_details.anime_folder_path)
         current_download_manager_thread.start()
 
     def make_episode_progress_bar(
