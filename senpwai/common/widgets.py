@@ -679,6 +679,7 @@ class FolderButton(IconButton):
     ):
         super().__init__(Icon(size_x, size_y, FOLDER_ICON_PATH), 1.3, parent)
         self.folder_path = path
+        self.setToolTip(path)
         self.clicked.connect(lambda: open_folder(self.folder_path))
 
 

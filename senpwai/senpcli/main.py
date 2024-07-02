@@ -464,9 +464,9 @@ def download_manager(
 ):
     anime_details.validate_anime_folder_path()
     desc = (
-        f"Downloading [HLS] {anime_details.sanitised_title}"
+        f"Downloading [HLS] {anime_details.shortened_title}"
         if is_hls_download
-        else f"Downloading {anime_details.sanitised_title}"
+        else f"Downloading {anime_details.shortened_title}"
     )
     episodes_pbar = ProgressBar(total=len(ddls_or_segs_urls), desc=desc, unit="eps")
     download_slot_available = Event()

@@ -255,6 +255,7 @@ class AnimeDetails:
             else False
         )
         self.sanitised_title = sanitise_title(anime.title)
+        self.shortened_title = self.get_shortened_title()
         self.default_download_path = SETTINGS.download_folder_paths[0]
         self.anime_folder_path = self.get_anime_folder_path()
         self.potentially_haved_episodes = list(Path(self.anime_folder_path).glob("*"))
@@ -281,9 +282,17 @@ class AnimeDetails:
             else False
         )
 
+    def get_shortened_title(self):
+        # Around 5 words i.e., 5 * 8
+        max_anime_title_length = 40
+        if len(self.sanitised_title) <= max_anime_title_length:
+            return self.sanitised_title
+        shortened = self.sanitised_title[: max_anime_title_length - 3]
+        return f"{shortened.strip()}..."
+
     def episode_title(self, lacked_eps_idx: int) -> str:
         episode_number_str = str(self.lacked_episode_numbers[lacked_eps_idx]).zfill(2)
-        return f"{self.sanitised_title} E{episode_number_str}"
+        return f"{self.shortened_title} E{episode_number_str}"
 
     def validate_anime_folder_path(self) -> None:
         if not os.path.isdir(self.anime_folder_path):
