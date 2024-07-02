@@ -58,7 +58,7 @@ class MainWindow(QMainWindow):
         self.stacked_windows.addWidget(self.settings_window)
         self.stacked_windows.addWidget(self.about_window)
         self.setCentralWidget(self.stacked_windows)
-        self.setup_chosen_anime_window_thread: QThread | None = None
+        self.make_anime_details_thread: QThread | None = None
         self.download_window.start_auto_download()
 
     def closeEvent(self, a0: QCloseEvent | None) -> None:
@@ -129,26 +129,24 @@ class MainWindow(QMainWindow):
         self.move(x, 0)
 
     def switch_to_chosen_anime_window(self, anime: Anime, site: str):
-        # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned
-        # when a user clicks more than one ResultButton quickly causing the reference to the original thread to be overwridden hence garbage collected/destroyed
-        if self.setup_chosen_anime_window_thread is not None:
+        if (
+            self.make_anime_details_thread is not None
+            # Incase the thread crashed like when an exception is raised meaning the thread is not running
+            # but also did not emit on finish to reset to None
+            and self.make_anime_details_thread.isRunning()
+        ):
             return
         self.search_window.loading.start()
         self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
             self.search_window.loading
         )
-        self.setup_chosen_anime_window_thread = MakeAnimeDetailsThread(
-            self, anime, site
+        self.make_anime_details_thread = MakeAnimeDetailsThread(self, anime, site)
+        self.make_anime_details_thread.finished.connect(
+            lambda anime_details: self.real_switch_to_chosen_anime_window(anime_details)
         )
-        self.setup_chosen_anime_window_thread.finished.connect(
-            lambda anime_details: self.real_switch_to_chosen_anime_window(
-                anime_details
-            )
-        )
-        self.setup_chosen_anime_window_thread.start()
+        self.make_anime_details_thread.start()
 
     def real_switch_to_chosen_anime_window(self, anime_details: AnimeDetails):
-        self.setup_chosen_anime_window_thread = None
         self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
             self.search_window.results_widget
         )
@@ -157,7 +155,7 @@ class MainWindow(QMainWindow):
         self.set_bckg_img(chosen_anime_window.bckg_img_path)
         self.search_window.loading.stop()
         self.stacked_windows.setCurrentWidget(chosen_anime_window)
-        self.setup_chosen_anime_window_thread = None
+        self.make_anime_details_thread = None
 
     def switch_to_pahe(self, anime_title: str, initiator: QWidget):
         self.search_window.search_bar.setText(anime_title)
