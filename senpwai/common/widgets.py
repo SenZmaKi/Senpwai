@@ -767,7 +767,7 @@ class GogoNormOrHlsButton(OptionButton):
                 "Normal download functionality, similar to Animepahe but may occassionally fail"
             )
         self.setToolTip(
-            "Guaranteed to work, it's like downloading a live stream as opposed to a file\nYou need to install FFmpeg for it to work but Senpwai will try to automatically install it"
+            "Guaranteed to work and usually downloads are faster, it's like downloading a live stream as opposed to a file\nYou need to install FFmpeg for it to work but Senpwai will try to automatically install it"
         )
 
 

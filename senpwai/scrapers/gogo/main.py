@@ -13,7 +13,7 @@ from senpwai.common.scraper import (
     DomainNameError,
     ProgressFunction,
     get_new_home_url_from_readme,
-    match_quality,
+    closest_quality_index,
     sanitise_title,
 )
 from .constants import (
@@ -83,7 +83,7 @@ class GetDirectDownloadLinks(ProgressFunction):
         self,
         download_page_links: list[str],
         user_quality: str,
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> list[str]:
         direct_download_links: list[str] = []
         for eps_pg_link in download_page_links:
@@ -96,7 +96,7 @@ class GetDirectDownloadLinks(ProgressFunction):
                     cast(Tag, soup.find("div", class_="cf-download")).find_all("a"),
                 )
                 qualities = [a.text for a in a_tags]
-                idx = match_quality(qualities, user_quality)
+                idx = closest_quality_index(qualities, user_quality)
                 redirect_link = cast(str, a_tags[idx]["href"])
                 link = CLIENT.get(
                     redirect_link, cookies=get_session_cookies()
@@ -116,7 +116,7 @@ class CalculateTotalDowloadSize(ProgressFunction):
     def calculate_total_download_size(
         self,
         direct_download_links: list[str],
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
         in_megabytes=False,
     ) -> int:
         total_size = 0

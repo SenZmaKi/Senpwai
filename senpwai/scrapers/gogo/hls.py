@@ -6,10 +6,10 @@ from senpwai.common.scraper import (
     PARSER,
     CLIENT,
     ProgressFunction,
-    match_quality,
+    closest_quality_index,
 )
 from bs4 import BeautifulSoup, Tag
-from typing import Any, cast, Callable
+from typing import cast, Callable
 from yarl import URL
 import base64
 import re
@@ -24,7 +24,7 @@ class GetHlsMatchedQualityLinks(ProgressFunction):
         self,
         hls_links: list[str],
         quality: str,
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> list[str]:
         matched_links: list[str] = []
         for link in hls_links:
@@ -34,7 +34,7 @@ class GetHlsMatchedQualityLinks(ProgressFunction):
                 return []
             lines = response.text.split(",")
             qualities = [line for line in lines if "NAME=" in line]
-            idx = match_quality(qualities, quality)
+            idx = closest_quality_index(qualities, quality)
             resource = qualities[idx].splitlines()[1]
             base_url = URL(link).parent
             matched_links.append(f"{base_url}/{resource}")
@@ -49,7 +49,7 @@ class GetHlsSegmentsUrls(ProgressFunction):
     def get_hls_segments_urls(
         self,
         matched_links: list[str],
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> list[list[str]]:
         segments_urls: list[list[str]] = []
         for link in matched_links:
@@ -76,7 +76,7 @@ class GetHlsLinks(ProgressFunction):
     def get_hls_links(
         self,
         download_page_links: list[str],
-        progress_update_callback: Callable[[int], Any] = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> list[str]:
         hls_links: list[str] = []
         for eps_url in download_page_links:

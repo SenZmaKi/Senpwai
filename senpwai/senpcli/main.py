@@ -159,16 +159,14 @@ class ProgressBar(tqdm):
         ProgressBar.active.clear()
 
     def update_(self, added: int):
-        result = super().update(added)
-        return result
+        super().update(added)
 
     def close_(self, remove_from_active=True) -> None:
         if self not in ProgressBar.active:
             return
         if remove_from_active:
             ProgressBar.active.remove(self)
-        result = super().close()
-        return result
+        super().close()
 
 
 def parse_args(args: list[str]) -> tuple[Namespace, ArgumentParser]:

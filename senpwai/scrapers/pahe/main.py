@@ -10,7 +10,7 @@ from senpwai.common.scraper import (
     DomainNameError,
     ProgressFunction,
     get_new_home_url_from_readme,
-    match_quality,
+    closest_quality_index,
 )
 from .constants import (
     CHAR_MAP_BASE,
@@ -141,7 +141,7 @@ class GetEpisodePageLinks(ProgressFunction):
         first_page: dict[str, Any],
         anime_page_link: str,
         anime_id: str,
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> list[str]:
         page_url = anime_page_link
         episodes_data: list[dict[str, Any]] = []
@@ -173,7 +173,7 @@ class GetPahewinPageLinks(ProgressFunction):
     def get_pahewin_page_links_and_info(
         self,
         episode_page_links: list[str],
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> tuple[list[list[str]], list[list[str]]]:
         pahewin_links: list[list[str]] = []
         download_info: list[list[str]] = []
@@ -248,7 +248,7 @@ def bind_quality_to_link_info(
     bound_links: list[str] = []
     bound_info: list[str] = []
     for links, infos in zip(pahewin_download_page_links, download_info):
-        index = match_quality(infos, quality)
+        index = closest_quality_index(infos, quality)
         bound_links.append(links[index])
         bound_info.append(infos[index])
     return (bound_links, bound_info)
@@ -300,7 +300,7 @@ class GetDirectDownloadLinks(ProgressFunction):
     def get_direct_download_links(
         self,
         pahewin_download_page_links: list[str],
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> list[str]:
         direct_download_links: list[str] = []
         for pahewin_link in pahewin_download_page_links:

@@ -49,7 +49,7 @@ def conditional_print(text: str):
 
 
 def test_start(name: str):
-    conditional_print(f"Running: {name} Test")
+    conditional_print(f"Testing: {name}")
 
 
 def fail_test(
