@@ -5,7 +5,7 @@
 #define MyAppVersion "2.1.10"
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
-#define MyAppExeName "Senpwai.exe"
+#define MyAppExeName "senpwai.exe"
 #define ProjectRootDir "C:\Users\PC\Dev\Python\Senpwai"
 
 [Setup]
