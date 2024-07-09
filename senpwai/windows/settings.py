@@ -469,6 +469,7 @@ class YesOrNoSetting(SettingWidget):
 class GogoSkipCalculate(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Skip calculating download size for Gogo")
+        self.setToolTip("Calculating total download size on gogo involves first making requests for the size of each episode")
         if SETTINGS.gogo_skip_calculate:
             self.yes_button.set_picked_status(True)
         else:
