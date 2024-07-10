@@ -191,8 +191,8 @@ class GetPahewinPageLinks(ProgressFunction):
         return (pahewin_links, download_info)
 
 
-def is_dub(anime_info: str) -> bool:
-    return anime_info.endswith(DUB_PATTERN)
+def is_dub(episode_download_info: str) -> bool:
+    return episode_download_info.endswith(DUB_PATTERN)
 
 
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
@@ -202,14 +202,11 @@ def dub_available(anime_page_link: str, anime_id: str) -> bool:
     if episodes_data is None:
         return False
     episode_sessions = [episode["session"] for episode in episodes_data]
-    episode_links = [
-        EPISODE_PAGE_URL.format(anime_id, episode_session)
-        for episode_session in episode_sessions
-    ]
+    episode_page_link = EPISODE_PAGE_URL.format(anime_id, episode_sessions[0])
     (
         _,
         download_info,
-    ) = GetPahewinPageLinks().get_pahewin_page_links_and_info(episode_links[:1])
+    ) = GetPahewinPageLinks().get_pahewin_page_links_and_info([episode_page_link])
 
     for info in download_info[0]:
         if is_dub(info):
