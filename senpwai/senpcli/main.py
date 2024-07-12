@@ -769,7 +769,7 @@ def validate_args(parsed: Namespace) -> bool:
         print_error("End episode cannot be less than 1, is that your brain cell count?")
         return False
     if parsed.site != GOGO and parsed.hls:
-        print_error("Setting site to Gogo since HLS mode is only available for Gogo")
+        print_warn("Setting site to Gogo since HLS mode is only available for Gogo")
         parsed.site = GOGO
 
     return True
