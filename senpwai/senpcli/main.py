@@ -141,12 +141,13 @@ class ProgressBar(tqdm):
         total: int,
         desc: str,
         unit: str,
-        unit_scale=False,
+        unit_scale=True,
     ):
         super().__init__(
             total=total,
             desc=desc,
             unit=unit,
+            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_noinv_fmt}]",
             unit_scale=unit_scale,
             leave=False,
         )
