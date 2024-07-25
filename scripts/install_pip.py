@@ -1,11 +1,11 @@
 import subprocess
 
-from scripts.common import ROOT_DIR
+from scripts.common import ROOT_DIR, join_from_py_scripts
 
 
 def main() -> None:
     # Global pip cause venv pip is weird sometimes cause poetry and stuff
-    pip_path = r"C:\Users\PC\AppData\Local\Programs\Python\Python311\Scripts\pip.exe"
+    pip_path = join_from_py_scripts("pip.exe")
     dist_dir = ROOT_DIR.joinpath("dist")
     distributable = next(dist_dir.glob("*"))
     subprocess.run(f"{pip_path} uninstall senpwai -y").check_returncode()

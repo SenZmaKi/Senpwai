@@ -1,6 +1,7 @@
+from argparse import ArgumentParser
 from typing import Any, cast
 from scripts.announce.common import FailedToAnnounce
-from scripts.common import ARGS, ROOT_DIR, get_piped_input
+from scripts.common import ROOT_DIR, get_piped_input
 import json
 import requests
 import re
@@ -22,7 +23,7 @@ def validate_response(is_ok: bool, response_json: dict[str, Any]) -> None:
 
 
 def fetch_access_token() -> str:
-    with open(ROOT_DIR.joinpath(".credentials/reddit.json"), "r") as f:
+    with open(ROOT_DIR.joinpath(".credentials", "reddit.json"), "r") as f:
         credentials = json.load(f)
         data = {
             "scope": "*",
@@ -41,7 +42,7 @@ def fetch_access_token() -> str:
 
 def submit_post(
     title: str,
-    release_notes: str,
+    message: str,
     access_token: str,
 ) -> str:
     headers = {"Authorization": f"Bearer {access_token}", "User-Agent": "script"}
@@ -52,7 +53,7 @@ def submit_post(
         "sr": "Senpwai",
         "resubmit": "true",
         "send_replies": "true",
-        "text": release_notes,
+        "text": message,
     }
 
     response = requests.post(SUBMIT_POST_URL, headers=headers, data=data)
@@ -70,14 +71,25 @@ def approve_post(post_short_id: str, access_token: str) -> None:
     validate_response(response.ok, response_json)
 
 
-def main(title: str, release_notes: str) -> None:
+def main(title: str, message: str) -> None:
     log_info("Fetching auth token")
     access_token = fetch_access_token()
     log_info("Submitting post")
-    post_short_id = submit_post(title, release_notes, access_token)
+    post_short_id = submit_post(title, message, access_token)
     log_info("Approving post")
     approve_post(post_short_id, access_token)
 
 
 if __name__ == "__main__":
-    main(ARGS[0], get_piped_input())
+    parser = ArgumentParser(description="Post on Reddit")
+    parser.add_argument("-t", "--title", type=str, help="Title of the post")
+    parser.add_argument(
+        "-m",
+        "--message",
+        type=str,
+        default="",
+        help="Body of the post, will use stdin if not provided",
+    )
+    parsed = parser.parse_args()
+    message = parsed.message or get_piped_input()
+    main(parsed.title, message)

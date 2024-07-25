@@ -72,9 +72,9 @@ ruff = [{ ref = "lint_fix" }, { ref = "format" }]
 lint = "python -m scripts.ruff"
 lint_fix = "python -m scripts.ruff --lint_fix"
 format = "python -m scripts.ruff --format"
-generate_release_test = [{ref = "lint"}, { ref = "test" }, { ref = "generate_release" }]
-generate_release_ddl = [{ ref = "test_ddl" }, { ref = "generate_release" }]
-generate_release = [
+build_release_test = [{ref = "lint"}, { ref = "test" }, { ref = "build_release" }]
+build_release_ddl = [{ ref = "test_ddl" }, { ref = "build_release" }]
+build_release = [
   { ref = "build_exes" },
   { ref = "compile_installers" },
   { ref = "install" },

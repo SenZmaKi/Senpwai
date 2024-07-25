@@ -70,9 +70,11 @@ def get_options(build_dir: str, assets_dir: str, senpcli_only: bool) -> dict:
 
 
 def main():
-    senpcli_only = "--senpcli" in sys.argv
-    if senpcli_only:
+    try:
         sys.argv.remove("--senpcli")
+        senpcli_only = True
+    except ValueError:
+        senpcli_only = False
     senpwai_package_dir = ROOT_DIR.joinpath("senpwai")
     sys.path.append(str(senpwai_package_dir))
     metadata = parse_metadata()
