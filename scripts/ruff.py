@@ -1,16 +1,21 @@
+from argparse import ArgumentParser
 import subprocess
-from scripts.common import ARGS, ROOT_DIR, git_commit
+from scripts.common import ROOT_DIR, git_commit
 
 
 def main(
     lint_fix=False,
     format=False,
 ) -> None:
-    if lint_fix or "--lint_fix" in ARGS:
+    parser = ArgumentParser("Run ruff on the project")
+    parser.add_argument("-f", "--format", action="store_true", help="Format the code")
+    parser.add_argument("-lf", "--lint_fix", action="store_true", help="Fix linting issues")
+    parsed = parser.parse_args()
+    if lint_fix or parsed.lint_fix:
         subprocess.run(f"ruff {ROOT_DIR} --fix").check_returncode()
         git_commit("Fix linting issues with ruff")
         return
-    if format or "--format" in ARGS:
+    if format or parsed.format:
         subprocess.run(f"ruff format {ROOT_DIR}").check_returncode()
         git_commit("Format with ruff")
         return

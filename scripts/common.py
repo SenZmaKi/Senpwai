@@ -3,11 +3,20 @@ import subprocess
 import sys
 from functools import cache
 from io import TextIOWrapper
+import os
 
 ROOT_DIR = Path(__file__).parent.parent
 REPO_URL = "https://github.com/SenZmaKi/Senpwai"
-ARGS = sys.argv[1:]
 
+def join_from_local_appdata(*paths: str) -> str:
+    return os.path.join(
+        os.environ["LOCALAPPDATA"],
+        "Programs",
+        *paths,
+    )
+
+def join_from_py_scripts(*paths: str) -> str:
+    return join_from_local_appdata("Python", "Python311", "Scripts", *paths)
 
 def git_commit(msg: str) -> None:
     subprocess.run(f'git commit -am "scripts: {msg}"')
