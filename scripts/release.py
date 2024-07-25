@@ -32,8 +32,8 @@ def add_change_log_link(release_notes: str) -> str:
     prev_version = bump_version.get_prev_version()
     new_version = bump_version.get_new_version()
     if new_version == prev_version:
-        new_version = input("Failed to get prev version, manual input required\n> ")
-        if not new_version:
+        prev_version = input('Failed to get previous version number, manual input required (without the starting "v")\n> ')
+        if not prev_version:
             sys.exit()
     change_log_link = (
         f"\n\n**Full Changelog**: {REPO_URL}/compare/v{prev_version}...v{new_version}"
@@ -141,6 +141,7 @@ def main() -> None:
     if not parsed.skip_new_branch:
         new_branch_name = input("Enter new branch name\n> ")
         if new_branch_name:
+            subprocess.run("git checkout master").check_returncode()
             subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
 
 
