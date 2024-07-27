@@ -30,7 +30,7 @@ Download [the setup](https://github.com/SenZmaKi/Senpwai/releases/latest/downloa
 
 -   **Cross-platform (Linux, Mac, Windows 10/11)**
 
-Needs [Python 3.11+](https://www.python.org/downloads/release/python-3111) installed.
+Needs [Python 3.11](https://www.python.org/downloads/release/python-3119)+ installed.
 
 ```bash
 pip install senpwai
