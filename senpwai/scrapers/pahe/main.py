@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup, Tag
 from senpwai.common.scraper import (
     CLIENT,
     PARSER,
+    AiringStatus,
     AnimeMetadata,
     DomainNameError,
     ProgressFunction,
@@ -363,11 +364,11 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     episode_count = decoded["total"]
     tag = soup.find(title="Currently Airing")
     if tag:
-        status = "ONGOING"
+        airing_status = AiringStatus.ONGOING
     elif episode_count == 0:
-        status = "UPCOMING"
+        airing_status = AiringStatus.UPCOMING
     else:
-        status = "FINISHED"
+        airing_status = AiringStatus.FINISHED
     return AnimeMetadata(
-        poster_url, summary, episode_count, status, genres, int(release_year)
+        poster_url, summary, episode_count, airing_status, genres, int(release_year)
     )

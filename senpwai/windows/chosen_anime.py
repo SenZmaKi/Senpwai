@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
-from senpwai.common.scraper import lacked_episode_numbers
+from senpwai.common.scraper import AiringStatus, lacked_episode_numbers
 from senpwai.common.static import (
     CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH,
     DUB,
@@ -119,7 +119,7 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
         set_minimum_size_policy(release_year)
         bottom_top_layout.addWidget(release_year)
         airing_status = StyledLabel(None, 21, "blue")
-        airing_status.setText(anime_details.metadata.airing_status)
+        airing_status.setText(anime_details.metadata.airing_status.value)
         set_minimum_size_policy(airing_status)
         bottom_top_layout.addWidget(airing_status)
         self.episode_count = EpisodeCount(str(self.anime_details.episode_count))
@@ -234,7 +234,7 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
             else "1"
         )
         input_size = QSize(80, 40)
-        if anime_details.metadata.airing_status != "UPCOMING":
+        if anime_details.metadata.airing_status != AiringStatus.UPCOMING:
             self.start_episode_input = NumberInput(21)
             self.start_episode_input.setFixedSize(input_size)
             self.start_episode_input.setPlaceholderText("START")

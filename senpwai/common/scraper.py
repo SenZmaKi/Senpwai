@@ -1,3 +1,4 @@
+from enum import Enum
 import os
 import re
 import subprocess
@@ -244,20 +245,26 @@ class Client:
 CLIENT = Client()
 
 
+class AiringStatus(Enum):
+    ONGOING = "Ongoing"
+    UPCOMING = "Upcoming"
+    FINISHED = "Finished"
+
+
 class AnimeMetadata:
     def __init__(
         self,
         poster_url: str,
         summary: str,
         episode_count: int,
-        status: str,
+        airing_status: AiringStatus,
         genres: list[str],
         release_year: int,
     ):
         self.poster_url = poster_url
         self.summary = summary
         self.episode_count = episode_count
-        self.airing_status = status
+        self.airing_status = airing_status
         self.genres = genres
         self.release_year = release_year
 
@@ -266,9 +273,7 @@ class AnimeMetadata:
         return response.content
 
 
-def closest_quality_index(
-    potential_qualities: list[str], target_quality: str
-) -> int:
+def closest_quality_index(potential_qualities: list[str], target_quality: str) -> int:
     detected_qualities: list[tuple[int, int]] = []
     target_quality = target_quality.replace("p", "")
     for idx, potential_quality in enumerate(potential_qualities):
@@ -499,6 +504,7 @@ class Download(ProgressFunction):
 
     def normal_download(self) -> bool:
         self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
+        print(f"Downloading {self.link_or_segment_urls}")
         response = CLIENT.get(
             self.link_or_segment_urls, stream=True, timeout=30, cookies=self.cookies
         )

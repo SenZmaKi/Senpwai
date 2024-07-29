@@ -15,6 +15,7 @@ from senpwai.scrapers import gogo, pahe
 from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
 from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
+    AiringStatus,
     Download,
     NoResourceLengthException,
     ProgressFunction,
@@ -1307,7 +1308,10 @@ class GogoCalculateDownloadSizes(QThread):
         obj = gogo.CalculateTotalDowloadSize()
         self.progress_bar.pause_callback = obj.pause_or_resume
         self.progress_bar.cancel_callback = obj.cancel
-        self.anime_details.total_download_size = obj.calculate_total_download_size(
+        (
+            self.anime_details.total_download_size,
+            self.anime_details.ddls_or_segs_urls,
+        ) = obj.calculate_total_download_size(
             cast(list[str], self.anime_details.ddls_or_segs_urls),
             lambda x: self.update_bar.emit(x),
             True,
@@ -1365,7 +1369,7 @@ class AutoDownloadThread(QThread):
             )
             if not anime_details.lacked_episode_numbers:
                 haved_end = anime_details.haved_end
-                if anime_details.metadata.airing_status == "FINISHED" and (
+                if anime_details.metadata.airing_status == AiringStatus.FINISHED and (
                     haved_end and haved_end >= anime_details.episode_count
                 ):
                     self.download_window.main_window.settings_window.tracked_anime.remove_anime(

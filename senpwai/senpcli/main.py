@@ -19,6 +19,7 @@ from senpwai.common.classes import (
 )
 from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
+    AiringStatus,
     Download,
     ffmpeg_is_installed,
     fuzz_str,
@@ -369,13 +370,13 @@ def gogo_get_download_page_links(
     return gogo.get_download_page_links(start_episode, end_episode, anime_id)
 
 
-def gogo_calculate_total_download_size(direct_download_links: list[str]) -> None:
+def gogo_calculate_total_download_size(direct_download_links: list[str]) -> list[str]:
     pbar = ProgressBar(
         total=len(direct_download_links),
         desc="Calculating total download size",
         unit="eps",
     )
-    total = gogo.CalculateTotalDowloadSize().calculate_total_download_size(
+    total, redirect_ddls = gogo.CalculateTotalDowloadSize().calculate_total_download_size(
         direct_download_links, pbar.update_
     )
     pbar.close_()
@@ -384,6 +385,7 @@ def gogo_calculate_total_download_size(direct_download_links: list[str]) -> None
         f"{size} MB { ', go shower' if size >= 1000 else ''}", Color.MAGENTA
     )
     print_info(f"Total download size: {size_text}")
+    return redirect_ddls
 
 
 def gogo_get_direct_download_links(
@@ -416,7 +418,7 @@ def pahe_get_direct_download_links(download_page_links: list[str]) -> list[str]:
 
 def create_progress_bar(
     episode_title: str, link_or_segs_urls: str | list[str], is_hls_download: bool
-) -> ProgressBar:
+) -> tuple[ProgressBar, str | list[str]]:
     if is_hls_download:
         episode_size = len(link_or_segs_urls)
         pbar = ProgressBar(
@@ -425,14 +427,14 @@ def create_progress_bar(
             desc=f"Downloading [HLS] {episode_title}",
         )
     else:
-        episode_size, _ = Download.get_resource_length(cast(str, link_or_segs_urls))
+        episode_size, link_or_segs_urls = Download.get_resource_length(cast(str, link_or_segs_urls))
         pbar = ProgressBar(
             total=episode_size,
             unit="iB",
             unit_scale=True,
             desc=f"Downloading {episode_title}",
         )
-    return pbar
+    return pbar, link_or_segs_urls
 
 
 def download_thread(
@@ -492,7 +494,7 @@ def download_manager(
     for idx, link in enumerate(ddls_or_segs_urls):
         wait(download_slot_available)
         episode_title = anime_details.episode_title(idx)
-        pbar = create_progress_bar(episode_title, link, is_hls_download)
+        pbar, link = create_progress_bar(episode_title, link, is_hls_download)
         Thread(
             target=download_thread,
             args=(
@@ -649,7 +651,7 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
             download_page_links, parsed.quality
         )
         if not parsed.skip_calculating:
-            gogo_calculate_total_download_size(direct_download_links)
+            direct_download_links = gogo_calculate_total_download_size(direct_download_links)
         download_manager(
             direct_download_links,
             anime_details,
@@ -726,6 +728,9 @@ def get_anime_details(parsed) -> AnimeDetails | None:
         if not dub_available:
             return None
     anime_details = AnimeDetails(anime, parsed.site)
+    if anime_details.metadata.airing_status == AiringStatus.UPCOMING:
+        print_error("No episodes out yet, anime is an upcoming release")
+        return None
     if parsed.sub_or_dub == DUB:
         if not anime_details.dub_available:
             print_error("Dub not available for this anime")
