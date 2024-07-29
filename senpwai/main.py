@@ -12,7 +12,7 @@ from senpwai.windows.main import MainWindow
 
 def windows_set_app_user_model_id():
     # Change App ID to ensure task bar icon is Swnpwai's icon instead of Python for pip installs
-    # StackOverflow Answer link: https://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon-in-windows-7/1552105#1552105
+    # Stack Overflow answer link: https://stackoverflow.com/questions/1551605/how-to-set-applications-taskbar-icon-in-windows-7/1552105#1552105
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_NAME)
 
 

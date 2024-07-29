@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from common.tracker import check_for_new_episodes
 from senpwai.scrapers import gogo, pahe
 from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
 from senpwai.common.scraper import (
@@ -208,7 +209,7 @@ class QueuedDownload(QWidget):
         label = StyledLabel(font_size=14)
         self.anime_details = anime_details
         self.progress_bar = progress_bar
-        label.setText(anime_details.anime.title)
+        label.setText(anime_details.sanitised_title)
         set_minimum_size_policy(label)
         self.main_layout = QHBoxLayout()
         self.up_button = IconButton(download_queue.up_icon, 1.1, self)
@@ -620,7 +621,7 @@ class DownloadWindow(AbstractWindow):
             anime_progress_bar = ProgressBarWithoutButtons(
                 self,
                 "Downloading[HLS]",
-                anime_details.anime.title,
+                anime_details.sanitised_title,
                 total_segments,
                 "segs",
                 1,
@@ -630,7 +631,7 @@ class DownloadWindow(AbstractWindow):
             anime_progress_bar = ProgressBarWithoutButtons(
                 self,
                 "Downloading",
-                anime_details.anime.title,
+                anime_details.sanitised_title,
                 len(anime_details.ddls_or_segs_urls),
                 "eps",
                 1,
@@ -1277,7 +1278,7 @@ class GetDirectDownloadLinksThread(QThread):
             )
             self.download_window.main_window.tray_icon.make_notification(
                 "Error",
-                f"Failed to retrieve some {link_name} links for {self.anime_details.anime.title}",
+                f"Failed to retrieve some {link_name} links for {self.anime_details.sanitised_title}",
                 False,
                 None,
             )
@@ -1343,81 +1344,28 @@ class AutoDownloadThread(QThread):
         )
 
     def run(self):
-        queued: list[str] = []
-        for title in self.anime_titles:
-            anime: Anime
-            site = SETTINGS.auto_download_site
-            if site == PAHE:
-                result = self.pahe_fetch_anime_obj(title)
-                if not result:
-                    result = self.gogo_fetch_anime_obj(title)
-                    if not result:
-                        continue
-                    site = GOGO
-            else:
-                result = self.gogo_fetch_anime_obj(title)
-                if not result:
-                    result = self.pahe_fetch_anime_obj(title)
-                    if not result:
-                        continue
-                    site = PAHE
-            anime = result
-            anime_details = AnimeDetails(anime, site)
-            start_eps = anime_details.haved_end if anime_details.haved_end else 1
-            anime_details.lacked_episode_numbers = lacked_episode_numbers(
-                start_eps, anime_details.episode_count, anime_details.haved_episodes
-            )
-            if not anime_details.lacked_episode_numbers:
-                haved_end = anime_details.haved_end
-                if anime_details.metadata.airing_status == AiringStatus.FINISHED and (
-                    haved_end and haved_end >= anime_details.episode_count
-                ):
-                    self.download_window.main_window.settings_window.tracked_anime.remove_anime(
-                        anime_details.anime.title
-                    )
-                    self.download_window.main_window.tray_icon.make_notification(
-                        "Finished Tracking",
-                        f"You have the final episode of {title} and it has finished airing so I have removed it from your tracking list",
-                        True,
-                    )
-                continue
-            if anime_details.sub_or_dub == DUB and not anime_details.dub_available:
-                self.download_window.main_window.tray_icon.make_notification(
-                    "Error",
-                    f"Failed to find dub for {anime_details.anime.title}",
-                    False,
-                    None,
-                )
-                continue
-            queued.append(anime_details.anime.title)
-            self.initate_download_pipeline.emit(anime_details)
-        if queued:
-            all_str = ", ".join(queued)
-            self.download_window.main_window.tray_icon.make_notification(
+        check_for_new_episodes(
+            lambda title: self.download_window.main_window.settings_window.tracked_anime.remove_anime(
+                title
+            ),
+            lambda sanitised_title: self.download_window.main_window.tray_icon.make_notification(
+                "Finished Tracking",
+                f"You have the final episode of {sanitised_title} and it has finished airing so I have removed it from your tracking list",
+                True,
+            ),
+            lambda sanitised_title: self.download_window.main_window.tray_icon.make_notification(
+                "Error",
+                f"Failed to find dub for {sanitised_title}",
+                False,
+                None,
+            ),
+            lambda anime_details: self.initate_download_pipeline.emit(anime_details),
+            lambda queued_anime_titles: self.download_window.main_window.tray_icon.make_notification(
                 "Queued new episodes",
-                all_str,
+                queued_anime_titles,
                 False,
                 self.download_window.main_window.switch_to_download_window,
-            )
+            ),
+            True,
+        )
         self.clean_out_auto_download_thread_signal.emit()
-
-    def pahe_fetch_anime_obj(self, title: str) -> Anime | None:
-        results = pahe.search(title)
-        for result in results:
-            res_title, page_link, anime_id = pahe.extract_anime_title_page_link_and_id(
-                result
-            )
-            if sanitise_title(res_title.lower(), True) == sanitise_title(
-                title.lower(), True
-            ):
-                return Anime(title, page_link, anime_id)
-        return None
-
-    def gogo_fetch_anime_obj(self, title: str) -> Anime | None:
-        results = gogo.search(title)
-        for res_title, page_link in results:
-            if sanitise_title(res_title.lower(), True) == sanitise_title(
-                title.lower(), True
-            ):
-                return Anime(title, page_link, None)
-        return None

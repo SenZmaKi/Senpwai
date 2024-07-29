@@ -250,6 +250,14 @@ class AiringStatus(Enum):
     UPCOMING = "Upcoming"
     FINISHED = "Finished"
 
+    # Stack Overflow answer link: https://stackoverflow.com/a/66575463/17193072
+    # Enums in python suck so bad
+    def __eq__(self, other: object) -> bool:
+        if type(self).__qualname__ != type(other).__qualname__:
+            return False
+        other = cast(AiringStatus, other)
+        return self.value == other.value
+
 
 class AnimeMetadata:
     def __init__(
@@ -504,7 +512,6 @@ class Download(ProgressFunction):
 
     def normal_download(self) -> bool:
         self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
-        print(f"Downloading {self.link_or_segment_urls}")
         response = CLIENT.get(
             self.link_or_segment_urls, stream=True, timeout=30, cookies=self.cookies
         )

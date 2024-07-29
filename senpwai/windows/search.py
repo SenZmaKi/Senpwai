@@ -124,7 +124,7 @@ class SearchWindow(AbstractWindow):
         self.setLayout(self.full_layout)
         # We use a timer instead of calling setFocus normally cause apparently Qt wont really set the widget in focus if the widget isn't shown on screen,
         # So we gotta wait a bit first till the UI is rendered.
-        # StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
+        # Stack Overflow comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
         QTimer.singleShot(0, self.search_bar.setFocus)
 
     # Qt pushes the horizontal scroll bar to the center automatically sometimes

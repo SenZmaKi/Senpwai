@@ -8,6 +8,7 @@ from random import choice as random_choice
 from threading import Event, Lock, Thread
 from typing import Callable, cast
 
+from common.tracker import check_for_new_episodes
 from tqdm import tqdm
 
 from senpwai.common.classes import (
@@ -245,6 +246,22 @@ def parse_args(args: list[str]) -> tuple[Namespace, ArgumentParser]:
         help="Maximum number of simultaneous downloads",
         default=SETTINGS.max_simultaneous_downloads,
     )
+    parser.add_argument(
+        "-cta",
+        "--check_tracked_anime",
+        help="Check tracked anime for new episodes then auto download",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-ata",
+        "--add_tracked_anime",
+        help="Add an anime to the tracked anime list",
+    )
+    parser.add_argument(
+        "-rta",
+        "--remove_tracked_anime",
+        help="Remove an anime from the tracked anime list",
+    )
     return parser.parse_args(args), parser
 
 
@@ -376,7 +393,10 @@ def gogo_calculate_total_download_size(direct_download_links: list[str]) -> list
         desc="Calculating total download size",
         unit="eps",
     )
-    total, redirect_ddls = gogo.CalculateTotalDowloadSize().calculate_total_download_size(
+    (
+        total,
+        redirect_ddls,
+    ) = gogo.CalculateTotalDowloadSize().calculate_total_download_size(
         direct_download_links, pbar.update_
     )
     pbar.close_()
@@ -427,7 +447,9 @@ def create_progress_bar(
             desc=f"Downloading [HLS] {episode_title}",
         )
     else:
-        episode_size, link_or_segs_urls = Download.get_resource_length(cast(str, link_or_segs_urls))
+        episode_size, link_or_segs_urls = Download.get_resource_length(
+            cast(str, link_or_segs_urls)
+        )
         pbar = ProgressBar(
             total=episode_size,
             unit="iB",
@@ -651,7 +673,9 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
             download_page_links, parsed.quality
         )
         if not parsed.skip_calculating:
-            direct_download_links = gogo_calculate_total_download_size(direct_download_links)
+            direct_download_links = gogo_calculate_total_download_size(
+                direct_download_links
+            )
         download_manager(
             direct_download_links,
             anime_details,
@@ -717,6 +741,18 @@ def start_update_check_thread() -> tuple[Thread, Queue[UpdateInfo]]:
     )
     update_check_thread.start()
     return update_check_thread, update_check_result_queue
+
+
+def finish_update_check(
+    update_check_thread: Thread,
+    update_check_result_queue: Queue[UpdateInfo],
+    print_msg=False,
+) -> None:
+    update_check_thread.join()
+    update_info = update_check_result_queue.get()
+    if print_msg and not update_info.is_update_available:
+        print("No update available, already at latest version")
+    handle_update_check_result(update_info)
 
 
 def get_anime_details(parsed) -> AnimeDetails | None:
@@ -821,30 +857,54 @@ def main():
             with open(SETTINGS.settings_json_path) as f:
                 contents = f.read()
                 print(f"{contents}\n\n{SETTINGS.settings_json_path}")
-            return
         elif parsed.update:
-            update_check_thread, update_check_result_queue = start_update_check_thread()
-            update_check_thread.join()
-            update_info = update_check_result_queue.get()
-            if not update_info.is_update_available:
-                print("No update available, already at latest version")
-            handle_update_check_result(update_info)
-            return
+            update_params = start_update_check_thread()
+            finish_update_check(*update_params, True)
+        elif parsed.check_tracked_anime:
+
+            def start_download_callback(anime_details: AnimeDetails) -> None:
+                parsed.start_episode = anime_details.haved_end
+                parsed.end_episode = anime_details.metadata.episode_count
+                parsed.site = anime_details.site
+                initiate_download_pipeline(parsed, anime_details)
+
+            update_params = start_update_check_thread()
+            check_for_new_episodes(
+                lambda title: SETTINGS.remove_tracked_anime(title),
+                lambda sanitised_title: print_info(
+                    f"Finished tracking {sanitised_title}"
+                ),
+                lambda sanitised_title: print_error(
+                    f"No dub available for {sanitised_title}"
+                ),
+                start_download_callback,
+                lambda titles: print_info(f"Queued new episodes of: {titles}"),
+                False,
+            )
+            finish_update_check(*update_params)
+        elif parsed.remove_tracked_anime:
+            try:
+                SETTINGS.remove_tracked_anime(parsed.remove_tracked_anime)
+            except ValueError:
+                print_error("Anime not found in tracked list")
+        elif parsed.add_tracked_anime:
+            if parsed.add_tracked_anime in SETTINGS.tracked_anime:
+                print_error("Anime already being tracked")
+                return
+            SETTINGS.add_tracked_anime(parsed.add_tracked_anime)
         elif parsed.title is None:
             print(
                 f"{parser.format_usage()}senpcli: error: the following arguments are required: title"
             )
-            return
-        if not validate_args(parsed):
-            return
-        update_check_thread, update_check_result_queue = start_update_check_thread()
-        anime_details = get_anime_details(parsed)
-        if anime_details is None:
-            return
-        initiate_download_pipeline(parsed, anime_details)
-        update_check_thread.join()
-        update_info = update_check_result_queue.get()
-        handle_update_check_result(update_info)
+        else:
+            if not validate_args(parsed):
+                return
+            update_params = start_update_check_thread()
+            anime_details = get_anime_details(parsed)
+            if anime_details is None:
+                return
+            initiate_download_pipeline(parsed, anime_details)
+            finish_update_check(*update_params)
 
     except KeyboardInterrupt:
         ProgressBar.cancel_all_active()
