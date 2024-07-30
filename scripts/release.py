@@ -18,9 +18,7 @@ BRANCH_NAME = get_current_branch_name()
 
 
 def merge_branch() -> None:
-    completed_process = subprocess.run(
-        "git status", capture_output=True, text=True
-    )
+    completed_process = subprocess.run("git status", capture_output=True, text=True)
     completed_process.check_returncode()
     if "Changes" in completed_process.stdout:
         log_error("You have uncommited changes", True)
@@ -49,7 +47,7 @@ def get_release_notes(from_commits: bool) -> str:
         if not from_commits:
             return add_change_log_link(f.read())
         completed_process = subprocess.run(
-            f'git log --oneline --format="%s" master..{BRANCH_NAME}',
+            f'git log --format="%s" master..{BRANCH_NAME}',
             capture_output=True,
             text=True,
         )
@@ -69,8 +67,16 @@ def publish_release(release_notes: str) -> None:
         f'gh release create {BRANCH_NAME} --notes "{release_notes}"'
     ).check_returncode()
     subprocess.run(
-        f'gh release upload  {BRANCH_NAME} {ROOT_DIR.joinpath("setups/Senpwai-setup.exe")} {ROOT_DIR.joinpath("setups/Senpcli-setup.exe")}'
+        f'gh release upload  {BRANCH_NAME} {ROOT_DIR.joinpath("setups","Senpwai-setup.exe")} {ROOT_DIR.joinpath("setups", "Senpcli-setup.exe")}'
     ).check_returncode()
+
+
+def new_branch() -> None:
+    new_branch_name = input(
+        'Enter new branch name (with the "v" prefix if necessary)\n> '
+    )
+    if new_branch_name:
+        subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
 
 
 def main() -> None:
@@ -145,10 +151,7 @@ def main() -> None:
         )
     log_info(f"Finished release {BRANCH_NAME}")
     if not parsed.skip_new_branch:
-        new_branch_name = input("Enter new branch name\n> ")
-        if new_branch_name:
-            subprocess.run("git checkout master").check_returncode()
-            subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
+        new_branch()
 
 
 if __name__ == "__main__":
