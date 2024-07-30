@@ -8,12 +8,12 @@ from senpwai.common.scraper import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     PARSER,
-    RESOURCE_MOVED_STATUS_CODES,
+    AiringStatus,
     AnimeMetadata,
     DomainNameError,
     ProgressFunction,
     get_new_home_url_from_readme,
-    match_quality,
+    closest_quality_index,
     sanitise_title,
 )
 from .constants import (
@@ -83,7 +83,7 @@ class GetDirectDownloadLinks(ProgressFunction):
         self,
         download_page_links: list[str],
         user_quality: str,
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> list[str]:
         direct_download_links: list[str] = []
         for eps_pg_link in download_page_links:
@@ -96,11 +96,8 @@ class GetDirectDownloadLinks(ProgressFunction):
                     cast(Tag, soup.find("div", class_="cf-download")).find_all("a"),
                 )
                 qualities = [a.text for a in a_tags]
-                idx = match_quality(qualities, user_quality)
-                redirect_link = cast(str, a_tags[idx]["href"])
-                link = CLIENT.get(
-                    redirect_link, cookies=get_session_cookies()
-                ).headers.get("Location", redirect_link)
+                idx = closest_quality_index(qualities, user_quality)
+                link = cast(str, a_tags[idx]["href"])
             direct_download_links.append(link)
             self.resume.wait()
             if self.cancelled:
@@ -116,12 +113,16 @@ class CalculateTotalDowloadSize(ProgressFunction):
     def calculate_total_download_size(
         self,
         direct_download_links: list[str],
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
         in_megabytes=False,
-    ) -> int:
+    ) -> tuple[int, list[str]]:
         total_size = 0
+        redirect_ddls: list[str] = []
         for link in direct_download_links:
-            response = CLIENT.get(link, stream=True, cookies=get_session_cookies())
+            response = CLIENT.get(
+                link, stream=True, cookies=get_session_cookies(), allow_redirects=True
+            )
+            redirect_ddls.append(response.url)
             size = response.headers.get("Content-Length", 0)
             if in_megabytes:
                 total_size += round(int(size) / IBYTES_TO_MBS_DIVISOR)
@@ -129,9 +130,9 @@ class CalculateTotalDowloadSize(ProgressFunction):
                 total_size += int(size)
             self.resume.wait()
             if self.cancelled:
-                return 0
+                return 0, [*redirect_ddls, *direct_download_links[len(redirect_ddls)-1 :]]
             progress_update_callback(1)
-        return total_size
+        return total_size, redirect_ddls
 
 
 def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
@@ -140,17 +141,17 @@ def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
     try:
         response = CLIENT.get(
             anime_page_link,
+            allow_redirects=True,
             exceptions_to_raise=(DomainNameError, KeyboardInterrupt),
         )
-        if response.status_code not in RESOURCE_MOVED_STATUS_CODES:
+        if not response.history:
             return response.content, anime_page_link
-        new_anime_page_link = response.headers.get("Location", anime_page_link)
         # The url in location seems to be in http instead of https but the http one doesn't work
-        new_anime_page_link = new_anime_page_link.replace("http://", "https://")
+        new_anime_page_link = response.url.replace("http://", "https://")
         # If the link is not different we assume they changed their domain name but didn't pass
         # the link with the new one in the location headers
         if new_anime_page_link == anime_page_link:
-            raise DomainNameError(Exception("Received resource moved status code"))
+            raise DomainNameError(Exception("Redirected but provided the same domain"))
         match = cast(re.Match[str], BASE_URL_REGEX.search(new_anime_page_link))
         GOGO_HOME_URL = match.group(1)
         return get_anime_page_content(new_anime_page_link)
@@ -191,14 +192,13 @@ def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
     )
     tag = soup.find("a", title="Ongoing Anime")
     if tag:
-        status = "ONGOING"
+        airing_status = AiringStatus.ONGOING
     elif episode_count == 0:
-        status = "UPCOMING"
+        airing_status = AiringStatus.UPCOMING
     else:
-        status = "FINISHED"
-
+        airing_status = AiringStatus.FINISHED
     return AnimeMetadata(
-        poster_link, summary, episode_count, status, genres, release_year
+        poster_link, summary, episode_count, airing_status, genres, release_year
     )
 
 

@@ -11,7 +11,7 @@ from types import TracebackType
 
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = "senpwai"
-VERSION = "2.1.10"
+VERSION = "2.1.11"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
 IS_PIP_INSTALL = False
@@ -175,7 +175,7 @@ def join_from_misc(file_name: str) -> str:
 SENPWAI_ICON_PATH = join_from_misc("senpwai-icon.ico")
 TASK_COMPLETE_ICON_PATH = join_from_misc("task-complete.png")
 LOADING_ANIMATION_PATH = join_from_misc("loading.gif")
-SADGE_PIECE_PATH = join_from_misc("sadge-piece.gif")
+ANIME_NOT_FOUND_PATH = join_from_misc("anime-not-found.gif")
 FOLDER_ICON_PATH = join_from_misc("folder.png")
 
 mascots_folder_path = join_from_assets("mascots")
@@ -241,7 +241,7 @@ GIGACHAD_AUDIO_PATH = join_from_audio("gigachad.mp3")
 HENTAI_ADDICT_AUDIO_PATH = join_from_audio("aqua-crying.mp3")
 MORBIUS_AUDIO_PATH = join_from_audio("morbin-time.mp3")
 SEN_FAVOURITE_AUDIO_PATH = join_from_audio("sen-favourite.wav")
-SEN_FAVOURITE_AUDIO_PATH = join_from_audio(
+ONE_PIECE_REAL_AUDIO_PATH = join_from_audio(
     f"one-piece-real-{random_choice((1, 2))}.mp3"
 )
 KAGE_BUNSHIN_AUDIO_PATH = join_from_audio("kage-bunshin-no-jutsu.mp3")

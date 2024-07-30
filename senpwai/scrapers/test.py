@@ -49,7 +49,7 @@ def conditional_print(text: str):
 
 
 def test_start(name: str):
-    conditional_print(f"Running: {name} Test")
+    conditional_print(f"Testing: {name}")
 
 
 def fail_test(
@@ -708,7 +708,10 @@ def run_tests(args: ArgParser):
                                 test_name = "Download size"
                                 test_start(test_name)
                                 runtime_getter = get_run_time_later()
-                                total_download_size = gogo.CalculateTotalDowloadSize().calculate_total_download_size(
+                                (
+                                    total_download_size,
+                                    direct_download_links,
+                                ) = gogo.CalculateTotalDowloadSize().calculate_total_download_size(
                                     direct_download_links, in_megabytes=True
                                 )
                                 rt = runtime_getter()

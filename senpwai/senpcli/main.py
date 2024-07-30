@@ -2,12 +2,13 @@
 import subprocess
 import sys
 from argparse import ArgumentParser, Namespace
-from os import path
+import os
 from queue import Queue
 from random import choice as random_choice
 from threading import Event, Lock, Thread
 from typing import Callable, cast
 
+from senpwai.common.tracker import check_for_new_episodes
 from tqdm import tqdm
 
 from senpwai.common.classes import (
@@ -19,6 +20,7 @@ from senpwai.common.classes import (
 )
 from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
+    AiringStatus,
     Download,
     ffmpeg_is_installed,
     fuzz_str,
@@ -50,7 +52,7 @@ from senpwai.scrapers import gogo, pahe
 from enum import Enum
 
 APP_NAME = "Senpcli"
-SENPWAI_IS_INSTALLED = path.isfile(SENPWAI_EXE_PATH)
+SENPWAI_IS_INSTALLED = os.path.isfile(SENPWAI_EXE_PATH)
 APP_NAME_LOWER = "senpcli"
 DESCRIPTION = "The CLI alternative for Senpwai"
 ASCII_APP_NAME = r"""
@@ -141,12 +143,13 @@ class ProgressBar(tqdm):
         total: int,
         desc: str,
         unit: str,
-        unit_scale=False,
+        unit_scale=True,
     ):
         super().__init__(
             total=total,
             desc=desc,
             unit=unit,
+            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_noinv_fmt}]",
             unit_scale=unit_scale,
             leave=False,
         )
@@ -159,16 +162,14 @@ class ProgressBar(tqdm):
         ProgressBar.active.clear()
 
     def update_(self, added: int):
-        result = super().update(added)
-        return result
+        super().update(added)
 
     def close_(self, remove_from_active=True) -> None:
         if self not in ProgressBar.active:
             return
         if remove_from_active:
             ProgressBar.active.remove(self)
-        result = super().close()
-        return result
+        super().close()
 
 
 def parse_args(args: list[str]) -> tuple[Namespace, ArgumentParser]:
@@ -189,7 +190,7 @@ def parse_args(args: list[str]) -> tuple[Namespace, ArgumentParser]:
         "--site",
         help="Site to download from",
         choices=[PAHE, GOGO],
-        default=SETTINGS.auto_download_site,
+        default=SETTINGS.tracking_site,
     )
     parser.add_argument(
         "-se",
@@ -244,6 +245,28 @@ def parse_args(args: list[str]) -> tuple[Namespace, ArgumentParser]:
         type=int,
         help="Maximum number of simultaneous downloads",
         default=SETTINGS.max_simultaneous_downloads,
+    )
+    parser.add_argument(
+        "-cta",
+        "--check_tracked_anime",
+        help="Check tracked anime for new episodes then download",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-ata",
+        "--add_tracked_anime",
+        help="Add an anime to the tracked anime list. Use the anime's title as it appears on your tracking site.",
+    )
+    parser.add_argument(
+        "-rta",
+        "--remove_tracked_anime",
+        help="Remove an anime from the tracked anime list",
+    )
+    parser.add_argument(
+        "-ddl",
+        "--direct_download_links",
+        help="Print direct download links instead of downloading",
+        action="store_true",
     )
     return parser.parse_args(args), parser
 
@@ -370,13 +393,16 @@ def gogo_get_download_page_links(
     return gogo.get_download_page_links(start_episode, end_episode, anime_id)
 
 
-def gogo_calculate_total_download_size(direct_download_links: list[str]) -> None:
+def gogo_calculate_total_download_size(direct_download_links: list[str]) -> list[str]:
     pbar = ProgressBar(
         total=len(direct_download_links),
         desc="Calculating total download size",
         unit="eps",
     )
-    total = gogo.CalculateTotalDowloadSize().calculate_total_download_size(
+    (
+        total,
+        redirect_ddls,
+    ) = gogo.CalculateTotalDowloadSize().calculate_total_download_size(
         direct_download_links, pbar.update_
     )
     pbar.close_()
@@ -385,6 +411,7 @@ def gogo_calculate_total_download_size(direct_download_links: list[str]) -> None
         f"{size} MB { ', go shower' if size >= 1000 else ''}", Color.MAGENTA
     )
     print_info(f"Total download size: {size_text}")
+    return redirect_ddls
 
 
 def gogo_get_direct_download_links(
@@ -417,7 +444,7 @@ def pahe_get_direct_download_links(download_page_links: list[str]) -> list[str]:
 
 def create_progress_bar(
     episode_title: str, link_or_segs_urls: str | list[str], is_hls_download: bool
-) -> ProgressBar:
+) -> tuple[ProgressBar, str | list[str]]:
     if is_hls_download:
         episode_size = len(link_or_segs_urls)
         pbar = ProgressBar(
@@ -426,14 +453,16 @@ def create_progress_bar(
             desc=f"Downloading [HLS] {episode_title}",
         )
     else:
-        episode_size, _ = Download.get_resource_length(cast(str, link_or_segs_urls))
+        episode_size, link_or_segs_urls = Download.get_resource_length(
+            cast(str, link_or_segs_urls)
+        )
         pbar = ProgressBar(
             total=episode_size,
             unit="iB",
             unit_scale=True,
             desc=f"Downloading {episode_title}",
         )
-    return pbar
+    return pbar, link_or_segs_urls
 
 
 def download_thread(
@@ -464,9 +493,9 @@ def download_manager(
 ):
     anime_details.validate_anime_folder_path()
     desc = (
-        f"Downloading [HLS] {anime_details.sanitised_title}"
+        f"Downloading [HLS] {anime_details.shortened_title}"
         if is_hls_download
-        else f"Downloading {anime_details.sanitised_title}"
+        else f"Downloading {anime_details.shortened_title}"
     )
     episodes_pbar = ProgressBar(total=len(ddls_or_segs_urls), desc=desc, unit="eps")
     download_slot_available = Event()
@@ -493,7 +522,7 @@ def download_manager(
     for idx, link in enumerate(ddls_or_segs_urls):
         wait(download_slot_available)
         episode_title = anime_details.episode_title(idx)
-        pbar = create_progress_bar(episode_title, link, is_hls_download)
+        pbar, link = create_progress_bar(episode_title, link, is_hls_download)
         Thread(
             target=download_thread,
             args=(
@@ -607,6 +636,9 @@ def handle_pahe(parsed: Namespace, anime_details: AnimeDetails):
         episode_page_links, parsed.quality, parsed.sub_or_dub
     )
     direct_download_links = pahe_get_direct_download_links(download_page_links)
+    if parsed.direct_download_links:
+        print("\n".join(direct_download_links))
+        return
     download_manager(
         direct_download_links, anime_details, False, parsed.max_simultaneous_downloads
     )
@@ -631,6 +663,9 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
             matched_quality_links = gogo_get_hls_matched_quality_links(
                 hls_links, parsed.quality
             )
+            if parsed.direct_download_links:
+                print("\n".join(hls_links))
+                return
             hls_segments_urls = gogo_get_hls_segments_urls(matched_quality_links)
             download_manager(
                 hls_segments_urls,
@@ -649,8 +684,13 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
         direct_download_links = gogo_get_direct_download_links(
             download_page_links, parsed.quality
         )
+        if parsed.direct_download_links:
+            print("\n".join(direct_download_links))
+            return
         if not parsed.skip_calculating:
-            gogo_calculate_total_download_size(direct_download_links)
+            direct_download_links = gogo_calculate_total_download_size(
+                direct_download_links
+            )
         download_manager(
             direct_download_links,
             anime_details,
@@ -677,12 +717,12 @@ def download_and_install_update(
         unit="iB",
         unit_scale=True,
     )
-    file_name_no_ext, file_ext = path.splitext(file_name)
+    file_name_no_ext, file_ext = os.path.splitext(file_name)
     tempdir = senpwai_tempdir()
     download = Download(download_url, file_name_no_ext, tempdir, pbar.update_, file_ext)
     download.start_download()
     pbar.close_()
-    subprocess.Popen([path.join(tempdir, file_name), "/silent", "/update"])
+    subprocess.Popen([os.path.join(tempdir, file_name), "/silent", "/update"])
 
 
 def handle_update_check_result(update_info: UpdateInfo) -> None:
@@ -718,6 +758,18 @@ def start_update_check_thread() -> tuple[Thread, Queue[UpdateInfo]]:
     return update_check_thread, update_check_result_queue
 
 
+def finish_update_check(
+    update_check_thread: Thread,
+    update_check_result_queue: Queue[UpdateInfo],
+    print_msg=False,
+) -> None:
+    update_check_thread.join()
+    update_info = update_check_result_queue.get()
+    if print_msg and not update_info.is_update_available:
+        print("No update available, already at latest version")
+    handle_update_check_result(update_info)
+
+
 def get_anime_details(parsed) -> AnimeDetails | None:
     anime = search(parsed.title, parsed.site)
     if anime is None:
@@ -727,6 +779,9 @@ def get_anime_details(parsed) -> AnimeDetails | None:
         if not dub_available:
             return None
     anime_details = AnimeDetails(anime, parsed.site)
+    if anime_details.metadata.airing_status == AiringStatus.UPCOMING:
+        print_error("No episodes out yet, anime is an upcoming release")
+        return None
     if parsed.sub_or_dub == DUB:
         if not anime_details.dub_available:
             print_error("Dub not available for this anime")
@@ -751,7 +806,8 @@ def get_anime_details(parsed) -> AnimeDetails | None:
 
 
 def initiate_download_pipeline(parsed: Namespace, anime_details: AnimeDetails):
-    print_info(f"Downloading to: {anime_details.anime_folder_path}")
+    if not parsed.direct_download_links:
+        print_info(f"Downloading to: {anime_details.anime_folder_path}")
     if parsed.site == PAHE:
         handle_pahe(parsed, anime_details)
     else:
@@ -771,7 +827,7 @@ def validate_args(parsed: Namespace) -> bool:
         print_error("End episode cannot be less than 1, is that your brain cell count?")
         return False
     if parsed.site != GOGO and parsed.hls:
-        print_error("Setting site to Gogo since HLS mode is only available for Gogo")
+        print_warn("Setting site to Gogo since HLS mode is only available for Gogo")
         parsed.site = GOGO
 
     return True
@@ -817,30 +873,54 @@ def main():
             with open(SETTINGS.settings_json_path) as f:
                 contents = f.read()
                 print(f"{contents}\n\n{SETTINGS.settings_json_path}")
-            return
         elif parsed.update:
-            update_check_thread, update_check_result_queue = start_update_check_thread()
-            update_check_thread.join()
-            update_info = update_check_result_queue.get()
-            if not update_info.is_update_available:
-                print("No update available, already at latest version")
-            handle_update_check_result(update_info)
-            return
+            update_params = start_update_check_thread()
+            finish_update_check(*update_params, True)
+        elif parsed.check_tracked_anime:
+
+            def start_download_callback(anime_details: AnimeDetails) -> None:
+                parsed.start_episode = anime_details.haved_end
+                parsed.end_episode = anime_details.metadata.episode_count
+                parsed.site = anime_details.site
+                initiate_download_pipeline(parsed, anime_details)
+
+            update_params = start_update_check_thread()
+            check_for_new_episodes(
+                lambda title: SETTINGS.remove_tracked_anime(title),
+                lambda sanitised_title: print_info(
+                    f"Finished tracking {sanitised_title}"
+                ),
+                lambda sanitised_title: print_error(
+                    f"No dub available for {sanitised_title}"
+                ),
+                start_download_callback,
+                lambda titles: print_info(f"Queued new episodes of: {titles}"),
+                False,
+            )
+            finish_update_check(*update_params)
+        elif parsed.remove_tracked_anime:
+            try:
+                SETTINGS.remove_tracked_anime(parsed.remove_tracked_anime)
+            except ValueError:
+                print_error("Anime not found in tracked list")
+        elif parsed.add_tracked_anime:
+            if parsed.add_tracked_anime in SETTINGS.tracked_anime:
+                print_error("Anime already being tracked")
+                return
+            SETTINGS.add_tracked_anime(parsed.add_tracked_anime)
         elif parsed.title is None:
             print(
                 f"{parser.format_usage()}senpcli: error: the following arguments are required: title"
             )
-            return
-        if not validate_args(parsed):
-            return
-        update_check_thread, update_check_result_queue = start_update_check_thread()
-        anime_details = get_anime_details(parsed)
-        if anime_details is None:
-            return
-        initiate_download_pipeline(parsed, anime_details)
-        update_check_thread.join()
-        update_info = update_check_result_queue.get()
-        handle_update_check_result(update_info)
+        else:
+            if not validate_args(parsed):
+                return
+            update_params = start_update_check_thread()
+            anime_details = get_anime_details(parsed)
+            if anime_details is None:
+                return
+            initiate_download_pipeline(parsed, anime_details)
+            finish_update_check(*update_params)
 
     except KeyboardInterrupt:
         ProgressBar.cancel_all_active()

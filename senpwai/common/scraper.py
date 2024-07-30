@@ -1,3 +1,4 @@
+from enum import Enum
 import os
 import re
 import subprocess
@@ -244,20 +245,34 @@ class Client:
 CLIENT = Client()
 
 
+class AiringStatus(Enum):
+    ONGOING = "Ongoing"
+    UPCOMING = "Upcoming"
+    FINISHED = "Finished"
+
+    # Stack Overflow answer link: https://stackoverflow.com/a/66575463/17193072
+    # Enums in python suck so bad
+    def __eq__(self, other: object) -> bool:
+        if type(self).__qualname__ != type(other).__qualname__:
+            return False
+        other = cast(AiringStatus, other)
+        return self.value == other.value
+
+
 class AnimeMetadata:
     def __init__(
         self,
         poster_url: str,
         summary: str,
         episode_count: int,
-        status: str,
+        airing_status: AiringStatus,
         genres: list[str],
         release_year: int,
     ):
         self.poster_url = poster_url
         self.summary = summary
         self.episode_count = episode_count
-        self.airing_status = status
+        self.airing_status = airing_status
         self.genres = genres
         self.release_year = release_year
 
@@ -266,9 +281,9 @@ class AnimeMetadata:
         return response.content
 
 
-def match_quality(potential_qualities: list[str], user_quality: str) -> int:
+def closest_quality_index(potential_qualities: list[str], target_quality: str) -> int:
     detected_qualities: list[tuple[int, int]] = []
-    user_quality = user_quality.replace("p", "")
+    target_quality = target_quality.replace("p", "")
     for idx, potential_quality in enumerate(potential_qualities):
         match = QUALITY_REGEX_1.search(potential_quality)
         if not match:
@@ -276,20 +291,20 @@ def match_quality(potential_qualities: list[str], user_quality: str) -> int:
 
         if match:
             quality = cast(str, match.group(1))
-            if quality == user_quality:
+            if quality == target_quality:
                 return idx
             else:
                 detected_qualities.append((int(quality), idx))
-    int_user_quality = int(user_quality)
+    int_target_quality = int(target_quality)
     if not detected_qualities:
-        if int_user_quality <= 480:
+        if int_target_quality <= 480:
             return 0
         return -1
 
     detected_qualities.sort(key=lambda x: x[0])
     closest = detected_qualities[0]
     for quality in detected_qualities:
-        if quality[0] > int_user_quality:
+        if quality[0] > int_target_quality:
             break
         closest = quality
     return closest[1]

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "senpwai"
-version = "2.1.10"
+version = "2.1.11"
 description = "A desktop app for tracking and batch downloading anime"
 authors = ["SenZmaKi <senzmaki@gmail.com>"]
 license = "GPL v3"
@@ -68,13 +68,12 @@ bump_version = "python -m scripts.bump_version"
 announce = "python -m scripts.announce"
 announce_discord = "python scripts/announce/discord.py"
 announce_reddit = "python  scripts/announce/reddit.py"
-ruff = [{ ref = "lint_fix" }, { ref = "format" }]
-lint = "python -m scripts.ruff"
-lint_fix = "python -m scripts.ruff --lint_fix"
 format = "python -m scripts.ruff --format"
-generate_release_test = [{ref = "lint"}, { ref = "test" }, { ref = "generate_release" }]
-generate_release_ddl = [{ ref = "test_ddl" }, { ref = "generate_release" }]
-generate_release = [
+lint_fix = "python -m scripts.ruff --lint_fix"
+lint = "python -m scripts.ruff --lint"
+build_release_test = [{ref = "lint"}, { ref = "test" }, { ref = "build_release" }]
+build_release_ddl = [{ ref = "test_ddl" }, { ref = "build_release" }]
+build_release = [
   { ref = "build_exes" },
   { ref = "compile_installers" },
   { ref = "install" },

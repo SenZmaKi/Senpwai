@@ -35,10 +35,11 @@ from senpwai.common.static import (
     PAHE_NORMAL_COLOR,
     PAHE_PRESSED_COLOR,
     RANDOM_MACOT_ICON_PATH,
-    SADGE_PIECE_PATH,
+    ANIME_NOT_FOUND_PATH,
     SEARCH_WINDOW_BCKG_IMAGE_PATH,
     SEN_ANILIST_ID,
     SEN_FAVOURITE_AUDIO_PATH,
+    ONE_PIECE_REAL_AUDIO_PATH,
     TOKI_WA_UGOKI_DASU_AUDIO_PATH,
     W_ANIME,
     WHAT_DA_HELL_AUDIO_PATH,
@@ -110,7 +111,7 @@ class SearchWindow(AbstractWindow):
             LOADING_ANIMATION_PATH, 250, 300, "Loading.. .", 1, 48, 50
         )
         self.anime_not_found = AnimationAndText(
-            SADGE_PIECE_PATH, 400, 300, ":( couldn't find that anime ", 1, 48, 50
+            ANIME_NOT_FOUND_PATH, 400, 300, ":( couldn't find that anime ", 1, 48, 50
         )
         self.bottom_section_stacked_widgets = QStackedWidget()
         self.bottom_section_stacked_widgets.addWidget(self.results_widget)
@@ -124,7 +125,7 @@ class SearchWindow(AbstractWindow):
         self.setLayout(self.full_layout)
         # We use a timer instead of calling setFocus normally cause apparently Qt wont really set the widget in focus if the widget isn't shown on screen,
         # So we gotta wait a bit first till the UI is rendered.
-        # StackOverflow Comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
+        # Stack Overflow comment link: https://stackoverflow.com/questions/52853701/set-focus-on-button-in-app-with-group-boxes#comment92652037_52858926
         QTimer.singleShot(0, self.search_bar.setFocus)
 
     # Qt pushes the horizontal scroll bar to the center automatically sometimes
@@ -156,7 +157,7 @@ class SearchWindow(AbstractWindow):
         anime_title_lower = anime_title.lower()
         is_naruto = "naruto" in anime_title_lower
         if "one piece" in anime_title_lower:
-            AudioPlayer(self, SEN_FAVOURITE_AUDIO_PATH, volume=100).play()
+            AudioPlayer(self, ONE_PIECE_REAL_AUDIO_PATH, volume=100).play()
         elif "jojo" in anime_title_lower:
             AudioPlayer(self, ZA_WARUDO_AUDIO_PATH, 100).play()
             for _ in range(180):
@@ -299,7 +300,7 @@ class FetchFavouriteThread(QThread):
         favourites: list[dict["str", Any]] = response_json["data"]["User"][
             "favourites"
         ]["anime"]["nodes"]
-        if favourites:
+        if not favourites:
             return None
         chosen_favourite = random_choice(favourites)
         anime_title = chosen_favourite["title"]["romaji"]
@@ -414,7 +415,7 @@ class ResultButton(OutlinedButton):
         }}"""
         )
         self.clicked.connect(
-            lambda: main_window.setup_and_switch_to_chosen_anime_window(anime, site)
+            lambda: main_window.switch_to_chosen_anime_window(anime, site)
         )
         self.installEventFilter(self)
 

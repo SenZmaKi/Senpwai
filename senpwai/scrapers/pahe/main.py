@@ -6,11 +6,12 @@ from bs4 import BeautifulSoup, Tag
 from senpwai.common.scraper import (
     CLIENT,
     PARSER,
+    AiringStatus,
     AnimeMetadata,
     DomainNameError,
     ProgressFunction,
     get_new_home_url_from_readme,
-    match_quality,
+    closest_quality_index,
 )
 from .constants import (
     CHAR_MAP_BASE,
@@ -141,7 +142,7 @@ class GetEpisodePageLinks(ProgressFunction):
         first_page: dict[str, Any],
         anime_page_link: str,
         anime_id: str,
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> list[str]:
         page_url = anime_page_link
         episodes_data: list[dict[str, Any]] = []
@@ -173,7 +174,7 @@ class GetPahewinPageLinks(ProgressFunction):
     def get_pahewin_page_links_and_info(
         self,
         episode_page_links: list[str],
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> tuple[list[list[str]], list[list[str]]]:
         pahewin_links: list[list[str]] = []
         download_info: list[list[str]] = []
@@ -191,8 +192,8 @@ class GetPahewinPageLinks(ProgressFunction):
         return (pahewin_links, download_info)
 
 
-def is_dub(anime_info: str) -> bool:
-    return anime_info.endswith(DUB_PATTERN)
+def is_dub(episode_download_info: str) -> bool:
+    return episode_download_info.endswith(DUB_PATTERN)
 
 
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
@@ -202,14 +203,11 @@ def dub_available(anime_page_link: str, anime_id: str) -> bool:
     if episodes_data is None:
         return False
     episode_sessions = [episode["session"] for episode in episodes_data]
-    episode_links = [
-        EPISODE_PAGE_URL.format(anime_id, episode_session)
-        for episode_session in episode_sessions
-    ]
+    episode_page_link = EPISODE_PAGE_URL.format(anime_id, episode_sessions[0])
     (
         _,
         download_info,
-    ) = GetPahewinPageLinks().get_pahewin_page_links_and_info(episode_links[:1])
+    ) = GetPahewinPageLinks().get_pahewin_page_links_and_info([episode_page_link])
 
     for info in download_info[0]:
         if is_dub(info):
@@ -248,7 +246,7 @@ def bind_quality_to_link_info(
     bound_links: list[str] = []
     bound_info: list[str] = []
     for links, infos in zip(pahewin_download_page_links, download_info):
-        index = match_quality(infos, quality)
+        index = closest_quality_index(infos, quality)
         bound_links.append(links[index])
         bound_info.append(infos[index])
     return (bound_links, bound_info)
@@ -300,7 +298,7 @@ class GetDirectDownloadLinks(ProgressFunction):
     def get_direct_download_links(
         self,
         pahewin_download_page_links: list[str],
-        progress_update_callback: Callable = lambda _: None,
+        progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> list[str]:
         direct_download_links: list[str] = []
         for pahewin_link in pahewin_download_page_links:
@@ -366,11 +364,11 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     episode_count = decoded["total"]
     tag = soup.find(title="Currently Airing")
     if tag:
-        status = "ONGOING"
+        airing_status = AiringStatus.ONGOING
     elif episode_count == 0:
-        status = "UPCOMING"
+        airing_status = AiringStatus.UPCOMING
     else:
-        status = "FINISHED"
+        airing_status = AiringStatus.FINISHED
     return AnimeMetadata(
-        poster_url, summary, episode_count, status, genres, int(release_year)
+        poster_url, summary, episode_count, airing_status, genres, int(release_year)
     )

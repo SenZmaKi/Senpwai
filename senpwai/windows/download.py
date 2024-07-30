@@ -11,23 +11,21 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from senpwai.common.tracker import check_for_new_episodes
 from senpwai.scrapers import gogo, pahe
-from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
+from senpwai.common.classes import SETTINGS, AnimeDetails
 from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
     NoResourceLengthException,
     ProgressFunction,
     ffmpeg_is_installed,
-    lacked_episode_numbers,
     lacked_episodes,
-    sanitise_title,
 )
 from senpwai.common.static import (
     CANCEL_ICON_PATH,
     DOWNLOAD_WINDOW_BCKG_IMAGE_PATH,
     DUB,
-    GOGO,
     MOVE_DOWN_QUEUE_ICON_PATH,
     MOVE_UP_QUEUE_ICON_PATH,
     PAHE,
@@ -207,7 +205,7 @@ class QueuedDownload(QWidget):
         label = StyledLabel(font_size=14)
         self.anime_details = anime_details
         self.progress_bar = progress_bar
-        label.setText(anime_details.anime.title)
+        label.setText(anime_details.sanitised_title)
         set_minimum_size_policy(label)
         self.main_layout = QHBoxLayout()
         self.up_button = IconButton(download_queue.up_icon, 1.1, self)
@@ -348,10 +346,10 @@ class DownloadWindow(AbstractWindow):
         self.cancel_button: CancelAllButton
         self.folder_button: FolderButton
         self.downloaded_episode_count: DownloadedEpisodeCount
-        self.auto_download_timer = QTimer(self)
-        self.auto_download_timer.timeout.connect(self.start_auto_download)
-        self.setup_auto_download_timer()
-        self.auto_download_thread: AutoDownloadThread | None = None
+        self.tracked_download_timer = QTimer(self)
+        self.tracked_download_timer.timeout.connect(self.start_tracked_download)
+        self.setup_tracked_download_timer()
+        self.tracked_download_thread: TrackedDownloadThread | None = None
 
     def is_downloading(self) -> bool:
         if self.first_download_since_app_start:
@@ -363,26 +361,26 @@ class DownloadWindow(AbstractWindow):
             return False
         return True
 
-    def setup_auto_download_timer(self):
-        self.auto_download_timer.stop()
-        self.auto_download_timer.start(  # Converting from hours to milliseconds
-            SETTINGS.check_for_new_eps_after * 1000 * 60 * 60
+    def setup_tracked_download_timer(self):
+        self.tracked_download_timer.stop()
+        self.tracked_download_timer.start(  # Converting from hours to milliseconds
+            SETTINGS.tracking_interval * 1000 * 60 * 60
         )
 
-    def clean_out_auto_download_thread(self):
-        self.auto_download_thread = None
+    def clean_out_tracked_download_thread(self):
+        self.tracked_download_thread = None
 
-    def start_auto_download(self):
+    def start_tracked_download(self):
         # We only spawn a new thread if one wasn't already running to avoid overwriding the reference to the previous one causing it to get garbage collected/destroyed
         # Cause it can cause this error "QThread: Destroyed while thread is still running"
-        if SETTINGS.tracked_anime and not self.auto_download_thread:
-            self.auto_download_thread = AutoDownloadThread(
+        if SETTINGS.tracked_anime and not self.tracked_download_thread:
+            self.tracked_download_thread = TrackedDownloadThread(
                 self,
                 SETTINGS.tracked_anime,
                 self.main_window.tray_icon,
-                self.clean_out_auto_download_thread,
+                self.clean_out_tracked_download_thread,
             )
-            self.auto_download_thread.start()
+            self.tracked_download_thread.start()
 
     def initiate_download_pipeline(self, anime_details: AnimeDetails):
         if self.first_download_since_app_start:
@@ -619,7 +617,7 @@ class DownloadWindow(AbstractWindow):
             anime_progress_bar = ProgressBarWithoutButtons(
                 self,
                 "Downloading[HLS]",
-                anime_details.anime.title,
+                anime_details.sanitised_title,
                 total_segments,
                 "segs",
                 1,
@@ -629,7 +627,7 @@ class DownloadWindow(AbstractWindow):
             anime_progress_bar = ProgressBarWithoutButtons(
                 self,
                 "Downloading",
-                anime_details.anime.title,
+                anime_details.sanitised_title,
                 len(anime_details.ddls_or_segs_urls),
                 "eps",
                 1,
@@ -639,7 +637,7 @@ class DownloadWindow(AbstractWindow):
             anime_progress_bar = ProgressBarWithoutButtons(
                 self,
                 "Downloading",
-                anime_details.anime.title,
+                anime_details.shortened_title,
                 anime_details.total_download_size,
                 "MB",
                 1,
@@ -654,7 +652,9 @@ class DownloadWindow(AbstractWindow):
             )
 
             set_minimum_size_policy(self.downloaded_episode_count)
-            self.folder_button = FolderButton("", 100, 100, None)
+            self.folder_button = FolderButton(
+                anime_details.anime_folder_path, 100, 100, None
+            )
 
             def download_is_active() -> bool:
                 return not (
@@ -718,7 +718,7 @@ class DownloadWindow(AbstractWindow):
             current_download_manager_thread.pause_or_resume
         )
         self.cancel_button.cancel_callback = current_download_manager_thread.cancel
-        self.folder_button.folder_path = anime_details.anime_folder_path
+        self.folder_button.set_folder_path(anime_details.anime_folder_path)
         current_download_manager_thread.start()
 
     def make_episode_progress_bar(
@@ -1266,10 +1266,15 @@ class GetDirectDownloadLinksThread(QThread):
                 lambda x: self.update_bar.emit(x),
             )
 
-        if len(self.anime_details.ddls_or_segs_urls) < len(self.download_page_links):
+        if not obj.cancelled and len(self.anime_details.ddls_or_segs_urls) < len(
+            self.download_page_links
+        ):
+            link_name = (
+                "hls" if self.anime_details.is_hls_download else "direct download"
+            )
             self.download_window.main_window.tray_icon.make_notification(
                 "Error",
-                f"Failed to find some {'hls' if self.anime_details.is_hls_download else 'direct download'} links for {self.anime_details.anime.title}",
+                f"Failed to retrieve some {link_name} links for {self.anime_details.sanitised_title}",
                 False,
                 None,
             )
@@ -1300,7 +1305,10 @@ class GogoCalculateDownloadSizes(QThread):
         obj = gogo.CalculateTotalDowloadSize()
         self.progress_bar.pause_callback = obj.pause_or_resume
         self.progress_bar.cancel_callback = obj.cancel
-        self.anime_details.total_download_size = obj.calculate_total_download_size(
+        (
+            self.anime_details.total_download_size,
+            self.anime_details.ddls_or_segs_urls,
+        ) = obj.calculate_total_download_size(
             cast(list[str], self.anime_details.ddls_or_segs_urls),
             lambda x: self.update_bar.emit(x),
             True,
@@ -1309,16 +1317,16 @@ class GogoCalculateDownloadSizes(QThread):
             self.finished.emit(self.anime_details)
 
 
-class AutoDownloadThread(QThread):
+class TrackedDownloadThread(QThread):
     initate_download_pipeline = pyqtSignal(AnimeDetails)
-    clean_out_auto_download_thread_signal = pyqtSignal()
+    clean_out_tracked_download_thread_signal = pyqtSignal()
 
     def __init__(
         self,
         download_window: DownloadWindow,
         titles: list[str],
         tray_icon: QSystemTrayIcon,
-        clean_out_auto_download_thread_slot: Callable[[], None],
+        clean_out_tracked_download_thread_slot: Callable[[], None],
     ):
         super().__init__(download_window)
         self.anime_titles = titles
@@ -1327,86 +1335,33 @@ class AutoDownloadThread(QThread):
             self.download_window.initiate_download_pipeline
         )
         self.tray_icon = tray_icon
-        self.clean_out_auto_download_thread_signal.connect(
-            clean_out_auto_download_thread_slot
+        self.clean_out_tracked_download_thread_signal.connect(
+            clean_out_tracked_download_thread_slot
         )
 
     def run(self):
-        queued: list[str] = []
-        for title in self.anime_titles:
-            anime: Anime
-            site = SETTINGS.auto_download_site
-            if site == PAHE:
-                result = self.pahe_fetch_anime_obj(title)
-                if not result:
-                    result = self.gogo_fetch_anime_obj(title)
-                    if not result:
-                        continue
-                    site = GOGO
-            else:
-                result = self.gogo_fetch_anime_obj(title)
-                if not result:
-                    result = self.pahe_fetch_anime_obj(title)
-                    if not result:
-                        continue
-                    site = PAHE
-            anime = result
-            anime_details = AnimeDetails(anime, site)
-            start_eps = anime_details.haved_end if anime_details.haved_end else 1
-            anime_details.lacked_episode_numbers = lacked_episode_numbers(
-                start_eps, anime_details.episode_count, anime_details.haved_episodes
-            )
-            if not anime_details.lacked_episode_numbers:
-                haved_end = anime_details.haved_end
-                if anime_details.metadata.airing_status == "FINISHED" and (
-                    haved_end and haved_end >= anime_details.episode_count
-                ):
-                    self.download_window.main_window.settings_window.tracked_anime.remove_anime(
-                        anime_details.anime.title
-                    )
-                    self.download_window.main_window.tray_icon.make_notification(
-                        "Finished Tracking",
-                        f"You have the final episode of {title} and it has finished airing so I have removed it from your tracking list",
-                        True,
-                    )
-                continue
-            if anime_details.sub_or_dub == DUB and not anime_details.dub_available:
-                self.download_window.main_window.tray_icon.make_notification(
-                    "Error",
-                    f"Failed to find dub for {anime_details.anime.title}",
-                    False,
-                    None,
-                )
-                continue
-            queued.append(anime_details.anime.title)
-            self.initate_download_pipeline.emit(anime_details)
-        if queued:
-            all_str = ", ".join(queued)
-            self.download_window.main_window.tray_icon.make_notification(
+        check_for_new_episodes(
+            lambda title: self.download_window.main_window.settings_window.tracked_anime.remove_anime(
+                title
+            ),
+            lambda sanitised_title: self.download_window.main_window.tray_icon.make_notification(
+                "Finished Tracking",
+                f"You have the final episode of {sanitised_title} and it has finished airing so I have removed it from your tracking list",
+                True,
+            ),
+            lambda sanitised_title: self.download_window.main_window.tray_icon.make_notification(
+                "Error",
+                f"Failed to find dub for {sanitised_title}",
+                False,
+                None,
+            ),
+            lambda anime_details: self.initate_download_pipeline.emit(anime_details),
+            lambda queued_anime_titles: self.download_window.main_window.tray_icon.make_notification(
                 "Queued new episodes",
-                all_str,
+                queued_anime_titles,
                 False,
                 self.download_window.main_window.switch_to_download_window,
-            )
-        self.clean_out_auto_download_thread_signal.emit()
-
-    def pahe_fetch_anime_obj(self, title: str) -> Anime | None:
-        results = pahe.search(title)
-        for result in results:
-            res_title, page_link, anime_id = pahe.extract_anime_title_page_link_and_id(
-                result
-            )
-            if sanitise_title(res_title.lower(), True) == sanitise_title(
-                title.lower(), True
-            ):
-                return Anime(title, page_link, anime_id)
-        return None
-
-    def gogo_fetch_anime_obj(self, title: str) -> Anime | None:
-        results = gogo.search(title)
-        for res_title, page_link in results:
-            if sanitise_title(res_title.lower(), True) == sanitise_title(
-                title.lower(), True
-            ):
-                return Anime(title, page_link, None)
-        return None
+            ),
+            True,
+        )
+        self.clean_out_tracked_download_thread_signal.emit()

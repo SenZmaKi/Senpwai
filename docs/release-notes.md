@@ -1,11 +1,12 @@
-# New features
-
--   Add tips in about section
--   senpcli: Stylize output 💅✨
+# New features and Changes
+- Shorten long anime titles in progress bars
+- Hover on folder button shows folder location
+- senpcli: Always show units/time instead of time/units in progress bars
+- senpcli: Add anime tracking functionality
+- senpcli: Add option to print direct download links instead of downloading
 
 # Bug fixes
-
--   Maybe fix randomly skipped downloads, if it still happens report it
--   pahe: Fix infinite loading for some anime. Issue #43
--   senpcli: Sort of fix Ctrl+C not terminating program, it still bugs out sometimes though
--   Fix some linux port issues
+- Fix some gogo downloads randomly failing, if you still experience it be sure to report it
+- Fix failed to fetch direct download links notification on cancelling direct download links retrieval
+- Fix anime randomizer
+- Fix opening chosen anime window for other anime failing if previous attempt failed

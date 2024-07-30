@@ -3,14 +3,26 @@ import subprocess
 import sys
 from functools import cache
 from io import TextIOWrapper
+import os
 
 ROOT_DIR = Path(__file__).parent.parent
 REPO_URL = "https://github.com/SenZmaKi/Senpwai"
-ARGS = sys.argv[1:]
 
 
-def git_commit(msg: str) -> None:
-    subprocess.run(f'git commit -am "scripts: {msg}"')
+def join_from_local_appdata(*paths: str) -> str:
+    return os.path.join(
+        os.environ["LOCALAPPDATA"],
+        "Programs",
+        *paths,
+    )
+
+
+def join_from_py_scripts(*paths: str) -> str:
+    return join_from_local_appdata("Python", "Python311", "Scripts", *paths)
+
+
+def git_commit(msg: str) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(f'git commit -am "scripts: {msg}"')
 
 
 def get_piped_input() -> str:
@@ -37,9 +49,11 @@ def overwrite(file: TextIOWrapper, content: str) -> None:
 
 @cache
 def get_current_branch_name() -> str:
-    return subprocess.run(
+    complete_subprocess = subprocess.run(
         "git branch --show-current", capture_output=True, text=True
-    ).stdout.strip()
+    )
+    complete_subprocess.check_returncode()
+    return complete_subprocess.stdout.strip()
 
 
 def log_info(msg: str) -> None:

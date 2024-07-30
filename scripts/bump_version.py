@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from functools import cache
 import subprocess
 import sys
@@ -5,7 +6,6 @@ import re
 from typing import cast
 from .common import (
     ROOT_DIR,
-    ARGS,
     get_current_branch_name,
     git_commit,
     log_error as common_log_error,
@@ -23,9 +23,6 @@ FILES_PATHS = [
     ROOT_DIR.joinpath("scripts/setup_senpcli.iss"),
 ]
 
-USAGE = """
-Usage: bump_version <OLD_VERSION> <NEW_VERSION>
-"""
 ENCOUNTERED_ERROR = False
 VERSION_REGEX = re.compile(r"(\d+(\.\d+)*)")
 
@@ -59,11 +56,6 @@ def get_new_version() -> str:
     return cast(re.Match, new_version).group(1)
 
 
-def get_versions() -> tuple[str, str]:
-    prev_version, new_version = get_prev_version(), get_new_version()
-    return prev_version, new_version
-
-
 def bump_version(prev_version: str, new_version: str, ignore_same: bool):
     for file_path in FILES_PATHS:
         if not file_path.is_file():
@@ -85,20 +77,37 @@ def bump_version(prev_version: str, new_version: str, ignore_same: bool):
 
 
 def main(ignore_same=False) -> None:
-    if len(ARGS) == 1 and ARGS[0] in ("--help", "-h"):
-        print(USAGE)
-        return
-    if len(ARGS) == 2:
-        prev_version = ARGS[0]
-        new_version = ARGS[1]
-    else:
-        prev_version, new_version = get_versions()
-    if not ignore_same and prev_version == new_version:
-        log_error(f"Previous and New version are the same: {prev_version}", True)
-    log_info(f"Bumping version from {prev_version} --> {new_version}")
-    bump_version(prev_version, new_version, ignore_same)
+    parser = ArgumentParser(description="Bump version in files")
+    parser.add_argument(
+        "-is",
+        "--ignore_same",
+        action="store_true",
+        help="Ignore if previous and new version are the same",
+    )
+    parser.add_argument(
+        "-pv",
+        "--previous_version",
+        type=str,
+        help="Previous version to bump from",
+        default=get_prev_version(),
+    )
+    parser.add_argument(
+        "-nv",
+        "--new_version",
+        type=str,
+        help="New version to bump to",
+        default=get_new_version(),
+    )
+    parsed = parser.parse_args()
+    ignore_same = parsed.ignore_same
+    previous_version = parsed.previous_version
+    new_version = parsed.new_version
+    if not ignore_same and previous_version == new_version:
+        log_error(f"Previous and New version are the same: {previous_version}", True)
+    log_info(f"Bumping version from {previous_version} --> {new_version}")
+    bump_version(previous_version, new_version, ignore_same)
     subprocess.run("git --no-pager diff").check_returncode()
-    git_commit(f"Bump version from {prev_version} --> {new_version}")
+    git_commit(f"Bump version from {previous_version} --> {new_version}")
     if ENCOUNTERED_ERROR:
         sys.exit(1)
 

@@ -58,8 +58,8 @@ class MainWindow(QMainWindow):
         self.stacked_windows.addWidget(self.settings_window)
         self.stacked_windows.addWidget(self.about_window)
         self.setCentralWidget(self.stacked_windows)
-        self.setup_chosen_anime_window_thread: QThread | None = None
-        self.download_window.start_auto_download()
+        self.make_anime_details_thread: QThread | None = None
+        self.download_window.start_tracked_download()
 
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         if not a0:
@@ -67,7 +67,7 @@ class MainWindow(QMainWindow):
         if self.download_window.is_downloading():
             message_box = QMessageBox(self)
             message_box.setIcon(QMessageBox.Icon.Warning)
-            message_box.setStyleSheet("color: black")
+            message_box.setStyleSheet("color: black;")
             message_box.setText(
                 "You have ongoing downloads, are you sure you want to exit?"
             )
@@ -80,8 +80,8 @@ class MainWindow(QMainWindow):
                 return a0.ignore()
         a0.accept()
 
-    def show_with_settings(self, args: list[str]):
-        if MINIMISED_TO_TRAY_ARG in args:
+    def show_with_settings(self):
+        if MINIMISED_TO_TRAY_ARG in self.app.arguments():
             if SETTINGS.start_maximized:
                 self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
             self.hide()
@@ -128,33 +128,34 @@ class MainWindow(QMainWindow):
         x = (screen_geometry.width() - self.width()) // 2
         self.move(x, 0)
 
-    def setup_and_switch_to_chosen_anime_window(self, anime: Anime, site: str):
-        # This if statement prevents error: "QThread: Destroyed while thread is still running" that happens when more than one thread is spawned
-        # When a user clicks more than one ResultButton quickly causing the reference to the original thread to be overwridden hence garbage collected/destroyed
-        if self.setup_chosen_anime_window_thread is None:
-            self.search_window.loading.start()
-            self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
-                self.search_window.loading
-            )
-            self.setup_chosen_anime_window_thread = MakeAnimeDetailsThread(
-                self, anime, site
-            )
-            self.setup_chosen_anime_window_thread.finished.connect(
-                lambda anime_details: self.make_chosen_anime_window(anime_details)
-            )
-            self.setup_chosen_anime_window_thread.start()
+    def switch_to_chosen_anime_window(self, anime: Anime, site: str):
+        if (
+            self.make_anime_details_thread is not None
+            # Incase the thread crashed like when an exception is raised meaning the thread is not running
+            # but also did not emit on finish to reset to None
+            and self.make_anime_details_thread.isRunning()
+        ):
+            return
+        self.search_window.loading.start()
+        self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
+            self.search_window.loading
+        )
+        self.make_anime_details_thread = MakeAnimeDetailsThread(self, anime, site)
+        self.make_anime_details_thread.finished.connect(
+            lambda anime_details: self.real_switch_to_chosen_anime_window(anime_details)
+        )
+        self.make_anime_details_thread.start()
 
-    def make_chosen_anime_window(self, anime_details: AnimeDetails):
-        self.setup_chosen_anime_window_thread = None
+    def real_switch_to_chosen_anime_window(self, anime_details: AnimeDetails):
         self.search_window.bottom_section_stacked_widgets.setCurrentWidget(
             self.search_window.results_widget
         )
-        self.search_window.loading.stop()
         chosen_anime_window = ChosenAnimeWindow(self, anime_details)
         self.stacked_windows.addWidget(chosen_anime_window)
         self.set_bckg_img(chosen_anime_window.bckg_img_path)
+        self.search_window.loading.stop()
         self.stacked_windows.setCurrentWidget(chosen_anime_window)
-        self.setup_chosen_anime_window_thread = None
+        self.make_anime_details_thread = None
 
     def switch_to_pahe(self, anime_title: str, initiator: QWidget):
         self.search_window.search_bar.setText(anime_title)
@@ -203,32 +204,32 @@ class TrayIcon(QSystemTrayIcon):
         self.setToolTip("Senpwai")
         self.activated.connect(self.on_tray_icon_click)
         self.context_menu = QMenu("Senpwai", main_window)
+        text = (
+            "Show" if MINIMISED_TO_TRAY_ARG in main_window.app.arguments() else "Hide"
+        )
+        self.toggle_show_hide_action = QAction(text, self.context_menu)
+        self.toggle_show_hide_action.triggered.connect(self.focus_or_hide_window)
         check_for_new_episodes_action = QAction(
-            "Check for new episodes", self.context_menu
+            "Check tracked anime", self.context_menu
         )
         check_for_new_episodes_action.triggered.connect(
-            main_window.download_window.start_auto_download
+            main_window.download_window.start_tracked_download
         )
-        search_action = QAction("Search", self.context_menu)
-        search_action.triggered.connect(main_window.switch_to_search_window)
-        search_action.triggered.connect(main_window.show_)
-        downloads_action = QAction("Downloads", self.context_menu)
-        downloads_action.triggered.connect(main_window.switch_to_download_window)
-        downloads_action.triggered.connect(main_window.show_)
         exit_action = QAction("Exit", self.context_menu)
         exit_action.triggered.connect(main_window.app.quit)
+        self.context_menu.addAction(self.toggle_show_hide_action)
         self.context_menu.addAction(check_for_new_episodes_action)
-        self.context_menu.addAction(search_action)
-        self.context_menu.addAction(downloads_action)
         self.context_menu.addAction(exit_action)
         self.messageClicked.connect(main_window.show_)
         self.setContextMenu(self.context_menu)
 
     def focus_or_hide_window(self):
-        if not self.main_window.isVisible():
+        if self.main_window.isVisible():
+            self.main_window.hide()
+            self.toggle_show_hide_action.setText("Show")
+        else:
             self.main_window.show_()
-            return
-        self.main_window.hide()
+            self.toggle_show_hide_action.setText("Hide")
 
     def on_tray_icon_click(self, reason: QSystemTrayIcon.ActivationReason):
         if reason == QSystemTrayIcon.ActivationReason.Context:

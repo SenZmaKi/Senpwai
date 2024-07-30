@@ -10,7 +10,6 @@ from senpwai.common.classes import AnimeDetails, UpdateInfo, update_available
 from senpwai.common.scraper import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
-    RESOURCE_MOVED_STATUS_CODES,
     Download,
     try_installing_ffmpeg,
 )
@@ -270,10 +269,10 @@ class DownloadUpdateThread(QThread):
         self.file_name = file_name
 
     def run(self):
-        response = CLIENT.get(self.download_url, stream=True)
-        if response.status_code in RESOURCE_MOVED_STATUS_CODES:
-            self.download_url = response.headers["Location"]
-            response = CLIENT.get(self.download_url, stream=True)
+        response = CLIENT.get(
+            self.download_url, stream=True, allow_redirects=True
+        )
+        self.download_url = response.url
         total_size = int(response.headers["Content-Length"])
         self.total_size.emit(total_size)
         self.update_window.progress_bar

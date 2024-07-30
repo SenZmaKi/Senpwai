@@ -678,7 +678,11 @@ class FolderButton(IconButton):
         self, path: str, size_x: int, size_y: int, parent: QWidget | None = None
     ):
         super().__init__(Icon(size_x, size_y, FOLDER_ICON_PATH), 1.3, parent)
+        self.set_folder_path(path)
+
+    def set_folder_path(self, path: str):
         self.folder_path = path
+        self.setToolTip(path)
         self.clicked.connect(lambda: open_folder(self.folder_path))
 
 
@@ -763,7 +767,7 @@ class GogoNormOrHlsButton(OptionButton):
                 "Normal download functionality, similar to Animepahe but may occassionally fail"
             )
         self.setToolTip(
-            "Guaranteed to work, it's like downloading a live stream as opposed to a file\nYou need to install FFmpeg for it to work but Senpwai will try to automatically install it"
+            "Guaranteed to work and usually downloads are faster, it's like downloading a live stream as opposed to a file\nYou need to install FFmpeg for it to work but Senpwai will try to automatically install it"
         )
 
 
