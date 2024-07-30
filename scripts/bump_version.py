@@ -87,7 +87,7 @@ def main(ignore_same=False) -> None:
     )
     parser.add_argument(
         "-pv",
-        "--prev_version",
+        "--previous_version",
         type=str,
         help="Previous version to bump from",
         default=get_prev_version(),

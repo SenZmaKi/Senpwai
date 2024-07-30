@@ -114,7 +114,7 @@ def main() -> None:
     parsed = parser.parse_args()
     if BRANCH_NAME == "master":
         log_error("On master branch, switch to version branch", True)
-    if not parsed.skip_bumb:
+    if not parsed.skip_bump:
         log_info("Bumping version")
         bump_version.main(True)
     if not parsed.skip_ruff:

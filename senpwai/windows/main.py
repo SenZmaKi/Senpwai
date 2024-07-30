@@ -67,7 +67,7 @@ class MainWindow(QMainWindow):
         if self.download_window.is_downloading():
             message_box = QMessageBox(self)
             message_box.setIcon(QMessageBox.Icon.Warning)
-            message_box.setStyleSheet("color: black")
+            message_box.setStyleSheet("color: black;")
             message_box.setText(
                 "You have ongoing downloads, are you sure you want to exit?"
             )
@@ -205,9 +205,7 @@ class TrayIcon(QSystemTrayIcon):
         self.activated.connect(self.on_tray_icon_click)
         self.context_menu = QMenu("Senpwai", main_window)
         text = (
-            "Show"
-            if MINIMISED_TO_TRAY_ARG in main_window.app.arguments()
-            else "Hide"
+            "Show" if MINIMISED_TO_TRAY_ARG in main_window.app.arguments() else "Hide"
         )
         self.toggle_show_hide_action = QAction(text, self.context_menu)
         self.toggle_show_hide_action.triggered.connect(self.focus_or_hide_window)

@@ -35,10 +35,11 @@ from senpwai.common.static import (
     PAHE_NORMAL_COLOR,
     PAHE_PRESSED_COLOR,
     RANDOM_MACOT_ICON_PATH,
-    SADGE_PIECE_PATH,
+    ANIME_NOT_FOUND_PATH,
     SEARCH_WINDOW_BCKG_IMAGE_PATH,
     SEN_ANILIST_ID,
     SEN_FAVOURITE_AUDIO_PATH,
+    ONE_PIECE_REAL_AUDIO_PATH,
     TOKI_WA_UGOKI_DASU_AUDIO_PATH,
     W_ANIME,
     WHAT_DA_HELL_AUDIO_PATH,
@@ -110,7 +111,7 @@ class SearchWindow(AbstractWindow):
             LOADING_ANIMATION_PATH, 250, 300, "Loading.. .", 1, 48, 50
         )
         self.anime_not_found = AnimationAndText(
-            SADGE_PIECE_PATH, 400, 300, ":( couldn't find that anime ", 1, 48, 50
+            ANIME_NOT_FOUND_PATH, 400, 300, ":( couldn't find that anime ", 1, 48, 50
         )
         self.bottom_section_stacked_widgets = QStackedWidget()
         self.bottom_section_stacked_widgets.addWidget(self.results_widget)
@@ -156,7 +157,7 @@ class SearchWindow(AbstractWindow):
         anime_title_lower = anime_title.lower()
         is_naruto = "naruto" in anime_title_lower
         if "one piece" in anime_title_lower:
-            AudioPlayer(self, SEN_FAVOURITE_AUDIO_PATH, volume=100).play()
+            AudioPlayer(self, ONE_PIECE_REAL_AUDIO_PATH, volume=100).play()
         elif "jojo" in anime_title_lower:
             AudioPlayer(self, ZA_WARUDO_AUDIO_PATH, 100).play()
             for _ in range(180):
