@@ -8,7 +8,6 @@ from senpwai.common.scraper import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     PARSER,
-    RESOURCE_MOVED_STATUS_CODES,
     AiringStatus,
     AnimeMetadata,
     DomainNameError,

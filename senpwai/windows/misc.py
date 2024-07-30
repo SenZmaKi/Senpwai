@@ -10,7 +10,6 @@ from senpwai.common.classes import AnimeDetails, UpdateInfo, update_available
 from senpwai.common.scraper import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
-    RESOURCE_MOVED_STATUS_CODES,
     Download,
     try_installing_ffmpeg,
 )

@@ -13,23 +13,19 @@ from PyQt6.QtWidgets import (
 )
 from common.tracker import check_for_new_episodes
 from senpwai.scrapers import gogo, pahe
-from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
+from senpwai.common.classes import SETTINGS, AnimeDetails
 from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
-    AiringStatus,
     Download,
     NoResourceLengthException,
     ProgressFunction,
     ffmpeg_is_installed,
-    lacked_episode_numbers,
     lacked_episodes,
-    sanitise_title,
 )
 from senpwai.common.static import (
     CANCEL_ICON_PATH,
     DOWNLOAD_WINDOW_BCKG_IMAGE_PATH,
     DUB,
-    GOGO,
     MOVE_DOWN_QUEUE_ICON_PATH,
     MOVE_UP_QUEUE_ICON_PATH,
     PAHE,

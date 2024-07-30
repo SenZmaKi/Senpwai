@@ -1,6 +1,5 @@
 from argparse import ArgumentParser
 from functools import cache
-from hmac import new
 import subprocess
 import sys
 import re
