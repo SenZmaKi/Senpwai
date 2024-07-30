@@ -59,7 +59,7 @@ class AboutWindow(AbstractWindow):
 - When searching🔎 use the anime's Romaji title instead of the English title
 - If you don't specify end episode, Senpwai will assume you mean the last episode
 - Senpwai can detect missing episodes e.g., if you have One Piece🏴‍☠️  episodes 1 to 100 but are missing episode 50, specify 1 to 100, and it will only download episode 50
-- If Senpwai can't find the quality you want it will pick the closest lower one  it e.g., if you choose 720p but only 1080p and 360p is available it'll pick 360p
+- If Senpwai can't find the quality you want it will pick the closest lower one e.g., if you choose 720p but only 1080p and 360p is available it'll pick 360p
 - So long as the app is open Senpwai will try to resume⏯️  ongoing downloads even if you lose an internet connection
 - Experiencing slow downloads? Use gogo hls mode for the fastest🚀 download speeds
 - [Hover✨](https://open.spotify.com/playlist/460b5y4LB8Dixh0XajVVaL?si=fce0f0f762464e81) over something that you don't understand there's probably a tool tip for it

@@ -39,15 +39,14 @@ def init():
 def main():
     init()
     QCoreApplication.setApplicationName(APP_NAME)
-    args = sys.argv
-    app = QApplication(args)
+    app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     palette = app.palette()
     palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
     app.setPalette(palette)
     window = MainWindow(app)
     app.setWindowIcon(window.senpwai_icon)
-    window.show_with_settings(args)
+    window.show_with_settings()
     sys.excepthook = custom_exception_handler
     sys.exit(app.exec())
 

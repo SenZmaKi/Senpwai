@@ -88,10 +88,11 @@ class SettingsWindow(AbstractWindow):
         right_widget.setLayout(right_layout)
         main_layout.addWidget(left_widget)
         main_layout.addWidget(right_widget)
-        self.file_location_button = FolderButton(
+        self.settings_folder_button = FolderButton(
             self, self.font_size, SETTINGS.config_dir, SETTINGS.settings_json_path
         )
-        set_minimum_size_policy(self.file_location_button)
+        self.settings_folder_button.setToolTip("Click to open the settings folder")
+        set_minimum_size_policy(self.settings_folder_button)
         self.sub_dub_setting = SubDubSetting(self)
         self.quality_setting = QualitySetting(self)
         self.max_simultaneous_downloads_setting = MaxSimultaneousDownloadsSetting(self)
@@ -100,16 +101,14 @@ class SettingsWindow(AbstractWindow):
         )
         self.start_maximized = StartMaximized(self)
         self.download_folder_setting = DownloadFoldersSetting(self, main_window)
-        self.gogo_norm_or_hls_mode_setting = GogoNormOrHlsSetting(self)
-        self.tracked_anime = TrackedAnimeListSetting(
-            self,
-        )
-        self.auto_download_site = AutoDownloadSite(self)
-        self.check_for_new_eps_after = CheckForNewEpsAfterSetting(
+        self.gogo_norm_or_hls_mode_setting = GogoModeSetting(self)
+        self.tracked_anime = TrackedAnimeListSetting(self, main_window.download_window)
+        self.tracking_site = TrackingSite(self)
+        self.check_for_new_eps_after = TrackingIntervalSetting(
             self, main_window.download_window
         )
         self.gogo_skip_calculate = GogoSkipCalculate(self)
-        left_layout.addWidget(self.file_location_button)
+        left_layout.addWidget(self.settings_folder_button)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
@@ -121,7 +120,7 @@ class SettingsWindow(AbstractWindow):
             self.run_on_startup = RunOnStartUp(self)
             left_layout.addWidget(self.run_on_startup)
         right_layout.addWidget(self.download_folder_setting)
-        right_layout.addWidget(self.auto_download_site)
+        right_layout.addWidget(self.tracking_site)
         right_layout.addWidget(self.check_for_new_eps_after)
         right_layout.addWidget(self.tracked_anime)
         self.full_layout.addWidget(main_widget)
@@ -332,9 +331,21 @@ class SettingWidget(QWidget):
         setting_info: str,
         widgets_to_add: list,
         horizontal_layout=True,
+        label_is_button=False,
     ):
         super().__init__()
-        self.setting_label = StyledLabel(font_size=settings_window.font_size + 5)
+        self.setting_label = (
+            StyledButton(
+                self,
+                font_size=settings_window.font_size + 5,
+                font_color="white",
+                normal_color="black",
+                hover_color="grey",
+                pressed_color="black",
+            )
+            if label_is_button
+            else StyledLabel(font_size=settings_window.font_size + 5)
+        )
         self.setting_label.setText(setting_info)
         set_minimum_size_policy(self.setting_label)
         if horizontal_layout:
@@ -372,7 +383,9 @@ class RemovableWidget(QWidget):
 
 
 class TrackedAnimeListSetting(SettingWidget):
-    def __init__(self, settings_window: SettingsWindow):
+    def __init__(
+        self, settings_window: SettingsWindow, download_window: DownloadWindow
+    ):
         self.main_layout = QVBoxLayout()
         self.settings_window = settings_window
         main_widget = ScrollableSection(self.main_layout)
@@ -384,13 +397,16 @@ class TrackedAnimeListSetting(SettingWidget):
         line.setFixedHeight(7)
         super().__init__(
             settings_window,
-            "Tracked",
+            "Tracked anime",
             [line, main_widget],
             False,
+            True,
         )
         self.setting_label.setToolTip(
-            "Senpwai will check for new episodes of your tracked anime when you start the app\nthen in intervals of the hours you specify so long as it is running"
+            "Senpwai will check for new episodes of your tracked anime when you start the app then in intervals\nof the hours you specify so long as it is running. Click to trigger a check right now"
         )
+        self.setting_label = cast(StyledButton, self.setting_label)
+        self.setting_label.clicked.connect(download_window.start_tracked_download)
 
     def setup_anime_widget(self, wid: RemovableWidget):
         wid.remove_button.clicked.connect(
@@ -415,7 +431,7 @@ class TrackedAnimeListSetting(SettingWidget):
         SETTINGS.add_tracked_anime(title)
 
 
-class AutoDownloadSite(SettingWidget):
+class TrackingSite(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
         self.font_size = settings_window.font_size
         pahe_button = OptionButton(
@@ -426,20 +442,18 @@ class AutoDownloadSite(SettingWidget):
         )
         pahe_button.clicked.connect(lambda: gogo_button.set_picked_status(False))
         pahe_button.clicked.connect(
-            lambda: SETTINGS.update_auto_download_site(cast(str, pahe_button.option))
+            lambda: SETTINGS.update_tracking_site(cast(str, pahe_button.option))
         )
         gogo_button.clicked.connect(lambda: pahe_button.set_picked_status(False))
         gogo_button.clicked.connect(
-            lambda: SETTINGS.update_auto_download_site(cast(str, gogo_button.option))
+            lambda: SETTINGS.update_tracking_site(cast(str, gogo_button.option))
         )
-        if SETTINGS.auto_download_site == PAHE:
+        if SETTINGS.tracking_site == PAHE:
             pahe_button.set_picked_status(True)
         else:
             gogo_button.set_picked_status(True)
 
-        super().__init__(
-            settings_window, "Auto download site", [pahe_button, gogo_button]
-        )
+        super().__init__(settings_window, "Tracking site", [pahe_button, gogo_button])
         self.setting_label.setToolTip(
             f"If {APP_NAME} can't find the anime in the specified site it will try the other"
         )
@@ -469,7 +483,9 @@ class YesOrNoSetting(SettingWidget):
 class GogoSkipCalculate(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Skip calculating download size for Gogo")
-        self.setToolTip("Calculating total download size on gogo involves first making requests for the size of each episode")
+        self.setToolTip(
+            "Calculating total download size on gogo involves first making requests for the size of each episode"
+        )
         if SETTINGS.gogo_skip_calculate:
             self.yes_button.set_picked_status(True)
         else:
@@ -545,7 +561,7 @@ class AllowNotificationsSetting(YesOrNoSetting):
         )
 
 
-class GogoNormOrHlsSetting(SettingWidget):
+class GogoModeSetting(SettingWidget):
     def __init__(self, settings_window: SettingsWindow):
         norm_button = GogoNormOrHlsButton(
             settings_window, GOGO_NORM_MODE, settings_window.font_size
@@ -555,20 +571,20 @@ class GogoNormOrHlsSetting(SettingWidget):
             settings_window, GOGO_HLS_MODE, settings_window.font_size
         )
         set_minimum_size_policy(hls_button)
-        if SETTINGS.gogo_norm_or_hls_mode == GOGO_HLS_MODE:
+        if SETTINGS.gogo_mode == GOGO_HLS_MODE:
             hls_button.set_picked_status(True)
         else:
             norm_button.set_picked_status(True)
         norm_button.clicked.connect(lambda: hls_button.set_picked_status(False))
         hls_button.clicked.connect(lambda: norm_button.set_picked_status(False))
         norm_button.clicked.connect(
-            lambda: SETTINGS.update_gogo_norm_or_hls_mode(GOGO_NORM_MODE)
+            lambda: SETTINGS.update_gogo_mode(GOGO_NORM_MODE)
         )
         hls_button.clicked.connect(
-            lambda: SETTINGS.update_gogo_norm_or_hls_mode(GOGO_HLS_MODE)
+            lambda: SETTINGS.update_gogo_mode(GOGO_HLS_MODE)
         )
         super().__init__(
-            settings_window, "Gogo Normal or HLS mode", [norm_button, hls_button]
+            settings_window, "Gogo mode", [norm_button, hls_button]
         )
 
 
@@ -646,25 +662,25 @@ class MaxSimultaneousDownloadsSetting(NonZeroNumberInputSetting):
         )
 
 
-class CheckForNewEpsAfterSetting(NonZeroNumberInputSetting):
+class TrackingIntervalSetting(NonZeroNumberInputSetting):
     def __init__(
         self, settings_window: SettingsWindow, download_window: DownloadWindow
     ):
         self.download_window = download_window
         super().__init__(
             settings_window,
-            SETTINGS.check_for_new_eps_after,
-            SETTINGS.update_check_for_new_eps_after,
-            "Check for new episodes after",
-            "Bruh, time intervals can't be zero",
+            SETTINGS.tracking_interval,
+            SETTINGS.update_tracking_interval,
+            "Track anime every",
+            "Bruh, time intervals cannot be zero",
             "hours",
             "Senpwai will check for new episodes of your tracked anime when you start the app\nthen in intervals of the hours you specify so long as it is running",
         )
 
     def text_changed(self, text: str):
         super().text_changed(text)
-        self.download_window.setup_auto_download_timer()
-        self.download_window.start_auto_download()
+        self.download_window.setup_tracked_download_timer()
+        self.download_window.start_tracked_download()
 
 
 class QualitySetting(SettingWidget):

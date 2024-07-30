@@ -59,7 +59,7 @@ class MainWindow(QMainWindow):
         self.stacked_windows.addWidget(self.about_window)
         self.setCentralWidget(self.stacked_windows)
         self.make_anime_details_thread: QThread | None = None
-        self.download_window.start_auto_download()
+        self.download_window.start_tracked_download()
 
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         if not a0:
@@ -80,8 +80,8 @@ class MainWindow(QMainWindow):
                 return a0.ignore()
         a0.accept()
 
-    def show_with_settings(self, args: list[str]):
-        if MINIMISED_TO_TRAY_ARG in args:
+    def show_with_settings(self):
+        if MINIMISED_TO_TRAY_ARG in self.app.arguments():
             if SETTINGS.start_maximized:
                 self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
             self.hide()
@@ -204,32 +204,34 @@ class TrayIcon(QSystemTrayIcon):
         self.setToolTip("Senpwai")
         self.activated.connect(self.on_tray_icon_click)
         self.context_menu = QMenu("Senpwai", main_window)
+        text = (
+            "Show"
+            if MINIMISED_TO_TRAY_ARG in main_window.app.arguments()
+            else "Hide"
+        )
+        self.toggle_show_hide_action = QAction(text, self.context_menu)
+        self.toggle_show_hide_action.triggered.connect(self.focus_or_hide_window)
         check_for_new_episodes_action = QAction(
-            "Check for new episodes", self.context_menu
+            "Check tracked anime", self.context_menu
         )
         check_for_new_episodes_action.triggered.connect(
-            main_window.download_window.start_auto_download
+            main_window.download_window.start_tracked_download
         )
-        search_action = QAction("Search", self.context_menu)
-        search_action.triggered.connect(main_window.switch_to_search_window)
-        search_action.triggered.connect(main_window.show_)
-        downloads_action = QAction("Downloads", self.context_menu)
-        downloads_action.triggered.connect(main_window.switch_to_download_window)
-        downloads_action.triggered.connect(main_window.show_)
         exit_action = QAction("Exit", self.context_menu)
         exit_action.triggered.connect(main_window.app.quit)
+        self.context_menu.addAction(self.toggle_show_hide_action)
         self.context_menu.addAction(check_for_new_episodes_action)
-        self.context_menu.addAction(search_action)
-        self.context_menu.addAction(downloads_action)
         self.context_menu.addAction(exit_action)
         self.messageClicked.connect(main_window.show_)
         self.setContextMenu(self.context_menu)
 
     def focus_or_hide_window(self):
-        if not self.main_window.isVisible():
+        if self.main_window.isVisible():
+            self.main_window.hide()
+            self.toggle_show_hide_action.setText("Show")
+        else:
             self.main_window.show_()
-            return
-        self.main_window.hide()
+            self.toggle_show_hide_action.setText("Hide")
 
     def on_tray_icon_click(self, reason: QSystemTrayIcon.ActivationReason):
         if reason == QSystemTrayIcon.ActivationReason.Context:

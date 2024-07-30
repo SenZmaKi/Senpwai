@@ -71,9 +71,15 @@ class Settings:
     def __init__(self) -> None:
         self.config_dir = self.setup_config_dir()
         self.settings_json_path = os.path.join(self.config_dir, "settings.json")
+        # NOTE: Everytime you add a new class member that isn't a setting, make sure to add it here
+        self.excluded_in_save = (
+            "config_dir",
+            "settings_json_path",
+            "is_update_install",
+            "excluded_in_save",
+        )
         # Default settings
         # Only these settings will be saved to settings.json
-        # NOTE: Everytime you add a new class member that isn't a setting, make sure  to update the Settings.dict_settings() method
         self.sub_or_dub = SUB
         self.quality = Q_720
         self.download_folder_paths = self.setup_default_download_folder()
@@ -82,10 +88,10 @@ class Settings:
         self.allow_notifications = True
         self.start_maximized = True
         self.run_on_startup = False
-        self.gogo_norm_or_hls_mode = GOGO_NORM_MODE
+        self.gogo_mode = GOGO_NORM_MODE
         self.tracked_anime: list[str] = []
-        self.auto_download_site = PAHE
-        self.check_for_new_eps_after = 24
+        self.tracking_site = PAHE
+        self.tracking_interval = 24
         self.gogo_skip_calculate = False
         self.version = VERSION
 
@@ -121,11 +127,23 @@ class Settings:
         try:
             with open(self.settings_json_path, "r") as f:
                 settings = cast(dict, json.load(f))
-                # TODO: DEPRECATION: Remove in version 2.1.11+ cause we use start_maximized now
+                # TODO: DEPRECATIONs: Remove
                 start_in_fullscreen = settings.get("start_in_fullscreen", None)
                 if start_in_fullscreen is not None:
                     self.start_maximized = start_in_fullscreen
                     settings.pop("start_in_fullscreen")
+                auto_download_site = settings.get("auto_download_site", None)
+                if auto_download_site is not None:
+                    self.tracking_site = auto_download_site
+                    settings.pop("auto_download_site")
+                check_for_new_eps_after = settings.get("check_for_new_eps_after", None)
+                if check_for_new_eps_after is not None:
+                    self.tracking_interval = check_for_new_eps_after
+                    settings.pop("check_for_new_eps_after")
+                gogo_norm_or_hls_mode = settings.get("gogo_norm_or_hls_mode", None)
+                if gogo_norm_or_hls_mode is not None:
+                    self.gogo_mode = gogo_norm_or_hls_mode
+                    settings.pop("gogo_norm_or_hls_mode")
                 self.__dict__.update(settings)
         except json.JSONDecodeError:
             pass
@@ -140,10 +158,7 @@ class Settings:
 
     def dict_settings(self) -> dict:
         return {
-            k: v
-            for k, v in self.__dict__.items()
-            # NOTE: Everytime you add a new class member that isn't a setting, make sure to include it here
-            if k not in ("config_dir", "settings_json_path", "is_update_install")
+            k: v for k, v in self.__dict__.items() if k not in self.excluded_in_save
         }
 
     def update_sub_or_dub(self, sub_or_dub: str) -> None:
@@ -192,8 +207,8 @@ class Settings:
         self.run_on_startup = run_on_startup
         self.save_settings()
 
-    def update_gogo_norm_or_hls_mode(self, gogo_norm_or_hls_mode: str) -> None:
-        self.gogo_norm_or_hls_mode = gogo_norm_or_hls_mode
+    def update_gogo_mode(self, gogo_mode: str) -> None:
+        self.gogo_mode = gogo_mode
         self.save_settings()
 
     def update_tracked_anime(self, tracked_anime: list[str]) -> None:
@@ -208,12 +223,12 @@ class Settings:
         self.tracked_anime.append(anime_name)
         self.save_settings()
 
-    def update_auto_download_site(self, auto_download_site: str) -> None:
-        self.auto_download_site = auto_download_site
+    def update_tracking_site(self, auto_download_site: str) -> None:
+        self.tracking_site = auto_download_site
         self.save_settings()
 
-    def update_check_for_new_eps_after(self, check_for_new_eps_after: int) -> None:
-        self.check_for_new_eps_after = check_for_new_eps_after
+    def update_tracking_interval(self, tracking_interval: int) -> None:
+        self.tracking_interval = tracking_interval
         self.save_settings()
 
     def update_gogo_skip_calculate(self, gogo_skip_calculate: bool) -> None:
@@ -248,9 +263,7 @@ class AnimeDetails:
         self.anime = anime
         self.site = site
         self.is_hls_download = (
-            True
-            if site == GOGO and SETTINGS.gogo_norm_or_hls_mode == GOGO_HLS_MODE
-            else False
+            True if site == GOGO and SETTINGS.gogo_mode == GOGO_HLS_MODE else False
         )
         self.sanitised_title = sanitise_title(anime.title)
         self.shortened_title = self.get_shortened_title()

@@ -350,10 +350,10 @@ class DownloadWindow(AbstractWindow):
         self.cancel_button: CancelAllButton
         self.folder_button: FolderButton
         self.downloaded_episode_count: DownloadedEpisodeCount
-        self.auto_download_timer = QTimer(self)
-        self.auto_download_timer.timeout.connect(self.start_auto_download)
-        self.setup_auto_download_timer()
-        self.auto_download_thread: AutoDownloadThread | None = None
+        self.tracked_download_timer = QTimer(self)
+        self.tracked_download_timer.timeout.connect(self.start_tracked_download)
+        self.setup_tracked_download_timer()
+        self.tracked_download_thread: TrackedDownloadThread | None = None
 
     def is_downloading(self) -> bool:
         if self.first_download_since_app_start:
@@ -365,26 +365,26 @@ class DownloadWindow(AbstractWindow):
             return False
         return True
 
-    def setup_auto_download_timer(self):
-        self.auto_download_timer.stop()
-        self.auto_download_timer.start(  # Converting from hours to milliseconds
-            SETTINGS.check_for_new_eps_after * 1000 * 60 * 60
+    def setup_tracked_download_timer(self):
+        self.tracked_download_timer.stop()
+        self.tracked_download_timer.start(  # Converting from hours to milliseconds
+            SETTINGS.tracking_interval * 1000 * 60 * 60
         )
 
-    def clean_out_auto_download_thread(self):
-        self.auto_download_thread = None
+    def clean_out_tracked_download_thread(self):
+        self.tracked_download_thread = None
 
-    def start_auto_download(self):
+    def start_tracked_download(self):
         # We only spawn a new thread if one wasn't already running to avoid overwriding the reference to the previous one causing it to get garbage collected/destroyed
         # Cause it can cause this error "QThread: Destroyed while thread is still running"
-        if SETTINGS.tracked_anime and not self.auto_download_thread:
-            self.auto_download_thread = AutoDownloadThread(
+        if SETTINGS.tracked_anime and not self.tracked_download_thread:
+            self.tracked_download_thread = TrackedDownloadThread(
                 self,
                 SETTINGS.tracked_anime,
                 self.main_window.tray_icon,
-                self.clean_out_auto_download_thread,
+                self.clean_out_tracked_download_thread,
             )
-            self.auto_download_thread.start()
+            self.tracked_download_thread.start()
 
     def initiate_download_pipeline(self, anime_details: AnimeDetails):
         if self.first_download_since_app_start:
@@ -1321,16 +1321,16 @@ class GogoCalculateDownloadSizes(QThread):
             self.finished.emit(self.anime_details)
 
 
-class AutoDownloadThread(QThread):
+class TrackedDownloadThread(QThread):
     initate_download_pipeline = pyqtSignal(AnimeDetails)
-    clean_out_auto_download_thread_signal = pyqtSignal()
+    clean_out_tracked_download_thread_signal = pyqtSignal()
 
     def __init__(
         self,
         download_window: DownloadWindow,
         titles: list[str],
         tray_icon: QSystemTrayIcon,
-        clean_out_auto_download_thread_slot: Callable[[], None],
+        clean_out_tracked_download_thread_slot: Callable[[], None],
     ):
         super().__init__(download_window)
         self.anime_titles = titles
@@ -1339,8 +1339,8 @@ class AutoDownloadThread(QThread):
             self.download_window.initiate_download_pipeline
         )
         self.tray_icon = tray_icon
-        self.clean_out_auto_download_thread_signal.connect(
-            clean_out_auto_download_thread_slot
+        self.clean_out_tracked_download_thread_signal.connect(
+            clean_out_tracked_download_thread_slot
         )
 
     def run(self):
@@ -1368,4 +1368,4 @@ class AutoDownloadThread(QThread):
             ),
             True,
         )
-        self.clean_out_auto_download_thread_signal.emit()
+        self.clean_out_tracked_download_thread_signal.emit()

@@ -17,7 +17,7 @@ def check_for_new_episodes(
     all_anime_details: list[AnimeDetails] = []
     for title in SETTINGS.tracked_anime:
         anime: Anime
-        site = SETTINGS.auto_download_site
+        site = SETTINGS.tracking_site
         if site == PAHE:
             result = pahe_fetch_anime_obj(title)
             if not result:

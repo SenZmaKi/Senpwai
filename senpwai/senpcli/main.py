@@ -190,7 +190,7 @@ def parse_args(args: list[str]) -> tuple[Namespace, ArgumentParser]:
         "--site",
         help="Site to download from",
         choices=[PAHE, GOGO],
-        default=SETTINGS.auto_download_site,
+        default=SETTINGS.tracking_site,
     )
     parser.add_argument(
         "-se",
@@ -249,13 +249,13 @@ def parse_args(args: list[str]) -> tuple[Namespace, ArgumentParser]:
     parser.add_argument(
         "-cta",
         "--check_tracked_anime",
-        help="Check tracked anime for new episodes then auto download",
+        help="Check tracked anime for new episodes then download",
         action="store_true",
     )
     parser.add_argument(
         "-ata",
         "--add_tracked_anime",
-        help="Add an anime to the tracked anime list",
+        help="Add an anime to the tracked anime list. Use the anime's title as it appears on your tracking site.",
     )
     parser.add_argument(
         "-rta",
