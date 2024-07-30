@@ -31,7 +31,7 @@ pkg update -y && curl https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/
 ## Usage
 
 ```bash
-senpcli [-h] [-v] [-sd {sub,dub}] [-s {pahe,gogo}] [-se START_EPISODE] [-ee END_EPISODE] [-q {1080p,720p,480p,360p}] [-hls] [-sc] [-msd] [-of] title
+senpcli [-h] [-v] [-sd {sub,dub}] [-s {pahe,gogo}] [-se] [-ee] [-q {1080p,720p,480p,360p}] [-hls] [-sc] [-msd] [-of] [-cta] [-ata] [-rta] [-ddl] title
 ```
 
 ### Positional Arguments
@@ -45,14 +45,18 @@ senpcli [-h] [-v] [-sd {sub,dub}] [-s {pahe,gogo}] [-se START_EPISODE] [-ee END_
 -   `-c, --config` Show config file contents and location
 -   `-u, --update` Check for updates
 -   `-s {pahe,gogo}, --site {pahe,gogo}`: Site to download from
--   `-se START_EPISODE, --start_episode START_EPISODE`: Episode to start downloading at
--   `-ee END_EPISODE, --end_episode END_EPISODE`: Episode to stop downloading at
+-   `-se, --start_episode`: Episode to start downloading at
+-   `-ee, --end_episode`: Episode to stop downloading at
 -   `-q {1080p,720p,480p,360p}, --quality {1080p,720p,480p,360p}`: Quality to download the anime in
 -   `-sd {sub,dub}, --sub_or_dub {sub,dub}`: Whether to download the subbed or dubbed version of the anime
 -   `-hls, --hls`: Use HLS mode to download the anime (Gogo only and requires FFmpeg to be installed)
 -   `-sc, --skip_calculating`: Skip calculating the total download size (Gogo only)
 -   `-of, --open_folder`: Open the folder containing the downloaded anime once the download finishes
--   `-msd MAX_SIMULTANEOUS_DOWNLOADS, --max_simultaneous_downloads MAX_SIMULTANEOUS_DOWNLOADS`: Maximum number of simultaneous downloads
+-   `-msd, --max_simultaneous_downloads`: Maximum number of simultaneous downloads
+-   ` -cta, --check_tracked_anime`: Check tracked anime for new episodes then download
+-   `-ata, --add_tracked_anime`: Add an anime to the tracked anime list. Use the anime's title as it appears on your tracking site
+-   `-rta, --remove_tracked_anime`: Remove an anime from the tracked anime list
+-   `-ddl, --direct_download_links`: Print direct download links instead of downloading
 
 ### Settings
 
