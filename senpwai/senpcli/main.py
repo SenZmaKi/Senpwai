@@ -2,7 +2,7 @@
 import subprocess
 import sys
 from argparse import ArgumentParser, Namespace
-from os import path
+import os
 from queue import Queue
 from random import choice as random_choice
 from threading import Event, Lock, Thread
@@ -52,7 +52,7 @@ from senpwai.scrapers import gogo, pahe
 from enum import Enum
 
 APP_NAME = "Senpcli"
-SENPWAI_IS_INSTALLED = path.isfile(SENPWAI_EXE_PATH)
+SENPWAI_IS_INSTALLED = os.path.isfile(SENPWAI_EXE_PATH)
 APP_NAME_LOWER = "senpcli"
 DESCRIPTION = "The CLI alternative for Senpwai"
 ASCII_APP_NAME = r"""
@@ -261,6 +261,12 @@ def parse_args(args: list[str]) -> tuple[Namespace, ArgumentParser]:
         "-rta",
         "--remove_tracked_anime",
         help="Remove an anime from the tracked anime list",
+    )
+    parser.add_argument(
+        "-ddl",
+        "--direct_download_links",
+        help="Print direct download links instead of downloading",
+        action="store_true",
     )
     return parser.parse_args(args), parser
 
@@ -630,6 +636,9 @@ def handle_pahe(parsed: Namespace, anime_details: AnimeDetails):
         episode_page_links, parsed.quality, parsed.sub_or_dub
     )
     direct_download_links = pahe_get_direct_download_links(download_page_links)
+    if parsed.direct_download_links:
+        print("\n".join(direct_download_links))
+        return
     download_manager(
         direct_download_links, anime_details, False, parsed.max_simultaneous_downloads
     )
@@ -654,6 +663,9 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
             matched_quality_links = gogo_get_hls_matched_quality_links(
                 hls_links, parsed.quality
             )
+            if parsed.direct_download_links:
+                print("\n".join(hls_links))
+                return
             hls_segments_urls = gogo_get_hls_segments_urls(matched_quality_links)
             download_manager(
                 hls_segments_urls,
@@ -672,6 +684,9 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
         direct_download_links = gogo_get_direct_download_links(
             download_page_links, parsed.quality
         )
+        if parsed.direct_download_links:
+            print("\n".join(direct_download_links))
+            return
         if not parsed.skip_calculating:
             direct_download_links = gogo_calculate_total_download_size(
                 direct_download_links
@@ -702,12 +717,12 @@ def download_and_install_update(
         unit="iB",
         unit_scale=True,
     )
-    file_name_no_ext, file_ext = path.splitext(file_name)
+    file_name_no_ext, file_ext = os.path.splitext(file_name)
     tempdir = senpwai_tempdir()
     download = Download(download_url, file_name_no_ext, tempdir, pbar.update_, file_ext)
     download.start_download()
     pbar.close_()
-    subprocess.Popen([path.join(tempdir, file_name), "/silent", "/update"])
+    subprocess.Popen([os.path.join(tempdir, file_name), "/silent", "/update"])
 
 
 def handle_update_check_result(update_info: UpdateInfo) -> None:
@@ -791,7 +806,8 @@ def get_anime_details(parsed) -> AnimeDetails | None:
 
 
 def initiate_download_pipeline(parsed: Namespace, anime_details: AnimeDetails):
-    print_info(f"Downloading to: {anime_details.anime_folder_path}")
+    if not parsed.direct_download_links:
+        print_info(f"Downloading to: {anime_details.anime_folder_path}")
     if parsed.site == PAHE:
         handle_pahe(parsed, anime_details)
     else:
