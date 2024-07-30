@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from common.tracker import check_for_new_episodes
+from senpwai.common.tracker import check_for_new_episodes
 from senpwai.scrapers import gogo, pahe
 from senpwai.common.classes import SETTINGS, AnimeDetails
 from senpwai.common.scraper import (

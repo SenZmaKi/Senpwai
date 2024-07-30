@@ -1,5 +1,5 @@
-from common.scraper import AiringStatus, lacked_episode_numbers, sanitise_title
-from common.static import DUB, GOGO, PAHE
+from senpwai.common.scraper import AiringStatus, lacked_episode_numbers, sanitise_title
+from senpwai.common.static import DUB, GOGO, PAHE
 from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
 from senpwai.scrapers import pahe, gogo
 from typing import Callable

@@ -68,10 +68,9 @@ bump_version = "python -m scripts.bump_version"
 announce = "python -m scripts.announce"
 announce_discord = "python scripts/announce/discord.py"
 announce_reddit = "python  scripts/announce/reddit.py"
-ruff = [{ ref = "lint_fix" }, { ref = "format" }]
-lint = "python -m scripts.ruff"
-lint_fix = "python -m scripts.ruff --lint_fix"
 format = "python -m scripts.ruff --format"
+lint_fix = "python -m scripts.ruff --lint_fix"
+lint = "python -m scripts.ruff --lint"
 build_release_test = [{ref = "lint"}, { ref = "test" }, { ref = "build_release" }]
 build_release_ddl = [{ ref = "test_ddl" }, { ref = "build_release" }]
 build_release = [

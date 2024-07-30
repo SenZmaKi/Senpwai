@@ -8,7 +8,7 @@ from random import choice as random_choice
 from threading import Event, Lock, Thread
 from typing import Callable, cast
 
-from common.tracker import check_for_new_episodes
+from senpwai.common.tracker import check_for_new_episodes
 from tqdm import tqdm
 
 from senpwai.common.classes import (

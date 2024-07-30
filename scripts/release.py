@@ -4,6 +4,7 @@ import sys
 from scripts.common import (
     REPO_URL,
     get_current_branch_name,
+    git_commit,
     log_info,
     log_error,
     ROOT_DIR,
@@ -17,11 +18,11 @@ BRANCH_NAME = get_current_branch_name()
 
 
 def merge_branch() -> None:
-    git_status_completed_process = subprocess.run(
+    completed_process = subprocess.run(
         "git status", capture_output=True, text=True
     )
-    git_status_completed_process.check_returncode()
-    if "Changes" in git_status_completed_process.stdout:
+    completed_process.check_returncode()
+    if "Changes" in completed_process.stdout:
         log_error("You have uncommited changes", True)
     subprocess.run(f"git push origin {BRANCH_NAME}").check_returncode()
     subprocess.run(f'gh pr create --title {BRANCH_NAME} --body "" ').check_returncode()
@@ -32,25 +33,30 @@ def add_change_log_link(release_notes: str) -> str:
     prev_version = bump_version.get_prev_version()
     new_version = bump_version.get_new_version()
     if new_version == prev_version:
-        prev_version = input('Failed to get previous version number, manual input required (without the starting "v")\n> ')
+        prev_version = input(
+            'Failed to get previous version number, manual input required (without the "v" prefix)\n> '
+        )
         if not prev_version:
             sys.exit()
     change_log_link = (
-        f"\n\n**Full Changelog**: {REPO_URL}/compare/v{prev_version}...v{new_version}"
+        f"**Full Changelog**: {REPO_URL}/compare/v{prev_version}...v{new_version}"
     )
-    return release_notes + change_log_link
+    return f"{release_notes}\n\n{change_log_link}"
 
 
 def get_release_notes(from_commits: bool) -> str:
     with open(ROOT_DIR.joinpath("docs", "release-notes.md"), "r+") as f:
-        if from_commits:
+        if not from_commits:
             return add_change_log_link(f.read())
-        new_commits_completed_process = subprocess.run(
-            f"git log --oneline master..{BRANCH_NAME}", capture_output=True, text=True
+        completed_process = subprocess.run(
+            f'git log --oneline --format="%s" master..{BRANCH_NAME}',
+            capture_output=True,
+            text=True,
         )
-        new_commits_completed_process.check_returncode()
-        release_notes = f"# Changes\n\n{new_commits_completed_process.stdout}"
+        completed_process.check_returncode()
+        release_notes = f"# Changes\n\n{completed_process.stdout}"
         overwrite(f, release_notes)
+        git_commit("Generate release notes from commits").check_returncode()
         return add_change_log_link(release_notes)
 
 
