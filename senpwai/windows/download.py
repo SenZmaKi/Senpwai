@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from senpwai.common.tracker import check_for_new_episodes
+from senpwai.common.tracker import check_tracked_anime
 from senpwai.scrapers import gogo, pahe
 from senpwai.common.classes import SETTINGS, AnimeDetails
 from senpwai.common.scraper import (
@@ -1340,7 +1340,7 @@ class TrackedDownloadThread(QThread):
         )
 
     def run(self):
-        check_for_new_episodes(
+        check_tracked_anime(
             lambda title: self.download_window.main_window.settings_window.tracked_anime.remove_anime(
                 title
             ),

@@ -5,7 +5,7 @@ from senpwai.scrapers import pahe, gogo
 from typing import Callable
 
 
-def check_for_new_episodes(
+def check_tracked_anime(
     removed_tracked_callback: Callable[[str], None],
     finished_tracking_callback: Callable[[str], None],
     no_dub_callback: Callable[[str], None],

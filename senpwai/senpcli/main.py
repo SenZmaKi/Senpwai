@@ -8,7 +8,7 @@ from random import choice as random_choice
 from threading import Event, Lock, Thread
 from typing import Callable, cast
 
-from senpwai.common.tracker import check_for_new_episodes
+from senpwai.common.tracker import check_tracked_anime
 from tqdm import tqdm
 
 from senpwai.common.classes import (
@@ -879,13 +879,13 @@ def main():
         elif parsed.check_tracked_anime:
 
             def start_download_callback(anime_details: AnimeDetails) -> None:
-                parsed.start_episode = anime_details.haved_end
+                parsed.start_episode = anime_details.haved_end or 1
                 parsed.end_episode = anime_details.metadata.episode_count
                 parsed.site = anime_details.site
                 initiate_download_pipeline(parsed, anime_details)
 
             update_params = start_update_check_thread()
-            check_for_new_episodes(
+            check_tracked_anime(
                 lambda title: SETTINGS.remove_tracked_anime(title),
                 lambda sanitised_title: print_info(
                     f"Finished tracking {sanitised_title}"
