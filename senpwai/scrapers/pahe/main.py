@@ -1,11 +1,12 @@
 import re
 import math
-from typing import Any, Callable, cast
+from typing import Any, Callable, List, cast
 from requests import Response
 from bs4 import BeautifulSoup, Tag
 from senpwai.common.scraper import (
     CLIENT,
     PARSER,
+    ListMetadata,
     AiringStatus,
     AnimeMetadata,
     DomainNameError,
@@ -67,12 +68,37 @@ def site_request(url: str) -> Response:
     return response
 
 
-def search(keyword: str) -> list[dict[str, str]]:
+def search(keyword: str) -> list[ListMetadata]:
     search_url = f"{API_ENTRY_POINT}search&q={keyword}"
     response = site_request(search_url)
     decoded = cast(dict, response.json())
     # The search api endpoint won't return json containing the data key if no results are found
-    return decoded.get("data", [])
+    data = decoded.get("data", [])
+
+    airing_status: dict[str, AiringStatus] = {
+        "Finished Airing": AiringStatus.FINISHED,
+        "Currently Airing": AiringStatus.ONGOING,
+    }
+
+    anime_list: list[ListMetadata] = list()
+
+    for anime in data:
+        anime_list.append(
+            ListMetadata(
+                id=anime.get("session"),
+                title=anime.get("title"),
+                showtype=anime.get("type"),
+                episodes=anime.get("episodes"),
+                status=airing_status.get(anime.get("status"), AiringStatus.UNKNOWN),
+                year=int(anime.get("year")),
+                season=anime.get("season"),
+                score=float(anime.get("score")),
+                poster=anime.get("poster"),
+                extra={"id": anime.get("id")},
+            )
+        )
+
+    return anime_list
 
 
 def extract_anime_title_page_link_and_id(
@@ -291,6 +317,8 @@ def decrypt_post_form(full_key: str, key: str, v1: int, v2: int) -> str:
     return r
 
 
+# TODO: return direct download links, sizes
+
 class GetDirectDownloadLinks(ProgressFunction):
     def __init__(self) -> None:
         super().__init__()
@@ -345,6 +373,8 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     if not isinstance(poster, Tag):
         poster = cast(Tag, soup.find(class_="poster-image"))
     poster_url = cast(str, poster["href"])
+    # TODO: Get anime title
+    # TODO: Get score
     summary = cast(Tag, soup.find(class_="anime-synopsis")).get_text()
     genres_tag = cast(Tag, soup.find(class_="anime-genre font-weight-bold"))
     genres = (
@@ -369,6 +399,15 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
         airing_status = AiringStatus.UPCOMING
     else:
         airing_status = AiringStatus.FINISHED
+
     return AnimeMetadata(
-        poster_url, summary, episode_count, airing_status, genres, int(release_year)
+        id=anime_id,
+        title="animetitle",
+        url=page_link,
+        poster=poster_url,
+        summary=summary,
+        episodes=episode_count,
+        status=airing_status,
+        genres=genres,
+        year=int(release_year),
     )
