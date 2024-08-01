@@ -272,6 +272,7 @@ class AiringStatus(Enum):
 class ListMetadata:
     id: str
     title: str
+    url: str | None = None
     episodes: int | None = None
     status: AiringStatus | None = None
     summary: str | None = None
