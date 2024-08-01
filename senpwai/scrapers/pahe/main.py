@@ -87,6 +87,7 @@ def search(keyword: str) -> list[ListMetadata]:
             ListMetadata(
                 id=anime.get("session"),
                 title=anime.get("title"),
+                url=get_page_link(anime.get("session")),
                 showtype=anime.get("type"),
                 episodes=anime.get("episodes"),
                 status=airing_status.get(anime.get("status"), AiringStatus.UNKNOWN),
@@ -101,6 +102,10 @@ def search(keyword: str) -> list[ListMetadata]:
     return anime_list
 
 
+def get_page_link(anime_id: str) -> str:
+    return ANIME_PAGE_URL.format((anime_id))
+
+
 def extract_anime_title_page_link_and_id(
     result: dict[str, str],
 ) -> tuple[str, str, str]:
@@ -111,8 +116,9 @@ def extract_anime_title_page_link_and_id(
 
 
 def get_episode_pages_info(
-    anime_page_link: str, start_episode: int, end_episode: int
+    anime_id: str, start_episode: int, end_episode: int
 ) -> tuple[int, int, int, dict[str, Any]]:
+    anime_page_link = get_page_link(anime_id)
     page_url = LOAD_EPISODES_URL.format(anime_page_link, 1)
     decoded = site_request(page_url).json()
     per_page: int = decoded["per_page"]
@@ -411,3 +417,31 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
         genres=genres,
         year=int(release_year),
     )
+def get_episode_page_links(
+    anime_id: str, start_episode: int, end_episode: int
+) -> list[str]:
+    anime_page_link = get_page_link(anime_id)
+    (
+        start_page_num,
+        end_page_num,
+        episode_page_count,
+        first_page,
+    ) = get_episode_pages_info(anime_page_link, start_episode, end_episode)
+    # pbar = ProgressBar(
+    #     total=episode_page_count,
+    #     desc="Getting episode page links",
+    #     unit="eps",
+    # )
+    results = GetEpisodePageLinks().get_episode_page_links(
+        start_episode,
+        end_episode,
+        start_page_num,
+        end_page_num,
+        first_page,
+        anime_page_link,
+        anime_id,
+        # pbar.update_,
+    )
+    # pbar.close_()
+    return results
+
