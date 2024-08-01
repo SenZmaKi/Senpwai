@@ -1,14 +1,22 @@
-from enum import Enum
 import os
 import re
 import subprocess
 from base64 import b64decode
+from enum import Enum
 from random import choice as random_choice
 from string import ascii_letters, digits, printable
 from threading import Event
 from time import sleep as time_sleep
-from typing import Callable, Iterator, TypeVar, cast
+from typing import (
+    Callable,
+    Iterator,
+    NotRequired,
+    TypedDict,
+    TypeVar,
+    cast,
+)
 from webbrowser import open_new_tab
+from dataclasses import dataclass
 
 import requests
 
@@ -249,6 +257,7 @@ class AiringStatus(Enum):
     ONGOING = "Ongoing"
     UPCOMING = "Upcoming"
     FINISHED = "Finished"
+    UNKNOWN = "Unknown"
 
     # Stack Overflow answer link: https://stackoverflow.com/a/66575463/17193072
     # Enums in python suck so bad
@@ -259,26 +268,44 @@ class AiringStatus(Enum):
         return self.value == other.value
 
 
-class AnimeMetadata:
-    def __init__(
-        self,
-        poster_url: str,
-        summary: str,
-        episode_count: int,
-        airing_status: AiringStatus,
-        genres: list[str],
-        release_year: int,
-    ):
-        self.poster_url = poster_url
-        self.summary = summary
-        self.episode_count = episode_count
-        self.airing_status = airing_status
-        self.genres = genres
-        self.release_year = release_year
+@dataclass
+class ListMetadata:
+    id: str
+    title: str
+    episodes: int | None = None
+    status: AiringStatus | None = None
+    summary: str | None = None
+    year: int | None = None
+    season: str | None = None
+    score: float | None = None
+    studio: str | None = None
+    poster: str | None = None
+    showtype: str | None = None
+    genres: list | None = None
+    extra: dict | None = None
 
-    def get_poster_bytes(self) -> bytes:
-        response = CLIENT.get(self.poster_url)
-        return response.content
+
+@dataclass
+class AnimeMetadata:
+    id: str
+    title: str
+    url: str
+    poster: str
+    episodes: int | None = None
+    status: AiringStatus | None = None
+    summary: str | None = None
+    year: int | None = None
+    season: str | None = None
+    score: float | None = None
+    studio: str | None = None
+    showtype: str | None = None
+    genres: list | None = None
+    extra: dict | None = None
+
+
+def get_poster_bytes(self) -> bytes:
+    response = CLIENT.get(self.poster_url)
+    return response.content
 
 
 def closest_quality_index(potential_qualities: list[str], target_quality: str) -> int:
