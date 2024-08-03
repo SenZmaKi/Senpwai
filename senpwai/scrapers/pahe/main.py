@@ -445,3 +445,47 @@ def get_episode_page_links(
     # pbar.close_()
     return results
 
+
+def get_download_links(
+    anime_id: str,
+    start_episode: int,
+    end_episode: int,
+    quality: str,
+    audio: str,
+):
+    sub_or_dub = "sub"
+    episode_page_links = get_episode_page_links(anime_id, start_episode, end_episode)
+
+    episode_download_page_links, down_info = (
+        GetPahewinPageLinks().get_pahewin_page_links_and_info(episode_page_links)
+    )
+
+    down_page_links, down_info = bind_sub_or_dub_to_link_info(
+        sub_or_dub, episode_download_page_links, down_info
+    )
+    down_page_links, down_info = bind_quality_to_link_info(
+        quality, down_page_links, down_info
+    )
+    episode_download_links = GetDirectDownloadLinks().get_direct_download_links(
+        down_page_links
+    )
+
+    results = episode_download_links
+    return results
+
+
+def get_download_page_links(
+    episode_page_links: list[str], quality: str, sub_or_dub: str
+) -> list[str]:
+    (
+        down_page_links,
+        down_info,
+    ) = GetPahewinPageLinks().get_pahewin_page_links_and_info(episode_page_links)
+    down_page_links, down_info = bind_sub_or_dub_to_link_info(
+        sub_or_dub, down_page_links, down_info
+    )
+    down_page_links, down_info = bind_quality_to_link_info(
+        quality, down_page_links, down_info
+    )
+    total_download_size = calculate_total_download_size(down_info)
+    return down_page_links
