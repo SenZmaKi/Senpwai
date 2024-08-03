@@ -88,6 +88,12 @@ def main() -> None:
         help="Generate release notes from commits",
     )
     parser.add_argument(
+        "-sed",
+        "--skip_export_dependencies",
+        action="store_true",
+        help="Skip exporting poetry dependencies to requirements.txt",
+    )
+    parser.add_argument(
         "-sb", "--skip_bump", action="store_true", help="Skip bumping version"
     )
     parser.add_argument(
@@ -126,6 +132,10 @@ def main() -> None:
     parsed = parser.parse_args()
     if BRANCH_NAME == "master":
         log_error("On master branch, switch to version branch", True)
+    if not parsed.skip_export_dependencies:
+        log_info("Exporting dependencies")
+        subprocess.run("poe export_dependencies").check_returncode()
+        git_commit("Export poetry dependencies to requirements.txt")
     if not parsed.skip_bump:
         log_info("Bumping version")
         bump_version.main(True)
