@@ -521,8 +521,9 @@ def download_manager(
 
     for idx, link in enumerate(ddls_or_segs_urls):
         wait(download_slot_available)
-        episode_title = anime_details.episode_title(idx)
-        pbar, link = create_progress_bar(episode_title, link, is_hls_download)
+        displayed_episode_title = anime_details.episode_title(idx, True)
+        pbar, link = create_progress_bar(displayed_episode_title, link, is_hls_download)
+        episode_title = anime_details.episode_title(idx, False)
         Thread(
             target=download_thread,
             args=(

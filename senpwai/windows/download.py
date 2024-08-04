@@ -837,7 +837,7 @@ class DownloadManagerThread(QThread, ProgressFunction):
         ddls_or_segs_urls = self.anime_details.ddls_or_segs_urls
         for idx, ddl_or_seg_urls in enumerate(ddls_or_segs_urls):
             self.download_slot_available.wait()
-            episode_title = self.anime_details.episode_title(idx)
+            displayed_episode_title = self.anime_details.episode_title(idx, True)
             if self.anime_details.is_hls_download:
                 episode_size_or_segs = len(ddl_or_seg_urls)
             else:
@@ -849,7 +849,7 @@ class DownloadManagerThread(QThread, ProgressFunction):
                 except NoResourceLengthException:
                     self.download_window.main_window.tray_icon.make_notification(
                         "Invalid Download Link",
-                        f"Skipping {episode_title}",
+                        f"Skipping {displayed_episode_title}",
                         False,
                     )
                     continue
@@ -861,15 +861,16 @@ class DownloadManagerThread(QThread, ProgressFunction):
                 break
             self.mutex.lock()
             self.send_progress_bar_details.emit(
-                episode_title,
+                displayed_episode_title,
                 episode_size_or_segs,
                 self.progress_bars,
                 self.anime_details.is_hls_download,
             )
             self.mutex.unlock()
-            while episode_title not in self.progress_bars:
+            while displayed_episode_title not in self.progress_bars:
                 continue
-            episode_progress_bar = self.progress_bars[episode_title]
+            episode_progress_bar = self.progress_bars[displayed_episode_title]
+            episode_title = self.anime_details.episode_title(idx, False)
             DownloadThread(
                 self,
                 ddl_or_seg_urls,

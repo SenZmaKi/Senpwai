@@ -301,9 +301,10 @@ class AnimeDetails:
         shortened = self.sanitised_title[: max_anime_title_length - 3]
         return f"{shortened.strip()}..."
 
-    def episode_title(self, lacked_eps_idx: int) -> str:
+    def episode_title(self, lacked_eps_idx: int, shortened: bool) -> str:
         episode_number_str = str(self.lacked_episode_numbers[lacked_eps_idx]).zfill(2)
-        return f"{self.shortened_title} E{episode_number_str}"
+        title = self.shortened_title if shortened else self.sanitised_title
+        return f"{title} E{episode_number_str}"
 
     def validate_anime_folder_path(self) -> None:
         if not os.path.isdir(self.anime_folder_path):
