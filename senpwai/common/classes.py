@@ -10,6 +10,7 @@ from appdirs import user_config_dir
 
 from senpwai.common.scraper import (
     CLIENT,
+    IBYTES_TO_MBS_DIVISOR,
     AnimeMetadata,
     sanitise_title,
 )
@@ -105,7 +106,9 @@ class Settings:
 
     def setup_logger(self) -> None:
         error_logs_file_path = os.path.join(self.config_dir, "errors.log")
-        if not os.path.exists(error_logs_file_path):
+        if (not os.path.exists(error_logs_file_path)) or os.path.getsize(
+            error_logs_file_path
+        ) >= 20 * IBYTES_TO_MBS_DIVISOR:
             f = open(error_logs_file_path, "w")
             f.close()
 

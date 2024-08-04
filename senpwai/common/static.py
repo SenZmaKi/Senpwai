@@ -7,7 +7,23 @@ from pathlib import Path
 from random import choice as random_choice
 from subprocess import Popen
 from tempfile import gettempdir
+import traceback
 from types import TracebackType
+
+
+def custom_exception_handler(
+    type_: type[BaseException],
+    value: BaseException,
+    tb: TracebackType | None,
+    manual_log=False,
+) -> None:
+    h = "Exception" if manual_log else "Unhandled exception"
+    exception_str = "".join(traceback.format_exception(type_, value, tb))
+    logging.error(f"{h}: {exception_str}{'-'*125}\n")
+    sys.__excepthook__(type_, value, tb)
+
+
+sys.excepthook = custom_exception_handler
 
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = "senpwai"
@@ -53,14 +69,9 @@ IS_CHRISTMAS = True if date.month == 12 and date.day >= 20 else False
 
 
 def log_exception(exception: Exception) -> None:
-    custom_exception_handler(type(exception), exception, exception.__traceback__)
-
-
-def custom_exception_handler(
-    type_: type[BaseException], value: BaseException, traceback: TracebackType | None
-) -> None:
-    logging.error(f"Unhandled exception: {type_.__name__}: {value}")
-    sys.__excepthook__(type_, value, traceback)
+    custom_exception_handler(
+        type(exception), exception, exception.__traceback__, manual_log=True
+    )
 
 
 def try_deleting(path: str) -> None:

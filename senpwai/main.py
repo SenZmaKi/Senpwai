@@ -47,7 +47,6 @@ def main():
     window = MainWindow(app)
     app.setWindowIcon(window.senpwai_icon)
     window.show_with_settings()
-    sys.excepthook = custom_exception_handler
     sys.exit(app.exec())
 
 

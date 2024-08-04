@@ -32,6 +32,7 @@ from senpwai.common.static import (
     PAUSE_ICON_PATH,
     REMOVE_FROM_QUEUE_ICON_PATH,
     RESUME_ICON_PATH,
+    log_exception,
     open_folder,
 )
 from senpwai.common.widgets import (
@@ -846,7 +847,8 @@ class DownloadManagerThread(QThread, ProgressFunction):
                         episode_size_or_segs,
                         ddl_or_seg_urls,
                     ) = Download.get_resource_length(cast(str, ddl_or_seg_urls))
-                except NoResourceLengthException:
+                except NoResourceLengthException as e:
+                    log_exception(e)
                     self.download_window.main_window.tray_icon.make_notification(
                         "Invalid Download Link",
                         f"Skipping {displayed_episode_title}",
