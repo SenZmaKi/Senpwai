@@ -1,5 +1,6 @@
 import os
 from threading import Event
+import time
 from typing import Any, Callable, cast, TYPE_CHECKING
 
 from PyQt6.QtCore import QMutex, Qt, QThread, QTimer, pyqtSignal
@@ -725,6 +726,7 @@ class DownloadWindow(AbstractWindow):
     def make_episode_progress_bar(
         self,
         episode_title: str,
+        shortened_episode_title: str,
         episode_size_or_segs: int,
         progress_bars: dict[str, ProgressBarWithButtons],
         is_hls_download: bool,
@@ -733,7 +735,7 @@ class DownloadWindow(AbstractWindow):
             bar = ProgressBarWithButtons(
                 None,
                 "Downloading[HLS]",
-                episode_title,
+                shortened_episode_title,
                 episode_size_or_segs,
                 "segs",
                 1,
@@ -747,7 +749,7 @@ class DownloadWindow(AbstractWindow):
             bar = ProgressBarWithButtons(
                 None,
                 "Downloading",
-                episode_title,
+                shortened_episode_title,
                 episode_size_or_segs,
                 "MB",
                 IBYTES_TO_MBS_DIVISOR,
@@ -762,7 +764,7 @@ class DownloadWindow(AbstractWindow):
 
 
 class DownloadManagerThread(QThread, ProgressFunction):
-    send_progress_bar_details = pyqtSignal(str, int, dict, bool)
+    send_progress_bar_details = pyqtSignal(str, str, int, dict, bool)
     update_anime_progress_bar_signal = pyqtSignal(int)
 
     def __init__(
@@ -838,7 +840,8 @@ class DownloadManagerThread(QThread, ProgressFunction):
         ddls_or_segs_urls = self.anime_details.ddls_or_segs_urls
         for idx, ddl_or_seg_urls in enumerate(ddls_or_segs_urls):
             self.download_slot_available.wait()
-            displayed_episode_title = self.anime_details.episode_title(idx, True)
+            shortened_episode_title = self.anime_details.episode_title(idx, True)
+            episode_title = self.anime_details.episode_title(idx, False)
             if self.anime_details.is_hls_download:
                 episode_size_or_segs = len(ddl_or_seg_urls)
             else:
@@ -851,7 +854,7 @@ class DownloadManagerThread(QThread, ProgressFunction):
                     log_exception(e)
                     self.download_window.main_window.tray_icon.make_notification(
                         "Invalid Download Link",
-                        f"Skipping {displayed_episode_title}",
+                        f"Skipping {shortened_episode_title}",
                         False,
                     )
                     continue
@@ -863,16 +866,17 @@ class DownloadManagerThread(QThread, ProgressFunction):
                 break
             self.mutex.lock()
             self.send_progress_bar_details.emit(
-                displayed_episode_title,
+                episode_title,
+                shortened_episode_title,
                 episode_size_or_segs,
                 self.progress_bars,
                 self.anime_details.is_hls_download,
             )
             self.mutex.unlock()
-            while displayed_episode_title not in self.progress_bars:
+            while episode_title not in self.progress_bars:
+                time.sleep(0.01)
                 continue
-            episode_progress_bar = self.progress_bars[displayed_episode_title]
-            episode_title = self.anime_details.episode_title(idx, False)
+            episode_progress_bar = self.progress_bars[episode_title]
             DownloadThread(
                 self,
                 ddl_or_seg_urls,

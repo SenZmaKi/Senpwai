@@ -385,7 +385,8 @@ def sanitise_title(title: str, all=False, exclude="") -> str:
     else:
         allowed_chars = set(printable) - set('\\/:*?"<>|')
         title = title.replace(":", " -")
-    sanitised = "".join([char for char in title if char in allowed_chars])
+    title = title.rstrip(".")
+    sanitised = "".join(char for char in title if char in allowed_chars)
 
     return sanitised[:255].rstrip()
 
