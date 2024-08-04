@@ -375,9 +375,6 @@ def try_installing_ffmpeg() -> bool:
             return False
 
 
-def fuzz_str(text: str) -> str:
-    return sanitise_title(text, True).lower()
-
 
 def sanitise_title(title: str, all=False, exclude="") -> str:
     if all:

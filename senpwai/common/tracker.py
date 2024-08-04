@@ -63,22 +63,20 @@ def check_tracked_anime(
 
 def pahe_fetch_anime_obj(title: str) -> Anime | None:
     results = pahe.search(title)
+    title_fuzzy = sanitise_title(title, True).lower()
     for result in results:
         res_title, page_link, anime_id = pahe.extract_anime_title_page_link_and_id(
             result
         )
-        if sanitise_title(res_title.lower(), True) == sanitise_title(
-            title.lower(), True
-        ):
+        if sanitise_title(res_title, True).lower() == title_fuzzy:
             return Anime(title, page_link, anime_id)
     return None
 
 
 def gogo_fetch_anime_obj(title: str) -> Anime | None:
     results = gogo.search(title)
+    title_fuzzy = sanitise_title(title, True).lower()
     for res_title, page_link in results:
-        if sanitise_title(res_title.lower(), True) == sanitise_title(
-            title.lower(), True
-        ):
+        if sanitise_title(res_title, True).lower() == title_fuzzy:
             return Anime(title, page_link, None)
     return None

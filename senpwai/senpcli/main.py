@@ -23,9 +23,9 @@ from senpwai.common.scraper import (
     AiringStatus,
     Download,
     ffmpeg_is_installed,
-    fuzz_str,
     lacked_episode_numbers,
     lacked_episodes,
+    sanitise_title,
     try_installing_ffmpeg,
 )
 from senpwai.common.static import (
@@ -281,9 +281,9 @@ def search(title: str, site: str) -> Anime | None:
         else [Anime(*r, None) for r in gogo.search(title)]
     )
     results = None
-    title_fuzzy = fuzz_str(title)
+    title_fuzzy = sanitise_title(title, True).lower()
     for a in animes:
-        if fuzz_str(a.title) == title_fuzzy:
+        if sanitise_title(a.title, True).lower() == title_fuzzy:
             results = a
             break
     if results is None:
