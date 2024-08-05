@@ -587,7 +587,7 @@ def run_tests(args: ArgParser):
                 if args.sub_or_dub == "dub" and not dub_available:
                     print("Couldn't find Dub for the anime on the specified site")
                     return
-                if args.arg_in_group_was_passed(COMMANDS) and args.site == GOGO:
+                if args.arg_in_group_was_passed(COMMANDS):
                     if args.end_eps > metadata.episode_count:
                         return print(
                             f"The chosen target anime has {metadata.episode_count} episodes yet you specified the ('--end_episode', '-ee') as {args.end_eps}"

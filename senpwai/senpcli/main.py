@@ -621,6 +621,7 @@ def handle_pahe(parsed: Namespace, anime_details: AnimeDetails):
     )
     direct_download_links = pahe_get_direct_download_links(download_page_links)
     if parsed.direct_download_links:
+        print("Direct download links:")
         print("\n".join(direct_download_links))
         return
     download_manager(

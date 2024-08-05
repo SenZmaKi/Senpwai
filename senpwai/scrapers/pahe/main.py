@@ -1,5 +1,6 @@
 import re
 import math
+from tracemalloc import start
 from typing import Any, Callable, NamedTuple, cast
 from requests import Response
 from bs4 import BeautifulSoup, Tag
@@ -118,10 +119,8 @@ class GetEpisodePageLinks(ProgressFunction):
         episodes_data: list[dict[str, Any]],
         anime_id: str,
     ):
-        # These values should theoritically never remain as they are unless something crashes
-        # as in both of the ifs in the for loop should always eventually evaluate to True
         start_idx = 0
-        end_idx = 0
+        end_idx = len(episodes_data) - 1
 
         for idx, episode in enumerate(episodes_data):
             # Sometimes for sequels animepahe continues the episode numbers from the last episode of the previous season
@@ -132,7 +131,7 @@ class GetEpisodePageLinks(ProgressFunction):
             episode_num = episode["episode"] - (first_episode - 1)
             if episode_num == start_episode:
                 start_idx = idx
-            if episode_num == end_episode:
+            if episode_num == end_episode: 
                 end_idx = idx
                 break
         episodes_data = episodes_data[start_idx : end_idx + 1]
@@ -164,8 +163,8 @@ class GetEpisodePageLinks(ProgressFunction):
         if start_page_num == 1:
             episodes_data.extend(first_page_json["data"])
             start_page_num += 1
-        if progress_update_callback:
-            progress_update_callback(1)
+            if progress_update_callback:
+                progress_update_callback(1)
         for page_num in range(start_page_num, end_page_num + 1):
             page_url = LOAD_EPISODES_URL.format(anime_page_link, page_num)
             page_json = site_request(page_url).json()
