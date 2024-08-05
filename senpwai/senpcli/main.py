@@ -331,23 +331,18 @@ def validate_start_and_end_episode(
 def pahe_get_episode_page_links(
     start_episode: int, end_episode: int, anime_id: str, anime_page_link: str
 ) -> list[str]:
-    (
-        start_page_num,
-        end_page_num,
-        episode_page_count,
-        first_page,
-    ) = pahe.get_episode_pages_info(anime_page_link, start_episode, end_episode)
+    episode_pages_info = pahe.get_episode_pages_info(
+        anime_page_link, start_episode, end_episode
+    )
     pbar = ProgressBar(
-        total=episode_page_count,
+        total=episode_pages_info.total,
         desc="Getting episode page links",
         unit="eps",
     )
     results = pahe.GetEpisodePageLinks().get_episode_page_links(
         start_episode,
         end_episode,
-        start_page_num,
-        end_page_num,
-        first_page,
+        episode_pages_info,
         anime_page_link,
         anime_id,
         pbar.update_,

@@ -1,6 +1,6 @@
 import re
 import math
-from typing import Any, Callable, cast
+from typing import Any, Callable, NamedTuple, cast
 from requests import Response
 from bs4 import BeautifulSoup, Tag
 from senpwai.common.scraper import (
@@ -71,9 +71,9 @@ def site_request(url: str, allow_redirects=False) -> Response:
 def search(keyword: str) -> list[dict[str, str]]:
     search_url = f"{API_ENTRY_POINT}search&q={keyword}"
     response = site_request(search_url)
-    decoded = cast(dict, response.json())
+    results_json = cast(dict, response.json())
     # The search api endpoint won't return json containing the data key if no results are found
-    return decoded.get("data", [])
+    return results_json.get("data", [])
 
 
 def extract_anime_title_page_link_and_id(
@@ -85,16 +85,25 @@ def extract_anime_title_page_link_and_id(
     return title, page_link, anime_id
 
 
+class EpisodePagesInfo(NamedTuple):
+    start_page_num: int
+    end_page_num: int
+    total: int
+    first_page_json: dict[str, Any]
+
+
 def get_episode_pages_info(
     anime_page_link: str, start_episode: int, end_episode: int
-) -> tuple[int, int, int, dict[str, Any]]:
+) -> EpisodePagesInfo:
     page_url = LOAD_EPISODES_URL.format(anime_page_link, 1)
-    decoded = site_request(page_url).json()
-    per_page: int = decoded["per_page"]
-    start_page = math.ceil(start_episode / per_page)
-    end_page = math.ceil(end_episode / per_page)
-    episode_page_count = (end_page - start_page) + 1
-    return start_page, end_page, episode_page_count, decoded
+    first_page_json = site_request(page_url).json()
+    per_page: int = first_page_json["per_page"]
+    start_page_num = math.ceil(start_episode / per_page)
+    end_page_num = math.ceil(end_episode / per_page)
+    total = (end_page_num - start_page_num) + 1
+    return EpisodePagesInfo(
+        start_page_num, end_page_num, total, first_page_json
+    )
 
 
 class GetEpisodePageLinks(ProgressFunction):
@@ -115,7 +124,7 @@ class GetEpisodePageLinks(ProgressFunction):
         end_idx = 0
 
         for idx, episode in enumerate(episodes_data):
-            # Some times for sequels animepahe continues the episode numbers from the last episode of the previous season
+            # Sometimes for sequels animepahe continues the episode numbers from the last episode of the previous season
             # For instance  "Boku no Hero Academia 2nd Season" episode 1 is shown as episode 14
             # So we do episode - (first_episode - 1) to get the real episode number e.g.,
             # 14 - (14 - 1) = 1
@@ -138,33 +147,47 @@ class GetEpisodePageLinks(ProgressFunction):
         self,
         start_episode: int,
         end_episode: int,
-        start_page_num: int,
-        end_page_num: int,
-        first_page: dict[str, Any],
+        episode_pages_info: EpisodePagesInfo,
         anime_page_link: str,
         anime_id: str,
         progress_update_callback: Callable[[int], None] = lambda _: None,
     ) -> list[str]:
         page_url = anime_page_link
+        (
+            start_page_num,
+            end_page_num,
+            _,
+            first_page_json,
+        ) = episode_pages_info
+
         episodes_data: list[dict[str, Any]] = []
         if start_page_num == 1:
-            episodes_data.extend(first_page["data"])
+            episodes_data.extend(first_page_json["data"])
             start_page_num += 1
             progress_update_callback(1)
         for page_num in range(start_page_num, end_page_num + 1):
             page_url = LOAD_EPISODES_URL.format(anime_page_link, page_num)
-            decoded = site_request(page_url).json()
+            page_json = site_request(page_url).json()
             # To avoid episodes like 7.5 and 5.5 cause they're usually just recaps
-            episodes = [ep for ep in decoded["data"] if isinstance(ep["episode"], int)]
+            episodes = [
+                ep for ep in page_json["data"] if isinstance(ep["episode"], int)
+            ]
             episodes_data.extend(episodes)
-            page_url = decoded["next_page_url"]
+            page_url = page_json["next_page_url"]
             self.resume.wait()
             if self.cancelled:
                 return []
             progress_update_callback(1)
-        first_episode = first_page["data"][0]["episode"]
+        first_episode_json = next(
+            ep for ep in first_page_json["data"] if isinstance(ep["episode"], int)
+        )
+        first_episode = first_episode_json["episode"]
         return GetEpisodePageLinks.generate_episode_page_links(
-            start_episode, end_episode, first_episode, episodes_data, anime_id
+            start_episode,
+            end_episode,
+            first_episode,
+            episodes_data,
+            anime_id,
         )
 
 
@@ -199,13 +222,12 @@ def is_dub(episode_download_info: str) -> bool:
 
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
     page_url = LOAD_EPISODES_URL.format(anime_page_link, 1)
-    decoded = site_request(page_url).json()
-    episodes_data = decoded.get("data", None)
+    page_json = site_request(page_url).json()
+    episodes_data = page_json.get("data", None)
     if episodes_data is None:
         return False
     episode_sessions = [episode["session"] for episode in episodes_data]
     episode_page_link = EPISODE_PAGE_URL.format(anime_id, episode_sessions[0])
-    print(f"Episode page link: {episode_page_link}")
     (
         _,
         download_info,
@@ -362,8 +384,8 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     )
     _, release_year = season_and_year.split(" ")
     page_link = ANIME_PAGE_URL.format(anime_id)
-    decoded = site_request(page_link).json()
-    episode_count = decoded["total"]
+    page_json = site_request(page_link).json()
+    episode_count = page_json["total"]
     tag = soup.find(title="Currently Airing")
     if tag:
         airing_status = AiringStatus.ONGOING

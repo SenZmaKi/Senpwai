@@ -404,16 +404,13 @@ class DownloadWindow(AbstractWindow):
     def pahe_get_episode_page_links(
         self,
         anime_details: AnimeDetails,
-        start_page_num: int,
-        end_page_num: int,
-        episode_page_count: int,
-        first_page: dict[str, Any],
+        episode_pages_info: pahe.EpisodePagesInfo,
     ):
         episode_page_progress_bar = ProgressBarWithButtons(
             None,
             "Getting episode page links",
             "",
-            episode_page_count,
+            episode_pages_info.total,
             "pgs",
             1,
             self.pause_icon,
@@ -428,9 +425,7 @@ class DownloadWindow(AbstractWindow):
             anime_details,
             anime_details.lacked_episode_numbers[0],
             anime_details.lacked_episode_numbers[-1],
-            start_page_num,
-            end_page_num,
-            first_page,
+            episode_pages_info,
             self.pahe_get_download_page_links,
             episode_page_progress_bar,
         ).start()
@@ -1034,7 +1029,7 @@ class GogoGetDownloadPageLinksThread(QThread):
 
 
 class PaheGetEpisodePageInfo(QThread):
-    finished = pyqtSignal(AnimeDetails, int, int, int, dict)
+    finished = pyqtSignal(AnimeDetails, pahe.EpisodePagesInfo)
 
     def __init__(
         self,
@@ -1042,9 +1037,7 @@ class PaheGetEpisodePageInfo(QThread):
         start_episode: int,
         end_episode: int,
         anime_details: AnimeDetails,
-        finished_callback: Callable[
-            [AnimeDetails, int, int, int, dict[str, Any]], None
-        ],
+        finished_callback: Callable[[AnimeDetails, pahe.EpisodePagesInfo], None],
     ):
         super().__init__(download_window)
         self.start_episode = start_episode
@@ -1055,7 +1048,7 @@ class PaheGetEpisodePageInfo(QThread):
     def run(self):
         self.finished.emit(
             self.anime_details,
-            *pahe.get_episode_pages_info(
+            pahe.get_episode_pages_info(
                 self.anime_details.anime.page_link, self.start_episode, self.end_episode
             ),
         )
@@ -1071,9 +1064,7 @@ class PaheGetEpisodePageLinksThread(QThread):
         anime_details: AnimeDetails,
         start_episode: int,
         end_episode: int,
-        start_page_num: int,
-        end_page_num: int,
-        first_page: dict[str, Any],
+        episode_pages_info: pahe.EpisodePagesInfo,
         finished_callback: Callable[[AnimeDetails, list[str]], None],
         progress_bar: ProgressBarWithButtons,
     ):
@@ -1081,10 +1072,8 @@ class PaheGetEpisodePageLinksThread(QThread):
         self.anime_details = anime_details
         self.finished.connect(finished_callback)
         self.start_episode = start_episode
+        self.episode_pages_info = episode_pages_info
         self.end_episode = end_episode
-        self.start_page_num = start_page_num
-        self.end_page_num = end_page_num
-        self.first_page = first_page
         self.progress_bar = progress_bar
         self.update_bar.connect(progress_bar.update_bar)
 
@@ -1095,9 +1084,7 @@ class PaheGetEpisodePageLinksThread(QThread):
         episode_page_links = obj.get_episode_page_links(
             self.start_episode,
             self.end_episode,
-            self.start_page_num,
-            self.end_page_num,
-            self.first_page,
+            self.episode_pages_info,
             self.anime_details.anime.page_link,
             cast(str, self.anime_details.anime.id),
             lambda x: self.update_bar.emit(x),
