@@ -241,8 +241,6 @@ class UpdateWindow(AbstractWindow):
             pause_icon,
             resume_icon,
             cancel_icon,
-            lambda: None,
-            lambda: None,
         )
         self.download_layout.addWidget(self.progress_bar)
         self.update_button.hide()

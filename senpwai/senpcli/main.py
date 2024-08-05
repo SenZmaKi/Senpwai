@@ -227,13 +227,6 @@ def parse_args(args: list[str]) -> tuple[Namespace, ArgumentParser]:
         action="store_true",
     )
     parser.add_argument(
-        "-sc",
-        "--skip_calculating",
-        help="Skip calculating the total download size (Gogo only)",
-        action="store_true",
-        default=SETTINGS.gogo_skip_calculate,
-    )
-    parser.add_argument(
         "-of",
         "--open_folder",
         help="Open the folder containing the downloaded anime once the download finishes",
@@ -388,40 +381,25 @@ def gogo_get_download_page_links(
     return gogo.get_download_page_links(start_episode, end_episode, anime_id)
 
 
-def gogo_calculate_total_download_size(direct_download_links: list[str]) -> list[str]:
-    pbar = ProgressBar(
-        total=len(direct_download_links),
-        desc="Calculating total download size",
-        unit="eps",
-    )
-    (
-        total,
-        redirect_ddls,
-    ) = gogo.CalculateTotalDowloadSize().calculate_total_download_size(
-        direct_download_links, pbar.update_
-    )
-    pbar.close_()
-    size = total // IBYTES_TO_MBS_DIVISOR
-    size_text = add_color(
-        f"{size} MB { ', go shower' if size >= 1000 else ''}", Color.MAGENTA
-    )
-    print_info(f"Total download size: {size_text}")
-    return redirect_ddls
-
 
 def gogo_get_direct_download_links(
     download_page_links: list[str], quality: str
-) -> list[str]:
+) -> tuple[list[str], list[int]]:
     pbar = ProgressBar(
         total=len(download_page_links),
         desc="Retrieving direct download links",
         unit="eps",
     )
-    results = gogo.GetDirectDownloadLinks().get_direct_download_links(
+    direct_download_links, download_sizes = gogo.GetDirectDownloadLinks().get_direct_download_links(
         download_page_links, quality, pbar.update_
     )
+    size = sum(download_sizes) // IBYTES_TO_MBS_DIVISOR
+    size_text = add_color(
+        f"{size} MB { ', go shower' if size >= 1000 else ''}", Color.MAGENTA
+    )
+    print_info(f"Total download size: {size_text}")
     pbar.close_()
-    return results
+    return direct_download_links, download_sizes
 
 
 def pahe_get_direct_download_links(download_page_links: list[str]) -> list[str]:
@@ -438,7 +416,10 @@ def pahe_get_direct_download_links(download_page_links: list[str]) -> list[str]:
 
 
 def create_progress_bar(
-    episode_title: str, link_or_segs_urls: str | list[str], is_hls_download: bool
+    episode_title: str,
+    link_or_segs_urls: str | list[str],
+    is_hls_download: bool,
+    episode_size: int | None,
 ) -> tuple[ProgressBar, str | list[str]]:
     if is_hls_download:
         episode_size = len(link_or_segs_urls)
@@ -448,9 +429,10 @@ def create_progress_bar(
             desc=f"Downloading [HLS] {episode_title}",
         )
     else:
-        episode_size, link_or_segs_urls = Download.get_resource_length(
-            cast(str, link_or_segs_urls)
-        )
+        if episode_size is None:
+            episode_size, link_or_segs_urls = Download.get_resource_length(
+                cast(str, link_or_segs_urls)
+            )
         pbar = ProgressBar(
             total=episode_size,
             unit="iB",
@@ -485,6 +467,7 @@ def download_manager(
     anime_details: AnimeDetails,
     is_hls_download: bool,
     max_simultaneous_downloads: int,
+    download_sizes: list[int] | None = None,
 ):
     anime_details.validate_anime_folder_path()
     desc = (
@@ -517,7 +500,10 @@ def download_manager(
     for idx, link in enumerate(ddls_or_segs_urls):
         wait(download_slot_available)
         shortened_episode_title = anime_details.episode_title(idx, True)
-        pbar, link = create_progress_bar(shortened_episode_title, link, is_hls_download)
+        episode_size = download_sizes[idx] if download_sizes else None
+        pbar, link = create_progress_bar(
+            shortened_episode_title, link, is_hls_download, episode_size
+        )
         episode_title = anime_details.episode_title(idx, False)
         Thread(
             target=download_thread,
@@ -677,21 +663,18 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
             anime_details, parsed.start_episode, parsed.end_episode, download_page_links
         ):
             return
-        direct_download_links = gogo_get_direct_download_links(
+        direct_download_links, download_sizes = gogo_get_direct_download_links(
             download_page_links, parsed.quality
         )
         if parsed.direct_download_links:
             print("\n".join(direct_download_links))
             return
-        if not parsed.skip_calculating:
-            direct_download_links = gogo_calculate_total_download_size(
-                direct_download_links
-            )
         download_manager(
             direct_download_links,
             anime_details,
             False,
             parsed.max_simultaneous_downloads,
+            download_sizes,
         )
 
 

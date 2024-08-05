@@ -4,7 +4,12 @@ import sys
 import time
 from typing import Any, Callable, cast
 
-from senpwai.common.scraper import AnimeMetadata, Download, sanitise_title
+from senpwai.common.scraper import (
+    IBYTES_TO_MBS_DIVISOR,
+    AnimeMetadata,
+    Download,
+    sanitise_title,
+)
 from senpwai.common.static import ROOT_DIRECTORY
 
 from senpwai.scrapers import gogo, pahe
@@ -243,7 +248,7 @@ def fail_if_list_is_empty(
 
 
 def test_getting_direct_download_links(
-    site: str, download_page_links: list[str], quality: str
+    site: str, download_page_links: list[str], quality: str, verbose: bool
 ) -> list[str]:
     test_name = "Get Direct download links"
     test_start(test_name)
@@ -254,9 +259,12 @@ def test_getting_direct_download_links(
             download_page_links
         )
     else:
-        ddls = gogo.GetDirectDownloadLinks().get_direct_download_links(
+        ddls, download_sizes = gogo.GetDirectDownloadLinks().get_direct_download_links(
             download_page_links, quality
         )
+        total_download_size = sum(download_sizes) // IBYTES_TO_MBS_DIVISOR
+        if verbose:
+            print(f"Total download size is: {total_download_size} MB")
     rt = run_time_getter()
     fail_if_list_is_empty(
         ddls,
@@ -434,7 +442,7 @@ class ArgParser:
         metadata                Test getting metadata
         episode_page            Test getting episode page links (pahe only)
         download_page           Test getting download page links
-        download_size           Test extraction (pahe)/ getting (gogo) of total download size
+        download_size           Test extraction (pahe) of total download size from download info
         direct_links            Test getting direct download links
         hls_links               Test getting hls links
         match_links             Test matching hls links to user quality
@@ -560,37 +568,37 @@ def run_tests(args: ArgParser):
                     "No Dub available"
                 )
             COMMANDS.remove("dub_available")
+
+            def print_metadata(metadata: AnimeMetadata):
+                conditional_print(
+                    f"Metadata:\nPoster Url: {metadata.poster_url}\nSummary: {metadata.summary[:100]}.. .\nEpisode Count: {metadata.episode_count}\nAiring Status: {metadata.airing_status}\nGenres: {metadata.genres}\nRelease Year: {metadata.release_year}\n"
+                )
+
             if args.arg_in_group_was_passed(COMMANDS):
                 metadata, page_content = test_get_metadata(args.site, target_result)
                 if args.verbose:
                     if args.site == GOGO:
                         conditional_print("Sub metadata")
 
-                    def print_metadata(metadata: AnimeMetadata):
-                        conditional_print(
-                            f"Metadata:\nPoster Url: {metadata.poster_url}\nSummary: {metadata.summary[:100]}.. .\nEpisode Count: {metadata.episode_count}\nAiring Status: {metadata.airing_status}\nGenres: {metadata.genres}\nRelease Year: {metadata.release_year}\n"
-                        )
-
                     print_metadata(metadata)
                 COMMANDS.remove("metadata")
-                if args.arg_in_group_was_passed(COMMANDS) or (
-                    args.site == GOGO and args.sub_or_dub == "dub"
-                ):
+                if args.sub_or_dub == "dub" and not dub_available:
+                    print("Couldn't find Dub for the anime on the specified site")
+                    return
+                if args.arg_in_group_was_passed(COMMANDS) and args.site == GOGO:
                     if args.end_eps > metadata.episode_count:
                         return print(
                             f"The chosen target anime has {metadata.episode_count} episodes yet you specified the ('--end_episode', '-ee') as {args.end_eps}"
                         )
-                    if args.sub_or_dub == "dub" and not dub_available:
-                        return print(
-                            "Couldn't find Dub for the anime on the specified site"
-                        )
                     elif args.site == GOGO and dub_available:
-                        metadata, page_content = test_get_metadata(
-                            args.site, ["", dub_link]
+                        dub_metadata, dub_page_content = test_get_metadata(
+                            args.site, ["", dub_link],
                         )
+                        if args.sub_or_dub == "dub":
+                            metadata, page_content = dub_metadata, dub_page_content
                         if args.verbose:
                             conditional_print("Dub metadata")
-                            print_metadata(metadata)  # type: ignore
+                            print_metadata(dub_metadata)
                     if args.site == PAHE:
                         episode_page_links = test_get_episode_page_links(
                             target_result[2],
@@ -649,7 +657,7 @@ def run_tests(args: ArgParser):
                             pass_test(test_name, rt)
                             if args.verbose:
                                 conditional_print(
-                                    f"Total download size is: {total_download_size}"
+                                    f"Total download size is: {total_download_size} MB"
                                 )
                             COMMANDS.remove("download_size")
                         # HLS testing pipeine
@@ -695,38 +703,14 @@ def run_tests(args: ArgParser):
                                         COMMANDS.remove("download")
                         if args.arg_in_group_was_passed(["direct_links", "all"]):
                             direct_download_links = test_getting_direct_download_links(
-                                args.site, download_page_links, args.quality
+                                args.site,
+                                download_page_links,
+                                args.quality,
+                                args.verbose,
                             )
                             if args.verbose:
                                 conditional_print(f"DDLs: {direct_download_links}\n")
                             COMMANDS.remove("direct_links")
-                            if args.site == GOGO and args.arg_in_group_was_passed(
-                                ["download_size"]
-                            ):
-                                test_name = "Download size"
-                                test_start(test_name)
-                                runtime_getter = get_run_time_later()
-                                (
-                                    total_download_size,
-                                    direct_download_links,
-                                ) = gogo.CalculateTotalDowloadSize().calculate_total_download_size(
-                                    direct_download_links, in_megabytes=True
-                                )
-                                rt = runtime_getter()
-                                if not isinstance(total_download_size, int):
-                                    fail_test(
-                                        test_name,
-                                        "An integer",
-                                        type(total_download_size),
-                                        rt,
-                                        f"DDLs were: {direct_download_links}",
-                                    )
-                                pass_test(test_name, rt)
-                                if args.verbose:
-                                    conditional_print(
-                                        f"Total download size is: {total_download_size}"
-                                    )
-                                COMMANDS.remove("download_size")
                             if args.arg_in_group_was_passed(COMMANDS):
                                 test_downloading(
                                     args.anime_title,

@@ -282,13 +282,11 @@ def bind_quality_to_link_info(
 
 def calculate_total_download_size(bound_info: list[str]) -> int:
     total_size = 0
-    download_sizes: list[int] = []
     for episode in bound_info:
         match = cast(re.Match, EPISODE_SIZE_REGEX.search(episode))
         size = int(match.group(1))
-        download_sizes.append(size)
         total_size += size
-    return total_size
+    return total_size 
 
 
 def get_char_code(content: str, s1: int) -> int:

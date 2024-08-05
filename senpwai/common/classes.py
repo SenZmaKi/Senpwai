@@ -93,7 +93,6 @@ class Settings:
         self.tracked_anime: list[str] = []
         self.tracking_site = PAHE
         self.tracking_interval = 24
-        self.gogo_skip_calculate = False
         self.version = VERSION
 
         self.load_settings()
@@ -234,9 +233,6 @@ class Settings:
         self.tracking_interval = tracking_interval
         self.save_settings()
 
-    def update_gogo_skip_calculate(self, gogo_skip_calculate: bool) -> None:
-        self.gogo_skip_calculate = gogo_skip_calculate
-        self.save_settings()
 
     def update_pahe_home_url(self, pahe_home_url: str) -> None:
         self.pahe_home_url = pahe_home_url
@@ -286,15 +282,9 @@ class AnimeDetails:
         self.sub_or_dub = SETTINGS.sub_or_dub
         self.ddls_or_segs_urls: list[str] | list[list[str]] = []
         self.download_info: list[str] = []
-        self.total_download_size: int = 0
+        self.total_download_size_mbs: int = 0
+        self.download_sizes_bytes: list[int] = []
         self.lacked_episode_numbers: list[int] = []
-        self.skip_calculating_size = (
-            True
-            if site == GOGO
-            and not self.is_hls_download
-            and SETTINGS.gogo_skip_calculate
-            else False
-        )
 
     def get_shortened_title(self):
         # Around 5 words i.e., 5 * 8
