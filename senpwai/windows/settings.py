@@ -1,6 +1,6 @@
 import os
 from typing import TYPE_CHECKING, Callable, cast
-from pylnk3 import for_file as pylnk3_for_file
+import pylnk3
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
 from senpwai.common.classes import SETTINGS
@@ -533,7 +533,7 @@ class RunOnStartUp(YesOrNoSetting):
 
     def make_startup_lnk(self):
         self.remove_startup_lnk()
-        pylnk3_for_file(
+        pylnk3.for_file(
             APP_EXE_PATH,
             self.lnk_path,
             MINIMISED_TO_TRAY_ARG,

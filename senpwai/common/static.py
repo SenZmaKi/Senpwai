@@ -4,7 +4,7 @@ import sys
 from datetime import datetime
 from functools import cache
 from pathlib import Path
-from random import choice as random_choice
+import random
 from subprocess import Popen
 from tempfile import gettempdir
 import traceback
@@ -193,7 +193,7 @@ mascots_folder_path = join_from_assets("mascots")
 mascots_files = list(Path(mascots_folder_path).glob("*"))
 RANDOM_MACOT_ICON_PATH = (
     # Incase Senpcli was installed without Senpwai
-    str(random_choice(mascots_files)) if mascots_files else ""
+    str(random.choice(mascots_files)) if mascots_files else ""
 )
 
 
@@ -253,7 +253,7 @@ HENTAI_ADDICT_AUDIO_PATH = join_from_audio("aqua-crying.mp3")
 MORBIUS_AUDIO_PATH = join_from_audio("morbin-time.mp3")
 SEN_FAVOURITE_AUDIO_PATH = join_from_audio("sen-favourite.wav")
 ONE_PIECE_REAL_AUDIO_PATH = join_from_audio(
-    f"one-piece-real-{random_choice((1, 2))}.mp3"
+    f"one-piece-real-{random.choice((1, 2))}.mp3"
 )
 KAGE_BUNSHIN_AUDIO_PATH = join_from_audio("kage-bunshin-no-jutsu.mp3")
 BUNSHIN_POOF_AUDIO_PATH = join_from_audio("bunshin-poof.mp3")

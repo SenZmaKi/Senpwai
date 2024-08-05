@@ -4,7 +4,7 @@ import sys
 from argparse import ArgumentParser, Namespace
 import os
 from queue import Queue
-from random import choice as random_choice
+import random
 from threading import Event, Lock, Thread
 from typing import Callable, cast
 
@@ -539,7 +539,7 @@ def download_manager(
     episodes_pbar.close_()
 
     print_rainbow(
-        f"Download complete uWu, Senpcli ga saikou no stando da!!!\n{random_choice(ANIME_REFERENCES)}"
+        f"Download complete uWu, Senpcli ga saikou no stando da!!!\n{random.choice(ANIME_REFERENCES)}"
     )
 
 

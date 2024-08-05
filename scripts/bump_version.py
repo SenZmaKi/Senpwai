@@ -4,15 +4,15 @@ import subprocess
 import sys
 import re
 from typing import cast
-from .common import (
+from scripts.common import (
     ROOT_DIR,
     get_current_branch_name,
     git_commit,
-    log_error as common_log_error,
     log_info,
     log_warning,
     overwrite,
 )
+from scripts import common
 
 
 PYPROJECT_FILE_PATH = ROOT_DIR.joinpath("pyproject.toml")
@@ -28,7 +28,7 @@ VERSION_REGEX = re.compile(r"(\d+(\.\d+)*)")
 
 
 def log_error(msg: str, exit=False) -> None:
-    common_log_error(msg, exit)
+    common.log_error(msg, exit)
     global ENCOUNTERED_ERROR
     ENCOUNTERED_ERROR = True
 

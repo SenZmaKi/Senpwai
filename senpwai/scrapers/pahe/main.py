@@ -1,5 +1,6 @@
 import re
 import math
+from tkinter import N
 from typing import Any, Callable, NamedTuple, cast
 from requests import Response
 from bs4 import BeautifulSoup, Tag
@@ -13,7 +14,7 @@ from senpwai.common.scraper import (
     get_new_home_url_from_readme,
     closest_quality_index,
 )
-from .constants import (
+from senpwai.scrapers.pahe.constants import (
     CHAR_MAP_BASE,
     CHAR_MAP_DIGITS,
     PAHE_HOME_URL,
@@ -150,7 +151,7 @@ class GetEpisodePageLinks(ProgressFunction):
         episode_pages_info: EpisodePagesInfo,
         anime_page_link: str,
         anime_id: str,
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], None] | None = None,
     ) -> list[str]:
         page_url = anime_page_link
         (
@@ -164,6 +165,7 @@ class GetEpisodePageLinks(ProgressFunction):
         if start_page_num == 1:
             episodes_data.extend(first_page_json["data"])
             start_page_num += 1
+        if progress_update_callback:
             progress_update_callback(1)
         for page_num in range(start_page_num, end_page_num + 1):
             page_url = LOAD_EPISODES_URL.format(anime_page_link, page_num)
@@ -177,7 +179,8 @@ class GetEpisodePageLinks(ProgressFunction):
             self.resume.wait()
             if self.cancelled:
                 return []
-            progress_update_callback(1)
+            if progress_update_callback:
+                progress_update_callback(1)
         first_episode_json = next(
             ep for ep in first_page_json["data"] if isinstance(ep["episode"], int)
         )
@@ -198,7 +201,7 @@ class GetPahewinPageLinks(ProgressFunction):
     def get_pahewin_page_links_and_info(
         self,
         episode_page_links: list[str],
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], None] | None = None,
     ) -> tuple[list[list[str]], list[list[str]]]:
         pahewin_links: list[list[str]] = []
         download_info: list[list[str]] = []
@@ -212,7 +215,8 @@ class GetPahewinPageLinks(ProgressFunction):
             self.resume.wait()
             if self.cancelled:
                 return ([], [])
-            progress_update_callback(1)
+            if progress_update_callback:
+                progress_update_callback(1)
         return (pahewin_links, download_info)
 
 
@@ -322,7 +326,7 @@ class GetDirectDownloadLinks(ProgressFunction):
     def get_direct_download_links(
         self,
         pahewin_download_page_links: list[str],
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], None] | None = None,
     ) -> list[str]:
         direct_download_links: list[str] = []
         for pahewin_link in pahewin_download_page_links:
@@ -357,7 +361,8 @@ class GetDirectDownloadLinks(ProgressFunction):
             self.resume.wait()
             if self.cancelled:
                 return []
-            progress_update_callback(1)
+            if progress_update_callback:
+                progress_update_callback(1)
         return direct_download_links
 
 

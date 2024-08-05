@@ -1,4 +1,4 @@
-from random import choice as random_choice
+import random
 import re
 from typing import Callable, cast
 
@@ -16,7 +16,7 @@ from senpwai.common.scraper import (
     closest_quality_index,
     sanitise_title,
 )
-from .constants import (
+from senpwai.scrapers.gogo.constants import (
     AJAX_SEARCH_URL,
     BASE_URL_REGEX,
     DUB_EXTENSION,
@@ -83,7 +83,7 @@ class GetDirectDownloadLinks(ProgressFunction):
         self,
         download_page_links: list[str],
         user_quality: str,
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], None] | None = None,
     ) -> list[str]:
         direct_download_links: list[str] = []
         for eps_pg_link in download_page_links:
@@ -102,7 +102,8 @@ class GetDirectDownloadLinks(ProgressFunction):
             self.resume.wait()
             if self.cancelled:
                 return []
-            progress_update_callback(1)
+            if progress_update_callback:
+                progress_update_callback(1)
         return direct_download_links
 
 
@@ -113,7 +114,7 @@ class CalculateTotalDowloadSize(ProgressFunction):
     def calculate_total_download_size(
         self,
         direct_download_links: list[str],
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], None] | None = None,
         in_megabytes=False,
     ) -> tuple[int, list[str]]:
         total_size = 0
@@ -131,7 +132,8 @@ class CalculateTotalDowloadSize(ProgressFunction):
             self.resume.wait()
             if self.cancelled:
                 return 0, [*redirect_ddls, *direct_download_links[len(redirect_ddls)-1 :]]
-            progress_update_callback(1)
+            if progress_update_callback:
+                progress_update_callback(1)
         return total_size, redirect_ddls
 
 
@@ -222,7 +224,7 @@ def get_session_cookies(fresh=False) -> RequestsCookieJar:
     form_div = cast(Tag, soup.find("div", class_="form-login"))
     csrf_token = cast(Tag, form_div.find("input", {"name": "_csrf"}))["value"]
     form_data = {
-        "email": random_choice(REGISTERED_ACCOUNT_EMAILS),
+        "email": random.choice(REGISTERED_ACCOUNT_EMAILS),
         "password": "amogus69420",
         "_csrf": csrf_token,
     }

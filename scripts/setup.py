@@ -1,8 +1,9 @@
 from cx_Freeze import setup, Executable
-from os import path, unlink as os_unlink
+import os
+import os
 from typing import cast
 import sys
-from .common import ROOT_DIR
+from scripts.common import ROOT_DIR
 
 
 def duo_value_parser(
@@ -36,8 +37,8 @@ def parse_metadata() -> dict[str, str]:
 def get_executables(
     metadata: dict[str, str], senpwai_package_dir: str, senpcli_only: bool
 ) -> list[Executable]:
-    gui_script_path = path.join(senpwai_package_dir, "main.py")
-    cli_script_path = path.join(senpwai_package_dir, "senpcli/main.py")
+    gui_script_path = os.path.join(senpwai_package_dir, "main.py")
+    cli_script_path = os.path.join(senpwai_package_dir, "senpcli/main.py")
     gui_base = "WIN32GUI" if sys.platform == "win32" else None
     gui_executable = Executable(
         script=gui_script_path,
@@ -75,22 +76,22 @@ def main():
         senpcli_only = True
     except ValueError:
         senpcli_only = False
-    senpwai_package_dir = ROOT_DIR.joinpath("senpwai")
+    senpwai_package_dir = ROOT_DIR / "senpwai"
     sys.path.append(str(senpwai_package_dir))
     metadata = parse_metadata()
     name = metadata["cli_name"] if senpcli_only else metadata["name"]
-    build_dir = ROOT_DIR.joinpath("build", name.capitalize())
-    assets_dir = ROOT_DIR.joinpath(senpwai_package_dir, "assets")
-    assets_dir = path.join(senpwai_package_dir, "assets")
+    build_dir = ROOT_DIR / "build" / name.capitalize()
+    assets_dir = ROOT_DIR / senpwai_package_dir / "assets"
+    assets_dir = senpwai_package_dir / "assets"
     setup(
         name=name,
         version=metadata["version"],
-        options=get_options(str(build_dir), assets_dir, senpcli_only),
+        options=get_options(str(build_dir), str(assets_dir), senpcli_only),
         executables=get_executables(metadata, str(senpwai_package_dir), senpcli_only),
     )
-    license_file = build_dir.joinpath("frozen_application_license.txt")
-    if path.isfile(license_file):
-        os_unlink(license_file)
+    license_file = build_dir / "frozen_application_license.txt"
+    if license_file.is_file():
+        os.unlink(license_file)
     print(f"Built at: {build_dir}")
 
 

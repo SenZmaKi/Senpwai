@@ -1,7 +1,7 @@
 import os
-from shutil import rmtree as shutil_rmtree
+import shutil
 import sys
-from time import time as current_time
+import time
 from typing import Any, Callable, cast
 
 from senpwai.common.scraper import AnimeMetadata, Download, sanitise_title
@@ -83,7 +83,7 @@ def test_search(anime_title: str, site: str) -> list[list[str]]:
     pass_test(test_name, rt)
     test_name = "Parse search results"
     test_start(test_name)
-    c = current_time()
+    c = time.time()
     parsed_results: list[list[str]] = []
     if site == PAHE:
         parsed_results = [
@@ -93,7 +93,7 @@ def test_search(anime_title: str, site: str) -> list[list[str]]:
     else:
         for title, page_link in cast(list[tuple[str, str]], results):
             parsed_results.append([title, page_link])
-    run_timer = current_time() - c
+    run_timer = time.time() - c
     if not parsed_results:
         fail_test(test_name, "List of parsed results", "Empty list", run_timer)
     pass_test(test_name, run_timer)
@@ -101,8 +101,8 @@ def test_search(anime_title: str, site: str) -> list[list[str]]:
 
 
 def get_run_time_later() -> Callable[[], float]:
-    c = current_time()
-    return lambda: current_time() - c
+    c = time.time()
+    return lambda: time.time() - c
 
 
 def test_check_results_for_anime(
@@ -376,7 +376,7 @@ def test_downloading(
 
     rt = runtime_getter()
     pass_test(test_name, rt)
-    shutil_rmtree(download_folder)
+    shutil.rmtree(download_folder)
 
 
 class ArgParser:
