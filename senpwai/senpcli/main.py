@@ -381,7 +381,6 @@ def gogo_get_download_page_links(
     return gogo.get_download_page_links(start_episode, end_episode, anime_id)
 
 
-
 def gogo_get_direct_download_links(
     download_page_links: list[str], quality: str
 ) -> tuple[list[str], list[int]]:
@@ -390,7 +389,10 @@ def gogo_get_direct_download_links(
         desc="Retrieving direct download links",
         unit="eps",
     )
-    direct_download_links, download_sizes = gogo.GetDirectDownloadLinks().get_direct_download_links(
+    (
+        direct_download_links,
+        download_sizes,
+    ) = gogo.GetDirectDownloadLinks().get_direct_download_links(
         download_page_links, quality, pbar.update_
     )
     size = sum(download_sizes) // IBYTES_TO_MBS_DIVISOR
@@ -756,15 +758,19 @@ def get_anime_details(parsed) -> AnimeDetails | None:
     if parsed.sub_or_dub == DUB and parsed.site == GOGO:
         dub_available, anime.page_link = gogo.dub_availability_and_link(anime.title)
         if not dub_available:
+            print_error("Dub not available for this anime")
             return None
     anime_details = AnimeDetails(anime, parsed.site)
     if anime_details.metadata.airing_status == AiringStatus.UPCOMING:
         print_error("No episodes out yet, anime is an upcoming release")
         return None
-    if parsed.sub_or_dub == DUB:
-        if not anime_details.dub_available:
-            print_error("Dub not available for this anime")
-            return None
+    if (
+        parsed.site != GOGO
+        and parsed.sub_or_dub == DUB
+        and not anime_details.dub_available
+    ):
+        print_error("Dub not available for this anime")
+        return None
 
     if parsed.start_episode == -1:
         if (
