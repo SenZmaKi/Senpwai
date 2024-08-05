@@ -1,6 +1,5 @@
 from cx_Freeze import setup, Executable
 import os
-import os
 from typing import cast
 import sys
 from scripts.common import ROOT_DIR

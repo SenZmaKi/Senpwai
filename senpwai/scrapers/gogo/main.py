@@ -6,7 +6,6 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 from requests.cookies import RequestsCookieJar
 from senpwai.common.scraper import (
     CLIENT,
-    IBYTES_TO_MBS_DIVISOR,
     PARSER,
     AiringStatus,
     AnimeMetadata,
