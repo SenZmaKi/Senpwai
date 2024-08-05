@@ -1,4 +1,5 @@
 # New features and Changes
+- No features?
 
 # Bug fixes
 - gogo: Fix randomly skipped episodes, if it still happens please report it
