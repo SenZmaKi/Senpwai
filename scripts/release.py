@@ -46,7 +46,7 @@ def add_change_log_link(release_notes: str, previous_version: str | None) -> str
 
 
 def get_release_notes(from_commits: bool, previous_version: str | None) -> str:
-    with open(ROOT_DIR.joinpath("docs", "release-notes.md"), "r+") as f:
+    with open(ROOT_DIR / "docs" / "release-notes.md", "r+") as f:
         if not from_commits:
             return add_change_log_link(f.read(), previous_version)
         completed_process = subprocess.run(
@@ -70,7 +70,7 @@ def publish_release(release_notes: str) -> None:
         f'gh release create {BRANCH_NAME} --notes "{release_notes}"'
     ).check_returncode()
     subprocess.run(
-        f'gh release upload  {BRANCH_NAME} {ROOT_DIR.joinpath("setups","Senpwai-setup.exe")} {ROOT_DIR.joinpath("setups", "Senpcli-setup.exe")}'
+        f'gh release upload  {BRANCH_NAME} {ROOT_DIR  / "setups" / "Senpwai-setup.exe"} {ROOT_DIR / "setups"/ "Senpcli-setup.exe"}'
     ).check_returncode()
 
 
@@ -80,6 +80,14 @@ def new_branch() -> None:
     )
     if new_branch_name:
         subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
+
+
+def get_debug_comment_location() -> str | None:
+    for f in (ROOT_DIR / "senpwai").rglob("*.py"):
+        with open(f, "r", encoding="utf-8") as file:
+            for idx, line in enumerate(file.readlines()):
+                if "DEBUG" in line:
+                    return f"{f}, line {idx + 1}"
 
 
 def main() -> None:
@@ -133,11 +141,17 @@ def main() -> None:
         help="Skip creating new branch",
     )
     parser.add_argument(
-        "-pv", "--previous_version", help='Previous version number (without the "v" prefix)', type=str
+        "-pv",
+        "--previous_version",
+        help='Previous version number (without the "v" prefix)',
+        type=str,
     )
     parsed = parser.parse_args()
     if BRANCH_NAME == "master":
         log_error("On master branch, switch to version branch", True)
+    debug_comment = get_debug_comment_location()
+    if debug_comment:
+        log_error(f"Debug comment found in {debug_comment}", True)
     if not parsed.skip_export_dependencies:
         log_info("Exporting dependencies")
         subprocess.run("poe export_dependencies").check_returncode()

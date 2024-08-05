@@ -395,12 +395,12 @@ def gogo_get_direct_download_links(
     ) = gogo.GetDirectDownloadLinks().get_direct_download_links(
         download_page_links, quality, pbar.update_
     )
+    pbar.close_()
     size = sum(download_sizes) // IBYTES_TO_MBS_DIVISOR
     size_text = add_color(
         f"{size} MB { ', go shower' if size >= 1000 else ''}", Color.MAGENTA
     )
     print_info(f"Total download size: {size_text}")
-    pbar.close_()
     return direct_download_links, download_sizes
 
 

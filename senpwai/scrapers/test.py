@@ -23,7 +23,9 @@ DEFAULT_START_EPISODE = "1"
 DEFAULT_END_EPISODE = "2"
 DEFAULT_SUB_OR_DUB = "sub"
 DEFAULT_SITE = "pahe"
-DEFAULT_DOWNLOAD_FOLDER_PATH = os.path.join(ROOT_DIRECTORY, "..", ".test-downloads")
+DEFAULT_DOWNLOAD_FOLDER_PATH = os.path.join(
+    os.path.dirname(ROOT_DIRECTORY), ".test-downloads"
+)
 DEFAULT_VERBOSE = False
 DEFAULT_SILENT = False
 SILENT = DEFAULT_SILENT
@@ -592,7 +594,8 @@ def run_tests(args: ArgParser):
                         )
                     elif args.site == GOGO and dub_available:
                         dub_metadata, dub_page_content = test_get_metadata(
-                            args.site, ["", dub_link],
+                            args.site,
+                            ["", dub_link],
                         )
                         if args.sub_or_dub == "dub":
                             metadata, page_content = dub_metadata, dub_page_content

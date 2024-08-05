@@ -23,7 +23,7 @@ def validate_response(is_ok: bool, response_json: dict[str, Any]) -> None:
 
 
 def fetch_access_token() -> str:
-    with open(ROOT_DIR.joinpath(".credentials", "reddit.json"), "r") as f:
+    with open(ROOT_DIR / ".credentials" / "reddit.json", "r") as f:
         credentials = json.load(f)
         data = {
             "scope": "*",
