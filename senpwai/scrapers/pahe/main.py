@@ -1,6 +1,6 @@
 import re
 import math
-from typing import Any, Callable, List, cast
+from typing import Any, Callable, cast
 from requests import Response
 from bs4 import BeautifulSoup, Tag
 from senpwai.common.scraper import (
@@ -68,6 +68,7 @@ def site_request(url: str) -> Response:
     return response
 
 
+# Return animes matching keyword in ListMetadata format
 def search(keyword: str) -> list[ListMetadata]:
     search_url = f"{API_ENTRY_POINT}search&q={keyword}"
     response = site_request(search_url)
@@ -87,7 +88,7 @@ def search(keyword: str) -> list[ListMetadata]:
             ListMetadata(
                 id=anime.get("session"),
                 title=anime.get("title"),
-                url=get_page_link(anime.get("session")),
+                url=get_anime_page_url(anime.get("session")),
                 showtype=anime.get("type"),
                 episodes=anime.get("episodes"),
                 status=airing_status.get(anime.get("status"), AiringStatus.UNKNOWN),
@@ -102,23 +103,14 @@ def search(keyword: str) -> list[ListMetadata]:
     return anime_list
 
 
-def get_page_link(anime_id: str) -> str:
+def get_anime_page_url(anime_id: str) -> str:
     return ANIME_PAGE_URL.format((anime_id))
-
-
-def extract_anime_title_page_link_and_id(
-    result: dict[str, str],
-) -> tuple[str, str, str]:
-    anime_id = result["session"]
-    title = result["title"]
-    page_link = ANIME_PAGE_URL.format(anime_id)
-    return title, page_link, anime_id
 
 
 def get_episode_pages_info(
     anime_id: str, start_episode: int, end_episode: int
 ) -> tuple[int, int, int, dict[str, Any]]:
-    anime_page_link = get_page_link(anime_id)
+    anime_page_link = get_anime_page_url(anime_id)
     page_url = LOAD_EPISODES_URL.format(anime_page_link, 1)
     decoded = site_request(page_url).json()
     per_page: int = decoded["per_page"]
@@ -128,7 +120,7 @@ def get_episode_pages_info(
     return start_page, end_page, episode_page_count, decoded
 
 
-class GetEpisodePageLinks(ProgressFunction):
+class GetEpisodePageLinks:
     def __init__(self) -> None:
         super().__init__()
 
@@ -189,9 +181,9 @@ class GetEpisodePageLinks(ProgressFunction):
             episodes = [ep for ep in decoded["data"] if isinstance(ep["episode"], int)]
             episodes_data.extend(episodes)
             page_url = decoded["next_page_url"]
-            self.resume.wait()
-            if self.cancelled:
-                return []
+            # self.resume.wait()
+            # if self.cancelled:
+            #     return []
             progress_update_callback(1)
         first_episode = first_page["data"][0]["episode"]
         return GetEpisodePageLinks.generate_episode_page_links(
@@ -323,8 +315,6 @@ def decrypt_post_form(full_key: str, key: str, v1: int, v2: int) -> str:
     return r
 
 
-# TODO: return direct download links, sizes
-
 class GetDirectDownloadLinks(ProgressFunction):
     def __init__(self) -> None:
         super().__init__()
@@ -417,21 +407,18 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
         genres=genres,
         year=int(release_year),
     )
+
+
 def get_episode_page_links(
     anime_id: str, start_episode: int, end_episode: int
 ) -> list[str]:
-    anime_page_link = get_page_link(anime_id)
+    anime_page_link = get_anime_page_url(anime_id)
     (
         start_page_num,
         end_page_num,
         episode_page_count,
         first_page,
     ) = get_episode_pages_info(anime_page_link, start_episode, end_episode)
-    # pbar = ProgressBar(
-    #     total=episode_page_count,
-    #     desc="Getting episode page links",
-    #     unit="eps",
-    # )
     results = GetEpisodePageLinks().get_episode_page_links(
         start_episode,
         end_episode,
@@ -440,37 +427,7 @@ def get_episode_page_links(
         first_page,
         anime_page_link,
         anime_id,
-        # pbar.update_,
     )
-    # pbar.close_()
-    return results
-
-
-def get_download_links(
-    anime_id: str,
-    start_episode: int,
-    end_episode: int,
-    quality: str,
-    audio: str,
-):
-    sub_or_dub = "sub"
-    episode_page_links = get_episode_page_links(anime_id, start_episode, end_episode)
-
-    episode_download_page_links, down_info = (
-        GetPahewinPageLinks().get_pahewin_page_links_and_info(episode_page_links)
-    )
-
-    down_page_links, down_info = bind_sub_or_dub_to_link_info(
-        sub_or_dub, episode_download_page_links, down_info
-    )
-    down_page_links, down_info = bind_quality_to_link_info(
-        quality, down_page_links, down_info
-    )
-    episode_download_links = GetDirectDownloadLinks().get_direct_download_links(
-        down_page_links
-    )
-
-    results = episode_download_links
     return results
 
 
@@ -489,3 +446,36 @@ def get_download_page_links(
     )
     total_download_size = calculate_total_download_size(down_info)
     return down_page_links
+
+
+# TODO: Define (universal, classes or similar) low, medium, high (and custom) download quality for video
+# TODO: return download sizes only
+
+
+def get_download_links(
+    anime_id: str,
+    start_episode: int,
+    end_episode: int,
+    quality: str,
+    audio: str,
+) -> list[str]:
+    episode_page_links = get_episode_page_links(anime_id, start_episode, end_episode)
+
+    episode_download_page_links, download_info = (
+        GetPahewinPageLinks().get_pahewin_page_links_and_info(episode_page_links)
+    )
+
+    download_page_links, download_info = bind_sub_or_dub_to_link_info(
+        audio, episode_download_page_links, download_info
+    )
+
+    download_page_links, download_info = bind_quality_to_link_info(
+        quality, download_page_links, download_info
+    )
+
+    episode_download_links = GetDirectDownloadLinks().get_direct_download_links(
+        download_page_links
+    )
+
+    results = episode_download_links
+    return results
