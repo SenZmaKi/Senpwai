@@ -4,15 +4,15 @@ import subprocess
 import sys
 import re
 from typing import cast
-from .common import (
+from scripts.common import (
     ROOT_DIR,
     get_current_branch_name,
     git_commit,
-    log_error as common_log_error,
     log_info,
     log_warning,
     overwrite,
 )
+from scripts import common
 
 
 PYPROJECT_FILE_PATH = ROOT_DIR.joinpath("pyproject.toml")
@@ -28,20 +28,20 @@ VERSION_REGEX = re.compile(r"(\d+(\.\d+)*)")
 
 
 def log_error(msg: str, exit=False) -> None:
-    common_log_error(msg, exit)
+    common.log_error(msg, exit)
     global ENCOUNTERED_ERROR
     ENCOUNTERED_ERROR = True
 
 
 @cache
-def get_prev_version() -> str:
+def get_prev_version(exit=True) -> str:
     prev_version = ""
     with open(PYPROJECT_FILE_PATH, "r") as f:
         opt_version = VERSION_REGEX.search(f.read())
         if opt_version is not None:
             prev_version = opt_version.group(1)
     if not prev_version:
-        log_error("Failed to get previous version", True)
+        log_error("Failed to get previous version", exit)
     return prev_version
 
 

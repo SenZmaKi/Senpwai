@@ -3,10 +3,10 @@ import os
 import re
 import subprocess
 from base64 import b64decode
-from random import choice as random_choice
+import random
 from string import ascii_letters, digits, printable
 from threading import Event
-from time import sleep as time_sleep
+import time
 from typing import Callable, Iterator, TypeVar, cast
 from webbrowser import open_new_tab
 
@@ -129,7 +129,7 @@ class Client:
         self.headers = self.setup_request_headers()
 
     def setup_request_headers(self) -> dict[str, str]:
-        headers = {"User-Agent": random_choice(USER_AGENTS)}
+        headers = {"User-Agent": random.choice(USER_AGENTS)}
         return headers
 
     def append_headers(self, to_append: dict) -> dict:
@@ -239,7 +239,7 @@ class Client:
                 ):
                     raise e
                 log_exception(e)
-                time_sleep(1)
+                time.sleep(1)
 
 
 CLIENT = Client()
@@ -375,9 +375,6 @@ def try_installing_ffmpeg() -> bool:
             return False
 
 
-def fuzz_str(text: str) -> str:
-    return sanitise_title(text, True).lower()
-
 
 def sanitise_title(title: str, all=False, exclude="") -> str:
     if all:
@@ -385,7 +382,8 @@ def sanitise_title(title: str, all=False, exclude="") -> str:
     else:
         allowed_chars = set(printable) - set('\\/:*?"<>|')
         title = title.replace(":", " -")
-    sanitised = "".join([char for char in title if char in allowed_chars])
+    title = title.rstrip(".")
+    sanitised = "".join(char for char in title if char in allowed_chars)
 
     return sanitised[:255].rstrip()
 

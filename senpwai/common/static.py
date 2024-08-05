@@ -4,14 +4,30 @@ import sys
 from datetime import datetime
 from functools import cache
 from pathlib import Path
-from random import choice as random_choice
+import random
 from subprocess import Popen
 from tempfile import gettempdir
+import traceback
 from types import TracebackType
+
+
+def custom_exception_handler(
+    type_: type[BaseException],
+    value: BaseException,
+    tb: TracebackType | None,
+    manual_log=False,
+) -> None:
+    h = "Exception" if manual_log else "Unhandled exception"
+    exception_str = "".join(traceback.format_exception(type_, value, tb))
+    logging.error(f"{h}: {exception_str}{'-'*125}\n")
+    sys.__excepthook__(type_, value, tb)
+
+
+sys.excepthook = custom_exception_handler
 
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = "senpwai"
-VERSION = "2.1.11"
+VERSION = "2.1.12"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
 IS_PIP_INSTALL = False
@@ -53,14 +69,9 @@ IS_CHRISTMAS = True if date.month == 12 and date.day >= 20 else False
 
 
 def log_exception(exception: Exception) -> None:
-    custom_exception_handler(type(exception), exception, exception.__traceback__)
-
-
-def custom_exception_handler(
-    type_: type[BaseException], value: BaseException, traceback: TracebackType | None
-) -> None:
-    logging.error(f"Unhandled exception: {type_.__name__}: {value}")
-    sys.__excepthook__(type_, value, traceback)
+    custom_exception_handler(
+        type(exception), exception, exception.__traceback__, manual_log=True
+    )
 
 
 def try_deleting(path: str) -> None:
@@ -76,7 +87,7 @@ def windows_setup_file_titles(app_name: str) -> tuple[str, str]:
     return (f"{app_name}-setup.exe", f"{app_name}-setup.msi")
 
 
-# TODO: DEPRECATION Remove in version 2.1.11+ since we download updates to temp
+# TODO: DEPRECATION Remove in version 2.1.12+ since we download updates to temp
 for title in windows_setup_file_titles(APP_NAME):
     try_deleting(os.path.join(ROOT_DIRECTORY, title))
 for title in windows_setup_file_titles("Senpcli"):
@@ -182,7 +193,7 @@ mascots_folder_path = join_from_assets("mascots")
 mascots_files = list(Path(mascots_folder_path).glob("*"))
 RANDOM_MACOT_ICON_PATH = (
     # Incase Senpcli was installed without Senpwai
-    str(random_choice(mascots_files)) if mascots_files else ""
+    str(random.choice(mascots_files)) if mascots_files else ""
 )
 
 
@@ -242,7 +253,7 @@ HENTAI_ADDICT_AUDIO_PATH = join_from_audio("aqua-crying.mp3")
 MORBIUS_AUDIO_PATH = join_from_audio("morbin-time.mp3")
 SEN_FAVOURITE_AUDIO_PATH = join_from_audio("sen-favourite.wav")
 ONE_PIECE_REAL_AUDIO_PATH = join_from_audio(
-    f"one-piece-real-{random_choice((1, 2))}.mp3"
+    f"one-piece-real-{random.choice((1, 2))}.mp3"
 )
 KAGE_BUNSHIN_AUDIO_PATH = join_from_audio("kage-bunshin-no-jutsu.mp3")
 BUNSHIN_POOF_AUDIO_PATH = join_from_audio("bunshin-poof.mp3")

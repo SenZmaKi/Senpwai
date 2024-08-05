@@ -1,12 +1,8 @@
 # New features and Changes
-- Shorten long anime titles in progress bars
-- Hover on folder button shows folder location
-- senpcli: Always show units/time instead of time/units in progress bars
-- senpcli: Add anime tracking functionality
-- senpcli: Add option to print direct download links instead of downloading
+- No features?
 
 # Bug fixes
-- Fix some gogo downloads randomly failing, if you still experience it be sure to report it
-- Fix failed to fetch direct download links notification on cancelling direct download links retrieval
-- Fix anime randomizer
-- Fix opening chosen anime window for other anime failing if previous attempt failed
+- gogo: Fix randomly skipped episodes, if it still happens please report it
+- pahe: Fix downloading the same episode for anime with recaps
+- Fix anime with long titles being downloaded with the shortened title
+- senpcli: Fix check tracked anime crashing if no episode of the anime was initially downloaded

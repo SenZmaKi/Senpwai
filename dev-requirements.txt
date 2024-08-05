@@ -1,3 +1,1 @@
 poetry==1.7.1
-# Poetry plugins
-# poetry-plugin-exports==1.6.0

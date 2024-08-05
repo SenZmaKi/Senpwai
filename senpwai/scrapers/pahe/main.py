@@ -1,6 +1,6 @@
 import re
 import math
-from typing import Any, Callable, cast
+from typing import Any, Callable, NamedTuple, cast
 from requests import Response
 from bs4 import BeautifulSoup, Tag
 from senpwai.common.scraper import (
@@ -13,7 +13,7 @@ from senpwai.common.scraper import (
     get_new_home_url_from_readme,
     closest_quality_index,
 )
-from .constants import (
+from senpwai.scrapers.pahe.constants import (
     CHAR_MAP_BASE,
     CHAR_MAP_DIGITS,
     PAHE_HOME_URL,
@@ -41,7 +41,7 @@ Also it seems currently only __ddg2_ is necessary
 """
 
 
-def site_request(url: str) -> Response:
+def site_request(url: str, allow_redirects=False) -> Response:
     """
     For requests that go specifically to the domain animepahe.ru instead of e.g., pahe.win or kwik.si
     Typically these requests need the cookies
@@ -55,10 +55,11 @@ def site_request(url: str) -> Response:
             response = CLIENT.get(
                 url,
                 cookies=COOKIES,
+                allow_redirects=allow_redirects,
                 exceptions_to_raise=(DomainNameError, KeyboardInterrupt),
             )
         else:
-            response = CLIENT.get(url, cookies=COOKIES)
+            response = CLIENT.get(url, cookies=COOKIES, allow_redirects=allow_redirects)
         COOKIES.update(response.cookies)
     except DomainNameError:
         global PAHE_HOME_URL
@@ -70,9 +71,9 @@ def site_request(url: str) -> Response:
 def search(keyword: str) -> list[dict[str, str]]:
     search_url = f"{API_ENTRY_POINT}search&q={keyword}"
     response = site_request(search_url)
-    decoded = cast(dict, response.json())
+    results_json = cast(dict, response.json())
     # The search api endpoint won't return json containing the data key if no results are found
-    return decoded.get("data", [])
+    return results_json.get("data", [])
 
 
 def extract_anime_title_page_link_and_id(
@@ -84,16 +85,25 @@ def extract_anime_title_page_link_and_id(
     return title, page_link, anime_id
 
 
+class EpisodePagesInfo(NamedTuple):
+    start_page_num: int
+    end_page_num: int
+    total: int
+    first_page_json: dict[str, Any]
+
+
 def get_episode_pages_info(
     anime_page_link: str, start_episode: int, end_episode: int
-) -> tuple[int, int, int, dict[str, Any]]:
+) -> EpisodePagesInfo:
     page_url = LOAD_EPISODES_URL.format(anime_page_link, 1)
-    decoded = site_request(page_url).json()
-    per_page: int = decoded["per_page"]
-    start_page = math.ceil(start_episode / per_page)
-    end_page = math.ceil(end_episode / per_page)
-    episode_page_count = (end_page - start_page) + 1
-    return start_page, end_page, episode_page_count, decoded
+    first_page_json = site_request(page_url).json()
+    per_page: int = first_page_json["per_page"]
+    start_page_num = math.ceil(start_episode / per_page)
+    end_page_num = math.ceil(end_episode / per_page)
+    total = (end_page_num - start_page_num) + 1
+    return EpisodePagesInfo(
+        start_page_num, end_page_num, total, first_page_json
+    )
 
 
 class GetEpisodePageLinks(ProgressFunction):
@@ -114,7 +124,7 @@ class GetEpisodePageLinks(ProgressFunction):
         end_idx = 0
 
         for idx, episode in enumerate(episodes_data):
-            # Some times for sequels animepahe continues the episode numbers from the last episode of the previous season
+            # Sometimes for sequels animepahe continues the episode numbers from the last episode of the previous season
             # For instance  "Boku no Hero Academia 2nd Season" episode 1 is shown as episode 14
             # So we do episode - (first_episode - 1) to get the real episode number e.g.,
             # 14 - (14 - 1) = 1
@@ -137,33 +147,49 @@ class GetEpisodePageLinks(ProgressFunction):
         self,
         start_episode: int,
         end_episode: int,
-        start_page_num: int,
-        end_page_num: int,
-        first_page: dict[str, Any],
+        episode_pages_info: EpisodePagesInfo,
         anime_page_link: str,
         anime_id: str,
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], None] | None = None,
     ) -> list[str]:
         page_url = anime_page_link
+        (
+            start_page_num,
+            end_page_num,
+            _,
+            first_page_json,
+        ) = episode_pages_info
+
         episodes_data: list[dict[str, Any]] = []
         if start_page_num == 1:
-            episodes_data.extend(first_page["data"])
+            episodes_data.extend(first_page_json["data"])
             start_page_num += 1
+        if progress_update_callback:
             progress_update_callback(1)
         for page_num in range(start_page_num, end_page_num + 1):
             page_url = LOAD_EPISODES_URL.format(anime_page_link, page_num)
-            decoded = site_request(page_url).json()
+            page_json = site_request(page_url).json()
             # To avoid episodes like 7.5 and 5.5 cause they're usually just recaps
-            episodes = [ep for ep in decoded["data"] if isinstance(ep["episode"], int)]
+            episodes = [
+                ep for ep in page_json["data"] if isinstance(ep["episode"], int)
+            ]
             episodes_data.extend(episodes)
-            page_url = decoded["next_page_url"]
+            page_url = page_json["next_page_url"]
             self.resume.wait()
             if self.cancelled:
                 return []
-            progress_update_callback(1)
-        first_episode = first_page["data"][0]["episode"]
+            if progress_update_callback:
+                progress_update_callback(1)
+        first_episode_json = next(
+            ep for ep in first_page_json["data"] if isinstance(ep["episode"], int)
+        )
+        first_episode = first_episode_json["episode"]
         return GetEpisodePageLinks.generate_episode_page_links(
-            start_episode, end_episode, first_episode, episodes_data, anime_id
+            start_episode,
+            end_episode,
+            first_episode,
+            episodes_data,
+            anime_id,
         )
 
 
@@ -174,12 +200,12 @@ class GetPahewinPageLinks(ProgressFunction):
     def get_pahewin_page_links_and_info(
         self,
         episode_page_links: list[str],
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], None] | None = None,
     ) -> tuple[list[list[str]], list[list[str]]]:
         pahewin_links: list[list[str]] = []
         download_info: list[list[str]] = []
         for episode_page_link in episode_page_links:
-            page_content = site_request(episode_page_link).content
+            page_content = site_request(episode_page_link, allow_redirects=True).content
             soup = BeautifulSoup(page_content, PARSER)
             pahewin_data = soup.find_all("a", class_="dropdown-item", target="_blank")
             if pahewin_data:
@@ -188,7 +214,8 @@ class GetPahewinPageLinks(ProgressFunction):
             self.resume.wait()
             if self.cancelled:
                 return ([], [])
-            progress_update_callback(1)
+            if progress_update_callback:
+                progress_update_callback(1)
         return (pahewin_links, download_info)
 
 
@@ -198,8 +225,8 @@ def is_dub(episode_download_info: str) -> bool:
 
 def dub_available(anime_page_link: str, anime_id: str) -> bool:
     page_url = LOAD_EPISODES_URL.format(anime_page_link, 1)
-    decoded = site_request(page_url).json()
-    episodes_data = decoded.get("data", None)
+    page_json = site_request(page_url).json()
+    episodes_data = page_json.get("data", None)
     if episodes_data is None:
         return False
     episode_sessions = [episode["session"] for episode in episodes_data]
@@ -254,13 +281,11 @@ def bind_quality_to_link_info(
 
 def calculate_total_download_size(bound_info: list[str]) -> int:
     total_size = 0
-    download_sizes: list[int] = []
     for episode in bound_info:
         match = cast(re.Match, EPISODE_SIZE_REGEX.search(episode))
         size = int(match.group(1))
-        download_sizes.append(size)
         total_size += size
-    return total_size
+    return total_size 
 
 
 def get_char_code(content: str, s1: int) -> int:
@@ -298,7 +323,7 @@ class GetDirectDownloadLinks(ProgressFunction):
     def get_direct_download_links(
         self,
         pahewin_download_page_links: list[str],
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], None] | None = None,
     ) -> list[str]:
         direct_download_links: list[str] = []
         for pahewin_link in pahewin_download_page_links:
@@ -333,13 +358,14 @@ class GetDirectDownloadLinks(ProgressFunction):
             self.resume.wait()
             if self.cancelled:
                 return []
-            progress_update_callback(1)
+            if progress_update_callback:
+                progress_update_callback(1)
         return direct_download_links
 
 
 def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     page_link = f"{PAHE_HOME_URL}/anime/{anime_id}"
-    page_content = site_request(page_link).content
+    page_content = site_request(page_link, allow_redirects=True).content
     soup = BeautifulSoup(page_content, PARSER)
     poster = soup.find(class_="youtube-preview")
     if not isinstance(poster, Tag):
@@ -360,8 +386,8 @@ def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     )
     _, release_year = season_and_year.split(" ")
     page_link = ANIME_PAGE_URL.format(anime_id)
-    decoded = site_request(page_link).json()
-    episode_count = decoded["total"]
+    page_json = site_request(page_link).json()
+    episode_count = page_json["total"]
     tag = soup.find(title="Currently Airing")
     if tag:
         airing_status = AiringStatus.ONGOING

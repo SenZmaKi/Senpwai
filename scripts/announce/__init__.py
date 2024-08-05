@@ -1,1 +1,1 @@
-from .main import main  # noqa F403
+from scripts.announce.main import main  # noqa F403

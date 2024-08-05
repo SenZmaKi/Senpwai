@@ -1,6 +1,6 @@
 import os
 from typing import TYPE_CHECKING, Callable, cast
-from pylnk3 import for_file as pylnk3_for_file
+import pylnk3
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
 from senpwai.common.classes import SETTINGS
@@ -107,13 +107,11 @@ class SettingsWindow(AbstractWindow):
         self.check_for_new_eps_after = TrackingIntervalSetting(
             self, main_window.download_window
         )
-        self.gogo_skip_calculate = GogoSkipCalculate(self)
         left_layout.addWidget(self.settings_folder_button)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
         left_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
-        left_layout.addWidget(self.gogo_skip_calculate)
         left_layout.addWidget(self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_maximized)
         if OS.is_windows and not IS_PIP_INSTALL and APP_EXE_PATH:
@@ -480,22 +478,6 @@ class YesOrNoSetting(SettingWidget):
             self.setting_label.setToolTip(tooltip)
 
 
-class GogoSkipCalculate(YesOrNoSetting):
-    def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Skip calculating download size for Gogo")
-        self.setToolTip(
-            "Calculating total download size on gogo involves first making requests for the size of each episode"
-        )
-        if SETTINGS.gogo_skip_calculate:
-            self.yes_button.set_picked_status(True)
-        else:
-            self.no_button.set_picked_status(True)
-        self.yes_button.clicked.connect(
-            lambda: SETTINGS.update_gogo_skip_calculate(True)
-        )
-        self.no_button.clicked.connect(
-            lambda: SETTINGS.update_gogo_skip_calculate(False)
-        )
 
 
 class StartMaximized(YesOrNoSetting):
@@ -533,7 +515,7 @@ class RunOnStartUp(YesOrNoSetting):
 
     def make_startup_lnk(self):
         self.remove_startup_lnk()
-        pylnk3_for_file(
+        pylnk3.for_file(
             APP_EXE_PATH,
             self.lnk_path,
             MINIMISED_TO_TRAY_ARG,

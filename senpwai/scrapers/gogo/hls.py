@@ -1,7 +1,7 @@
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.padding import PKCS7
-from .constants import KEYS_REGEX, ENCRYPTED_DATA_REGEX
+from senpwai.scrapers.gogo.constants import KEYS_REGEX, ENCRYPTED_DATA_REGEX
 from senpwai.common.scraper import (
     PARSER,
     CLIENT,
@@ -24,7 +24,7 @@ class GetHlsMatchedQualityLinks(ProgressFunction):
         self,
         hls_links: list[str],
         quality: str,
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], None] | None = None,
     ) -> list[str]:
         matched_links: list[str] = []
         for link in hls_links:
@@ -38,7 +38,8 @@ class GetHlsMatchedQualityLinks(ProgressFunction):
             resource = qualities[idx].splitlines()[1]
             base_url = URL(link).parent
             matched_links.append(f"{base_url}/{resource}")
-            progress_update_callback(1)
+            if progress_update_callback:
+                progress_update_callback(1)
         return matched_links
 
 
@@ -49,7 +50,7 @@ class GetHlsSegmentsUrls(ProgressFunction):
     def get_hls_segments_urls(
         self,
         matched_links: list[str],
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], None] | None = None,
     ) -> list[list[str]]:
         segments_urls: list[list[str]] = []
         for link in matched_links:
@@ -65,7 +66,8 @@ class GetHlsSegmentsUrls(ProgressFunction):
                     segment_url = f"{base_url}/{seg}"
                     segment_urls.append(segment_url)
             segments_urls.append(segment_urls)
-            progress_update_callback(1)
+            if progress_update_callback: 
+                progress_update_callback(1)
         return segments_urls
 
 
@@ -76,7 +78,7 @@ class GetHlsLinks(ProgressFunction):
     def get_hls_links(
         self,
         download_page_links: list[str],
-        progress_update_callback: Callable[[int], None] = lambda _: None,
+        progress_update_callback: Callable[[int], None] | None = None,
     ) -> list[str]:
         hls_links: list[str] = []
         for eps_url in download_page_links:
@@ -84,7 +86,8 @@ class GetHlsLinks(ProgressFunction):
             self.resume.wait()
             if self.cancelled:
                 return []
-            progress_update_callback(1)
+            if progress_update_callback:
+                progress_update_callback(1)
         return hls_links
 
 

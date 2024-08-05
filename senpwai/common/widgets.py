@@ -620,8 +620,8 @@ class ProgressBarWithButtons(ProgressBarWithoutButtons):
         pause_icon: Icon,
         resume_icon: Icon,
         cancel_icon: Icon,
-        pause_callback: Callable[[], None],
-        cancel_callback: Callable[[], None],
+        pause_callback: Callable[[], None] | None = None,
+        cancel_callback: Callable[[], None] | None = None,
         delete_on_completion=True,
     ):
         super().__init__(
@@ -645,14 +645,16 @@ class ProgressBarWithButtons(ProgressBarWithoutButtons):
         self.items_layout.addWidget(self.cancel_button)
 
     def pause_or_resume(self):
-        self.pause_callback()
+        if self.pause_callback:
+            self.pause_callback()
         super().pause_or_resume()
         if self.paused:
             return self.pause_button.setIcon(self.resume_icon)
         self.pause_button.setIcon(self.pause_icon)
 
     def cancel(self):
-        self.cancel_callback()
+        if self.cancel_callback:
+            self.cancel_callback()
         super().cancel()
 
 

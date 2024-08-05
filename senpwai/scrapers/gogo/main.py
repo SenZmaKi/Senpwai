@@ -1,4 +1,4 @@
-from random import choice as random_choice
+import random
 import re
 from typing import Callable, cast
 
@@ -6,17 +6,18 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 from requests.cookies import RequestsCookieJar
 from senpwai.common.scraper import (
     CLIENT,
-    IBYTES_TO_MBS_DIVISOR,
     PARSER,
     AiringStatus,
     AnimeMetadata,
     DomainNameError,
+    Download,
+    NoResourceLengthException,
     ProgressFunction,
     get_new_home_url_from_readme,
     closest_quality_index,
     sanitise_title,
 )
-from .constants import (
+from senpwai.scrapers.gogo.constants import (
     AJAX_SEARCH_URL,
     BASE_URL_REGEX,
     DUB_EXTENSION,
@@ -83,12 +84,14 @@ class GetDirectDownloadLinks(ProgressFunction):
         self,
         download_page_links: list[str],
         user_quality: str,
-        progress_update_callback: Callable[[int], None] = lambda _: None,
-    ) -> list[str]:
+        progress_update_callback: Callable[[int], None] | None = None,
+    ) -> tuple[list[str], list[int]]:
         direct_download_links: list[str] = []
+        download_sizes: list[int] = []
         for eps_pg_link in download_page_links:
             link = ""
-            while not link:
+            size = 0
+            while True:
                 response = CLIENT.get(eps_pg_link, cookies=get_session_cookies())
                 soup = BeautifulSoup(response.content, PARSER)
                 a_tags = cast(
@@ -98,41 +101,23 @@ class GetDirectDownloadLinks(ProgressFunction):
                 qualities = [a.text for a in a_tags]
                 idx = closest_quality_index(qualities, user_quality)
                 link = cast(str, a_tags[idx]["href"])
+                if not link:
+                    continue
+                try:
+                    size, link = Download.get_resource_length(link)
+                    break
+                except NoResourceLengthException:
+                    continue
             direct_download_links.append(link)
+            download_sizes.append(size)
             self.resume.wait()
             if self.cancelled:
-                return []
-            progress_update_callback(1)
-        return direct_download_links
+                return [], []
+            if progress_update_callback:
+                progress_update_callback(1)
+        return direct_download_links, download_sizes
 
 
-class CalculateTotalDowloadSize(ProgressFunction):
-    def __init__(self):
-        super().__init__()
-
-    def calculate_total_download_size(
-        self,
-        direct_download_links: list[str],
-        progress_update_callback: Callable[[int], None] = lambda _: None,
-        in_megabytes=False,
-    ) -> tuple[int, list[str]]:
-        total_size = 0
-        redirect_ddls: list[str] = []
-        for link in direct_download_links:
-            response = CLIENT.get(
-                link, stream=True, cookies=get_session_cookies(), allow_redirects=True
-            )
-            redirect_ddls.append(response.url)
-            size = response.headers.get("Content-Length", 0)
-            if in_megabytes:
-                total_size += round(int(size) / IBYTES_TO_MBS_DIVISOR)
-            else:
-                total_size += int(size)
-            self.resume.wait()
-            if self.cancelled:
-                return 0, [*redirect_ddls, *direct_download_links[len(redirect_ddls)-1 :]]
-            progress_update_callback(1)
-        return total_size, redirect_ddls
 
 
 def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
@@ -222,7 +207,7 @@ def get_session_cookies(fresh=False) -> RequestsCookieJar:
     form_div = cast(Tag, soup.find("div", class_="form-login"))
     csrf_token = cast(Tag, form_div.find("input", {"name": "_csrf"}))["value"]
     form_data = {
-        "email": random_choice(REGISTERED_ACCOUNT_EMAILS),
+        "email": random.choice(REGISTERED_ACCOUNT_EMAILS),
         "password": "amogus69420",
         "_csrf": csrf_token,
     }

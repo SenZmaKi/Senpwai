@@ -10,6 +10,7 @@ from appdirs import user_config_dir
 
 from senpwai.common.scraper import (
     CLIENT,
+    IBYTES_TO_MBS_DIVISOR,
     AnimeMetadata,
     sanitise_title,
 )
@@ -92,7 +93,6 @@ class Settings:
         self.tracked_anime: list[str] = []
         self.tracking_site = PAHE
         self.tracking_interval = 24
-        self.gogo_skip_calculate = False
         self.version = VERSION
 
         self.load_settings()
@@ -105,7 +105,9 @@ class Settings:
 
     def setup_logger(self) -> None:
         error_logs_file_path = os.path.join(self.config_dir, "errors.log")
-        if not os.path.exists(error_logs_file_path):
+        if (not os.path.exists(error_logs_file_path)) or os.path.getsize(
+            error_logs_file_path
+        ) >= 20 * IBYTES_TO_MBS_DIVISOR:
             f = open(error_logs_file_path, "w")
             f.close()
 
@@ -231,9 +233,6 @@ class Settings:
         self.tracking_interval = tracking_interval
         self.save_settings()
 
-    def update_gogo_skip_calculate(self, gogo_skip_calculate: bool) -> None:
-        self.gogo_skip_calculate = gogo_skip_calculate
-        self.save_settings()
 
     def update_pahe_home_url(self, pahe_home_url: str) -> None:
         self.pahe_home_url = pahe_home_url
@@ -283,15 +282,9 @@ class AnimeDetails:
         self.sub_or_dub = SETTINGS.sub_or_dub
         self.ddls_or_segs_urls: list[str] | list[list[str]] = []
         self.download_info: list[str] = []
-        self.total_download_size: int = 0
+        self.total_download_size_mbs: int = 0
+        self.download_sizes_bytes: list[int] = []
         self.lacked_episode_numbers: list[int] = []
-        self.skip_calculating_size = (
-            True
-            if site == GOGO
-            and not self.is_hls_download
-            and SETTINGS.gogo_skip_calculate
-            else False
-        )
 
     def get_shortened_title(self):
         # Around 5 words i.e., 5 * 8
@@ -301,9 +294,10 @@ class AnimeDetails:
         shortened = self.sanitised_title[: max_anime_title_length - 3]
         return f"{shortened.strip()}..."
 
-    def episode_title(self, lacked_eps_idx: int) -> str:
+    def episode_title(self, lacked_eps_idx: int, shortened: bool) -> str:
         episode_number_str = str(self.lacked_episode_numbers[lacked_eps_idx]).zfill(2)
-        return f"{self.shortened_title} E{episode_number_str}"
+        title = self.shortened_title if shortened else self.sanitised_title
+        return f"{title} E{episode_number_str}"
 
     def validate_anime_folder_path(self) -> None:
         if not os.path.isdir(self.anime_folder_path):

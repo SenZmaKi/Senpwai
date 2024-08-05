@@ -65,6 +65,7 @@ class AboutWindow(AbstractWindow):
 - [Hover✨](https://open.spotify.com/playlist/460b5y4LB8Dixh0XajVVaL?si=fce0f0f762464e81) over something that you don't understand there's probably a tool tip for it
 - If the app screen📺 is white after you minimised it to tray and reopened it (usually on Windows🗑️), click the tray icon to fix it
 - Open the settings folder by clicking the button with its location in the top left corner of the settings window
+- Downloading from Pahe skips⏩ recap episodes
 - To completely remove Senpwai (don't know why you would though), post-uninstallation delete the settings folder, 🫵🏿®️🅰️🤡
 - To use a custom font family, edit the `font_family` value in the settings file, if left empty, it will default to your OS setting
 - Hate the background images📸? Check out the [discord]({DISCORD_INVITE_LINK}) for [senptheme](https://discord.com/channels/1131981618777702540/1211137093955362837/1211175899895038033)

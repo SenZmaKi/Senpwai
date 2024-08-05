@@ -18,9 +18,7 @@ BRANCH_NAME = get_current_branch_name()
 
 
 def merge_branch() -> None:
-    completed_process = subprocess.run(
-        "git status", capture_output=True, text=True
-    )
+    completed_process = subprocess.run("git status", capture_output=True, text=True)
     completed_process.check_returncode()
     if "Changes" in completed_process.stdout:
         log_error("You have uncommited changes", True)
@@ -29,27 +27,30 @@ def merge_branch() -> None:
     subprocess.run("gh pr merge --auto --merge --delete-branch").check_returncode()
 
 
-def add_change_log_link(release_notes: str) -> str:
-    prev_version = bump_version.get_prev_version()
+def add_change_log_link(release_notes: str, previous_version: str | None) -> str:
     new_version = bump_version.get_new_version()
-    if new_version == prev_version:
-        prev_version = input(
-            'Failed to get previous version number, manual input required (without the "v" prefix)\n> '
-        )
-        if not prev_version:
-            sys.exit()
+    if previous_version:
+        prev_version = previous_version
+    else:
+        prev_version = bump_version.get_prev_version(False)
+        if new_version == prev_version:
+            prev_version = input(
+                'Failed to get previous version number, manual input required (without the "v" prefix)\n> '
+            )
+            if not prev_version:
+                sys.exit()
     change_log_link = (
         f"**Full Changelog**: {REPO_URL}/compare/v{prev_version}...v{new_version}"
     )
     return f"{release_notes}\n\n{change_log_link}"
 
 
-def get_release_notes(from_commits: bool) -> str:
+def get_release_notes(from_commits: bool, previous_version: str | None) -> str:
     with open(ROOT_DIR.joinpath("docs", "release-notes.md"), "r+") as f:
         if not from_commits:
-            return add_change_log_link(f.read())
+            return add_change_log_link(f.read(), previous_version)
         completed_process = subprocess.run(
-            f'git log --oneline --format="%s" master..{BRANCH_NAME}',
+            f'git log --format="%s" master..{BRANCH_NAME}',
             capture_output=True,
             text=True,
         )
@@ -57,7 +58,7 @@ def get_release_notes(from_commits: bool) -> str:
         release_notes = f"# Changes\n\n{completed_process.stdout}"
         overwrite(f, release_notes)
         git_commit("Generate release notes from commits").check_returncode()
-        return add_change_log_link(release_notes)
+        return add_change_log_link(release_notes, previous_version)
 
 
 def publish_release(release_notes: str) -> None:
@@ -69,8 +70,16 @@ def publish_release(release_notes: str) -> None:
         f'gh release create {BRANCH_NAME} --notes "{release_notes}"'
     ).check_returncode()
     subprocess.run(
-        f'gh release upload  {BRANCH_NAME} {ROOT_DIR.joinpath("setups/Senpwai-setup.exe")} {ROOT_DIR.joinpath("setups/Senpcli-setup.exe")}'
+        f'gh release upload  {BRANCH_NAME} {ROOT_DIR.joinpath("setups","Senpwai-setup.exe")} {ROOT_DIR.joinpath("setups", "Senpcli-setup.exe")}'
     ).check_returncode()
+
+
+def new_branch() -> None:
+    new_branch_name = input(
+        'Enter new branch name (with the "v" prefix if necessary)\n> '
+    )
+    if new_branch_name:
+        subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
 
 
 def main() -> None:
@@ -80,6 +89,12 @@ def main() -> None:
         "--from_commits",
         action="store_true",
         help="Generate release notes from commits",
+    )
+    parser.add_argument(
+        "-sed",
+        "--skip_export_dependencies",
+        action="store_true",
+        help="Skip exporting poetry dependencies to requirements.txt",
     )
     parser.add_argument(
         "-sb", "--skip_bump", action="store_true", help="Skip bumping version"
@@ -117,9 +132,16 @@ def main() -> None:
         action="store_true",
         help="Skip creating new branch",
     )
+    parser.add_argument(
+        "-pv", "--previous_version", help='Previous version number (without the "v" prefix)', type=str
+    )
     parsed = parser.parse_args()
     if BRANCH_NAME == "master":
         log_error("On master branch, switch to version branch", True)
+    if not parsed.skip_export_dependencies:
+        log_info("Exporting dependencies")
+        subprocess.run("poe export_dependencies").check_returncode()
+        git_commit("Export poetry dependencies to requirements.txt")
     if not parsed.skip_bump:
         log_info("Bumping version")
         bump_version.main(True)
@@ -128,7 +150,7 @@ def main() -> None:
     if not parsed.skip_build_release:
         log_info("Building release")
         subprocess.run("poe build_release_ddl").check_returncode()
-    release_notes = get_release_notes(parsed.from_commits)
+    release_notes = get_release_notes(parsed.from_commits, parsed.previous_version)
     if not parsed.skip_merge_branch:
         log_info(f"Merging branch {BRANCH_NAME}")
         merge_branch()
@@ -145,10 +167,7 @@ def main() -> None:
         )
     log_info(f"Finished release {BRANCH_NAME}")
     if not parsed.skip_new_branch:
-        new_branch_name = input("Enter new branch name\n> ")
-        if new_branch_name:
-            subprocess.run("git checkout master").check_returncode()
-            subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
+        new_branch()
 
 
 if __name__ == "__main__":

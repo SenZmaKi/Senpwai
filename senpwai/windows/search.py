@@ -1,5 +1,5 @@
-from random import choice as random_choice
-from time import sleep as time_sleep
+import random
+import time
 from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QEvent, QObject, Qt, QThread, QTimer, pyqtSignal
@@ -162,13 +162,13 @@ class SearchWindow(AbstractWindow):
             AudioPlayer(self, ZA_WARUDO_AUDIO_PATH, 100).play()
             for _ in range(180):
                 self.main_window.app.processEvents()
-                time_sleep(0.01)
+                time.sleep(0.01)
             for x in range(20):
                 self.main_window.app.processEvents()
-                time_sleep(x * 0.01)
-            time_sleep(2)
+                time.sleep(x * 0.01)
+            time.sleep(2)
             AudioPlayer(self, TOKI_WA_UGOKI_DASU_AUDIO_PATH, 100).play()
-            time_sleep(1.8)
+            time.sleep(1.8)
         elif anime_title_lower in W_ANIME:
             AudioPlayer(self, GIGACHAD_AUDIO_PATH, 25).play()
         elif anime_title_lower in L_ANIME:
@@ -246,7 +246,7 @@ class NarutoResultsThread(QThread):
                 self.send_result.emit(result, self.site)
                 if idx <= 5:
                     self.play_bunshin.emit()
-                    time_sleep(0.35)
+                    time.sleep(0.35)
             self.search_window.search_thread = None
 
 
@@ -265,10 +265,10 @@ class FetchFavouriteThread(QThread):
         self.search_window.search_bar.clear()
         for idx in range(len(favourite_name)):
             self.search_window.search_bar.setText(favourite_name[: idx + 1])
-            time_sleep(0.1)
+            time.sleep(0.1)
 
     def get_random_sen_favourite(self) -> str | None:
-        page = random_choice((1, 2))
+        page = random.choice((1, 2))
         query = """
         query getUserFavourite($id: Int, $page: Int){
         User(id: $id) {
@@ -302,7 +302,7 @@ class FetchFavouriteThread(QThread):
         ]["anime"]["nodes"]
         if not favourites:
             return None
-        chosen_favourite = random_choice(favourites)
+        chosen_favourite = random.choice(favourites)
         anime_title = chosen_favourite["title"]["romaji"]
         return anime_title
 
