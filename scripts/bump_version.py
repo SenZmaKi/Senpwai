@@ -34,14 +34,14 @@ def log_error(msg: str, exit=False) -> None:
 
 
 @cache
-def get_prev_version() -> str:
+def get_prev_version(exit=True) -> str:
     prev_version = ""
     with open(PYPROJECT_FILE_PATH, "r") as f:
         opt_version = VERSION_REGEX.search(f.read())
         if opt_version is not None:
             prev_version = opt_version.group(1)
     if not prev_version:
-        log_error("Failed to get previous version", True)
+        log_error("Failed to get previous version", exit)
     return prev_version
 
 
