@@ -41,7 +41,7 @@ Also it seems currently only __ddg2_ is necessary
 """
 
 
-def site_request(url: str) -> Response:
+def site_request(url: str, allow_redirects=False) -> Response:
     """
     For requests that go specifically to the domain animepahe.ru instead of e.g., pahe.win or kwik.si
     Typically these requests need the cookies
@@ -55,10 +55,11 @@ def site_request(url: str) -> Response:
             response = CLIENT.get(
                 url,
                 cookies=COOKIES,
+                allow_redirects=allow_redirects,
                 exceptions_to_raise=(DomainNameError, KeyboardInterrupt),
             )
         else:
-            response = CLIENT.get(url, cookies=COOKIES)
+            response = CLIENT.get(url, cookies=COOKIES, allow_redirects=allow_redirects)
         COOKIES.update(response.cookies)
     except DomainNameError:
         global PAHE_HOME_URL
@@ -179,7 +180,7 @@ class GetPahewinPageLinks(ProgressFunction):
         pahewin_links: list[list[str]] = []
         download_info: list[list[str]] = []
         for episode_page_link in episode_page_links:
-            page_content = site_request(episode_page_link).content
+            page_content = site_request(episode_page_link, allow_redirects=True).content
             soup = BeautifulSoup(page_content, PARSER)
             pahewin_data = soup.find_all("a", class_="dropdown-item", target="_blank")
             if pahewin_data:
@@ -204,6 +205,7 @@ def dub_available(anime_page_link: str, anime_id: str) -> bool:
         return False
     episode_sessions = [episode["session"] for episode in episodes_data]
     episode_page_link = EPISODE_PAGE_URL.format(anime_id, episode_sessions[0])
+    print(f"Episode page link: {episode_page_link}")
     (
         _,
         download_info,
@@ -339,7 +341,7 @@ class GetDirectDownloadLinks(ProgressFunction):
 
 def get_anime_metadata(anime_id: str) -> AnimeMetadata:
     page_link = f"{PAHE_HOME_URL}/anime/{anime_id}"
-    page_content = site_request(page_link).content
+    page_content = site_request(page_link, allow_redirects=True).content
     soup = BeautifulSoup(page_content, PARSER)
     poster = soup.find(class_="youtube-preview")
     if not isinstance(poster, Tag):
