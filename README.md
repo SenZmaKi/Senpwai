@@ -114,7 +114,7 @@ poetry run senpwai
 ## FAQ
 
 <details> <summary> Why did you make this? </summary>
-I couldn't afford wifi so I used my college wifi to download anime after class but batch downloading from streaming sites is a pain in the ass,
+I couldn't afford wifi so I used my college wifi to batch download anime after class but batch downloading from streaming sites is a pain in the ass,
 you have to click billions of links just to download one episode, so I made Senpwai to help me and possibly others that face a similar problem.
 </details>
 
@@ -137,9 +137,9 @@ More sources means more writing more code which in turn means fixing more bugs.
 
 ## Links
 
-[Sub-reddit](https://reddit.com/r/Senpwai)
-
 [Discord server](https://discord.com/invite/e9UxkuyDX2)
+
+[Subreddit](https://reddit.com/r/Senpwai)
 
 [GitHub Sponsors](https://github.com/sponsors/SenZmaKi)
 
