@@ -18,6 +18,7 @@ from senpwai.common.static import (
     OS,
     PATREON_ICON_PATH,
     REDDIT_ICON_PATH,
+    SEN_ANILIST_ID,
     SEN_ICON_PATH,
     VERSION,
 )
@@ -62,10 +63,10 @@ class AboutWindow(AbstractWindow):
 - If Senpwai can't find the quality you want it will pick the closest lower one e.g., if you choose 720p but only 1080p and 360p is available it'll pick 360p
 - So long as the app is open Senpwai will try to resume⏯️  ongoing downloads even if you lose an internet connection
 - Experiencing slow downloads? Use gogo hls mode for the fastest🚀 download speeds
-- [Hover✨](https://open.spotify.com/playlist/460b5y4LB8Dixh0XajVVaL?si=fce0f0f762464e81) over something that you don't understand there's probably a tool tip for it
+- [Hover✨](https://anilist.co/user/{SEN_ANILIST_ID}) over something that you don't understand there's probably a tool tip for it
 - If the app screen📺 is white after you minimised it to tray and reopened it (usually on Windows🗑️), click the tray icon to fix it
 - Open the settings folder by clicking the button with its location in the top left corner of the settings window
-- Downloading from Pahe skips⏩ recap episodes
+- Downloading from Pahe skips⏩ recap episodes, but this kinds of messes up the episode numbering
 - To completely remove Senpwai (don't know why you would though), post-uninstallation delete the settings folder, 🫵🏿®️🅰️🤡
 - To use a custom font family, edit the `font_family` value in the settings file, if left empty, it will default to your OS setting
 - Hate the background images📸? Check out the [discord]({DISCORD_INVITE_LINK}) for [senptheme](https://discord.com/channels/1131981618777702540/1211137093955362837/1211175899895038033)
@@ -128,7 +129,7 @@ class AboutWindow(AbstractWindow):
         donation_buttons_widget.setLayout(donation_buttons_layout)
         leave_a_star_label = StyledLabel()
         leave_a_star_label.setText(
-            "You can also support Senpwai by leaving a star on the github repo, stars help other weebs like us know about it"
+            "You can also support Senpwai by starring the github repo, stars are free and help other weebs like us know about Senpwai"
         )
         set_minimum_size_policy(leave_a_star_label)
         social_links_title = Title("Social Links")
@@ -151,11 +152,11 @@ class AboutWindow(AbstractWindow):
         discord_button.setToolTip(DISCORD_INVITE_LINK)
         social_links_buttons_widget = QWidget()
         social_links_buttons_layout = QHBoxLayout()
+        social_links_buttons_layout.addWidget(discord_button)
+        social_links_buttons_layout.addSpacing(30)
         social_links_buttons_layout.addWidget(github_button)
         social_links_buttons_layout.addSpacing(30)
         social_links_buttons_layout.addWidget(reddit_button)
-        social_links_buttons_layout.addSpacing(30)
-        social_links_buttons_layout.addWidget(discord_button)
         social_links_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         social_links_buttons_widget.setLayout(social_links_buttons_layout)
         version_title = Title(f"Version {VERSION}")

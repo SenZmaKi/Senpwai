@@ -1,6 +1,5 @@
 import re
 import math
-from tracemalloc import start
 from typing import Any, Callable, NamedTuple, cast
 from requests import Response
 from bs4 import BeautifulSoup, Tag
