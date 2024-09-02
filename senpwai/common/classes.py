@@ -146,6 +146,8 @@ class Settings:
                 if gogo_norm_or_hls_mode is not None:
                     self.gogo_mode = gogo_norm_or_hls_mode
                     settings.pop("gogo_norm_or_hls_mode")
+                if "gogo_skip_calculate" in settings:
+                    settings.pop("gogo_skip_calculate")
                 self.__dict__.update(settings)
         except json.JSONDecodeError:
             pass
@@ -232,7 +234,6 @@ class Settings:
     def update_tracking_interval(self, tracking_interval: int) -> None:
         self.tracking_interval = tracking_interval
         self.save_settings()
-
 
     def update_pahe_home_url(self, pahe_home_url: str) -> None:
         self.pahe_home_url = pahe_home_url

@@ -15,12 +15,12 @@ from scripts.common import (
 from scripts import common
 
 
-PYPROJECT_FILE_PATH = ROOT_DIR.joinpath("pyproject.toml")
+PYPROJECT_FILE_PATH = ROOT_DIR / "pyproject.toml"
 FILES_PATHS = [
     PYPROJECT_FILE_PATH,
-    ROOT_DIR.joinpath("senpwai/common/static.py"),
-    ROOT_DIR.joinpath("scripts/setup.iss"),
-    ROOT_DIR.joinpath("scripts/setup_senpcli.iss"),
+    ROOT_DIR / "senpwai/common/static.py",
+    ROOT_DIR / "scripts/setup.iss",
+    ROOT_DIR / "scripts/setup_senpcli.iss",
 ]
 
 ENCOUNTERED_ERROR = False

@@ -30,7 +30,7 @@ def remove_embed_url(string: str) -> str:
 
 
 def send_message(message: str, channel_id: str, message_reference_id: str) -> None:
-    with open(ROOT_DIR.joinpath(".credentials", "discord.json")) as f:
+    with open(ROOT_DIR / ".credentials" / "discord.json") as f:
         token = json.load(f)["token"]
         headers = {
             "Authorization": f"Bot {token}",
