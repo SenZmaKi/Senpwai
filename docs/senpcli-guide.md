@@ -10,7 +10,7 @@ You can install Senpcli as a completely separate package by downloading and runn
 
 -   **Cross-platform (Linux, Mac, Windows 10/11)**
 
-Needs [Python 3.11](https://www.python.org/downloads/release/python-3111)+ installed.
+Needs [Python 3.11](https://www.python.org/downloads/release/python-3119)+ installed.
 
 Senpwai ships with the Senpcli pre-installed.
 
@@ -66,8 +66,7 @@ senpcli --config
 ```
 
 ## Building from Source
-
-Ensure you have [Python 3.11](https://www.python.org/downloads/release/python-3111) and [Git](https://github.com/git-guides/install-git) installed.
+Ensure you have [Python 3.11](https://www.python.org/downloads/release/python-3119) (3.11 specifically!!!) and [Git](https://github.com/git-guides/install-git) installed.
 
 Open a terminal and run the following commands.
 
