@@ -155,7 +155,7 @@ class SearchWindow(AbstractWindow):
             self.results_layout.removeItem(item)
         self.search_thread = SearchThread(self, anime_title, site)
         anime_title_lower = anime_title.lower()
-        is_naruto = "naruto" in anime_title_lower
+        is_naruto = "naruto" in anime_title_lower or "boruto" in anime_title_lower
         if "one piece" in anime_title_lower:
             AudioPlayer(self, ONE_PIECE_REAL_AUDIO_PATH, volume=100).play()
         elif "jojo" in anime_title_lower:
@@ -169,9 +169,9 @@ class SearchWindow(AbstractWindow):
             time.sleep(2)
             AudioPlayer(self, TOKI_WA_UGOKI_DASU_AUDIO_PATH, 100).play()
             time.sleep(1.8)
-        elif anime_title_lower in W_ANIME:
+        elif any(w_anime in anime_title_lower for w_anime in W_ANIME):
             AudioPlayer(self, GIGACHAD_AUDIO_PATH, 25).play()
-        elif anime_title_lower in L_ANIME:
+        elif any(l_anime in anime_title_lower for l_anime in L_ANIME):
             AudioPlayer(self, WHAT_DA_HELL_AUDIO_PATH, 100).play()
         elif is_naruto:
             self.kage_bunshin_no_jutsu = AudioPlayer(
@@ -235,7 +235,7 @@ class NarutoResultsThread(QThread):
 
     def run(self):
         while self.search_window.kage_bunshin_no_jutsu.isPlaying():
-            pass
+            time.sleep(0.1)
         if not self.results:
             self.start_anime_not_found_animation.emit()
             self.set_curr_wid.emit(self.search_window.anime_not_found)

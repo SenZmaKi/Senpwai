@@ -421,7 +421,7 @@ class OutlinedButton(StyledButton):
 
 
 class AudioPlayer(QMediaPlayer):
-    def __init__(self, parent: QWidget | None, audio_path: str, volume: int = 50):
+    def __init__(self, parent: QWidget | None, audio_path: str, volume=50):
         super().__init__(parent)
         audio_output = QAudioOutput(parent)
         self.setAudioOutput(audio_output)

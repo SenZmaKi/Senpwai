@@ -324,11 +324,13 @@ W_ANIME = {
     "mieruko",
     "fumetsu",
     "frieren",
+    "dandadan",
 }
 L_ANIME = {
     "tokyo ghoul",
     "sword art",
     "boku no pico",
+    "fullmetal",
     "full metal",
     "fmab",
     "fairy tail",

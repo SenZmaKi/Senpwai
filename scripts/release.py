@@ -80,6 +80,7 @@ def new_branch() -> None:
     )
     if new_branch_name:
         subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
+        subprocess.run("git push --set-upstream origin {new_branch_name}").check_returncode()
 
 
 def get_debug_comment_location() -> str | None:
