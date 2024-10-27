@@ -526,12 +526,12 @@ class ProgressBarWithoutButtons(QWidget):
         self.percentage.setStyleSheet(self.text_style_sheet)
 
         self.rate = OutlinedLabel(self, 1, 40)
-        self.rate.setText(f" 0 {units}/s")
+        self.rate.setText(f" ? {units}/s")
         self.rate.setFixedHeight(height)
         self.rate.setStyleSheet(self.text_style_sheet)
 
         self.eta = OutlinedLabel(self, 1, 40)
-        self.eta.setText("∞ secs left")
+        self.eta.setText("? secs left")
         self.eta.setFixedHeight(height)
         self.eta.setStyleSheet(self.text_style_sheet)
 

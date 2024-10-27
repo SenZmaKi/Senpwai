@@ -69,7 +69,8 @@ class CurrentAgainstTotal(StyledLabel):
 
     def update_count(self, added: int):
         self.current += added
-        self.setText(f"{self.current}/{self.total} {self.units}")
+        total = self.total if self.total else "?"
+        self.setText(f"{self.current}/{total} {self.units}")
         set_minimum_size_policy(self)
         self.update()
 
