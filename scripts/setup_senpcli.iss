@@ -6,7 +6,7 @@
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
 #define MyAppExeName "Senpcli.exe"
-#define ProjectRootDir "C:\Users\PC\Dev\Python\Senpwai"
+#define ProjectRootDir=GetEnv("SENPWAI_ROOT_DIR")
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
