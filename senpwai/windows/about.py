@@ -62,7 +62,6 @@ class AboutWindow(AbstractWindow):
 - Senpwai can detect missing episodes e.g., if you have One Piece🏴‍☠️  episodes 1 to 100 but are missing episode 50, specify 1 to 100, and it will only download episode 50
 - If Senpwai can't find the quality you want it will pick the closest lower one e.g., if you choose 720p but only 1080p and 360p is available it'll pick 360p
 - So long as the app is open Senpwai will try to resume⏯️  ongoing downloads even if you lose an internet connection
-- Experiencing slow downloads? Use gogo hls mode for the fastest🚀 download speeds
 - [Hover✨](https://anilist.co/user/{SEN_ANILIST_ID}) over something that you don't understand there's probably a tool tip for it
 - If the app screen📺 is white after you minimised it to tray and reopened it (usually on Windows🗑️), click the tray icon to fix it
 - Open the settings folder by clicking the button with its location in the top left corner of the settings window
