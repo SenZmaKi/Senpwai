@@ -621,12 +621,17 @@ def handle_pahe(parsed: Namespace, anime_details: AnimeDetails):
     )
     direct_download_links = pahe_get_direct_download_links(download_page_links)
     if parsed.direct_download_links:
-        print("Direct download links:")
-        print("\n".join(direct_download_links))
+        print_direct_download_links(direct_download_links)
         return
     download_manager(
         direct_download_links, anime_details, False, parsed.max_simultaneous_downloads
     )
+
+
+def print_direct_download_links(direct_download_links: list[str]):
+    print("---Start direct download links---")
+    print("\n".join(direct_download_links))
+    print("---End direct download links---")
 
 
 def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
@@ -649,7 +654,7 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
                 hls_links, parsed.quality
             )
             if parsed.direct_download_links:
-                print("\n".join(hls_links))
+                print_direct_download_links(hls_links)
                 return
             hls_segments_urls = gogo_get_hls_segments_urls(matched_quality_links)
             download_manager(
@@ -670,7 +675,7 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
             download_page_links, parsed.quality
         )
         if parsed.direct_download_links:
-            print("\n".join(direct_download_links))
+            print_direct_download_links(direct_download_links)
             return
         download_manager(
             direct_download_links,

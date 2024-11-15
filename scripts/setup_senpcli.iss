@@ -2,19 +2,19 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Senpcli"
-#define MyAppVersion "2.1.13"
+#define MyAppVersion "2.1.14"
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
 #define MyAppExeName "Senpcli.exe"
-#define ProjectRootDir "C:\Users\PC\Dev\Python\Senpwai"
+#define ProjectRootDir=GetEnv("SENPWAI_ROOT_DIR")
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
-AppId={{7D4A0DD5-EACB-45-81FC-2.1.135FCFF05BB6}}
+AppId={{7D4A0DD5-EACB-45-81FC-2.1.145FCFF05BB6}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-VersionInfoVersion=2.1.13.0
+VersionInfoVersion=2.1.14.0
 ;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}

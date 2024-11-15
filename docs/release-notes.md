@@ -1,5 +1,5 @@
 # New features and Changes
-- No features?
+- senpcli: Make printed download links easier to parse
 
 # Bug fixes
-- pahe: Fix some anime only downloading the first episode
+- gogo: Fix upcoming anime being shown as ongoing

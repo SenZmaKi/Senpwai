@@ -118,8 +118,6 @@ class GetDirectDownloadLinks(ProgressFunction):
         return direct_download_links, download_sizes
 
 
-
-
 def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
     global FIRST_REQUEST
     global GOGO_HOME_URL
@@ -176,10 +174,10 @@ def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
         .split("-")[-1]
     )
     tag = soup.find("a", title="Ongoing Anime")
-    if tag:
-        airing_status = AiringStatus.ONGOING
-    elif episode_count == 0:
+    if episode_count == 0:
         airing_status = AiringStatus.UPCOMING
+    elif tag:
+        airing_status = AiringStatus.ONGOING
     else:
         airing_status = AiringStatus.FINISHED
     return AnimeMetadata(

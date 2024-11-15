@@ -421,7 +421,7 @@ class OutlinedButton(StyledButton):
 
 
 class AudioPlayer(QMediaPlayer):
-    def __init__(self, parent: QWidget | None, audio_path: str, volume: int = 50):
+    def __init__(self, parent: QWidget | None, audio_path: str, volume=50):
         super().__init__(parent)
         audio_output = QAudioOutput(parent)
         self.setAudioOutput(audio_output)
@@ -526,12 +526,12 @@ class ProgressBarWithoutButtons(QWidget):
         self.percentage.setStyleSheet(self.text_style_sheet)
 
         self.rate = OutlinedLabel(self, 1, 40)
-        self.rate.setText(f" 0 {units}/s")
+        self.rate.setText(f" ? {units}/s")
         self.rate.setFixedHeight(height)
         self.rate.setStyleSheet(self.text_style_sheet)
 
         self.eta = OutlinedLabel(self, 1, 40)
-        self.eta.setText("∞ secs left")
+        self.eta.setText("? secs left")
         self.eta.setFixedHeight(height)
         self.eta.setStyleSheet(self.text_style_sheet)
 
