@@ -332,9 +332,17 @@ class AnimeDetails:
                 # It could be that the anime is a Special/OVA/ONA
                 anime_type = parsed.get("anime_type", "")
                 if anime_type:
+                    if isinstance(anime_type, list):
+                        for at in anime_type:
+                            parsed_title = parsed_title.replace(at, "").strip()
+                    else:
+                        parsed_title = parsed_title.replace(anime_type, "").strip()
+                        #Check if anime_type is a list: If anime_type is a list (as it seems in some cases), iterate over each item in the list and apply replace(). Fallback for strings: If anime_type is a string (which is the expected type in many cases), the code will work as it did originally.
+                        #replace() expects a string as its first argument. If anime_type is a list, you can't directly use replace() on it. By checking if it's a list and then iterating over its elements, we handle each element properly, ensuring replace() is always called with a string. This should prevent the TypeError and handle cases where anime_type is a list.
+
                     # In the resulting parsed anime_title, Anitopy only ignores Seasons but not Types for some reason, e.g., "Attack On Titan Season 1" will
                     # be parsed to "Attack on Titan" meanwhile, "Attack on Titan Specials" will still remain as "Attack on Titan"
-                    parsed_title = parsed_title.replace(anime_type, "").strip()
+                    #parsed_title = parsed_title.replace(anime_type, "").strip()
                 parent_seasons_path = try_path(parsed_title)
                 if not anime_type:
                     season_number = parsed.get("anime_season", 1)
