@@ -17,7 +17,7 @@ from senpwai.scrapers import gogo, pahe
 PAHE = pahe.PAHE
 GOGO = gogo.GOGO
 
-DEFAULT_ANIME_TITLE = "Boku no Hero Academia"
+DEFAULT_ANIME_TITLE = "Dr. Stone"
 DEFAULT_QUALITY = "360p"
 DEFAULT_START_EPISODE = "1"
 DEFAULT_END_EPISODE = "2"
@@ -694,7 +694,10 @@ def run_tests(args: ArgParser):
                                             f"Segments URLs: {segs_urls}\n"
                                         )
                                     COMMANDS.remove("segments_urls")
-                                    if args.arg_in_group_was_passed(COMMANDS):
+
+                                    if args.arg_in_group_was_passed(
+                                        ["download", "all"]
+                                    ):
                                         test_downloading(
                                             args.anime_title,
                                             segs_urls,
@@ -714,7 +717,7 @@ def run_tests(args: ArgParser):
                             if args.verbose:
                                 conditional_print(f"DDLs: {direct_download_links}\n")
                             COMMANDS.remove("direct_links")
-                            if args.arg_in_group_was_passed(COMMANDS):
+                            if args.arg_in_group_was_passed(["download", "all"]):
                                 test_downloading(
                                     args.anime_title,
                                     direct_download_links,
