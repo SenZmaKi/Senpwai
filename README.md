@@ -4,7 +4,7 @@
 A blazingly fast desktop app for batch downloading anime and auto-downloading new episodes upon release
 </p>
 
-<p align="center">
+<p align="center"
  <a href=https://github.com/SenZmaKi/Senpwai/actions/workflows/test.yml> <img height="30px" src=https://github.com/SenZmaKi/Senpwai/actions/workflows/test.yml/badge.svg alt=test-workflow-status-badge></a>
  <a href="https://github.com/SenZmaKi/Senpwai/releases"><img  height="30px" src="https://img.shields.io/github/downloads/SenZmaKi/Senpwai/total" alt="Downloads"></a>
  <a href="https://discord.gg/invite/e9UxkuyDX2" target="_blank"><img height="30px" alt="Discord" src="https://img.shields.io/discord/1131981618777702540?label=Discord&logo=discord" alt="Discord-icon"></a>
@@ -17,7 +17,8 @@ A blazingly fast desktop app for batch downloading anime and auto-downloading ne
   <a href="#building-from-source">Building from source</a> •
   <a href="#support">Support</a> •
   <a href="#faq">FAQ</a> •
-  <a href="#links">Links</a>
+  <a href="#links">Links</a> •
+  <a href="#contribution">Contribution</a>
 </p>
 
 <img align="center" src="https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/.github/images/one-piece.png" alt="one-piece-screenshot">
@@ -63,7 +64,7 @@ Check [Senpcli](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-gui
 
 -   You can support the development of Senpwai through donations on [GitHub Sponsors](https://github.com/sponsors/SenZmaKi) or [Patreon](https://patreon.com/Senpwai).
 -   You can also leave a star on the github for more weebs to know about it.
--   Senpwai is open to pull requests, so if you have ideas for improvements, feel free to contribute!
+-   Senpwai is open to pull requests, so if you have ideas for improvements, feel free to [contribute](#contribution)!
 
 ## Sponsors
 
@@ -144,6 +145,16 @@ More sources means more writing more code which in turn means fixing more bugs.
 [GitHub Sponsors](https://github.com/sponsors/SenZmaKi)
 
 [Patreon](https://patreon.com/Senpwai)
+
+## Contribution
+
+-   If it's a change to code e.g., `main.py` make the pull request into the most recent branch e.g., `v2.1.5` instead of `master`.
+-   If it's a change to documentation e.g., `README.md` make the pull request into the `master` branch.
+-   If you open the project folder on [Visual Studio Code](https://code.visualstudio.com/) you will be prompted to install recommended extensions for the project.
+-   [Pyright](https://github.com/microsoft/pyright) is used as the type checker, ensure your code is type annotated well and there are no type errors.
+-   [Ruff](https://github.com/astral-sh/ruff) is used for formatting and linting.
+-   [Inno Setup](https://jrsoftware.org/isinfo.php) is used for creating the installer, add the installation folder to the `%PATH%` environment variable for access to `ISCC.exe` from the command line. Also set the `SENPWAI_ROOT_DIR` environment variable to the root directory of the project.
+-   [Poe](https://github.com/nat-n/poethepoet) is used as the task runner, there are various tasks available to run e.g., `poe lint` to lint the code. It autoloads the `.env` file in the root directory of the project. Poe is installed when you setup the project.
 
 ## Legal Disclaimer
 

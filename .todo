@@ -1,0 +1,6 @@
+https://www.riverbankcomputing.com/static/Docs/pyqtdeploy/demo.html#android
+Handle VC redistributable
+Fix verbose output for gogo tests
+Remove dub in gogo results
+Remove old versions from registry when updating
+Make version button in about check for updates

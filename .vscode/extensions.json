@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "aaron-bond.better-comments",
+        "tamasfe.even-better-toml",
+        "esbenp.prettier-vscode",
+        "yzhang.markdown-all-in-one",
+    ]
+}

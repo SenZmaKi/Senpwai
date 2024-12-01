@@ -1,6 +1,5 @@
 .dev-garbage/
 .setup-scripts/
-.vscode/
 .venv/
 .venv-termux
 tests/
@@ -13,8 +12,10 @@ build/
 dist/
 .scraps/
 .credentials/
+.vscode/*
+!.vscode/extensions.json
 
 crap.py
-.todo
 NOTE
 scripts/changelog.md
+.env
