@@ -332,9 +332,14 @@ class AnimeDetails:
                 # It could be that the anime is a Special/OVA/ONA
                 anime_type = parsed.get("anime_type", "")
                 if anime_type:
+                    if isinstance(anime_type, list):
+                        for at in anime_type:
+                            parsed_title = parsed_title.replace(at, "").strip()
+                    else:
+                        parsed_title = parsed_title.replace(anime_type, "").strip()
                     # In the resulting parsed anime_title, Anitopy only ignores Seasons but not Types for some reason, e.g., "Attack On Titan Season 1" will
                     # be parsed to "Attack on Titan" meanwhile, "Attack on Titan Specials" will still remain as "Attack on Titan"
-                    parsed_title = parsed_title.replace(anime_type, "").strip()
+                    #parsed_title = parsed_title.replace(anime_type, "").strip()
                 parent_seasons_path = try_path(parsed_title)
                 if not anime_type:
                     season_number = parsed.get("anime_season", 1)
