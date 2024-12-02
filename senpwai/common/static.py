@@ -130,7 +130,7 @@ AMOGUS_EASTER_EGG = "ඞ"
 def open_folder(folder_path: str) -> None:
     if OS.is_windows:
         os.startfile(folder_path)
-    elif sys.platform == "linux":
+    elif OS.is_linux:
         Popen(["xdg-open", folder_path])
     else:
         Popen(["open", folder_path])
