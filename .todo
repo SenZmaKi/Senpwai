@@ -4,3 +4,4 @@ Fix verbose output for gogo tests
 Remove dub in gogo results
 Remove old versions from registry when updating
 Make version button in about check for updates
+Sanitise settings.json on read
