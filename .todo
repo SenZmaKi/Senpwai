@@ -6,3 +6,8 @@ Remove old versions from registry when updating
 Make version button in about check for updates
 Split download into separate files
 Sanitise settings.json on read
+Multipart file download
+X to minimize to tray setting
+Add click tray icon to minimize to tray or show in tips
+Fix typo "but this kinds of ruins" in tips
+Publish Senpcli on PyPi
