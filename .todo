@@ -12,3 +12,4 @@ Add click tray icon to minimize to tray or show in tips
 Fix typo "but this kinds of ruins" in tips
 Publish Senpcli on PyPi
 Allow custom anime folders
+Detect Specials/ONA/OVA (season types) folders structured as f"{anime_title} {season_type}"
