@@ -35,6 +35,7 @@ from senpwai.common.static import (
     open_folder,
 )
 from senpwai.common.widgets import (
+    PYQT_MAX_INT,
     FolderButton,
     HorizontalLine,
     Icon,
@@ -364,9 +365,11 @@ class DownloadWindow(AbstractWindow):
 
     def setup_tracked_download_timer(self):
         self.tracked_download_timer.stop()
-        self.tracked_download_timer.start(  # Converting from hours to milliseconds
-            SETTINGS.tracking_interval * 1000 * 60 * 60
-        )
+        # Converting from hours to milliseconds
+        tracking_interval_ms = SETTINGS.tracking_interval * 1000 * 60 * 60
+        if tracking_interval_ms > PYQT_MAX_INT:
+            tracking_interval_ms = PYQT_MAX_INT
+        self.tracked_download_timer.start(tracking_interval_ms)
 
     def clean_out_tracked_download_thread(self):
         self.tracked_download_thread = None

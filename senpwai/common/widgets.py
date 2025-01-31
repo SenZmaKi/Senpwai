@@ -40,6 +40,7 @@ from senpwai.common.static import (
     open_folder,
 )
 
+PYQT_MAX_INT = 2147483647
 
 def set_minimum_size_policy(object):
     object.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
