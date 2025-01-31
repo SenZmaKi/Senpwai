@@ -6,5 +6,4 @@ Remove old versions from registry when updating
 
 Multipart file download
 Allow custom anime folders
-Detect Specials/ONA/OVA (season types) folders structured as f"{anime_title} {season_type}"
 Throttle download speed

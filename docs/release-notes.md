@@ -1,6 +1,7 @@
 # New features and Changes
 
 -   Add closing minimizes to tray setting
+-   Improve anime folder detection
 
 # Bug fixes
 

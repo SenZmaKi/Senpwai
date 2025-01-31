@@ -263,6 +263,14 @@ class Anime:
         self.id = anime_id
 
 
+class ParsedDetails(NamedTuple):
+    anitopy_parsed: dict[str, str]
+    parsed_title: str
+    parent_seasons_path: str
+    anime_types: list[str]
+    season_number: int 
+
+
 class AnimeDetails:
     def __init__(self, anime: Anime, site: str) -> None:
         self.anime = anime
@@ -310,73 +318,91 @@ class AnimeDetails:
             os.makedirs(self.anime_folder_path)
 
     def get_anime_folder_path(self) -> str:
-        def try_path(title: str) -> str | None:
+        def detect_path(title: str) -> str | None:
             for path in SETTINGS.download_folder_paths:
                 potential = os.path.join(path, title)
                 if os.path.isdir(potential):
                     return potential
             return None
 
+        def parse_title(title: str) -> ParsedDetails | None:
+            anitopy_parsed = anitopy.parse(title)
+            if not anitopy_parsed:
+                return None
+
+            parsed_title = anitopy_parsed.get("anime_title", title)
+            if not parsed_title:
+                return None
+            # It could be that the anime is a Special/OVA/ONA
+            anime_types = anitopy_parsed.get("anime_type", [])
+            if isinstance(anime_types, str):
+                anime_types = [anime_types]
+            for at in anime_types:
+                # In the resulting parsed anime_title, Anitopy only ignores Seasons but not Types for some reason, e.g., "Attack On Titan Season 1" will
+                # be parsed to "Attack on Titan" meanwhile, "Attack on Titan Specials" will still remain as "Attack on Titan Specials" so we need to remove the type
+                parsed_title = parsed_title.replace(at, "").strip()
+            season_number = (
+                anitopy_parsed.get("anime_season", 1) if not anime_types else 1
+            )
+            parent_seasons_path = detect_path(parsed_title)
+            if not parent_seasons_path:
+                return None
+            return ParsedDetails(
+                anitopy_parsed,
+                parsed_title,
+                parent_seasons_path,
+                anime_types,
+                season_number,
+            )
+
+        parsed_details = parse_title(self.sanitised_title)
         fully_sanitised_title = sanitise_title(self.anime.title, True, " ")
-        parent_seasons_path = ""
-        season_number = 1
-        parsed_title = ""
-        anime_type = ""
-        parsed = {}
+        if not parsed_details:
+            parsed_details = parse_title(fully_sanitised_title)
 
-        def init(title: str) -> None:
-            nonlocal \
-                parsed, \
-                parsed_title, \
-                parent_seasons_path, \
-                anime_type, \
-                season_number
-            parsed = anitopy.parse(title)
-            if parsed:
-                parsed_title = parsed.get("anime_title", title)
-                # It could be that the anime is a Special/OVA/ONA
-                anime_type = parsed.get("anime_type", "")
-                if anime_type:
-                    if isinstance(anime_type, list):
-                        for at in anime_type:
-                            parsed_title = parsed_title.replace(at, "").strip()
-                    else:
-                        parsed_title = parsed_title.replace(anime_type, "").strip()
-                    # In the resulting parsed anime_title, Anitopy only ignores Seasons but not Types for some reason, e.g., "Attack On Titan Season 1" will
-                    # be parsed to "Attack on Titan" meanwhile, "Attack on Titan Specials" will still remain as "Attack on Titan"
-                    #parsed_title = parsed_title.replace(anime_type, "").strip()
-                parent_seasons_path = try_path(parsed_title)
-                if not anime_type:
-                    season_number = parsed.get("anime_season", 1)
-
-        init(self.sanitised_title)
-        if not parent_seasons_path:
-            init(fully_sanitised_title)
-        if parent_seasons_path and parsed_title and parsed:
-            target_folders = (
-                [anime_type]
-                if anime_type
+        if parsed_details:
+            zfilled_season = str(parsed_details.season_number).zfill(2)
+            potential_folders = (
+                [
+                    *parsed_details.anime_types,
+                    *[
+                        f"{parsed_details.parsed_title} {at}"
+                        for at in parsed_details.anime_types
+                    ],
+                ]
+                if parsed_details.anime_types
                 else [
-                    f"Season {season_number}",
-                    f"SN {season_number}",
-                    f"Sn {season_number}",
-                    f"{parsed_title} Season {season_number}",
-                    f"{parsed_title} SN {season_number}",
-                    f"{parsed_title} Sn {season_number}",
+                    f"Season {parsed_details.season_number}",
+                    f"SN {parsed_details.season_number}",
+                    f"Sn {parsed_details.season_number}",
+                    f"S{parsed_details.season_number}",
+                    f"{parsed_details.parsed_title} Season {parsed_details.season_number}",
+                    f"{parsed_details.parsed_title} SN {parsed_details.season_number}",
+                    f"{parsed_details.parsed_title} Sn {parsed_details.season_number}",
+                    f"{parsed_details.parsed_title} S{parsed_details.season_number}",
+                    f"Season {zfilled_season}",
+                    f"SN {zfilled_season}",
+                    f"Sn {zfilled_season}",
+                    f"S{zfilled_season}",
+                    f"{parsed_details.parsed_title} Season {zfilled_season}",
+                    f"{parsed_details.parsed_title} SN {zfilled_season}",
+                    f"{parsed_details.parsed_title} Sn {zfilled_season}",
+                    f"{parsed_details.parsed_title} S{zfilled_season}",
                 ]
             )
-            target_folders += [self.sanitised_title, fully_sanitised_title]
 
-            for f in target_folders:
-                folder = os.path.join(parent_seasons_path, f)
+            potential_folders += [self.sanitised_title, fully_sanitised_title]
+
+            for f in potential_folders:
+                folder = os.path.join(parsed_details.parent_seasons_path, f)
                 if os.path.isdir(folder):
                     return folder
-        if path := try_path(self.sanitised_title):
+
+        if path := detect_path(self.sanitised_title):
             return path
-        elif path := try_path(fully_sanitised_title):
+        if path := detect_path(fully_sanitised_title):
             return path
-        else:
-            return os.path.join(self.default_download_path, self.sanitised_title)
+        return os.path.join(self.default_download_path, self.sanitised_title)
 
     def get_start_end_and_count_of_haved_episodes(
         self,
