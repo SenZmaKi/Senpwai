@@ -42,7 +42,7 @@ def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
         title = a.text
         link = f'{GOGO_HOME_URL}/{a["href"]}'
         title_and_link.append((title, link))
-    for title, link in title_and_link:
+    for title, link in title_and_link[:]:
         if ignore_dub and DUB_EXTENSION in title:
             sub_title = title.replace(DUB_EXTENSION, "")
             if any([sub_title == title for title, _ in title_and_link]):

@@ -1,15 +1,12 @@
 https://www.riverbankcomputing.com/static/Docs/pyqtdeploy/demo.html#android
 Handle VC redistributable
-Fix verbose output for gogo tests
-Remove dub in gogo results
+Publish Senpcli on PyPi
+Website
+
 Remove old versions from registry when updating
 Split download into separate files
 Sanitise settings.json on read
 Multipart file download
-Add click tray icon to minimize to tray or show in tips
-Fix typo "but this kinds of ruins" in tips
-Publish Senpcli on PyPi
 Allow custom anime folders
 Detect Specials/ONA/OVA (season types) folders structured as f"{anime_title} {season_type}"
 Throttle download speed
-Website
