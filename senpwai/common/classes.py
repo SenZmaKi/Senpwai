@@ -94,6 +94,7 @@ class Settings:
         self.tracking_site = PAHE
         self.tracking_interval = 24
         self.version = VERSION
+        self.close_minimize_to_tray = False
 
         self.load_settings()
         self.save_settings()
@@ -241,6 +242,10 @@ class Settings:
 
     def update_gogo_home_url(self, gogo_home_url: str) -> None:
         self.gogo_home_url = gogo_home_url
+        self.save_settings()
+
+    def update_close_minimize_to_tray(self, close_minimize_to_tray: bool) -> None:
+        self.close_minimize_to_tray = close_minimize_to_tray
         self.save_settings()
 
     def save_settings(self) -> None:

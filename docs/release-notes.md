@@ -1,5 +1,5 @@
 # New features and Changes
-- senpcli: Make printed download links easier to parse
+
+-   Add closing minimizes to tray setting
 
 # Bug fixes
-- gogo: Fix upcoming anime being shown as ongoing

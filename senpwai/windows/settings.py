@@ -100,6 +100,7 @@ class SettingsWindow(AbstractWindow):
             self
         )
         self.start_maximized = StartMaximized(self)
+        self.close_minimize_to_tray = CloseMinimizeToTray(self)
         self.download_folder_setting = DownloadFoldersSetting(self, main_window)
         self.gogo_norm_or_hls_mode_setting = GogoModeSetting(self)
         self.tracked_anime = TrackedAnimeListSetting(self, main_window.download_window)
@@ -114,6 +115,7 @@ class SettingsWindow(AbstractWindow):
         left_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
         left_layout.addWidget(self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_maximized)
+        left_layout.addWidget(self.close_minimize_to_tray)
         if OS.is_windows and not IS_PIP_INSTALL and APP_EXE_PATH:
             self.run_on_startup = RunOnStartUp(self)
             left_layout.addWidget(self.run_on_startup)
@@ -478,8 +480,6 @@ class YesOrNoSetting(SettingWidget):
             self.setting_label.setToolTip(tooltip)
 
 
-
-
 class StartMaximized(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Start app maximized")
@@ -559,15 +559,9 @@ class GogoModeSetting(SettingWidget):
             norm_button.set_picked_status(True)
         norm_button.clicked.connect(lambda: hls_button.set_picked_status(False))
         hls_button.clicked.connect(lambda: norm_button.set_picked_status(False))
-        norm_button.clicked.connect(
-            lambda: SETTINGS.update_gogo_mode(GOGO_NORM_MODE)
-        )
-        hls_button.clicked.connect(
-            lambda: SETTINGS.update_gogo_mode(GOGO_HLS_MODE)
-        )
-        super().__init__(
-            settings_window, "Gogo mode", [norm_button, hls_button]
-        )
+        norm_button.clicked.connect(lambda: SETTINGS.update_gogo_mode(GOGO_NORM_MODE))
+        hls_button.clicked.connect(lambda: SETTINGS.update_gogo_mode(GOGO_HLS_MODE))
+        super().__init__(settings_window, "Gogo mode", [norm_button, hls_button])
 
 
 class NonZeroNumberInputSetting(SettingWidget):
@@ -707,3 +701,18 @@ class SubDubSetting(SettingWidget):
         sub_button.clicked.connect(lambda: SETTINGS.update_sub_or_dub(SUB))
         dub_button.clicked.connect(lambda: SETTINGS.update_sub_or_dub(DUB))
         super().__init__(settings_window, "Sub or Dub", [sub_button, dub_button])
+
+
+class CloseMinimizeToTray(YesOrNoSetting):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__(settings_window, "Closing minimizes to tray")
+        if SETTINGS.close_minimize_to_tray:
+            self.yes_button.set_picked_status(True)
+        else:
+            self.no_button.set_picked_status(True)
+        self.yes_button.clicked.connect(
+            lambda: SETTINGS.update_close_minimize_to_tray(True)
+        )
+        self.no_button.clicked.connect(
+            lambda: SETTINGS.update_close_minimize_to_tray(False)
+        )

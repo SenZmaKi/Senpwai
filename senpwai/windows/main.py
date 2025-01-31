@@ -64,6 +64,11 @@ class MainWindow(QMainWindow):
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         if not a0:
             return
+        if SETTINGS.close_minimize_to_tray:
+            self.tray_icon.focus_or_hide_window()
+            a0.ignore()
+            return
+
         if self.download_window.is_downloading():
             message_box = QMessageBox(self)
             message_box.setIcon(QMessageBox.Icon.Warning)
