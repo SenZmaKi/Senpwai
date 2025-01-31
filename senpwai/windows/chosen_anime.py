@@ -18,6 +18,7 @@ from senpwai.common.static import (
     GOGO,
     GOGO_HOVER_COLOR,
     GOGO_NORMAL_COLOR,
+    PAHE_NORMAL_COLOR,
     Q_360,
     Q_480,
     Q_720,
@@ -129,7 +130,7 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
         bottom_bottom_layout = QHBoxLayout()
         bottom_bottom_widget.setLayout(bottom_bottom_layout)
         for genre in anime_details.metadata.genres[:3]:
-            g_wid = StyledLabel(None, 21, "orange")
+            g_wid = StyledLabel(None, 21,PAHE_NORMAL_COLOR)
             g_wid.setText(genre)
             set_minimum_size_policy(g_wid)
             bottom_bottom_layout.addWidget(g_wid)
@@ -508,6 +509,6 @@ class Poster(QLabel):
 
 class Title(StyledLabel):
     def __init__(self, title: str):
-        super().__init__(None, 40, "orange", 20, "black")
+        super().__init__(None, 40,PAHE_NORMAL_COLOR, 20, "black")
         self.setText(title.upper())
         self.setWordWrap(True)

@@ -49,7 +49,7 @@ class MainWindow(QMainWindow):
         self.tray_icon.show()
         self.settings_window = SettingsWindow(self)
         self.about_window = AboutWindow(self)
-        CheckIfUpdateAvailableThread(self, self.handle_update_check_result).start()
+        self.check_for_updates()
         self.stacked_windows = QStackedWidget(self)
         # The widget that is added first is implicitly set as the current widget
         self.stacked_windows.addWidget(self.search_window)
@@ -104,6 +104,9 @@ class MainWindow(QMainWindow):
             self.showFullScreen()
         else:
             self.showNormal()
+
+    def check_for_updates(self):
+        CheckIfUpdateAvailableThread(self, self.handle_update_check_result).start()
 
     def handle_update_check_result(self, update_info: UpdateInfo):
         if not update_info.is_update_available:

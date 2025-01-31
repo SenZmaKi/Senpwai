@@ -788,6 +788,6 @@ class HorizontalLine(QFrame):
 
 class Title(StyledLabel):
     def __init__(self, text: str, font=33):
-        super().__init__(None, font, "orange", font_color="black")
+        super().__init__(None, font, PAHE_NORMAL_COLOR, font_color="black")
         set_minimum_size_policy(self)
         self.setText(text)
