@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import re
 from pathlib import Path
@@ -30,6 +31,20 @@ from senpwai.scrapers import gogo, pahe
 VERSION_REGEX = re.compile(r"(\d+(\.\d+)*)")
 
 
+def get_max_part_size(download_size: int, site: str, is_hls_download: bool) -> int:
+    if (
+        is_hls_download
+        or SETTINGS.max_part_size_mbs <= 0
+        or download_size <= SETTINGS.max_part_size_bytes()
+    ):
+        return 0
+    return (
+        math.ceil(download_size / pahe.MAX_SIMULTANEOUS_PART_DOWNLOADS)
+        if site == pahe.PAHE
+        else SETTINGS.max_part_size_bytes()
+    )
+
+
 class UpdateInfo(NamedTuple):
     is_update_available: bool
     download_url: str
@@ -40,7 +55,12 @@ class UpdateInfo(NamedTuple):
 def update_available(
     latest_release_api_url: str, app_name: str, curr_version: str
 ) -> UpdateInfo:
-    latest_version_json = CLIENT.get(latest_release_api_url).json()
+    response = CLIENT.get(latest_release_api_url)
+    if not response.ok:
+        raise Exception(
+            f"Failed to fetch latest release info\nURL: {latest_release_api_url}\nResponse Status Code: {response.status_code}\nResponse Text {response.text}"
+        )
+    latest_version_json = response.json()
     latest_version_tag = latest_version_json["tag_name"]
     match = cast(re.Match, VERSION_REGEX.search(latest_version_tag))
     latest_version = match.group(1)

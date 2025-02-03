@@ -16,6 +16,7 @@ from senpwai.common.classes import (
     Anime,
     AnimeDetails,
     UpdateInfo,
+    get_max_part_size,
     update_available,
 )
 from senpwai.common.scraper import (
@@ -453,13 +454,17 @@ def download_thread(
     finished_callback: Callable[[], None],
     download_size: int,
 ):
+    max_part_size = get_max_part_size(
+        download_size, anime_details.site, is_hls_download
+    )
     download = Download(
         link_or_segs_urls,
         episode_title,
         anime_details.anime_folder_path,
         download_size,
+        pbar.update_,
         is_hls_download=is_hls_download,
-        max_part_size=SETTINGS.max_part_size_bytes(),
+        max_part_size=max_part_size,
     )
     download.start_download()
     pbar.close_()
@@ -504,7 +509,12 @@ def download_manager(
     for idx, link in enumerate(ddls_or_segs_urls):
         wait(download_slot_available)
         shortened_episode_title = anime_details.episode_title(idx, True)
-        download_size = download_sizes[idx] if download_sizes else len(link)
+        if download_sizes:
+            download_size = download_sizes[idx]
+        elif is_hls_download:
+            download_size = len(link)
+        else:
+            download_size, link = Download.get_total_download_size(cast(str, link))
         pbar, link = create_progress_bar(
             shortened_episode_title, link, is_hls_download, download_size
         )

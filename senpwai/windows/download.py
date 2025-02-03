@@ -2,8 +2,6 @@ import os
 from threading import Event
 import time
 from typing import Callable, cast, TYPE_CHECKING
-import math
-
 from PyQt6.QtCore import QMutex, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -15,7 +13,7 @@ from PyQt6.QtWidgets import (
 )
 from senpwai.common.tracker import check_tracked_anime
 from senpwai.scrapers import gogo, pahe
-from senpwai.common.classes import SETTINGS, AnimeDetails
+from senpwai.common.classes import SETTINGS, AnimeDetails, get_max_part_size
 from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
@@ -887,39 +885,18 @@ class DownloadThread(QThread):
         self.is_cancelled = True
 
     def run(self):
-        if self.is_hls_download:
-            self.ddl_or_seg_urls = cast(list[str], self.ddl_or_seg_urls)
-            self.download = Download(
-                self.ddl_or_seg_urls,
-                self.title,
-                self.download_folder,
-                self.download_size,
-                lambda x: self.update_bars.emit(x),
-                is_hls_download=True,
-                max_part_size=SETTINGS.max_part_size_bytes(),
-            )
-        else:
-            if (
-                SETTINGS.max_part_size_mbs > 0
-                and self.download_size > SETTINGS.max_part_size_bytes()
-            ):
-                max_part_size = (
-                    math.ceil(self.download_size / pahe.MAX_SIMULTANEOUS_PART_DOWNLOADS)
-                    if self.site == pahe.PAHE
-                    else SETTINGS.max_part_size_bytes()
-                )
-            else:
-                max_part_size = 0
-
-            self.ddl_or_seg_urls = cast(str, self.ddl_or_seg_urls)
-            self.download = Download(
-                self.ddl_or_seg_urls,
-                self.title,
-                self.download_folder,
-                self.download_size,
-                lambda x: self.update_bars.emit(x),
-                max_part_size=max_part_size,
-            )
+        max_part_size = get_max_part_size(
+             self.download_size, self.site, self.is_hls_download
+        )
+        self.download = Download(
+            self.ddl_or_seg_urls,
+            self.title,
+            self.download_folder,
+            self.download_size,
+            lambda x: self.update_bars.emit(x),
+            is_hls_download=self.is_hls_download,
+            max_part_size=max_part_size,
+        )
         self.progress_bar.pause_callback = self.download.pause_or_resume
         self.progress_bar.cancel_callback = self.cancel
 
