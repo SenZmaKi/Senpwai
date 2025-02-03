@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import shutil
+
 import subprocess
 import sys
 from argparse import ArgumentParser, Namespace
@@ -34,6 +34,7 @@ from senpwai.common.static import (
     APP_EXE_PATH as SENPWAI_EXE_PATH,
 )
 from senpwai.common.static import (
+    APP_NAME as SENPWAI_APP_NAME,
     DUB,
     GITHUB_API_LATEST_RELEASE_ENDPOINT,
     GITHUB_REPO_URL,
@@ -701,8 +702,9 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
 
 
 def check_for_update_thread(queue: Queue[UpdateInfo]) -> None:
+    app_name = SENPWAI_APP_NAME if SENPWAI_IS_INSTALLED else APP_NAME
     update_info = update_available(
-        GITHUB_API_LATEST_RELEASE_ENDPOINT, APP_NAME, VERSION
+        GITHUB_API_LATEST_RELEASE_ENDPOINT, app_name, VERSION
     )
     queue.put((update_info))
 
@@ -731,7 +733,7 @@ def download_and_install_update(
     )
     download.start_download()
     pbar.close_()
-    subprocess.Popen([os.path.join(tempdir, file_name), "/silent", "/update"])
+    subprocess.Popen([os.path.join(tempdir, file_name), "/silent"])
 
 
 def handle_update_check_result(update_info: UpdateInfo) -> None:
@@ -754,8 +756,6 @@ def handle_update_check_result(update_info: UpdateInfo) -> None:
     elif IS_PIP_INSTALL:
         print_info('Install it by running "pip install senpwai --upgrade"')
         return
-    elif SENPWAI_IS_INSTALLED:
-        print_info("Install it by updating my big sister, Senpwai")
     elif OS.is_windows:
         print_info("Would you like to download and install it? (y/n)")
         if input("> ").lower() == "y":

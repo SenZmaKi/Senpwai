@@ -63,22 +63,22 @@ Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; Value
 ; Automatically launch the app after an update install
 [Code]
 var 
- IsUpdate: Boolean;
+ Launch: Boolean;
  ResultCode: Integer;
  I: Integer;
 procedure AutoLaunch;
 begin
-  IsUpdate := False;
+  Launch := False;
   for I := 1 to ParamCount do
   begin
-    if ParamStr(I) = '/update' then
+    if ParamStr(I) = '/launch' then
     begin
-      IsUpdate := True;
+      Launch := True;
       Break;
     end;
   end;
 
-  if IsUpdate then
+  if Launch then
   begin
     Exec(ExpandConstant('{app}\{#MyAppExeName}'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
   end;

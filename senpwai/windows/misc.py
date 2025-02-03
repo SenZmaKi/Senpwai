@@ -289,7 +289,7 @@ class DownloadUpdateThread(QThread):
         download.start_download()
         if not download.cancelled:
             subprocess.Popen(
-                [os.path.join(tempdir, self.file_name), "/silent", "/update"]
+                [os.path.join(tempdir, self.file_name), "/silent", "/launch"]
             )
             self.quit_app.emit()
 
