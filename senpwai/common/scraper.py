@@ -594,39 +594,45 @@ class Download(ProgressFunction):
             download_thread.start()
             download_threads.append(download_thread)
             current_size += download_size
-        for download_thread in download_threads:
-            download_thread.join()
+        # Not using join() since it doesn't honour KeyboardInterrupt
+        while any(dt.is_alive() for dt in download_threads):
+            time.sleep(0.1)
 
-#
-# def test_multipart_download():
-#     url = "https://github.com/SenZmaKi/Senpwai/releases/download/v2.1.14/Senpcli-setup.exe"
-#     download_size, url = Download.get_total_download_size(url)
-#     title = "Senpcli-setup"
-#     max_part_size = 10 * IBYTES_TO_MBS_DIVISOR
-#     pbar = tqdm(
-#         total=download_size,
-#         desc=f"Downloading: {title}",
-#         unit="iB",
-#         unit_scale=True,
-#         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_noinv_fmt}]",
-#         leave=True,
-#     )
-#
-#     def update(added: int):
-#         pbar.update(added)
-#
-#     download = Download(
-#         url,
-#         title,
-#         r"C:\Users\Sen\Downloads\Anime",
-#         progress_update_callback=update,
-#         max_part_size=max_part_size,
-#         download_size=download_size,
-#         file_extension=".exe",
-#     )
-#     download.start_download()
-#     pbar.set_description(f"Downloaded: {title}")
-#
-#
-# if __name__ == "__main__":
-#     test_multipart_download()
+
+def test_multipart_download():
+    from tqdm import tqdm
+    url = "https://github.com/SenZmaKi/Senpwai/releases/download/v2.1.14/Senpcli-setup.exe"
+    download_size, url = Download.get_total_download_size(url)
+    title = "Senpcli-setup"
+    max_part_size = 5 * IBYTES_TO_MBS_DIVISOR
+
+    pbar = tqdm(
+        total=download_size,
+        desc=f"Downloading: {title}",
+        unit="iB",
+        unit_scale=True,
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_noinv_fmt}]",
+        leave=True,
+    )
+
+    def update(added: int):
+        pbar.update(added)
+
+    download = Download(
+        url,
+        title,
+        r"",
+        progress_update_callback=update,
+        max_part_size=max_part_size,
+        download_size=download_size,
+        file_extension=".exe",
+    )
+    start_time = time.time()
+    download.start_download()
+    end_time = time.time()
+    time_taken = end_time - start_time
+    print(f"\nTime taken: {time_taken:.2f} seconds")
+    pbar.set_description(f"Downloaded: {title}")
+
+if __name__ == "__main__":
+    test_multipart_download()
