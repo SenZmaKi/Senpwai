@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import shutil
 import subprocess
 import sys
 from argparse import ArgumentParser, Namespace
@@ -737,7 +738,15 @@ def handle_update_check_result(update_info: UpdateInfo) -> None:
     if not update_info.is_update_available:
         return
     print_rainbow("\nUpdate available!!!\n")
-    print_info(f"{update_info.release_notes}\n")
+    release_notes = f"{update_info.release_notes}\n"
+    try:
+        subprocess.run(
+            "glow",
+            input=release_notes,
+            text=True,
+        ).check_returncode()
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        print_info(release_notes)
     if OS.is_android:
         print_info(
             'To update run:\n"pkg update -y && curl https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/termux/install.sh | bash"'

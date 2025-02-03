@@ -63,7 +63,7 @@ def get_release_notes(from_commits: bool, previous_version: str | None) -> str:
 
 def publish_release(release_notes: str) -> None:
     try:
-        subprocess.run("glow", input=release_notes.encode()).check_returncode()
+        subprocess.run("glow", input=release_notes, text=True).check_returncode()
     except FileNotFoundError:
         print(release_notes)
     subprocess.run(
@@ -80,7 +80,9 @@ def new_branch() -> None:
     )
     if new_branch_name:
         subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
-        subprocess.run("git push --set-upstream origin {new_branch_name}").check_returncode()
+        subprocess.run(
+            "git push --set-upstream origin {new_branch_name}"
+        ).check_returncode()
 
 
 def get_debug_comment_location() -> str | None:
