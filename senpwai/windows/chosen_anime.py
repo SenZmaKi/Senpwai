@@ -30,7 +30,7 @@ from senpwai.common.static import (
 from senpwai.common.widgets import (
     DualStateButton,
     ErrorLabel,
-    FolderButton,
+    FolderPickerButton,
     GogoNormOrHlsButton,
     HorizontalLine,
     NumberInput,
@@ -41,7 +41,6 @@ from senpwai.common.widgets import (
     SubDubButton,
     set_minimum_size_policy,
 )
-import os
 
 from senpwai.windows.download import DownloadWindow
 from senpwai.windows.settings import SettingsWindow
@@ -130,7 +129,7 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
         bottom_bottom_layout = QHBoxLayout()
         bottom_bottom_widget.setLayout(bottom_bottom_layout)
         for genre in anime_details.metadata.genres[:3]:
-            g_wid = StyledLabel(None, 21,PAHE_NORMAL_COLOR)
+            g_wid = StyledLabel(None, 21, PAHE_NORMAL_COLOR)
             g_wid.setText(genre)
             set_minimum_size_policy(g_wid)
             bottom_bottom_layout.addWidget(g_wid)
@@ -273,10 +272,29 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
         )
         set_minimum_size_policy(haved_episodes)
         third_row_of_labels_layout.addWidget(haved_episodes)
-        if os.path.isdir(self.anime_details.anime_folder_path):
-            folder_button = FolderButton(self.anime_details.anime_folder_path, 100, 100)
-            third_row_of_labels_layout.addSpacerItem(QSpacerItem(20, 0))
-            third_row_of_labels_layout.addWidget(folder_button)
+
+        def set_custom_anime_folder(folder: str) -> None:
+            self.anime_details.set_anime_folder_path(folder)
+            if (
+                index := SETTINGS.get_custom_anime_folder_index(
+                    self.anime_details.anime.title
+                )
+                != -1
+            ):
+                SETTINGS.remove_custom_anime_folder(index)
+            SETTINGS.add_custom_anime_folder(
+                self.anime_details.anime.title, self.anime_details.anime_folder_path
+            )
+
+        folder_button = FolderPickerButton(
+            100,
+            100,
+            path=self.anime_details.anime_folder_path,
+            picker_success_callback=set_custom_anime_folder,
+            picker_error_callback=self.error,
+        )
+        third_row_of_labels_layout.addSpacerItem(QSpacerItem(20, 0))
+        third_row_of_labels_layout.addWidget(folder_button)
         track_button = TrackButton(
             anime_details.anime.title, self, self.main_window.settings_window
         )
@@ -509,6 +527,6 @@ class Poster(QLabel):
 
 class Title(StyledLabel):
     def __init__(self, title: str):
-        super().__init__(None, 40,PAHE_NORMAL_COLOR, 20, "black")
+        super().__init__(None, 40, PAHE_NORMAL_COLOR, 20, "black")
         self.setText(title.upper())
         self.setWordWrap(True)

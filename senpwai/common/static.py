@@ -1,4 +1,3 @@
-from genericpath import isdir, isfile
 import logging
 import os
 import shutil

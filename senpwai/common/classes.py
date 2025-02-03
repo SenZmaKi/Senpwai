@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import NamedTuple, cast
+from typing import Callable, NamedTuple, TypedDict, cast
 
 import anitopy
 from appdirs import user_config_dir
@@ -66,9 +66,12 @@ def update_available(
     return UpdateInfo(is_update_available, download_url, file_name, release_notes)
 
 
-class Settings:
-    types = str | int | bool | list[str]
+class CustomAnimeFolder(TypedDict):
+    anime_title: str
+    folder: str
 
+
+class Settings:
     def __init__(self) -> None:
         self.config_dir = self.setup_config_dir()
         self.settings_json_path = os.path.join(self.config_dir, "settings.json")
@@ -96,6 +99,7 @@ class Settings:
         self.version = VERSION
         self.close_minimize_to_tray = False
         self.max_part_size_mbs = 0
+        self.custom_anime_folders: list[CustomAnimeFolder] = []
 
         self.load_settings()
         self.save_settings()
@@ -170,6 +174,29 @@ class Settings:
             k: v for k, v in self.__dict__.items() if k not in self.excluded_in_save
         }
 
+    def get_custom_anime_folder_index(
+        self,
+        anime_title: str,
+    ) -> int:
+        lower_title = sanitise_title(anime_title, True).lower()
+        try:
+            idx = next(
+                idx
+                for idx, caf in enumerate(self.custom_anime_folders)
+                if sanitise_title(caf["anime_title"], True).lower() == lower_title
+            )
+            return idx
+        except StopIteration:
+            return -1
+
+    def add_custom_anime_folder(self, anime_title: str, folder: str) -> None:
+        self.custom_anime_folders.append({"anime_title": anime_title, "folder": folder})
+        self.save_settings()
+
+    def remove_custom_anime_folder(self, index: int) -> None:
+        self.custom_anime_folders.pop(index)
+        self.save_settings()
+
     def update_sub_or_dub(self, sub_or_dub: str) -> None:
         self.sub_or_dub = sub_or_dub
         self.save_settings()
@@ -224,8 +251,8 @@ class Settings:
         self.tracked_anime = tracked_anime
         self.save_settings()
 
-    def remove_tracked_anime(self, anime_name: str) -> None:
-        self.tracked_anime.remove(anime_name)
+    def remove_tracked_anime(self, anime_title: str) -> None:
+        self.tracked_anime.remove(anime_title)
         self.save_settings()
 
     def add_tracked_anime(self, anime_name: str) -> None:
@@ -289,14 +316,7 @@ class AnimeDetails:
         self.sanitised_title = sanitise_title(anime.title)
         self.shortened_title = self.get_shortened_title()
         self.default_download_path = SETTINGS.download_folder_paths[0]
-        self.anime_folder_path = self.get_anime_folder_path()
-        self.potentially_haved_episodes = list(Path(self.anime_folder_path).glob("*"))
-        self.haved_episodes: list[int] = []
-        (
-            self.haved_start,
-            self.haved_end,
-            self.haved_count,
-        ) = self.get_start_end_and_count_of_haved_episodes()
+        self.set_anime_folder_path(self.get_anime_folder_path())
         self.dub_available, self.dub_page_link = self.get_dub_availablilty_status()
         self.metadata, self.anime_page_content = self.get_metadata()
         self.episode_count = self.metadata.episode_count
@@ -304,7 +324,7 @@ class AnimeDetails:
         self.sub_or_dub = SETTINGS.sub_or_dub
         self.ddls_or_segs_urls: list[str] | list[list[str]] = []
         self.download_info: list[str] = []
-        self.total_download_size_mbs: int = 0
+        self.total_download_size_mbs = 0
         self.download_sizes_bytes: list[int] = []
         self.lacked_episode_numbers: list[int] = []
 
@@ -324,6 +344,16 @@ class AnimeDetails:
     def validate_anime_folder_path(self) -> None:
         if not os.path.isdir(self.anime_folder_path):
             os.makedirs(self.anime_folder_path)
+
+    def set_anime_folder_path(self, anime_folder_path: str) -> None:
+        self.anime_folder_path = anime_folder_path
+        self.potentially_haved_episodes = list(Path(self.anime_folder_path).glob("*"))
+        self.haved_episodes: list[int] = []
+        (
+            self.haved_start,
+            self.haved_end,
+            self.haved_count,
+        ) = self.get_start_end_and_count_of_haved_episodes()
 
     def get_anime_folder_path(self) -> str:
         def detect_path(title: str) -> str | None:
@@ -363,6 +393,16 @@ class AnimeDetails:
                 season_number,
             )
 
+        try:
+            lower_title = sanitise_title(self.anime.title, True).lower()
+            folder = next(
+                caf["folder"]
+                for caf in SETTINGS.custom_anime_folders
+                if sanitise_title(caf["anime_title"], True).lower() == lower_title
+            )
+            return folder
+        except StopIteration:
+            pass
         parsed_details = parse_title(self.sanitised_title)
         fully_sanitised_title = sanitise_title(self.anime.title, True, " ")
         if not parsed_details:

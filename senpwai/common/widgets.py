@@ -1,4 +1,5 @@
-from typing import Callable, cast
+import os
+from typing import Any, Callable, cast
 import time
 
 from PyQt6.QtCore import QEvent, QMutex, QObject, QSize, Qt, QTimer, QUrl
@@ -14,6 +15,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import (
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -27,7 +29,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from senpwai.common.classes import SETTINGS, Settings
+from senpwai.common.classes import SETTINGS
 from senpwai.common.static import (
     FOLDER_ICON_PATH,
     GOGO_NORM_MODE,
@@ -37,7 +39,10 @@ from senpwai.common.static import (
     Q_480,
     RED_NORMAL_COLOR,
     RED_PRESSED_COLOR,
+    fix_qt_path_for_windows,
+    fix_windows_path_for_qt,
     open_folder,
+    requires_admin_access,
 )
 
 PYQT_MAX_INT = 2147483647
@@ -230,7 +235,7 @@ class OptionButton(StyledButton):
     def __init__(
         self,
         parent: QWidget | None,
-        option: Settings.types,
+        option: Any,
         option_displayed: str,
         font_size: int,
         chosen_color: str,
@@ -539,7 +544,7 @@ class ProgressBarWithoutButtons(QWidget):
 
         self.current_against_max_values = OutlinedLabel(self, 1, 40)
         self.current_against_max_values.setText(
-            f"0/{round(total_value/units_divisor)} {units}"
+            f"0/{round(total_value / units_divisor)} {units}"
         )
         self.current_against_max_values.setFixedHeight(height)
         self.current_against_max_values.setStyleSheet(self.text_style_sheet)
@@ -591,19 +596,19 @@ class ProgressBarWithoutButtons(QWidget):
         percent_new_value = round(new_value / max_value * 100)
         self.percentage.setText(f"{percent_new_value}%")
         self.current_against_max_values.setText(
-            f" {round(new_value/self.units_divisor)}/{round(max_value/self.units_divisor)} {self.units}"
+            f" {round(new_value / self.units_divisor)}/{round(max_value / self.units_divisor)} {self.units}"
         )
         # If statement to handle division by zero error where downloads update super quick so elapsed time is roughly zero
         if time_elapsed > 0 and added_value > 0:
             rate = added_value / time_elapsed
             eta = (max_value - new_value) * (1 / rate)
             if eta >= 3600:
-                self.eta.setText(f"{round(eta/3600, 1)} hrs left")
+                self.eta.setText(f"{round(eta / 3600, 1)} hrs left")
             elif eta >= 60:
-                self.eta.setText(f"{round(eta/60)} mins left")
+                self.eta.setText(f"{round(eta / 60)} mins left")
             else:
                 self.eta.setText(f"{round(eta)} secs left")
-            self.rate.setText(f" {round(rate/self.units_divisor, 1)} {self.units}/s")
+            self.rate.setText(f" {round(rate / self.units_divisor, 1)} {self.units}/s")
             self.prev_time = curr_time
         if complete and self.delete_on_completion:
             self.delete_after_timer()
@@ -675,6 +680,45 @@ class ScrollableSection(QScrollArea):
                         border: None;
                         }"""
         )
+
+
+class FolderPickerButton(IconButton):
+    def __init__(
+        self,
+        size_x: int,
+        size_y: int,
+        path: str | None = None,
+        parent: QWidget | None = None,
+        picker_error_callback: Callable[[str], None] | None = None,
+        picker_success_callback: Callable[[str], None] | None = None,
+    ):
+        super().__init__(Icon(size_x, size_y, FOLDER_ICON_PATH), 1.3, parent)
+        self.path = path
+        self.picker_error_callback = picker_error_callback
+        self.picker_success_callback = picker_success_callback
+        if path:
+            self.set_folder_path(path)
+        self.clicked.connect(self.pick_folder)
+
+    def set_folder_path(self, path: str) -> None:
+        self.path = path
+        self.setToolTip(f"{path}\nClick to choose a new folder")
+
+    def pick_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, directory=self.path)
+        folder = fix_qt_path_for_windows(folder)
+        error = None
+        if requires_admin_access(folder):
+            error = "That folder requires admin access, kisama da"
+        elif not os.path.isdir(folder):
+            error = "Yare yare daze, that folder is invalid"
+        if error:
+            if self.picker_error_callback:
+                self.picker_error_callback(error)
+            return
+        self.set_folder_path(folder)
+        if self.picker_success_callback:
+            self.picker_success_callback(folder)
 
 
 class FolderButton(IconButton):
