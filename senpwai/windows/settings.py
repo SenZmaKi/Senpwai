@@ -137,12 +137,14 @@ class FolderSetting(QWidget):
         main_window: "MainWindow",
         setting_info: str,
         setting_tool_tip: str | None,
+        picker_dialog_title: str | None = None,
     ):
         super().__init__()
         self.settings_window = settings_window
         self.font_size = settings_window.font_size
         self.main_window = main_window
         self.main_layout = QVBoxLayout()
+        self.picker_dialog_title = picker_dialog_title
         settings_label = StyledLabel(font_size=self.font_size + 5)
         settings_label.setText(setting_info)
         if setting_tool_tip:
@@ -226,7 +228,7 @@ class FolderSetting(QWidget):
 
     def add_folder_to_settings(self):
         added_folder_path = QFileDialog.getExistingDirectory(
-            self.main_window, "Choose folder"
+            self.main_window, caption=self.picker_dialog_title
         )
         added_folder_path = fix_qt_path_for_windows(added_folder_path)
         if not self.is_valid_new_folder(added_folder_path):
@@ -251,6 +253,7 @@ class DownloadFoldersSetting(FolderSetting):
             main_window,
             "Download folders",
             f"{APP_NAME} will search these folders for anime episodes, in the order shown",
+            picker_dialog_title="Choose download folder",
         )
 
     def remove_from_folder_settings(self, folder_widget: "FolderWidget"):

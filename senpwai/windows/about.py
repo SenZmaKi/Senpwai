@@ -17,6 +17,7 @@ from senpwai.common.static import (
     MORBIUS_AUDIO_PATH,
     MORBIUS_IS_PEAK_ICON_PATH,
     OS,
+    PAHE_EXTRA_COLOR,
     PAHE_HOVER_COLOR,
     PAHE_NORMAL_COLOR,
     PAHE_PRESSED_COLOR,
@@ -165,7 +166,7 @@ class AboutWindow(AbstractWindow):
         social_links_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         social_links_buttons_widget.setLayout(social_links_buttons_layout)
         version_button = StyledButton(
-            self, 33, "black", PAHE_NORMAL_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR
+            self, 33, "black", PAHE_EXTRA_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR
         )
         version_button.setText(f"Version {VERSION}")
         version_button.setToolTip("Click to check for updates")
@@ -198,7 +199,7 @@ class Review(QWidget):
 
         profile_pic = IconButton(icon, 1.1)
         profile_pic.clicked.connect(AudioPlayer(self, audio_path, volume=60).play)
-        author_name = StyledLabel(None, 15, PAHE_HOVER_COLOR, font_color="black")
+        author_name = StyledLabel(None, 15, PAHE_EXTRA_COLOR, font_color="black")
         author_name.setText(author)
         set_minimum_size_policy(author_name)
         review_text = StyledLabel(None, 15, font_color="white", bckg_color="black")

@@ -3,6 +3,7 @@ Handle VC redistributable
 Publish Senpcli on PyPi
 Website
 Remove old versions from registry when updating
+Fix bring to front if already running white screening
 
 Theme support
 Throttle download speed

@@ -34,6 +34,7 @@ from senpwai.common.static import (
     FOLDER_ICON_PATH,
     GOGO_NORM_MODE,
     GOGO_NORMAL_COLOR,
+    PAHE_EXTRA_COLOR,
     PAHE_NORMAL_COLOR,
     PAHE_PRESSED_COLOR,
     Q_480,
@@ -689,6 +690,7 @@ class FolderPickerButton(IconButton):
         size_y: int,
         path: str | None = None,
         parent: QWidget | None = None,
+        picker_dialog_title: str | None = None,
         picker_error_callback: Callable[[str], None] | None = None,
         picker_success_callback: Callable[[str], None] | None = None,
     ):
@@ -696,6 +698,7 @@ class FolderPickerButton(IconButton):
         self.path = path
         self.picker_error_callback = picker_error_callback
         self.picker_success_callback = picker_success_callback
+        self.picker_dialog_title = picker_dialog_title
         if path:
             self.set_folder_path(path)
         self.clicked.connect(self.pick_folder)
@@ -705,7 +708,9 @@ class FolderPickerButton(IconButton):
         self.setToolTip(f"{path}\nClick to choose a new folder")
 
     def pick_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, directory=self.path)
+        folder = QFileDialog.getExistingDirectory(
+            self, directory=self.path, caption=self.picker_dialog_title
+        )
         folder = fix_qt_path_for_windows(folder)
         error = None
         if requires_admin_access(folder):
@@ -834,6 +839,6 @@ class HorizontalLine(QFrame):
 
 class Title(StyledLabel):
     def __init__(self, text: str, font=33):
-        super().__init__(None, font, PAHE_NORMAL_COLOR, font_color="black")
+        super().__init__(None, font, PAHE_EXTRA_COLOR, font_color="black")
         set_minimum_size_policy(self)
         self.setText(text)
