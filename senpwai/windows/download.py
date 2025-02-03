@@ -2,6 +2,7 @@ import os
 from threading import Event
 import time
 from typing import Callable, cast, TYPE_CHECKING
+import math
 
 from PyQt6.QtCore import QMutex, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -787,7 +788,7 @@ class DownloadManagerThread(QThread, ProgressFunction):
                 (
                     episode_size_or_segs,
                     ddl_or_seg_urls,
-                ) = Download.get_resource_length(cast(str, ddl_or_seg_urls))
+                ) = Download.get_total_download_size(cast(str, ddl_or_seg_urls))
 
             # This is specifcally at this point instead of at the top cause of the above http request made in
             # self.get_exact_episode_size such that if a user pauses or cancels as the request is in progress the input will be captured
@@ -853,7 +854,7 @@ class DownloadThread(QThread):
         super().__init__(parent)
         self.ddl_or_seg_urls = ddl_or_seg_urls
         self.title = title
-        self.size = size
+        self.download_size = size
         self.download_folder = download_folder
         self.site = site
         self.hls_quality = hls_quality
@@ -871,7 +872,9 @@ class DownloadThread(QThread):
     def cancel(self):
         self.download.cancel()
         divisor = 1 if self.is_hls_download else IBYTES_TO_MBS_DIVISOR
-        new_maximum = self.anime_progress_bar.bar.maximum() - round(self.size / divisor)
+        new_maximum = self.anime_progress_bar.bar.maximum() - round(
+            self.download_size / divisor
+        )
         if new_maximum > 0:
             self.anime_progress_bar.bar.setMaximum(new_maximum)
         new_value = round(
@@ -890,16 +893,32 @@ class DownloadThread(QThread):
                 self.ddl_or_seg_urls,
                 self.title,
                 self.download_folder,
+                self.download_size,
                 lambda x: self.update_bars.emit(x),
                 is_hls_download=True,
+                max_part_size=SETTINGS.max_part_size_bytes(),
             )
         else:
+            if (
+                SETTINGS.max_part_size_mbs > 0
+                and self.download_size > SETTINGS.max_part_size_bytes()
+            ):
+                max_part_size = (
+                    math.ceil(self.download_size / pahe.MAX_SIMULTANEOUS_PART_DOWNLOADS)
+                    if self.site == pahe.PAHE
+                    else SETTINGS.max_part_size_bytes()
+                )
+            else:
+                max_part_size = 0
+
             self.ddl_or_seg_urls = cast(str, self.ddl_or_seg_urls)
             self.download = Download(
                 self.ddl_or_seg_urls,
                 self.title,
                 self.download_folder,
+                self.download_size,
                 lambda x: self.update_bars.emit(x),
+                max_part_size=max_part_size,
             )
         self.progress_bar.pause_callback = self.download.pause_or_resume
         self.progress_bar.cancel_callback = self.cancel

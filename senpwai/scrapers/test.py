@@ -361,8 +361,18 @@ def test_downloading(
         eps_title = f"{anime_title} E{eps_number}"
         inner_test_name = f"Downloading {eps_title}"
         test_start(test_name)
+        if is_hls_download:
+            download_size = len(ddl_or_seg_urls)
+        else:
+            download_size, ddl_or_seg_urls = Download.get_total_download_size(
+                cast(str, ddl_or_seg_urls)
+            )
         Download(
-            ddl_or_seg_urls, eps_title, download_folder, is_hls_download=is_hls_download
+            ddl_or_seg_urls,
+            eps_title,
+            download_folder,
+            download_size,
+            is_hls_download=is_hls_download,
         ).start_download()
         full_name = f"{eps_title}.mp4"
         rt = runtime_getter()

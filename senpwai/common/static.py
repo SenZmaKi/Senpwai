@@ -1,5 +1,7 @@
+from genericpath import isdir, isfile
 import logging
 import os
+import shutil
 import sys
 from datetime import datetime
 from functools import cache
@@ -74,11 +76,12 @@ def log_exception(exception: Exception) -> None:
     )
 
 
-def try_deleting(path: str) -> None:
-    if not os.path.isfile(path):
-        return
+def try_deleting(path: str, is_dir=False) -> None:
     try:
-        os.unlink(path)
+        if is_dir and os.path.isdir(path):
+            shutil.rmtree(path)
+        elif not is_dir and os.path.isfile(path):
+            os.unlink(path)
     except PermissionError:
         pass
 

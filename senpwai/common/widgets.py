@@ -1,5 +1,5 @@
-from time import time
 from typing import Callable, cast
+import time
 
 from PyQt6.QtCore import QEvent, QMutex, QObject, QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import (
@@ -41,6 +41,7 @@ from senpwai.common.static import (
 )
 
 PYQT_MAX_INT = 2147483647
+
 
 def set_minimum_size_policy(object):
     object.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
@@ -548,13 +549,13 @@ class ProgressBarWithoutButtons(QWidget):
         self.items_layout.addWidget(self.eta)
         self.items_layout.addWidget(self.rate)
         self.items_layout.addWidget(self.current_against_max_values)
-        self.prev_time = time()
+        self.prev_time = time.time()
 
     def delete_after_timer(self) -> None:
         QTimer(self).singleShot(40000, self.deleteLater)
 
     def is_complete(self) -> bool:
-        return True if self.bar.value() >= self.total_value else False
+        return self.bar.value() >= self.total_value
 
     def cancel(self):
         if not self.paused and not self.is_complete() and not self.cancelled:
@@ -576,7 +577,7 @@ class ProgressBarWithoutButtons(QWidget):
 
     def update_bar(self, added_value: int):
         self.mutex.lock()
-        curr_time = time()
+        curr_time = time.time()
         new_value = self.bar.value() + added_value
         time_elapsed = curr_time - self.prev_time
         max_value = self.bar.maximum()

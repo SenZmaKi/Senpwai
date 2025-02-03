@@ -4,6 +4,5 @@ Publish Senpcli on PyPi
 Website
 Remove old versions from registry when updating
 
-Multipart file download
 Allow custom anime folders
 Throttle download speed

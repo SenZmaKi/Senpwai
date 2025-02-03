@@ -95,6 +95,7 @@ class Settings:
         self.tracking_interval = 24
         self.version = VERSION
         self.close_minimize_to_tray = False
+        self.max_part_size_mbs = 0
 
         self.load_settings()
         self.save_settings()
@@ -152,6 +153,9 @@ class Settings:
                 self.__dict__.update(settings)
         except json.JSONDecodeError:
             pass
+
+    def max_part_size_bytes(self) -> int:
+        return self.max_part_size_mbs * IBYTES_TO_MBS_DIVISOR
 
     def setup_default_download_folder(self) -> list[str]:
         downloads_folder = os.path.join(Path.home(), "Downloads", "Anime")
@@ -248,6 +252,10 @@ class Settings:
         self.close_minimize_to_tray = close_minimize_to_tray
         self.save_settings()
 
+    def update_max_part_size_mbs(self, max_part_size_mbs: int) -> None:
+        self.max_part_size_mbs = max_part_size_mbs
+        self.save_settings()
+
     def save_settings(self) -> None:
         with open(self.settings_json_path, "w") as f:
             json.dump(self.dict_settings(), f, indent=4)
@@ -268,7 +276,7 @@ class ParsedDetails(NamedTuple):
     parsed_title: str
     parent_seasons_path: str
     anime_types: list[str]
-    season_number: int 
+    season_number: int
 
 
 class AnimeDetails:

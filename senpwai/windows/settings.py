@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
 from senpwai.common.classes import SETTINGS
 from senpwai.common.scraper import try_deleting
+from senpwai.scrapers import pahe
 from senpwai.common.static import (
     AMOGUS_EASTER_EGG,
     APP_EXE_PATH,
@@ -108,10 +109,12 @@ class SettingsWindow(AbstractWindow):
         self.check_for_new_eps_after = TrackingIntervalSetting(
             self, main_window.download_window
         )
+        self.max_part_size = MaxPartSizeSetting(self)
         left_layout.addWidget(self.settings_folder_button)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
+        left_layout.addWidget(self.max_part_size)
         left_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
         left_layout.addWidget(self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_maximized)
@@ -564,20 +567,22 @@ class GogoModeSetting(SettingWidget):
         super().__init__(settings_window, "Gogo mode", [norm_button, hls_button])
 
 
-class NonZeroNumberInputSetting(SettingWidget):
+class NumberInputSetting(SettingWidget):
     def __init__(
         self,
         settings_window: SettingsWindow,
         initial_value: int,
         setting_updater_callback: Callable[[int], None],
         setting_info: str,
-        error_on_zero_text: str,
         units: str | None,
         tooltip: str | None = None,
+        validation_error_text="",
+        validation_callback: Callable[[int], bool] | None = None,
     ):
         self.settings_window = settings_window
         self.setting_updater_callback = setting_updater_callback
-        self.number_input = NumberInput(font_size=settings_window.font_size)
+        self.validation_callback = validation_callback
+        self.number_input = NumberInput(font_size=settings_window.font_size + 5)
         self.number_input.setFixedWidth(60)
         self.number_input.setPlaceholderText(AMOGUS_EASTER_EGG)
         self.number_input.setText(str(initial_value))
@@ -599,7 +604,7 @@ class NonZeroNumberInputSetting(SettingWidget):
             units_label = None
         main_layout = QVBoxLayout()
         self.error = ErrorLabel(settings_window.font_size)
-        self.error.setText(error_on_zero_text)
+        self.error.setText(validation_error_text)
         set_minimum_size_policy(self.error)
         self.error.hide()
 
@@ -618,27 +623,28 @@ class NonZeroNumberInputSetting(SettingWidget):
         if not text.isdigit():
             return
         new_setting = int(text)
-        if new_setting == 0:
+        if self.validation_callback and not self.validation_callback(new_setting):
             self.error.show()
             self.number_input.setText("")
             return
         self.setting_updater_callback(new_setting)
 
 
-class MaxSimultaneousDownloadsSetting(NonZeroNumberInputSetting):
+class MaxSimultaneousDownloadsSetting(NumberInputSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(
             settings_window,
             SETTINGS.max_simultaneous_downloads,
             SETTINGS.update_max_simultaneous_downloads,
             "Only allow",
-            "Bruh, max simultaneous downloads cannot be zero",
             "simultaneous downloads",
             "The maximum number of downloads allowed to occur at the same time",
+            validation_error_text="Bruh, max simultaneous downloads cannot be zero",
+            validation_callback=lambda x: x > 0,
         )
 
 
-class TrackingIntervalSetting(NonZeroNumberInputSetting):
+class TrackingIntervalSetting(NumberInputSetting):
     def __init__(
         self, settings_window: SettingsWindow, download_window: DownloadWindow
     ):
@@ -648,9 +654,10 @@ class TrackingIntervalSetting(NonZeroNumberInputSetting):
             SETTINGS.tracking_interval,
             SETTINGS.update_tracking_interval,
             "Track anime every",
-            "Bruh, time intervals cannot be zero",
             "hours",
             "Senpwai will check for new episodes of your tracked anime when you start the app\nthen in intervals of the hours you specify so long as it is running",
+            validation_error_text="Bruh, time intervals cannot be zero",
+            validation_callback=lambda x: x > 0,
         )
 
     def text_changed(self, text: str):
@@ -715,4 +722,22 @@ class CloseMinimizeToTray(YesOrNoSetting):
         )
         self.no_button.clicked.connect(
             lambda: SETTINGS.update_close_minimize_to_tray(False)
+        )
+
+
+class MaxPartSizeSetting(NumberInputSetting):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__(
+            settings_window,
+            SETTINGS.max_part_size_mbs,
+            SETTINGS.update_max_part_size_mbs,
+            "Limit download parts to",
+            "MBs",
+            f"""
+Splits download into multiple parts if the download size is greater than this value.
+Animepahe restricts each download to {pahe.MAX_SIMULTANEOUS_PART_DOWNLOADS} file parts.
+Lower values will increase download speed but increase CPU and memory usage.
+Recommended range is between 10 and 100.
+Set to 0 to disable.
+""",
         )

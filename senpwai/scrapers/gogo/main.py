@@ -104,7 +104,7 @@ class GetDirectDownloadLinks(ProgressFunction):
                 if not link:
                     continue
                 try:
-                    size, link = Download.get_resource_length(link)
+                    size, link = Download.get_total_download_size(link)
                     break
                 except NoResourceLengthException:
                     continue

@@ -346,7 +346,7 @@ class GetDirectDownloadLinks(ProgressFunction):
             token_value = cast(str, cast(Tag, soup.input)["value"])
             response = CLIENT.post(
                 post_url,
-                headers=CLIENT.append_headers({"Referer": kwik_page_link}),
+                headers=CLIENT.make_headers({"Referer": kwik_page_link}),
                 cookies=response.cookies,
                 data={"_token": token_value},
                 allow_redirects=False,

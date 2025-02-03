@@ -6,6 +6,7 @@ from base64 import b64decode
 import random
 from string import ascii_letters, digits, printable
 from threading import Event
+import threading
 import time
 from typing import Callable, Iterator, TypeVar, cast
 from webbrowser import open_new_tab
@@ -132,9 +133,9 @@ class Client:
         headers = {"User-Agent": random.choice(USER_AGENTS)}
         return headers
 
-    def append_headers(self, to_append: dict) -> dict:
-        to_append.update(self.headers)
-        return to_append
+    def make_headers(self, added_headers: dict) -> dict:
+        added_headers.update(self.headers)
+        return added_headers
 
     def make_request(
         self,
@@ -375,7 +376,6 @@ def try_installing_ffmpeg() -> bool:
             return False
 
 
-
 def sanitise_title(title: str, all=False, exclude="") -> str:
     if all:
         allowed_chars = set(ascii_letters + digits + exclude)
@@ -443,10 +443,12 @@ class Download(ProgressFunction):
         link_or_segment_urls: str | list[str],
         episode_title: str,
         download_folder_path: str,
+        download_size: int,
         progress_update_callback: Callable = lambda _: None,
         file_extension=".mp4",
         is_hls_download=False,
         cookies=requests.sessions.RequestsCookieJar(),
+        max_part_size=0,
     ) -> None:
         super().__init__()
         self.link_or_segment_urls = link_or_segment_urls
@@ -455,17 +457,18 @@ class Download(ProgressFunction):
         self.progress_update_callback = progress_update_callback
         self.is_hls_download = is_hls_download
         self.cookies = cookies
+        self.update_lock = threading.Lock()
+        self.max_part_size = max_part_size
         file_title = f"{self.episode_title}{file_extension}"
         self.file_path = os.path.join(self.download_folder_path, file_title)
+        self.download_size = download_size
         ext = ".ts" if is_hls_download else file_extension
-        temporary_file_title = f"{self.episode_title} [Downloading]{ext}"
-        self.temporary_file_path = os.path.join(
-            self.download_folder_path, temporary_file_title
-        )
-        try_deleting(self.temporary_file_path)
+        temp_file_title = f"{self.episode_title} [Downloading]{ext}"
+        self.temp_path = os.path.join(self.download_folder_path, temp_file_title)
+        self.rm_temp_path()
 
     @staticmethod
-    def get_resource_length(url: str) -> tuple[int, str]:
+    def get_total_download_size(url: str) -> tuple[int, str]:
         response = CLIENT.get(url, stream=True, allow_redirects=True)
         resource_length_str = response.headers.get("Content-Length", None)
         redirect_url = response.url
@@ -476,88 +479,154 @@ class Download(ProgressFunction):
     def cancel(self):
         return super().cancel()
 
+    def rm_temp_path(self):
+        if os.path.isdir(self.temp_path):
+            try_deleting(self.temp_path, is_dir=True)
+        else:
+            try_deleting(self.temp_path)
+
     def start_download(self):
-        download_complete = False
-        while not download_complete and not self.cancelled:
-            if self.is_hls_download:
-                download_complete = self.hls_download()
-            else:
-                download_complete = self.normal_download()
+        if self.is_hls_download:
+            self.hls_download()
+        else:
+            self.normal_download()
         if self.cancelled:
-            try_deleting(self.temporary_file_path)
+            self.rm_temp_path()
             return
         try_deleting(self.file_path)
         if self.is_hls_download:
             run_process_silently(
-                ["ffmpeg", "-i", self.temporary_file_path, "-c", "copy", self.file_path]
+                ["ffmpeg", "-i", self.temp_path, "-c", "copy", self.file_path]
             )
-            return try_deleting(self.temporary_file_path)
-        try:
-            return os.rename(self.temporary_file_path, self.file_path)
-        except PermissionError:  # Maybe they started watching the episode on VLC before it finished downloading now VLC has a handle to the file hence PermissionDenied
-            pass
+            self.rm_temp_path()
+            return
+        # Multipart file download
+        if os.path.isdir(self.temp_path):
+            part_file_names = os.listdir(self.temp_path)
+            part_file_names.sort(key=lambda x: int(x.split(".")[0]))
+            with open(self.file_path, "wb") as merged_file:
+                for part_file_name in part_file_names:
+                    part_file_path = os.path.join(self.temp_path, part_file_name)
+                    with open(part_file_path, "rb") as part_file:
+                        merged_file.write(part_file.read())
+            self.rm_temp_path()
+        else:
+            try:
+                os.rename(self.temp_path, self.file_path)
+            # Maybe they started watching the episode on VLC before it finished downloading now VLC has a handle to the file hence PermissionDenied
+            except PermissionError:
+                pass
 
-    def hls_download(self) -> bool:
-        with open(self.temporary_file_path, "wb") as f:
+    def hls_download(self) -> None:
+        with open(self.temp_path, "wb") as f:
             for seg in self.link_or_segment_urls:
                 response = CLIENT.get(seg)
                 self.resume.wait()
                 if self.cancelled:
-                    return False
+                    return
                 f.write(response.content)
                 self.progress_update_callback(1)
-            return True
 
-    def normal_download(self) -> bool:
-        self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
-        response = CLIENT.get(
-            self.link_or_segment_urls, stream=True, timeout=30, cookies=self.cookies
-        )
-
-        def response_ranged(start_byte_num: int) -> requests.Response:
-            self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
-            return CLIENT.get(
-                self.link_or_segment_urls,
-                stream=True,
-                headers=CLIENT.append_headers({"Range": f"bytes={start_byte_num}-"}),
-                timeout=30,
-                cookies=self.cookies,
-            )
-
-        total = int(response.headers.get("Content-Length", 0))
-
-        def download(start_byte_num=0) -> bool:
-            with open(
-                self.temporary_file_path, "wb" if start_byte_num else "ab"
-            ) as file:
+    def normal_download(self) -> None:
+        def download(
+            start_byte: int,
+            part_size: int,
+            temp_file_path: str,
+            is_retry=False,
+            thread_num=1,
+        ) -> None:
+            with open(temp_file_path, "ab" if is_retry else "wb") as file:
+                end_byte = start_byte + part_size - 1
+                self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
+                headers = CLIENT.make_headers(
+                    {"Range": f"bytes={start_byte}-{end_byte}"}
+                )
+                response = CLIENT.get(
+                    self.link_or_segment_urls,
+                    stream=True,
+                    headers=headers,
+                    timeout=30,
+                    cookies=self.cookies,
+                )
                 iter_content = cast(
                     Iterator[bytes],
-                    response.iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR)
-                    if start_byte_num
-                    else CLIENT.network_error_retry_wrapper(
-                        lambda: response_ranged(start_byte_num).iter_content(
-                            chunk_size=IBYTES_TO_MBS_DIVISOR
-                        )
-                    ),
+                    response.iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR),
                 )
-                while True:
+                while response.ok:
                     try:
-                        data = CLIENT.network_error_retry_wrapper(
+                        downloaded_data = CLIENT.network_error_retry_wrapper(
                             lambda: next(iter_content)
                         )
                         self.resume.wait()
                         if self.cancelled:
-                            return False
-                        size = file.write(data)
-                        self.progress_update_callback(size)
+                            return
+                        data_size = file.write(downloaded_data)
+                        with self.update_lock:
+                            self.progress_update_callback(data_size)
                     except StopIteration:
                         break
 
-            file_size = os.path.getsize(self.temporary_file_path)
-            return True if file_size >= total else download(file_size)
+            file_size = os.path.getsize(temp_file_path)
+            if file_size < part_size:
+                download(
+                    file_size, part_size, temp_file_path, True, thread_num=thread_num
+                )
 
-        return download()
+        if not self.max_part_size or self.max_part_size >= self.download_size:
+            download(0, self.download_size, self.temp_path)
+            return
 
+        download_threads: list[threading.Thread] = []
+        current_size = 0
+        part_num = 0
+        os.mkdir(self.temp_path)
+        while current_size < self.download_size:
+            part_num += 1
+            download_size = min(self.download_size - current_size, self.max_part_size)
+            temp_file_path = os.path.join(self.temp_path, f"{part_num}.part")
 
-if __name__ == "__main__":
-    pass
+            download_thread = threading.Thread(
+                target=lambda: download(
+                    current_size, download_size, temp_file_path, thread_num=part_num
+                ),
+                daemon=True,
+            )
+            download_thread.start()
+            download_threads.append(download_thread)
+            current_size += download_size
+        for download_thread in download_threads:
+            download_thread.join()
+
+#
+# def test_multipart_download():
+#     url = "https://github.com/SenZmaKi/Senpwai/releases/download/v2.1.14/Senpcli-setup.exe"
+#     download_size, url = Download.get_total_download_size(url)
+#     title = "Senpcli-setup"
+#     max_part_size = 10 * IBYTES_TO_MBS_DIVISOR
+#     pbar = tqdm(
+#         total=download_size,
+#         desc=f"Downloading: {title}",
+#         unit="iB",
+#         unit_scale=True,
+#         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_noinv_fmt}]",
+#         leave=True,
+#     )
+#
+#     def update(added: int):
+#         pbar.update(added)
+#
+#     download = Download(
+#         url,
+#         title,
+#         r"C:\Users\Sen\Downloads\Anime",
+#         progress_update_callback=update,
+#         max_part_size=max_part_size,
+#         download_size=download_size,
+#         file_extension=".exe",
+#     )
+#     download.start_download()
+#     pbar.set_description(f"Downloaded: {title}")
+#
+#
+# if __name__ == "__main__":
+#     test_multipart_download()

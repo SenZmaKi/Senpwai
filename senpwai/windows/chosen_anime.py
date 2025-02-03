@@ -73,7 +73,7 @@ class HavedEpisodes(StyledLabel):
         self.end = end
         self.count = haved_count
         if not haved_count:
-            self.setText("You have No episodes of this anime.")
+            self.setText("You have no episodes of this anime.")
         elif haved_count >= total_episode_count:
             self.setText("You have all the current episodes of this anime, weeeeb.")
         else:
