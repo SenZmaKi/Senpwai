@@ -2,6 +2,7 @@ import subprocess
 import sys
 
 from scripts.common import (
+    RELEASE_DIR,
     REPO_URL,
     get_current_branch_name,
     git_commit,
@@ -69,8 +70,9 @@ def publish_release(release_notes: str) -> None:
     subprocess.run(
         f'gh release create {BRANCH_NAME} --notes "{release_notes}"'
     ).check_returncode()
+    release_files = " ".join(str(f) for f in RELEASE_DIR.iterdir())
     subprocess.run(
-        f'gh release upload  {BRANCH_NAME} {ROOT_DIR  / "setups" / "Senpwai-setup.exe"} {ROOT_DIR / "setups"/ "Senpcli-setup.exe"}'
+        f"gh release upload  {BRANCH_NAME} {release_files}"
     ).check_returncode()
 
 

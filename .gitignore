@@ -7,7 +7,7 @@ test-downloads/
 __pycache__/
 .ruff_cache/
 .pytest_cache
-setups/
+release/
 build/
 dist/
 .scraps/

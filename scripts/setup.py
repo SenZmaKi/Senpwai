@@ -2,7 +2,7 @@ from cx_Freeze import setup, Executable
 import os
 from typing import cast
 import sys
-from scripts.common import ROOT_DIR
+from scripts.common import BUILD_DIR, ROOT_DIR
 
 
 def duo_value_parser(
@@ -88,7 +88,7 @@ def main():
     sys.path.append(str(senpwai_package_dir))
     metadata = parse_metadata()
     name = metadata["cli_name"] if senpcli_only else metadata["name"]
-    build_dir = ROOT_DIR / "build" / name.capitalize()
+    build_dir = BUILD_DIR / name.capitalize()
     assets_dir = ROOT_DIR / senpwai_package_dir / "assets"
     assets_dir = senpwai_package_dir / "assets"
     options = get_options(str(build_dir), str(assets_dir), senpcli_only)
