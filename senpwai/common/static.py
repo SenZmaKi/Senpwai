@@ -28,7 +28,7 @@ sys.excepthook = custom_exception_handler
 
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = "senpwai"
-VERSION = "2.1.14"
+VERSION = "2.1.15"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
 IS_PIP_INSTALL = False
@@ -90,7 +90,7 @@ def windows_setup_file_titles(app_name: str) -> tuple[str, str]:
     return (f"{app_name}-setup.exe", f"{app_name}-setup.msi")
 
 
-# TODO: DEPRECATION Remove in version 2.1.14+ since we download updates to temp
+# TODO: DEPRECATION Remove in version 2.1.15+ since we download updates to temp
 for title in windows_setup_file_titles(APP_NAME):
     try_deleting(os.path.join(ROOT_DIRECTORY, title))
 for title in windows_setup_file_titles("Senpcli"):
