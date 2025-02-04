@@ -365,7 +365,7 @@ class DownloadWindow(AbstractWindow):
     def setup_tracked_download_timer(self):
         self.tracked_download_timer.stop()
         # Converting from hours to milliseconds
-        tracking_interval_ms = SETTINGS.tracking_interval * 1000 * 60 * 60
+        tracking_interval_ms = SETTINGS.tracking_interval_hrs * 1000 * 60 * 60
         if tracking_interval_ms > PYQT_MAX_INT:
             tracking_interval_ms = PYQT_MAX_INT
         self.tracked_download_timer.start(tracking_interval_ms)

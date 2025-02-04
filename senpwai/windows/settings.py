@@ -654,8 +654,8 @@ class TrackingIntervalSetting(NumberInputSetting):
         self.download_window = download_window
         super().__init__(
             settings_window,
-            SETTINGS.tracking_interval,
-            SETTINGS.update_tracking_interval,
+            SETTINGS.tracking_interval_hrs,
+            SETTINGS.update_tracking_interval_hrs,
             "Track anime every",
             "hours",
             "Senpwai will check for new episodes of your tracked anime when you start the app\nthen in intervals of the hours you specify so long as it is running",

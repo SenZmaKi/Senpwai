@@ -115,7 +115,7 @@ class Settings:
         self.gogo_mode = GOGO_NORM_MODE
         self.tracked_anime: list[str] = []
         self.tracking_site = PAHE
-        self.tracking_interval = 24
+        self.tracking_interval_hrs = 24
         self.version = VERSION
         self.close_minimize_to_tray = False
         self.max_part_size_mbs = 0
@@ -156,6 +156,10 @@ class Settings:
             with open(self.settings_json_path, "r") as f:
                 settings = cast(dict, json.load(f))
                 # TODO: DEPRECATIONs: Remove
+                tracking_interval = settings.get("tracking_interval", None)
+                if tracking_interval is not None:
+                    self.tracking_interval_hrs = tracking_interval
+                    settings.pop("tracking_interval")
                 start_in_fullscreen = settings.get("start_in_fullscreen", None)
                 if start_in_fullscreen is not None:
                     self.start_maximized = start_in_fullscreen
@@ -166,7 +170,7 @@ class Settings:
                     settings.pop("auto_download_site")
                 check_for_new_eps_after = settings.get("check_for_new_eps_after", None)
                 if check_for_new_eps_after is not None:
-                    self.tracking_interval = check_for_new_eps_after
+                    self.tracking_interval_hrs = check_for_new_eps_after
                     settings.pop("check_for_new_eps_after")
                 gogo_norm_or_hls_mode = settings.get("gogo_norm_or_hls_mode", None)
                 if gogo_norm_or_hls_mode is not None:
@@ -283,8 +287,8 @@ class Settings:
         self.tracking_site = auto_download_site
         self.save_settings()
 
-    def update_tracking_interval(self, tracking_interval: int) -> None:
-        self.tracking_interval = tracking_interval
+    def update_tracking_interval_hrs(self, tracking_interval_hrs: int) -> None:
+        self.tracking_interval_hrs = tracking_interval_hrs
         self.save_settings()
 
     def update_pahe_home_url(self, pahe_home_url: str) -> None:
