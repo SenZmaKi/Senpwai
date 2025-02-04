@@ -20,7 +20,7 @@ def custom_exception_handler(
 ) -> None:
     h = "Exception" if manual_log else "Unhandled exception"
     exception_str = "".join(traceback.format_exception(type_, value, tb))
-    logging.error(f"{h}: {exception_str}{'-'*125}\n")
+    logging.error(f"{h}: {exception_str}{'-' * 125}\n")
     sys.__excepthook__(type_, value, tb)
 
 
@@ -66,7 +66,8 @@ else:
     IS_EXECUTABLE = False
 APP_EXE_ROOT_DIRECTORY = os.path.dirname(APP_EXE_PATH) if APP_EXE_PATH else ""
 date = datetime.today()
-IS_CHRISTMAS = True if date.month == 12 and date.day >= 20 else False
+IS_CHRISTMAS = date.month == 12 and date.day >= 20
+IS_VALENTINES = date.month == 2 and date.day == 14
 
 
 def log_exception(exception: Exception) -> None:
@@ -207,9 +208,13 @@ def join_from_bckg_images(img_name: str) -> str:
     return fix_windows_path_for_qt(os.path.join(bckg_images_path, img_name))
 
 
-SEARCH_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images(
-    "christmas.jpg" if IS_CHRISTMAS else "search.jpg"
-)
+if IS_CHRISTMAS:
+    search_img = "christmas.jpg"
+elif IS_VALENTINES:
+    search_img = "valentines.jpg"
+else:
+    search_img = "search.jpg"
+SEARCH_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images(search_img)
 CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("chosen-anime.jpg")
 SETTINGS_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("settings.jpg")
 DOWNLOAD_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("downloads.png")

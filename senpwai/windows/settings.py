@@ -596,7 +596,7 @@ class NumberInputSetting(SettingWidget):
             self.number_input, alignment=Qt.AlignmentFlag.AlignLeft
         )
         if units:
-            units_label = StyledLabel(None, settings_window.font_size)
+            units_label = StyledLabel(None, settings_window.font_size + 5)
             units_label.setText(units)
             set_minimum_size_policy(units_label)
             self.input_layout.addWidget(

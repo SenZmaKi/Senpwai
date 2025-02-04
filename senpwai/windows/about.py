@@ -69,7 +69,7 @@ class AboutWindow(AbstractWindow):
 - If Senpwai can't find the quality you want it will pick the closest lower one e.g., if you choose 720p but only 1080p and 360p is available it'll pick 360p
 - So long as the app is open Senpwai will try to resume⏯️  ongoing downloads even if you lose an internet connection
 - [Hover✨](https://anilist.co/user/{SEN_ANILIST_ID}) over something that you don't understand there's probably a tool tip for it
-- If the app screen📺 is white after you minimised it to tray and reopened it (usually on Windows🗑️), click the tray icon to fix it
+- If the app screen📺 is white after you minimized it to tray and reopened it (usually on Windows🗑️), click the tray icon to fix it
 - Open the settings folder by clicking the button with its location in the top left corner of the settings window
 - Downloading from Pahe skips⏩ recap episodes, but this kind of messes up the episode numbering
 - To completely remove Senpwai (don't know why you would though), post-uninstallation delete the settings folder, 🫵🏿®️🅰️🤡

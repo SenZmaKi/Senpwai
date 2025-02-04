@@ -5,5 +5,8 @@ Website
 Remove old versions from registry when updating
 Fix bring to front if already running white screening
 
+Add portable dist
+HLS Multipart download
+Better error handling and communication
 Theme support
 Throttle download speed

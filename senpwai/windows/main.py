@@ -37,9 +37,12 @@ from senpwai.windows.abstracts import NavBarButton
 class MainWindow(QMainWindow):
     def __init__(self, app: QApplication):
         super().__init__()
-        self.set_bckg_img = lambda img_path: self.setStyleSheet(
-            f"QMainWindow{{border-image: url({img_path}) 0 0 0 0 stretch stretch;}}"
-        )
+        self.set_bckg_img = lambda img_path: self.setStyleSheet(f"""
+    QMainWindow {{
+        border-image: url({img_path}) 0 0 0 0 stretch stretch;
+        background-color: rgba(0, 0, 0, 2); /* Adjust last value (0-255) for opacity */
+    }}
+""")
         self.app = app
         self.center_window()
         self.senpwai_icon = QIcon(SENPWAI_ICON_PATH)
