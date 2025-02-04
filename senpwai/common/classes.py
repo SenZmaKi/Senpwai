@@ -1,9 +1,10 @@
 import json
 import logging
+import math
 import os
 import re
 from pathlib import Path
-from typing import NamedTuple, cast
+from typing import NamedTuple, TypedDict, cast
 
 import anitopy
 from appdirs import user_config_dir
@@ -30,6 +31,20 @@ from senpwai.scrapers import gogo, pahe
 VERSION_REGEX = re.compile(r"(\d+(\.\d+)*)")
 
 
+def get_max_part_size(download_size: int, site: str, is_hls_download: bool) -> int:
+    if (
+        is_hls_download
+        or SETTINGS.max_part_size_mbs <= 0
+        or download_size <= SETTINGS.max_part_size_bytes()
+    ):
+        return 0
+    return (
+        math.ceil(download_size / pahe.MAX_SIMULTANEOUS_PART_DOWNLOADS)
+        if site == pahe.PAHE
+        else SETTINGS.max_part_size_bytes()
+    )
+
+
 class UpdateInfo(NamedTuple):
     is_update_available: bool
     download_url: str
@@ -40,7 +55,12 @@ class UpdateInfo(NamedTuple):
 def update_available(
     latest_release_api_url: str, app_name: str, curr_version: str
 ) -> UpdateInfo:
-    latest_version_json = CLIENT.get(latest_release_api_url).json()
+    response = CLIENT.get(latest_release_api_url)
+    if not response.ok:
+        raise Exception(
+            f"Failed to fetch latest release info\nURL: {latest_release_api_url}\nResponse Status Code: {response.status_code}\nResponse Text {response.text}"
+        )
+    latest_version_json = response.json()
     latest_version_tag = latest_version_json["tag_name"]
     match = cast(re.Match, VERSION_REGEX.search(latest_version_tag))
     latest_version = match.group(1)
@@ -66,9 +86,12 @@ def update_available(
     return UpdateInfo(is_update_available, download_url, file_name, release_notes)
 
 
-class Settings:
-    types = str | int | bool | list[str]
+class CustomAnimeFolder(TypedDict):
+    anime_title: str
+    folder: str
 
+
+class Settings:
     def __init__(self) -> None:
         self.config_dir = self.setup_config_dir()
         self.settings_json_path = os.path.join(self.config_dir, "settings.json")
@@ -92,8 +115,11 @@ class Settings:
         self.gogo_mode = GOGO_NORM_MODE
         self.tracked_anime: list[str] = []
         self.tracking_site = PAHE
-        self.tracking_interval = 24
+        self.tracking_interval_hrs = 24
         self.version = VERSION
+        self.close_minimize_to_tray = False
+        self.max_part_size_mbs = 0
+        self.custom_anime_folders: list[CustomAnimeFolder] = []
 
         self.load_settings()
         self.save_settings()
@@ -130,6 +156,10 @@ class Settings:
             with open(self.settings_json_path, "r") as f:
                 settings = cast(dict, json.load(f))
                 # TODO: DEPRECATIONs: Remove
+                tracking_interval = settings.get("tracking_interval", None)
+                if tracking_interval is not None:
+                    self.tracking_interval_hrs = tracking_interval
+                    settings.pop("tracking_interval")
                 start_in_fullscreen = settings.get("start_in_fullscreen", None)
                 if start_in_fullscreen is not None:
                     self.start_maximized = start_in_fullscreen
@@ -140,7 +170,7 @@ class Settings:
                     settings.pop("auto_download_site")
                 check_for_new_eps_after = settings.get("check_for_new_eps_after", None)
                 if check_for_new_eps_after is not None:
-                    self.tracking_interval = check_for_new_eps_after
+                    self.tracking_interval_hrs = check_for_new_eps_after
                     settings.pop("check_for_new_eps_after")
                 gogo_norm_or_hls_mode = settings.get("gogo_norm_or_hls_mode", None)
                 if gogo_norm_or_hls_mode is not None:
@@ -151,6 +181,9 @@ class Settings:
                 self.__dict__.update(settings)
         except json.JSONDecodeError:
             pass
+
+    def max_part_size_bytes(self) -> int:
+        return self.max_part_size_mbs * IBYTES_TO_MBS_DIVISOR
 
     def setup_default_download_folder(self) -> list[str]:
         downloads_folder = os.path.join(Path.home(), "Downloads", "Anime")
@@ -164,6 +197,29 @@ class Settings:
         return {
             k: v for k, v in self.__dict__.items() if k not in self.excluded_in_save
         }
+
+    def get_custom_anime_folder_index(
+        self,
+        anime_title: str,
+    ) -> int:
+        lower_title = sanitise_title(anime_title, True).lower()
+        try:
+            idx = next(
+                idx
+                for idx, caf in enumerate(self.custom_anime_folders)
+                if sanitise_title(caf["anime_title"], True).lower() == lower_title
+            )
+            return idx
+        except StopIteration:
+            return -1
+
+    def add_custom_anime_folder(self, anime_title: str, folder: str) -> None:
+        self.custom_anime_folders.append({"anime_title": anime_title, "folder": folder})
+        self.save_settings()
+
+    def remove_custom_anime_folder(self, index: int) -> None:
+        self.custom_anime_folders.pop(index)
+        self.save_settings()
 
     def update_sub_or_dub(self, sub_or_dub: str) -> None:
         self.sub_or_dub = sub_or_dub
@@ -219,8 +275,8 @@ class Settings:
         self.tracked_anime = tracked_anime
         self.save_settings()
 
-    def remove_tracked_anime(self, anime_name: str) -> None:
-        self.tracked_anime.remove(anime_name)
+    def remove_tracked_anime(self, anime_title: str) -> None:
+        self.tracked_anime.remove(anime_title)
         self.save_settings()
 
     def add_tracked_anime(self, anime_name: str) -> None:
@@ -231,8 +287,8 @@ class Settings:
         self.tracking_site = auto_download_site
         self.save_settings()
 
-    def update_tracking_interval(self, tracking_interval: int) -> None:
-        self.tracking_interval = tracking_interval
+    def update_tracking_interval_hrs(self, tracking_interval_hrs: int) -> None:
+        self.tracking_interval_hrs = tracking_interval_hrs
         self.save_settings()
 
     def update_pahe_home_url(self, pahe_home_url: str) -> None:
@@ -241,6 +297,14 @@ class Settings:
 
     def update_gogo_home_url(self, gogo_home_url: str) -> None:
         self.gogo_home_url = gogo_home_url
+        self.save_settings()
+
+    def update_close_minimize_to_tray(self, close_minimize_to_tray: bool) -> None:
+        self.close_minimize_to_tray = close_minimize_to_tray
+        self.save_settings()
+
+    def update_max_part_size_mbs(self, max_part_size_mbs: int) -> None:
+        self.max_part_size_mbs = max_part_size_mbs
         self.save_settings()
 
     def save_settings(self) -> None:
@@ -258,6 +322,14 @@ class Anime:
         self.id = anime_id
 
 
+class ParsedDetails(NamedTuple):
+    anitopy_parsed: dict[str, str]
+    parsed_title: str
+    parent_seasons_path: str
+    anime_types: list[str]
+    season_number: int
+
+
 class AnimeDetails:
     def __init__(self, anime: Anime, site: str) -> None:
         self.anime = anime
@@ -268,14 +340,7 @@ class AnimeDetails:
         self.sanitised_title = sanitise_title(anime.title)
         self.shortened_title = self.get_shortened_title()
         self.default_download_path = SETTINGS.download_folder_paths[0]
-        self.anime_folder_path = self.get_anime_folder_path()
-        self.potentially_haved_episodes = list(Path(self.anime_folder_path).glob("*"))
-        self.haved_episodes: list[int] = []
-        (
-            self.haved_start,
-            self.haved_end,
-            self.haved_count,
-        ) = self.get_start_end_and_count_of_haved_episodes()
+        self.set_anime_folder_path(self.get_anime_folder_path())
         self.dub_available, self.dub_page_link = self.get_dub_availablilty_status()
         self.metadata, self.anime_page_content = self.get_metadata()
         self.episode_count = self.metadata.episode_count
@@ -283,7 +348,7 @@ class AnimeDetails:
         self.sub_or_dub = SETTINGS.sub_or_dub
         self.ddls_or_segs_urls: list[str] | list[list[str]] = []
         self.download_info: list[str] = []
-        self.total_download_size_mbs: int = 0
+        self.total_download_size_mbs = 0
         self.download_sizes_bytes: list[int] = []
         self.lacked_episode_numbers: list[int] = []
 
@@ -304,69 +369,112 @@ class AnimeDetails:
         if not os.path.isdir(self.anime_folder_path):
             os.makedirs(self.anime_folder_path)
 
+    def set_anime_folder_path(self, anime_folder_path: str) -> None:
+        self.anime_folder_path = anime_folder_path
+        self.potentially_haved_episodes = list(Path(self.anime_folder_path).glob("*"))
+        self.haved_episodes: list[int] = []
+        (
+            self.haved_start,
+            self.haved_end,
+            self.haved_count,
+        ) = self.get_start_end_and_count_of_haved_episodes()
+
     def get_anime_folder_path(self) -> str:
-        def try_path(title: str) -> str | None:
+        def detect_path(title: str) -> str | None:
             for path in SETTINGS.download_folder_paths:
                 potential = os.path.join(path, title)
                 if os.path.isdir(potential):
                     return potential
             return None
 
+        def parse_title(title: str) -> ParsedDetails | None:
+            anitopy_parsed = anitopy.parse(title)
+            if not anitopy_parsed:
+                return None
+
+            parsed_title = anitopy_parsed.get("anime_title", title)
+            if not parsed_title:
+                return None
+            # It could be that the anime is a Special/OVA/ONA
+            anime_types = anitopy_parsed.get("anime_type", [])
+            if isinstance(anime_types, str):
+                anime_types = [anime_types]
+            for at in anime_types:
+                # In the resulting parsed anime_title, Anitopy only ignores Seasons but not Types for some reason, e.g., "Attack On Titan Season 1" will
+                # be parsed to "Attack on Titan" meanwhile, "Attack on Titan Specials" will still remain as "Attack on Titan Specials" so we need to remove the type
+                parsed_title = parsed_title.replace(at, "").strip()
+            season_number = (
+                anitopy_parsed.get("anime_season", 1) if not anime_types else 1
+            )
+            parent_seasons_path = detect_path(parsed_title)
+            if not parent_seasons_path:
+                return None
+            return ParsedDetails(
+                anitopy_parsed,
+                parsed_title,
+                parent_seasons_path,
+                anime_types,
+                season_number,
+            )
+
+        try:
+            lower_title = sanitise_title(self.anime.title, True).lower()
+            folder = next(
+                caf["folder"]
+                for caf in SETTINGS.custom_anime_folders
+                if sanitise_title(caf["anime_title"], True).lower() == lower_title
+            )
+            return folder
+        except StopIteration:
+            pass
+        parsed_details = parse_title(self.sanitised_title)
         fully_sanitised_title = sanitise_title(self.anime.title, True, " ")
-        parent_seasons_path = ""
-        season_number = 1
-        parsed_title = ""
-        anime_type = ""
-        parsed = {}
+        if not parsed_details:
+            parsed_details = parse_title(fully_sanitised_title)
 
-        def init(title: str) -> None:
-            nonlocal \
-                parsed, \
-                parsed_title, \
-                parent_seasons_path, \
-                anime_type, \
-                season_number
-            parsed = anitopy.parse(title)
-            if parsed:
-                parsed_title = parsed.get("anime_title", title)
-                # It could be that the anime is a Special/OVA/ONA
-                anime_type = parsed.get("anime_type", "")
-                if anime_type:
-                    # In the resulting parsed anime_title, Anitopy only ignores Seasons but not Types for some reason, e.g., "Attack On Titan Season 1" will
-                    # be parsed to "Attack on Titan" meanwhile, "Attack on Titan Specials" will still remain as "Attack on Titan"
-                    parsed_title = parsed_title.replace(anime_type, "").strip()
-                parent_seasons_path = try_path(parsed_title)
-                if not anime_type:
-                    season_number = parsed.get("anime_season", 1)
-
-        init(self.sanitised_title)
-        if not parent_seasons_path:
-            init(fully_sanitised_title)
-        if parent_seasons_path and parsed_title and parsed:
-            target_folders = (
-                [anime_type]
-                if anime_type
+        if parsed_details:
+            zfilled_season = str(parsed_details.season_number).zfill(2)
+            potential_folders = (
+                [
+                    *parsed_details.anime_types,
+                    *[
+                        f"{parsed_details.parsed_title} {at}"
+                        for at in parsed_details.anime_types
+                    ],
+                ]
+                if parsed_details.anime_types
                 else [
-                    f"Season {season_number}",
-                    f"SN {season_number}",
-                    f"Sn {season_number}",
-                    f"{parsed_title} Season {season_number}",
-                    f"{parsed_title} SN {season_number}",
-                    f"{parsed_title} Sn {season_number}",
+                    f"Season {parsed_details.season_number}",
+                    f"SN {parsed_details.season_number}",
+                    f"Sn {parsed_details.season_number}",
+                    f"S{parsed_details.season_number}",
+                    f"{parsed_details.parsed_title} Season {parsed_details.season_number}",
+                    f"{parsed_details.parsed_title} SN {parsed_details.season_number}",
+                    f"{parsed_details.parsed_title} Sn {parsed_details.season_number}",
+                    f"{parsed_details.parsed_title} S{parsed_details.season_number}",
+                    f"Season {zfilled_season}",
+                    f"SN {zfilled_season}",
+                    f"Sn {zfilled_season}",
+                    f"S{zfilled_season}",
+                    f"{parsed_details.parsed_title} Season {zfilled_season}",
+                    f"{parsed_details.parsed_title} SN {zfilled_season}",
+                    f"{parsed_details.parsed_title} Sn {zfilled_season}",
+                    f"{parsed_details.parsed_title} S{zfilled_season}",
                 ]
             )
-            target_folders += [self.sanitised_title, fully_sanitised_title]
 
-            for f in target_folders:
-                folder = os.path.join(parent_seasons_path, f)
+            potential_folders += [self.sanitised_title, fully_sanitised_title]
+
+            for f in potential_folders:
+                folder = os.path.join(parsed_details.parent_seasons_path, f)
                 if os.path.isdir(folder):
                     return folder
-        if path := try_path(self.sanitised_title):
+
+        if path := detect_path(self.sanitised_title):
             return path
-        elif path := try_path(fully_sanitised_title):
+        if path := detect_path(fully_sanitised_title):
             return path
-        else:
-            return os.path.join(self.default_download_path, self.sanitised_title)
+        return os.path.join(self.default_download_path, self.sanitised_title)
 
     def get_start_end_and_count_of_haved_episodes(
         self,

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "senpwai"
-version = "2.1.14"
+version = "2.1.15"
 description = "A desktop app for tracking and batch downloading anime"
 authors = ["SenZmaKi <senzmaki@gmail.com>"]
 license = "GPL v3"
@@ -90,6 +90,7 @@ build_release = [
     { ref = "build_pip" },
     { ref = "install_pip" },
     { ref = "run_pip_exes" },
+    { ref = "make_portables" },
 ]
 test = [{ ref = "test_pahe" }, { ref = "test_gogo" }]
 test_pahe = "python -m senpwai.scrapers.test --site pahe all"
@@ -121,8 +122,8 @@ compile_senpwai_installer = "iscc scripts/setup.iss /Q"
 compile_senpcli_installer = "iscc scripts/setup_senpcli.iss /Q"
 
 install = [{ ref = "install_senpwai" }, { ref = "install_senpcli" }]
-install_senpwai = "setups/Senpwai-setup.exe /verysilent"
-install_senpcli = "setups/Senpcli-setup.exe /verysilent"
+install_senpwai = "release/Senpwai-setup.exe /verysilent"
+install_senpcli = "release/Senpcli-setup.exe /verysilent"
 
 build_pip = [{ ref = "trash_dist" }, { ref = "poetry_build" }]
 trash_dist = "trash dist"
@@ -139,3 +140,10 @@ run_senpwai_exe = "python -m scripts.run_exes --senpwai"
 run_senpcli_exe = "python -m scripts.run_exes --senpcli"
 run_senpwai_pip_exe = "python -m scripts.run_exes --senpwai_pip"
 run_senpcli_pip_exe = "python -m scripts.run_exes --senpcli_pip"
+
+make_portables = [
+    { ref = "make_portable_senpwai" },
+    { ref = "make_portable_senpcli" },
+]
+make_portable_senpwai = "python -m scripts.make_portable --senpwai"
+make_portable_senpcli = "python -m scripts.make_portable --senpcli"

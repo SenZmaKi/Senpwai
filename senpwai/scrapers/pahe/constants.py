@@ -31,3 +31,4 @@ PARAM_REGEX = re.compile(r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""")
 CHAR_MAP = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/"
 CHAR_MAP_BASE = 10
 CHAR_MAP_DIGITS = CHAR_MAP[:CHAR_MAP_BASE]
+MAX_SIMULTANEOUS_PART_DOWNLOADS = 2

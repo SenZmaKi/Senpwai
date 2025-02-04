@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import sys
 from datetime import datetime
 from functools import cache
@@ -19,7 +20,7 @@ def custom_exception_handler(
 ) -> None:
     h = "Exception" if manual_log else "Unhandled exception"
     exception_str = "".join(traceback.format_exception(type_, value, tb))
-    logging.error(f"{h}: {exception_str}{'-'*125}\n")
+    logging.error(f"{h}: {exception_str}{'-' * 125}\n")
     sys.__excepthook__(type_, value, tb)
 
 
@@ -27,7 +28,7 @@ sys.excepthook = custom_exception_handler
 
 APP_NAME = "Senpwai"
 APP_NAME_LOWER = "senpwai"
-VERSION = "2.1.14"
+VERSION = "2.1.15"
 DESCRIPTION = "A desktop app for tracking and batch downloading anime"
 
 IS_PIP_INSTALL = False
@@ -65,7 +66,8 @@ else:
     IS_EXECUTABLE = False
 APP_EXE_ROOT_DIRECTORY = os.path.dirname(APP_EXE_PATH) if APP_EXE_PATH else ""
 date = datetime.today()
-IS_CHRISTMAS = True if date.month == 12 and date.day >= 20 else False
+IS_CHRISTMAS = date.month == 12 and date.day >= 20
+IS_VALENTINES = date.month == 2 and date.day == 14
 
 
 def log_exception(exception: Exception) -> None:
@@ -74,11 +76,12 @@ def log_exception(exception: Exception) -> None:
     )
 
 
-def try_deleting(path: str) -> None:
-    if not os.path.isfile(path):
-        return
+def try_deleting(path: str, is_dir=False) -> None:
     try:
-        os.unlink(path)
+        if is_dir and os.path.isdir(path):
+            shutil.rmtree(path)
+        elif not is_dir and os.path.isfile(path):
+            os.unlink(path)
     except PermissionError:
         pass
 
@@ -87,7 +90,7 @@ def windows_setup_file_titles(app_name: str) -> tuple[str, str]:
     return (f"{app_name}-setup.exe", f"{app_name}-setup.msi")
 
 
-# TODO: DEPRECATION Remove in version 2.1.14+ since we download updates to temp
+# TODO: DEPRECATION Remove in version 2.1.15+ since we download updates to temp
 for title in windows_setup_file_titles(APP_NAME):
     try_deleting(os.path.join(ROOT_DIRECTORY, title))
 for title in windows_setup_file_titles("Senpcli"):
@@ -113,6 +116,7 @@ GOGO_HLS_MODE = "hls"
 PAHE_NORMAL_COLOR = "#FFC300"
 PAHE_HOVER_COLOR = "#FFD700"
 PAHE_PRESSED_COLOR = "#FFE900"
+PAHE_EXTRA_COLOR = "orange"
 
 GOGO_NORMAL_COLOR = "#00FF00"
 GOGO_HOVER_COLOR = "#60FF00"
@@ -130,7 +134,7 @@ AMOGUS_EASTER_EGG = "ඞ"
 def open_folder(folder_path: str) -> None:
     if OS.is_windows:
         os.startfile(folder_path)
-    elif sys.platform == "linux":
+    elif OS.is_linux:
         Popen(["xdg-open", folder_path])
     else:
         Popen(["open", folder_path])
@@ -204,9 +208,13 @@ def join_from_bckg_images(img_name: str) -> str:
     return fix_windows_path_for_qt(os.path.join(bckg_images_path, img_name))
 
 
-SEARCH_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images(
-    "christmas.jpg" if IS_CHRISTMAS else "search.jpg"
-)
+if IS_CHRISTMAS:
+    search_img = "christmas.jpg"
+elif IS_VALENTINES:
+    search_img = "valentines.jpg"
+else:
+    search_img = "search.jpg"
+SEARCH_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images(search_img)
 CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("chosen-anime.jpg")
 SETTINGS_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("settings.jpg")
 DOWNLOAD_WINDOW_BCKG_IMAGE_PATH = join_from_bckg_images("downloads.png")

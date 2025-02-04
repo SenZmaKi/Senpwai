@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QHBoxLayout, QLayoutItem, QVBoxLayout, QWidget
 from senpwai.common.classes import SETTINGS
 from senpwai.common.scraper import try_deleting
+from senpwai.scrapers import pahe
 from senpwai.common.static import (
     AMOGUS_EASTER_EGG,
     APP_EXE_PATH,
@@ -100,6 +101,7 @@ class SettingsWindow(AbstractWindow):
             self
         )
         self.start_maximized = StartMaximized(self)
+        self.close_minimize_to_tray = CloseMinimizeToTray(self)
         self.download_folder_setting = DownloadFoldersSetting(self, main_window)
         self.gogo_norm_or_hls_mode_setting = GogoModeSetting(self)
         self.tracked_anime = TrackedAnimeListSetting(self, main_window.download_window)
@@ -107,13 +109,16 @@ class SettingsWindow(AbstractWindow):
         self.check_for_new_eps_after = TrackingIntervalSetting(
             self, main_window.download_window
         )
+        self.max_part_size = MaxPartSizeSetting(self)
         left_layout.addWidget(self.settings_folder_button)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
+        left_layout.addWidget(self.max_part_size)
         left_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
         left_layout.addWidget(self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_maximized)
+        left_layout.addWidget(self.close_minimize_to_tray)
         if OS.is_windows and not IS_PIP_INSTALL and APP_EXE_PATH:
             self.run_on_startup = RunOnStartUp(self)
             left_layout.addWidget(self.run_on_startup)
@@ -132,12 +137,14 @@ class FolderSetting(QWidget):
         main_window: "MainWindow",
         setting_info: str,
         setting_tool_tip: str | None,
+        picker_dialog_title: str | None = None,
     ):
         super().__init__()
         self.settings_window = settings_window
         self.font_size = settings_window.font_size
         self.main_window = main_window
         self.main_layout = QVBoxLayout()
+        self.picker_dialog_title = picker_dialog_title
         settings_label = StyledLabel(font_size=self.font_size + 5)
         settings_label.setText(setting_info)
         if setting_tool_tip:
@@ -221,7 +228,7 @@ class FolderSetting(QWidget):
 
     def add_folder_to_settings(self):
         added_folder_path = QFileDialog.getExistingDirectory(
-            self.main_window, "Choose folder"
+            self.main_window, caption=self.picker_dialog_title
         )
         added_folder_path = fix_qt_path_for_windows(added_folder_path)
         if not self.is_valid_new_folder(added_folder_path):
@@ -246,6 +253,7 @@ class DownloadFoldersSetting(FolderSetting):
             main_window,
             "Download folders",
             f"{APP_NAME} will search these folders for anime episodes, in the order shown",
+            picker_dialog_title="Choose download folder",
         )
 
     def remove_from_folder_settings(self, folder_widget: "FolderWidget"):
@@ -478,8 +486,6 @@ class YesOrNoSetting(SettingWidget):
             self.setting_label.setToolTip(tooltip)
 
 
-
-
 class StartMaximized(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(settings_window, "Start app maximized")
@@ -559,31 +565,27 @@ class GogoModeSetting(SettingWidget):
             norm_button.set_picked_status(True)
         norm_button.clicked.connect(lambda: hls_button.set_picked_status(False))
         hls_button.clicked.connect(lambda: norm_button.set_picked_status(False))
-        norm_button.clicked.connect(
-            lambda: SETTINGS.update_gogo_mode(GOGO_NORM_MODE)
-        )
-        hls_button.clicked.connect(
-            lambda: SETTINGS.update_gogo_mode(GOGO_HLS_MODE)
-        )
-        super().__init__(
-            settings_window, "Gogo mode", [norm_button, hls_button]
-        )
+        norm_button.clicked.connect(lambda: SETTINGS.update_gogo_mode(GOGO_NORM_MODE))
+        hls_button.clicked.connect(lambda: SETTINGS.update_gogo_mode(GOGO_HLS_MODE))
+        super().__init__(settings_window, "Gogo mode", [norm_button, hls_button])
 
 
-class NonZeroNumberInputSetting(SettingWidget):
+class NumberInputSetting(SettingWidget):
     def __init__(
         self,
         settings_window: SettingsWindow,
         initial_value: int,
         setting_updater_callback: Callable[[int], None],
         setting_info: str,
-        error_on_zero_text: str,
         units: str | None,
         tooltip: str | None = None,
+        validation_error_text="",
+        validation_callback: Callable[[int], bool] | None = None,
     ):
         self.settings_window = settings_window
         self.setting_updater_callback = setting_updater_callback
-        self.number_input = NumberInput(font_size=settings_window.font_size)
+        self.validation_callback = validation_callback
+        self.number_input = NumberInput(font_size=settings_window.font_size + 5)
         self.number_input.setFixedWidth(60)
         self.number_input.setPlaceholderText(AMOGUS_EASTER_EGG)
         self.number_input.setText(str(initial_value))
@@ -594,7 +596,7 @@ class NonZeroNumberInputSetting(SettingWidget):
             self.number_input, alignment=Qt.AlignmentFlag.AlignLeft
         )
         if units:
-            units_label = StyledLabel(None, settings_window.font_size)
+            units_label = StyledLabel(None, settings_window.font_size + 5)
             units_label.setText(units)
             set_minimum_size_policy(units_label)
             self.input_layout.addWidget(
@@ -605,7 +607,7 @@ class NonZeroNumberInputSetting(SettingWidget):
             units_label = None
         main_layout = QVBoxLayout()
         self.error = ErrorLabel(settings_window.font_size)
-        self.error.setText(error_on_zero_text)
+        self.error.setText(validation_error_text)
         set_minimum_size_policy(self.error)
         self.error.hide()
 
@@ -624,39 +626,41 @@ class NonZeroNumberInputSetting(SettingWidget):
         if not text.isdigit():
             return
         new_setting = int(text)
-        if new_setting == 0:
+        if self.validation_callback and not self.validation_callback(new_setting):
             self.error.show()
             self.number_input.setText("")
             return
         self.setting_updater_callback(new_setting)
 
 
-class MaxSimultaneousDownloadsSetting(NonZeroNumberInputSetting):
+class MaxSimultaneousDownloadsSetting(NumberInputSetting):
     def __init__(self, settings_window: SettingsWindow):
         super().__init__(
             settings_window,
             SETTINGS.max_simultaneous_downloads,
             SETTINGS.update_max_simultaneous_downloads,
             "Only allow",
-            "Bruh, max simultaneous downloads cannot be zero",
             "simultaneous downloads",
             "The maximum number of downloads allowed to occur at the same time",
+            validation_error_text="Bruh, max simultaneous downloads cannot be zero",
+            validation_callback=lambda x: x > 0,
         )
 
 
-class TrackingIntervalSetting(NonZeroNumberInputSetting):
+class TrackingIntervalSetting(NumberInputSetting):
     def __init__(
         self, settings_window: SettingsWindow, download_window: DownloadWindow
     ):
         self.download_window = download_window
         super().__init__(
             settings_window,
-            SETTINGS.tracking_interval,
-            SETTINGS.update_tracking_interval,
+            SETTINGS.tracking_interval_hrs,
+            SETTINGS.update_tracking_interval_hrs,
             "Track anime every",
-            "Bruh, time intervals cannot be zero",
             "hours",
             "Senpwai will check for new episodes of your tracked anime when you start the app\nthen in intervals of the hours you specify so long as it is running",
+            validation_error_text="Bruh, time intervals cannot be zero",
+            validation_callback=lambda x: x > 0,
         )
 
     def text_changed(self, text: str):
@@ -707,3 +711,36 @@ class SubDubSetting(SettingWidget):
         sub_button.clicked.connect(lambda: SETTINGS.update_sub_or_dub(SUB))
         dub_button.clicked.connect(lambda: SETTINGS.update_sub_or_dub(DUB))
         super().__init__(settings_window, "Sub or Dub", [sub_button, dub_button])
+
+
+class CloseMinimizeToTray(YesOrNoSetting):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__(settings_window, "Closing minimizes to tray")
+        if SETTINGS.close_minimize_to_tray:
+            self.yes_button.set_picked_status(True)
+        else:
+            self.no_button.set_picked_status(True)
+        self.yes_button.clicked.connect(
+            lambda: SETTINGS.update_close_minimize_to_tray(True)
+        )
+        self.no_button.clicked.connect(
+            lambda: SETTINGS.update_close_minimize_to_tray(False)
+        )
+
+
+class MaxPartSizeSetting(NumberInputSetting):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__(
+            settings_window,
+            SETTINGS.max_part_size_mbs,
+            SETTINGS.update_max_part_size_mbs,
+            "Limit download parts to",
+            "MBs",
+            f"""
+Splits download into multiple parts if the download size is greater than this value.
+Animepahe restricts each download to {pahe.MAX_SIMULTANEOUS_PART_DOWNLOADS} file parts.
+Lower values will increase download speed but increase CPU and memory usage.
+Recommended range is between 10 and 100.
+Set to 0 to disable.
+""",
+        )

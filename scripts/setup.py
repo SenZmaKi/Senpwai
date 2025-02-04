@@ -2,7 +2,7 @@ from cx_Freeze import setup, Executable
 import os
 from typing import cast
 import sys
-from scripts.common import ROOT_DIR
+from scripts.common import BUILD_DIR, ROOT_DIR
 
 
 def duo_value_parser(
@@ -57,15 +57,24 @@ def get_executables(
 
 
 def get_options(build_dir: str, assets_dir: str, senpcli_only: bool) -> dict:
+    common_options = {
+        "build_exe": build_dir,
+        "silent_level": 3,
+        "replace_paths": [
+            (os.path.abspath("."), ""),
+        ],
+    }
+
+    if senpcli_only:
+        return {
+            "build_exe": common_options,
+        }
     return {
-        "build_exe": {"build_exe": build_dir, "silent_level": 3}
-        if senpcli_only
-        else {
-            "build_exe": build_dir,
+        "build_exe": {
+            **common_options,
             "include_files": assets_dir,
             "zip_include_packages": "PyQt6",
-            "silent_level": 3,
-        }
+        },
     }
 
 
@@ -79,18 +88,19 @@ def main():
     sys.path.append(str(senpwai_package_dir))
     metadata = parse_metadata()
     name = metadata["cli_name"] if senpcli_only else metadata["name"]
-    build_dir = ROOT_DIR / "build" / name.capitalize()
+    build_dir = BUILD_DIR / name.capitalize()
     assets_dir = ROOT_DIR / senpwai_package_dir / "assets"
     assets_dir = senpwai_package_dir / "assets"
+    options = get_options(str(build_dir), str(assets_dir), senpcli_only)
+    exececutables = get_executables(metadata, str(senpwai_package_dir), senpcli_only)
     setup(
         name=name,
         version=metadata["version"],
-        options=get_options(str(build_dir), str(assets_dir), senpcli_only),
-        executables=get_executables(metadata, str(senpwai_package_dir), senpcli_only),
+        options=options,
+        executables=exececutables,
     )
     license_file = build_dir / "frozen_application_license.txt"
-    if license_file.is_file():
-        os.unlink(license_file)
+    license_file.unlink(missing_ok=True)
     print(f"Built at: {build_dir}")
 
 

@@ -7,6 +7,8 @@ import os
 
 ROOT_DIR = Path(__file__).parent.parent
 REPO_URL = "https://github.com/SenZmaKi/Senpwai"
+BUILD_DIR = ROOT_DIR / "build"
+RELEASE_DIR = ROOT_DIR / "release"
 
 
 def join_from_local_appdata(*paths: str) -> str:

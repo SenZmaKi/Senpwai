@@ -2,6 +2,7 @@ import subprocess
 import sys
 
 from scripts.common import (
+    RELEASE_DIR,
     REPO_URL,
     get_current_branch_name,
     git_commit,
@@ -63,24 +64,28 @@ def get_release_notes(from_commits: bool, previous_version: str | None) -> str:
 
 def publish_release(release_notes: str) -> None:
     try:
-        subprocess.run("glow", input=release_notes.encode()).check_returncode()
+        subprocess.run("glow", input=release_notes, text=True).check_returncode()
     except FileNotFoundError:
         print(release_notes)
     subprocess.run(
         f'gh release create {BRANCH_NAME} --notes "{release_notes}"'
     ).check_returncode()
+    release_files = " ".join(str(f) for f in RELEASE_DIR.iterdir())
     subprocess.run(
-        f'gh release upload  {BRANCH_NAME} {ROOT_DIR  / "setups" / "Senpwai-setup.exe"} {ROOT_DIR / "setups"/ "Senpcli-setup.exe"}'
+        f"gh release upload  {BRANCH_NAME} {release_files}"
     ).check_returncode()
 
 
-def new_branch() -> None:
-    new_branch_name = input(
-        'Enter new branch name (with the "v" prefix if necessary)\n> '
-    )
+def new_branch(new_branch_name: str) -> None:
+    if not new_branch_name:
+        new_branch_name = input(
+            'Enter new branch name (with the "v" prefix if necessary)\n> '
+        )
     if new_branch_name:
         subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
-        subprocess.run("git push --set-upstream origin {new_branch_name}").check_returncode()
+        subprocess.run(
+            "git push --set-upstream origin {new_branch_name}"
+        ).check_returncode()
 
 
 def get_debug_comment_location() -> str | None:
@@ -147,6 +152,13 @@ def main() -> None:
         help='Previous version number (without the "v" prefix)',
         type=str,
     )
+    parser.add_argument(
+        "-nbn",
+        "--new_branch_name",
+        help='New branch name (with the "v" prefix if necessary)',
+        type=str,
+    )
+
     parsed = parser.parse_args()
     if BRANCH_NAME == "master":
         log_error("On master branch, switch to version branch", True)
@@ -182,7 +194,7 @@ def main() -> None:
         )
     log_info(f"Finished release {BRANCH_NAME}")
     if not parsed.skip_new_branch:
-        new_branch()
+        new_branch(parsed.new_branch_name)
 
 
 if __name__ == "__main__":

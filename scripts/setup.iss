@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Senpwai"
-#define MyAppVersion "2.1.14"
+#define MyAppVersion "2.1.15"
 #define MyAppPublisher "AkatsuKi Inc."
 #define MyAppURL "https://github.com/SenZmaKi/Senpwai"
 #define MyAppExeName "senpwai.exe"
@@ -11,10 +11,10 @@
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
-AppId={{B1AC746D-A6F0-44EF-B812.1.14-0DF4571B51}}
+AppId={{B1AC746D-A6F0-44EF-B812.1.15-0DF4571B51}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-VersionInfoVersion=2.1.14.0
+VersionInfoVersion=2.1.15.0
 ;AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
@@ -24,7 +24,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 PrivilegesRequired=lowest
-OutputDir={#ProjectRootDir}\setups
+OutputDir={#ProjectRootDir}\release
 OutputBaseFilename=Senpwai-setup
 SetupIconFile="{#ProjectRootDir}\senpwai\assets\misc\senpwai-icon.ico"
 Compression=lzma2
@@ -63,22 +63,22 @@ Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; Value
 ; Automatically launch the app after an update install
 [Code]
 var 
- IsUpdate: Boolean;
+ Launch: Boolean;
  ResultCode: Integer;
  I: Integer;
 procedure AutoLaunch;
 begin
-  IsUpdate := False;
+  Launch := False;
   for I := 1 to ParamCount do
   begin
-    if ParamStr(I) = '/update' then
+    if ParamStr(I) = '/launch' then
     begin
-      IsUpdate := True;
+      Launch := True;
       Break;
     end;
   end;
 
-  if IsUpdate then
+  if Launch then
   begin
     Exec(ExpandConstant('{app}\{#MyAppExeName}'), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode);
   end;

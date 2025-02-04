@@ -37,9 +37,12 @@ from senpwai.windows.abstracts import NavBarButton
 class MainWindow(QMainWindow):
     def __init__(self, app: QApplication):
         super().__init__()
-        self.set_bckg_img = lambda img_path: self.setStyleSheet(
-            f"QMainWindow{{border-image: url({img_path}) 0 0 0 0 stretch stretch;}}"
-        )
+        self.set_bckg_img = lambda img_path: self.setStyleSheet(f"""
+    QMainWindow {{
+        border-image: url({img_path}) 0 0 0 0 stretch stretch;
+        background-color: rgba(0, 0, 0, 2); /* Adjust last value (0-255) for opacity */
+    }}
+""")
         self.app = app
         self.center_window()
         self.senpwai_icon = QIcon(SENPWAI_ICON_PATH)
@@ -49,7 +52,7 @@ class MainWindow(QMainWindow):
         self.tray_icon.show()
         self.settings_window = SettingsWindow(self)
         self.about_window = AboutWindow(self)
-        CheckIfUpdateAvailableThread(self, self.handle_update_check_result).start()
+        self.check_for_updates()
         self.stacked_windows = QStackedWidget(self)
         # The widget that is added first is implicitly set as the current widget
         self.stacked_windows.addWidget(self.search_window)
@@ -64,6 +67,11 @@ class MainWindow(QMainWindow):
     def closeEvent(self, a0: QCloseEvent | None) -> None:
         if not a0:
             return
+        if SETTINGS.close_minimize_to_tray:
+            self.tray_icon.focus_or_hide_window()
+            a0.ignore()
+            return
+
         if self.download_window.is_downloading():
             message_box = QMessageBox(self)
             message_box.setIcon(QMessageBox.Icon.Warning)
@@ -104,6 +112,9 @@ class MainWindow(QMainWindow):
             self.showFullScreen()
         else:
             self.showNormal()
+
+    def check_for_updates(self):
+        CheckIfUpdateAvailableThread(self, self.handle_update_check_result).start()
 
     def handle_update_check_result(self, update_info: UpdateInfo):
         if not update_info.is_update_available:

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import subprocess
 import sys
 from argparse import ArgumentParser, Namespace
@@ -16,6 +17,7 @@ from senpwai.common.classes import (
     Anime,
     AnimeDetails,
     UpdateInfo,
+    get_max_part_size,
     update_available,
 )
 from senpwai.common.scraper import (
@@ -32,6 +34,7 @@ from senpwai.common.static import (
     APP_EXE_PATH as SENPWAI_EXE_PATH,
 )
 from senpwai.common.static import (
+    APP_NAME as SENPWAI_APP_NAME,
     DUB,
     GITHUB_API_LATEST_RELEASE_ENDPOINT,
     GITHUB_REPO_URL,
@@ -398,7 +401,7 @@ def gogo_get_direct_download_links(
     pbar.close_()
     size = sum(download_sizes) // IBYTES_TO_MBS_DIVISOR
     size_text = add_color(
-        f"{size} MB { ', go shower' if size >= 1000 else ''}", Color.MAGENTA
+        f"{size} MB {', go shower' if size >= 1000 else ''}", Color.MAGENTA
     )
     print_info(f"Total download size: {size_text}")
     return direct_download_links, download_sizes
@@ -432,7 +435,7 @@ def create_progress_bar(
         )
     else:
         if episode_size is None:
-            episode_size, link_or_segs_urls = Download.get_resource_length(
+            episode_size, link_or_segs_urls = Download.get_total_download_size(
                 cast(str, link_or_segs_urls)
             )
         pbar = ProgressBar(
@@ -451,13 +454,19 @@ def download_thread(
     anime_details: AnimeDetails,
     is_hls_download: bool,
     finished_callback: Callable[[], None],
+    download_size: int,
 ):
+    max_part_size = get_max_part_size(
+        download_size, anime_details.site, is_hls_download
+    )
     download = Download(
         link_or_segs_urls,
         episode_title,
         anime_details.anime_folder_path,
+        download_size,
         pbar.update_,
         is_hls_download=is_hls_download,
+        max_part_size=max_part_size,
     )
     download.start_download()
     pbar.close_()
@@ -502,20 +511,26 @@ def download_manager(
     for idx, link in enumerate(ddls_or_segs_urls):
         wait(download_slot_available)
         shortened_episode_title = anime_details.episode_title(idx, True)
-        episode_size = download_sizes[idx] if download_sizes else None
+        if download_sizes:
+            download_size = download_sizes[idx]
+        elif is_hls_download:
+            download_size = len(link)
+        else:
+            download_size, link = Download.get_total_download_size(cast(str, link))
         pbar, link = create_progress_bar(
-            shortened_episode_title, link, is_hls_download, episode_size
+            shortened_episode_title, link, is_hls_download, download_size
         )
         episode_title = anime_details.episode_title(idx, False)
+
         Thread(
-            target=download_thread,
-            args=(
+            target=lambda: download_thread(
                 pbar,
                 episode_title,
                 link,
                 anime_details,
                 is_hls_download,
                 update_progress,
+                download_size,
             ),
             daemon=True,
         ).start()
@@ -687,8 +702,9 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
 
 
 def check_for_update_thread(queue: Queue[UpdateInfo]) -> None:
+    app_name = SENPWAI_APP_NAME if SENPWAI_IS_INSTALLED else APP_NAME
     update_info = update_available(
-        GITHUB_API_LATEST_RELEASE_ENDPOINT, APP_NAME, VERSION
+        GITHUB_API_LATEST_RELEASE_ENDPOINT, app_name, VERSION
     )
     queue.put((update_info))
 
@@ -697,7 +713,7 @@ def download_and_install_update(
     download_url: str,
     file_name: str,
 ) -> None:
-    download_size, download_url = Download.get_resource_length(download_url)
+    download_size, download_url = Download.get_total_download_size(download_url)
     pbar = ProgressBar(
         total=download_size,
         desc="Downloading update",
@@ -706,17 +722,33 @@ def download_and_install_update(
     )
     file_name_no_ext, file_ext = os.path.splitext(file_name)
     tempdir = senpwai_tempdir()
-    download = Download(download_url, file_name_no_ext, tempdir, pbar.update_, file_ext)
+    download = Download(
+        download_url,
+        file_name_no_ext,
+        tempdir,
+        download_size,
+        pbar.update_,
+        file_ext,
+        max_part_size=SETTINGS.max_part_size_bytes(),
+    )
     download.start_download()
     pbar.close_()
-    subprocess.Popen([os.path.join(tempdir, file_name), "/silent", "/update"])
+    subprocess.Popen([os.path.join(tempdir, file_name), "/silent"])
 
 
 def handle_update_check_result(update_info: UpdateInfo) -> None:
     if not update_info.is_update_available:
         return
     print_rainbow("\nUpdate available!!!\n")
-    print_info(f"{update_info.release_notes}\n")
+    release_notes = f"{update_info.release_notes}\n"
+    try:
+        subprocess.run(
+            "glow",
+            input=release_notes,
+            text=True,
+        ).check_returncode()
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        print_info(release_notes)
     if OS.is_android:
         print_info(
             'To update run:\n"pkg update -y && curl https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/termux/install.sh | bash"'
@@ -724,8 +756,6 @@ def handle_update_check_result(update_info: UpdateInfo) -> None:
     elif IS_PIP_INSTALL:
         print_info('Install it by running "pip install senpwai --upgrade"')
         return
-    elif SENPWAI_IS_INSTALLED:
-        print_info("Install it by updating my big sister, Senpwai")
     elif OS.is_windows:
         print_info("Would you like to download and install it? (y/n)")
         if input("> ").lower() == "y":

@@ -292,7 +292,7 @@ class FetchFavouriteThread(QThread):
         response = CLIENT.post(
             ANILIST_API_ENTRYPOINY,
             json={"query": query, "variables": {"id": SEN_ANILIST_ID, "page": page}},
-            headers=CLIENT.append_headers({"Content-Type": "application/json"}),
+            headers=CLIENT.make_headers({"Content-Type": "application/json"}),
         )
         if response.status_code != 200:
             return None
@@ -328,17 +328,18 @@ class SearchBar(QLineEdit):
         )
 
     def eventFilter(self, a0: QObject | None, a1: QEvent | None):
-        if isinstance(a1, QKeyEvent):
-            if a0 == self and a1.type() == a1.Type.KeyPress:
-                if a1.key() == Qt.Key.Key_Enter or a1.key() == Qt.Key.Key_Return:
-                    self.search_window.pahe_search_button.animateClick()
-                elif a1.key() == Qt.Key.Key_Tab:
-                    first_button = self.search_window.results_layout.itemAt(0)
-                    if first_button:
-                        cast(QWidget, first_button.widget()).setFocus()
-                    else:
-                        self.search_window.gogo_search_button.animateClick()
-                    return True
+        if isinstance(a1, QKeyEvent) and a0 == self and a1.type() == a1.Type.KeyPress:
+            if a1.key() == Qt.Key.Key_Enter or a1.key() == Qt.Key.Key_Return:
+                self.search_window.pahe_search_button.animateClick()
+                return True
+            elif a1.key() == Qt.Key.Key_Tab:
+                self.search_window.gogo_search_button.animateClick()
+                return True
+            elif a1.key() == Qt.Key.Key_Down:
+                first_button = self.search_window.results_layout.itemAt(0)
+                if first_button:
+                    cast(QWidget, first_button.widget()).setFocus()
+                return True
         return super().eventFilter(a0, a1)
 
 

@@ -1,5 +1,10 @@
 # New features and Changes
-- senpcli: Make printed download links easier to parse
+
+- Add multipart file download
+- Add custom anime specific folders
+- Improve anime folder detection
+- Add close minimizes to tray setting
 
 # Bug fixes
-- gogo: Fix upcoming anime being shown as ongoing
+
+- gogo: Fix redundant dubs being shown in search results

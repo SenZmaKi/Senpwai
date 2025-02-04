@@ -16,6 +16,9 @@ from senpwai.common.static import (
     MORBIUS_AUDIO_PATH,
     MORBIUS_IS_PEAK_ICON_PATH,
     OS,
+    PAHE_EXTRA_COLOR,
+    PAHE_HOVER_COLOR,
+    PAHE_PRESSED_COLOR,
     PATREON_ICON_PATH,
     REDDIT_ICON_PATH,
     SEN_ANILIST_ID,
@@ -27,6 +30,7 @@ from senpwai.common.widgets import (
     Icon,
     IconButton,
     ScrollableSection,
+    StyledButton,
     StyledLabel,
     StyledTextBrowser,
     Title,
@@ -63,10 +67,11 @@ class AboutWindow(AbstractWindow):
 - If Senpwai can't find the quality you want it will pick the closest lower one e.g., if you choose 720p but only 1080p and 360p is available it'll pick 360p
 - So long as the app is open Senpwai will try to resume⏯️  ongoing downloads even if you lose an internet connection
 - [Hover✨](https://anilist.co/user/{SEN_ANILIST_ID}) over something that you don't understand there's probably a tool tip for it
-- If the app screen📺 is white after you minimised it to tray and reopened it (usually on Windows🗑️), click the tray icon to fix it
+- If the app screen📺 is white after you minimized it to tray and reopened it (usually on Windows🗑️), click the tray icon to fix it
 - Open the settings folder by clicking the button with its location in the top left corner of the settings window
-- Downloading from Pahe skips⏩ recap episodes, but this kinds of messes up the episode numbering
+- Downloading from Pahe skips⏩ recap episodes, but this kind of messes up the episode numbering
 - To completely remove Senpwai (don't know why you would though), post-uninstallation delete the settings folder, 🫵🏿®️🅰️🤡
+- Click the tray icon to minimize to tray or set the close minimize to tray setting
 - To use a custom font family, edit the `font_family` value in the settings file, if left empty, it will default to your OS setting
 - Hate the background images📸? Check out the [discord]({DISCORD_INVITE_LINK}) for [senptheme](https://discord.com/channels/1131981618777702540/1211137093955362837/1211175899895038033)
         """
@@ -158,8 +163,13 @@ class AboutWindow(AbstractWindow):
         social_links_buttons_layout.addWidget(reddit_button)
         social_links_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         social_links_buttons_widget.setLayout(social_links_buttons_layout)
-        version_title = Title(f"Version {VERSION}")
-        set_minimum_size_policy(version_title)
+        version_button = StyledButton(
+            self, 33, "black", PAHE_EXTRA_COLOR, PAHE_HOVER_COLOR, PAHE_PRESSED_COLOR
+        )
+        version_button.setText(f"Version {VERSION}")
+        version_button.setToolTip("Click to check for updates")
+        version_button.clicked.connect(main_window.check_for_updates)
+        set_minimum_size_policy(version_button)
 
         main_layout.addSpacing(40)
         main_layout.addWidget(tips_title)
@@ -175,7 +185,7 @@ class AboutWindow(AbstractWindow):
         main_layout.addWidget(social_links_title)
         main_layout.addWidget(bug_reports_label)
         main_layout.addWidget(social_links_buttons_widget)
-        main_layout.addWidget(version_title)
+        main_layout.addWidget(version_button)
         self.full_layout.addWidget(main_widget, Qt.AlignmentFlag.AlignTop)
         self.setLayout(self.full_layout)
 
@@ -187,7 +197,7 @@ class Review(QWidget):
 
         profile_pic = IconButton(icon, 1.1)
         profile_pic.clicked.connect(AudioPlayer(self, audio_path, volume=60).play)
-        author_name = StyledLabel(None, 15, "orange", font_color="black")
+        author_name = StyledLabel(None, 15, PAHE_EXTRA_COLOR, font_color="black")
         author_name.setText(author)
         set_minimum_size_policy(author_name)
         review_text = StyledLabel(None, 15, font_color="white", bckg_color="black")

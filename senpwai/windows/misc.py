@@ -6,9 +6,8 @@ from webbrowser import open_new_tab
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
-from senpwai.common.classes import AnimeDetails, UpdateInfo, update_available
+from senpwai.common.classes import SETTINGS, AnimeDetails, UpdateInfo, update_available
 from senpwai.common.scraper import (
-    CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     Download,
     try_installing_ffmpeg,
@@ -267,12 +266,8 @@ class DownloadUpdateThread(QThread):
         self.file_name = file_name
 
     def run(self):
-        response = CLIENT.get(
-            self.download_url, stream=True, allow_redirects=True
-        )
-        self.download_url = response.url
-        total_size = int(response.headers["Content-Length"])
-        self.total_size.emit(total_size)
+        download_size, self.download_url = Download.get_total_download_size(self.download_url)
+        self.total_size.emit(download_size)
         self.update_window.progress_bar
         while not self.update_window.progress_bar:
             continue
@@ -283,15 +278,17 @@ class DownloadUpdateThread(QThread):
             self.download_url,
             file_name_no_ext,
             tempdir,
+            download_size,
             self.update_bar.emit,
             ext,
+            max_part_size=SETTINGS.max_part_size_bytes(),
         )
         self.update_window.progress_bar.pause_callback = download.pause_or_resume
         self.update_window.progress_bar.cancel_callback = download.cancel
         download.start_download()
         if not download.cancelled:
             subprocess.Popen(
-                [os.path.join(tempdir, self.file_name), "/silent", "/update"]
+                [os.path.join(tempdir, self.file_name), "/silent", "/launch"]
             )
             self.quit_app.emit()
 

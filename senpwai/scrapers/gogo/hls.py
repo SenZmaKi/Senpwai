@@ -138,7 +138,7 @@ def extract_stream_url(embed_url: str) -> str:
     component = component.split("&", 1)[1]
     ajax_response = CLIENT.get(
         streaming_page_host + "encrypt-ajax.php?" + component,
-        headers=CLIENT.append_headers({"X-Requested-With": "XMLHttpRequest"}),
+        headers=CLIENT.make_headers({"X-Requested-With": "XMLHttpRequest"}),
     )
     content = json.loads(
         aes_decrypt(ajax_response.json()["data"], key=decryption_key, iv=iv)

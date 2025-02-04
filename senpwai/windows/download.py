@@ -2,7 +2,6 @@ import os
 from threading import Event
 import time
 from typing import Callable, cast, TYPE_CHECKING
-
 from PyQt6.QtCore import QMutex, Qt, QThread, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -14,7 +13,7 @@ from PyQt6.QtWidgets import (
 )
 from senpwai.common.tracker import check_tracked_anime
 from senpwai.scrapers import gogo, pahe
-from senpwai.common.classes import SETTINGS, AnimeDetails
+from senpwai.common.classes import SETTINGS, AnimeDetails, get_max_part_size
 from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
     Download,
@@ -35,6 +34,7 @@ from senpwai.common.static import (
     open_folder,
 )
 from senpwai.common.widgets import (
+    PYQT_MAX_INT,
     FolderButton,
     HorizontalLine,
     Icon,
@@ -364,9 +364,11 @@ class DownloadWindow(AbstractWindow):
 
     def setup_tracked_download_timer(self):
         self.tracked_download_timer.stop()
-        self.tracked_download_timer.start(  # Converting from hours to milliseconds
-            SETTINGS.tracking_interval * 1000 * 60 * 60
-        )
+        # Converting from hours to milliseconds
+        tracking_interval_ms = SETTINGS.tracking_interval_hrs * 1000 * 60 * 60
+        if tracking_interval_ms > PYQT_MAX_INT:
+            tracking_interval_ms = PYQT_MAX_INT
+        self.tracked_download_timer.start(tracking_interval_ms)
 
     def clean_out_tracked_download_thread(self):
         self.tracked_download_thread = None
@@ -784,7 +786,7 @@ class DownloadManagerThread(QThread, ProgressFunction):
                 (
                     episode_size_or_segs,
                     ddl_or_seg_urls,
-                ) = Download.get_resource_length(cast(str, ddl_or_seg_urls))
+                ) = Download.get_total_download_size(cast(str, ddl_or_seg_urls))
 
             # This is specifcally at this point instead of at the top cause of the above http request made in
             # self.get_exact_episode_size such that if a user pauses or cancels as the request is in progress the input will be captured
@@ -850,7 +852,7 @@ class DownloadThread(QThread):
         super().__init__(parent)
         self.ddl_or_seg_urls = ddl_or_seg_urls
         self.title = title
-        self.size = size
+        self.download_size = size
         self.download_folder = download_folder
         self.site = site
         self.hls_quality = hls_quality
@@ -868,7 +870,9 @@ class DownloadThread(QThread):
     def cancel(self):
         self.download.cancel()
         divisor = 1 if self.is_hls_download else IBYTES_TO_MBS_DIVISOR
-        new_maximum = self.anime_progress_bar.bar.maximum() - round(self.size / divisor)
+        new_maximum = self.anime_progress_bar.bar.maximum() - round(
+            self.download_size / divisor
+        )
         if new_maximum > 0:
             self.anime_progress_bar.bar.setMaximum(new_maximum)
         new_value = round(
@@ -881,23 +885,18 @@ class DownloadThread(QThread):
         self.is_cancelled = True
 
     def run(self):
-        if self.is_hls_download:
-            self.ddl_or_seg_urls = cast(list[str], self.ddl_or_seg_urls)
-            self.download = Download(
-                self.ddl_or_seg_urls,
-                self.title,
-                self.download_folder,
-                lambda x: self.update_bars.emit(x),
-                is_hls_download=True,
-            )
-        else:
-            self.ddl_or_seg_urls = cast(str, self.ddl_or_seg_urls)
-            self.download = Download(
-                self.ddl_or_seg_urls,
-                self.title,
-                self.download_folder,
-                lambda x: self.update_bars.emit(x),
-            )
+        max_part_size = get_max_part_size(
+             self.download_size, self.site, self.is_hls_download
+        )
+        self.download = Download(
+            self.ddl_or_seg_urls,
+            self.title,
+            self.download_folder,
+            self.download_size,
+            lambda x: self.update_bars.emit(x),
+            is_hls_download=self.is_hls_download,
+            max_part_size=max_part_size,
+        )
         self.progress_bar.pause_callback = self.download.pause_or_resume
         self.progress_bar.cancel_callback = self.cancel
 
