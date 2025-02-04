@@ -41,7 +41,6 @@ from senpwai.common.static import (
     RED_NORMAL_COLOR,
     RED_PRESSED_COLOR,
     fix_qt_path_for_windows,
-    fix_windows_path_for_qt,
     open_folder,
     requires_admin_access,
 )

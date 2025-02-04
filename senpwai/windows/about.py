@@ -1,4 +1,3 @@
-from sys import version
 from typing import TYPE_CHECKING
 from webbrowser import open_new_tab
 
@@ -19,7 +18,6 @@ from senpwai.common.static import (
     OS,
     PAHE_EXTRA_COLOR,
     PAHE_HOVER_COLOR,
-    PAHE_NORMAL_COLOR,
     PAHE_PRESSED_COLOR,
     PATREON_ICON_PATH,
     REDDIT_ICON_PATH,

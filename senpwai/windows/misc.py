@@ -8,7 +8,6 @@ from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
 from senpwai.common.classes import SETTINGS, AnimeDetails, UpdateInfo, update_available
 from senpwai.common.scraper import (
-    CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     Download,
     try_installing_ffmpeg,

@@ -4,7 +4,7 @@ import math
 import os
 import re
 from pathlib import Path
-from typing import Callable, NamedTuple, TypedDict, cast
+from typing import NamedTuple, TypedDict, cast
 
 import anitopy
 from appdirs import user_config_dir
