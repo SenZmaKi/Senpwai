@@ -76,10 +76,11 @@ def publish_release(release_notes: str) -> None:
     ).check_returncode()
 
 
-def new_branch() -> None:
-    new_branch_name = input(
-        'Enter new branch name (with the "v" prefix if necessary)\n> '
-    )
+def new_branch(new_branch_name: str) -> None:
+    if not new_branch_name:
+        new_branch_name = input(
+            'Enter new branch name (with the "v" prefix if necessary)\n> '
+        )
     if new_branch_name:
         subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
         subprocess.run(
@@ -151,6 +152,13 @@ def main() -> None:
         help='Previous version number (without the "v" prefix)',
         type=str,
     )
+    parser.add_argument(
+        "-nbn",
+        "--new_branch_name",
+        help='New branch name (with the "v" prefix if necessary)',
+        type=str,
+    )
+
     parsed = parser.parse_args()
     if BRANCH_NAME == "master":
         log_error("On master branch, switch to version branch", True)
@@ -186,7 +194,7 @@ def main() -> None:
         )
     log_info(f"Finished release {BRANCH_NAME}")
     if not parsed.skip_new_branch:
-        new_branch()
+        new_branch(parsed.new_branch_name)
 
 
 if __name__ == "__main__":
