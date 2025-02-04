@@ -70,7 +70,7 @@ def publish_release(release_notes: str) -> None:
     subprocess.run(
         f'gh release create {BRANCH_NAME} --notes "{release_notes}"'
     ).check_returncode()
-    release_files = " ".join(str(f) for f in RELEASE_DIR.iterdir())
+    release_files = " ".join(f'"{file}"' for file in RELEASE_DIR.iterdir())
     subprocess.run(
         f"gh release upload  {BRANCH_NAME} {release_files}"
     ).check_returncode()
@@ -84,7 +84,7 @@ def new_branch(new_branch_name: str) -> None:
     if new_branch_name:
         subprocess.run(f"git checkout -b {new_branch_name}").check_returncode()
         subprocess.run(
-            "git push --set-upstream origin {new_branch_name}"
+            f"git push --set-upstream origin {new_branch_name}"
         ).check_returncode()
 
 
