@@ -1,4 +1,4 @@
-from senpwai.common.scraper import AiringStatus, lacked_episode_numbers, sanitise_title
+from senpwai.common.scraper import AiringStatus, strip_title
 from senpwai.common.static import DUB, GOGO, PAHE
 from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
 from senpwai.scrapers import pahe, gogo
@@ -35,16 +35,13 @@ def check_tracked_anime(
         anime = result
         anime_details = AnimeDetails(anime, site)
         start_eps = anime_details.haved_end if anime_details.haved_end else 1
-        anime_details.lacked_episode_numbers = lacked_episode_numbers(
-            start_eps, anime_details.episode_count, anime_details.haved_episodes
-        )
-        if not anime_details.lacked_episode_numbers:
-            haved_end = anime_details.haved_end
-            if anime_details.metadata.airing_status == AiringStatus.FINISHED and (
-                haved_end and (haved_end >= anime_details.episode_count)
-            ):
-                removed_tracked_callback(anime_details.anime.title)
-                finished_tracking_callback(anime_details.sanitised_title)
+        anime_details.set_lacked_episodes(start_eps, anime_details.episode_count)
+        if (
+            not anime_details.lacked_episodes
+            and anime_details.metadata.airing_status == AiringStatus.FINISHED
+        ):
+            removed_tracked_callback(anime_details.anime.title)
+            finished_tracking_callback(anime_details.sanitised_title)
             continue
         if anime_details.sub_or_dub == DUB and not anime_details.dub_available:
             no_dub_callback(anime_details.sanitised_title)
@@ -63,20 +60,20 @@ def check_tracked_anime(
 
 def pahe_fetch_anime_obj(title: str) -> Anime | None:
     results = pahe.search(title)
-    title_fuzzy = sanitise_title(title, True).lower()
+    title_fuzzy = strip_title(title, True).lower()
     for result in results:
         res_title, page_link, anime_id = pahe.extract_anime_title_page_link_and_id(
             result
         )
-        if sanitise_title(res_title, True).lower() == title_fuzzy:
+        if strip_title(res_title, True).lower() == title_fuzzy:
             return Anime(title, page_link, anime_id)
     return None
 
 
 def gogo_fetch_anime_obj(title: str) -> Anime | None:
     results = gogo.search(title)
-    title_fuzzy = sanitise_title(title, True).lower()
+    title_fuzzy = strip_title(title, True).lower()
     for res_title, page_link in results:
-        if sanitise_title(res_title, True).lower() == title_fuzzy:
+        if strip_title(res_title, True).lower() == title_fuzzy:
             return Anime(title, page_link, None)
     return None

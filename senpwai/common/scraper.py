@@ -376,7 +376,7 @@ def try_installing_ffmpeg() -> bool:
             return False
 
 
-def sanitise_title(title: str, all=False, exclude="") -> str:
+def strip_title(title: str, all=False, exclude="") -> str:
     if all:
         allowed_chars = set(ascii_letters + digits + exclude)
     else:
@@ -387,30 +387,6 @@ def sanitise_title(title: str, all=False, exclude="") -> str:
 
     return sanitised[:255].rstrip()
 
-
-def lacked_episode_numbers(
-    start_episode: int, end_episode: int, haved_episodes: list[int]
-) -> list[int]:
-    predicted_episodes_to_download: list[int] = []
-    for episode in range(start_episode, end_episode + 1):
-        if episode not in haved_episodes:
-            predicted_episodes_to_download.append(episode)
-    return predicted_episodes_to_download
-
-
-def lacked_episodes(
-    lacking_episode_numbers: list[int], episode_page_links: list[str]
-) -> list[str]:
-    # Episode count is what is used to generate lacking_episode_numbers, episode count is gotten from anime the page which uses subbed episodes count
-    # so for an anime where sub episodes are ahead of dub the missing episodes will be outside the range of the episode_page_links
-    first_eps_number = lacking_episode_numbers[0]
-    # If the alleged episode count is more than the actual number of episodes the site has e.g., Gintama on animpahe
-    if len(lacking_episode_numbers) > len(episode_page_links):
-        lacking_episode_numbers = lacking_episode_numbers[: len(episode_page_links)]
-    return [
-        episode_page_links[eps_number - first_eps_number]
-        for eps_number in lacking_episode_numbers
-    ]
 
 
 def ffmpeg_is_installed() -> bool:

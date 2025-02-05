@@ -19,7 +19,6 @@ from senpwai.common.scraper import (
     Download,
     ProgressFunction,
     ffmpeg_is_installed,
-    lacked_episodes,
 )
 from senpwai.common.static import (
     CANCEL_ICON_PATH,
@@ -395,8 +394,8 @@ class DownloadWindow(AbstractWindow):
         if anime_details.site == PAHE:
             return PaheGetEpisodePageInfo(
                 self,
-                anime_details.lacked_episode_numbers[0],
-                anime_details.lacked_episode_numbers[-1],
+                anime_details.lacked_episodes[0],
+                anime_details.lacked_episodes[-1],
                 anime_details,
                 self.pahe_get_episode_page_links,
             ).start()
@@ -422,8 +421,8 @@ class DownloadWindow(AbstractWindow):
         PaheGetEpisodePageLinksThread(
             self,
             anime_details,
-            anime_details.lacked_episode_numbers[0],
-            anime_details.lacked_episode_numbers[-1],
+            anime_details.lacked_episodes[0],
+            anime_details.lacked_episodes[-1],
             episode_pages_info,
             self.pahe_get_download_page_links,
             episode_page_progress_bar,
@@ -440,9 +439,7 @@ class DownloadWindow(AbstractWindow):
     def pahe_get_download_page_links(
         self, anime_details: AnimeDetails, episode_page_links: list[str]
     ):
-        episode_page_links = lacked_episodes(
-            anime_details.lacked_episode_numbers, episode_page_links
-        )
+        episode_page_links = anime_details.get_lacked_links(episode_page_links)
         download_page_progress_bar = ProgressBarWithButtons(
             self,
             "Fetching download page links",
@@ -886,7 +883,7 @@ class DownloadThread(QThread):
 
     def run(self):
         max_part_size = get_max_part_size(
-             self.download_size, self.site, self.is_hls_download
+            self.download_size, self.site, self.is_hls_download
         )
         self.download = Download(
             self.ddl_or_seg_urls,
@@ -933,12 +930,12 @@ class GogoGetDownloadPageLinksThread(QThread):
             ) = gogo.get_anime_page_content(self.anime_details.dub_page_link)
         anime_id = gogo.extract_anime_id(self.anime_details.anime_page_content)
         download_page_links = gogo.get_download_page_links(
-            self.anime_details.lacked_episode_numbers[0],
-            self.anime_details.lacked_episode_numbers[-1],
+            self.anime_details.lacked_episodes[0],
+            self.anime_details.lacked_episodes[-1],
             anime_id,
         )
-        download_page_links = lacked_episodes(
-            self.anime_details.lacked_episode_numbers, download_page_links
+        download_page_links = self.anime_details.get_lacked_links(
+            download_page_links
         )
         if self.anime_details.is_hls_download:
             self.hls_finished.emit(self.anime_details, download_page_links)

@@ -110,11 +110,13 @@ class SettingsWindow(AbstractWindow):
             self, main_window.download_window
         )
         self.max_part_size = MaxPartSizeSetting(self)
+        self.ignore_fillers = IgnoreFiltersSetting(self)
         left_layout.addWidget(self.settings_folder_button)
         left_layout.addWidget(self.sub_dub_setting)
         left_layout.addWidget(self.quality_setting)
         left_layout.addWidget(self.max_simultaneous_downloads_setting)
         left_layout.addWidget(self.max_part_size)
+        left_layout.addWidget(self.ignore_fillers)
         left_layout.addWidget(self.gogo_norm_or_hls_mode_setting)
         left_layout.addWidget(self.make_download_complete_notification_setting)
         left_layout.addWidget(self.start_maximized)
@@ -470,12 +472,27 @@ class YesOrNoSetting(SettingWidget):
         self,
         settings_window: SettingsWindow,
         setting_info: str,
+        current: bool,
+        update_callback: Callable[[bool], None],
         tooltip: str | None = None,
     ):
         self.yes_button = YesOrNoButton(True, settings_window.font_size)
         self.no_button = YesOrNoButton(False, settings_window.font_size)
-        self.yes_button.clicked.connect(lambda: self.no_button.set_picked_status(False))
-        self.no_button.clicked.connect(lambda: self.yes_button.set_picked_status(False))
+        if current:
+            self.yes_button.set_picked_status(True)
+        else:
+            self.no_button.set_picked_status(True)
+
+        def on_yes_clicked():
+            self.no_button.set_picked_status(False)
+            update_callback(True)
+
+        def on_no_clicked():
+            self.yes_button.set_picked_status(False)
+            update_callback(False)
+
+        self.yes_button.clicked.connect(on_yes_clicked)
+        self.no_button.clicked.connect(on_no_clicked)
         set_minimum_size_policy(self.yes_button)
         set_minimum_size_policy(self.no_button)
         super().__init__(
@@ -488,18 +505,26 @@ class YesOrNoSetting(SettingWidget):
 
 class StartMaximized(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Start app maximized")
-        if SETTINGS.start_maximized:
-            self.yes_button.set_picked_status(True)
-        else:
-            self.no_button.set_picked_status(True)
-        self.yes_button.clicked.connect(lambda: SETTINGS.update_start_maximized(True))
-        self.no_button.clicked.connect(lambda: SETTINGS.update_start_maximized(False))
+        super().__init__(
+            settings_window,
+            "Start app maximized",
+            SETTINGS.start_maximized,
+            SETTINGS.update_start_maximized,
+        )
 
 
 class RunOnStartUp(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Run on start up")
+        def update_callback(is_yes: bool) -> None:
+            if is_yes:
+                self.make_startup_lnk()
+            else:
+                self.remove_startup_lnk()
+            SETTINGS.update_run_on_startup(is_yes)
+
+        super().__init__(
+            settings_window, "Run on start up", SETTINGS.run_on_startup, update_callback
+        )
         appdata_folder = os.environ["APPDATA"]
         self.lnk_path = os.path.join(
             appdata_folder,
@@ -510,14 +535,6 @@ class RunOnStartUp(YesOrNoSetting):
             "Startup",
             f"{APP_NAME}.lnk",
         )
-        if SETTINGS.run_on_startup:
-            self.yes_button.set_picked_status(True)
-        else:
-            self.no_button.set_picked_status(True)
-        self.yes_button.clicked.connect(lambda: SETTINGS.update_run_on_startup(True))
-        self.yes_button.clicked.connect(self.make_startup_lnk)
-        self.no_button.clicked.connect(lambda: SETTINGS.update_run_on_startup(False))
-        self.no_button.clicked.connect(self.remove_startup_lnk)
 
     def make_startup_lnk(self):
         self.remove_startup_lnk()
@@ -536,16 +553,11 @@ class RunOnStartUp(YesOrNoSetting):
 
 class AllowNotificationsSetting(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Allow notifications uWu?")
-        if SETTINGS.allow_notifications:
-            self.yes_button.set_picked_status(True)
-        else:
-            self.no_button.set_picked_status(True)
-        self.yes_button.clicked.connect(
-            lambda: SETTINGS.update_allow_notifications(True)
-        )
-        self.no_button.clicked.connect(
-            lambda: SETTINGS.update_allow_notifications(False)
+        super().__init__(
+            settings_window,
+            "Allow notifications uWu?",
+            SETTINGS.allow_notifications,
+            SETTINGS.update_allow_notifications,
         )
 
 
@@ -715,16 +727,11 @@ class SubDubSetting(SettingWidget):
 
 class CloseMinimizeToTray(YesOrNoSetting):
     def __init__(self, settings_window: SettingsWindow):
-        super().__init__(settings_window, "Closing minimizes to tray")
-        if SETTINGS.close_minimize_to_tray:
-            self.yes_button.set_picked_status(True)
-        else:
-            self.no_button.set_picked_status(True)
-        self.yes_button.clicked.connect(
-            lambda: SETTINGS.update_close_minimize_to_tray(True)
-        )
-        self.no_button.clicked.connect(
-            lambda: SETTINGS.update_close_minimize_to_tray(False)
+        super().__init__(
+            settings_window,
+            "Closing minimizes to tray",
+            SETTINGS.close_minimize_to_tray,
+            SETTINGS.update_close_minimize_to_tray,
         )
 
 
@@ -743,4 +750,15 @@ Lower values will increase download speed but increase CPU and memory usage.
 Recommended range is between 10 and 100.
 Set to 0 to disable.
 """,
+        )
+
+
+class IgnoreFiltersSetting(YesOrNoSetting):
+    def __init__(self, settings_window: SettingsWindow):
+        super().__init__(
+            settings_window,
+            "Ignore fillers",
+            SETTINGS.ignore_fillers,
+            SETTINGS.update_ignore_fillers,
+            "Occasionally ignores canon episodes for anime with mutliple seasons",
         )

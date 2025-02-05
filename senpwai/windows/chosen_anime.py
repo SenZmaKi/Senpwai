@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from senpwai.common.classes import SETTINGS, Anime, AnimeDetails
-from senpwai.common.scraper import AiringStatus, lacked_episode_numbers
+from senpwai.common.scraper import AiringStatus
 from senpwai.common.static import (
     CHOSEN_ANIME_WINDOW_BCKG_IMAGE_PATH,
     DUB,
@@ -195,7 +195,7 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
             first_row_of_buttons_layout.addWidget(button)
             quality = button.quality
             button.clicked.connect(
-                lambda garbage_bool, quality=quality: self.update_quality(quality)
+                lambda _, quality=quality: self.update_quality(quality)
             )
             if quality == SETTINGS.quality:
                 button.set_picked_status(True)
@@ -204,11 +204,9 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
             self.norm_button = GogoNormOrHlsButton(self, "norm", 18)
             self.hls_button = GogoNormOrHlsButton(self, "hls", 18)
             self.norm_button.clicked.connect(
-                lambda garbage_bool: self.update_is_hls_download(False)
+                lambda _: self.update_is_hls_download(False)
             )
-            self.hls_button.clicked.connect(
-                lambda garbage_bool: self.update_is_hls_download(True)
-            )
+            self.hls_button.clicked.connect(lambda _: self.update_is_hls_download(True))
             set_minimum_size_policy(self.norm_button)
             set_minimum_size_policy(self.hls_button)
             if anime_details.is_hls_download:
@@ -454,13 +452,16 @@ class DownloadButton(StyledButton):
             invalid_input = True
 
         if not invalid_input:
-            self.anime_details.lacked_episode_numbers = lacked_episode_numbers(
-                start_episode, end_episode, self.anime_details.haved_episodes
-            )
-            if len(self.anime_details.lacked_episode_numbers) == 0:
-                error(
-                    "Bakayorou, you already have all episodes within the provided range!!!"
-                )
+            self.anime_details.set_lacked_episodes(start_episode, end_episode)
+            if not self.anime_details.lacked_episodes:
+                if self.anime_details.filler_episodes:
+                    error(
+                        "Bakayorou, you already have all the canon episodes within the provided range!!!"
+                    )
+                else:
+                    error(
+                        "Bakayorou, you already have all episodes within the provided range!!!"
+                    )
                 invalid_input = True
 
         if invalid_input:

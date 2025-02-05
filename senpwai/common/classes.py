@@ -8,12 +8,14 @@ from typing import NamedTuple, TypedDict, cast
 
 import anitopy
 from appdirs import user_config_dir
+from senpwai.common.fillers import get_filler_episodes
+from threading import Thread
 
 from senpwai.common.scraper import (
     CLIENT,
     IBYTES_TO_MBS_DIVISOR,
     AnimeMetadata,
-    sanitise_title,
+    strip_title,
 )
 from senpwai.common.static import (
     APP_NAME,
@@ -120,6 +122,7 @@ class Settings:
         self.close_minimize_to_tray = False
         self.max_part_size_mbs = 0
         self.custom_anime_folders: list[CustomAnimeFolder] = []
+        self.ignore_fillers = False
 
         self.load_settings()
         self.save_settings()
@@ -202,12 +205,12 @@ class Settings:
         self,
         anime_title: str,
     ) -> int:
-        lower_title = sanitise_title(anime_title, True).lower()
+        stripped_title = strip_title(anime_title, True).lower()
         try:
             idx = next(
                 idx
                 for idx, caf in enumerate(self.custom_anime_folders)
-                if sanitise_title(caf["anime_title"], True).lower() == lower_title
+                if strip_title(caf["anime_title"], True).lower() == stripped_title
             )
             return idx
         except StopIteration:
@@ -247,6 +250,10 @@ class Settings:
 
     def pop_download_folder_path(self, index: int) -> None:
         self.download_folder_paths.pop(index)
+        self.save_settings()
+
+    def update_ignore_fillers(self, ignore_fillers: bool) -> None:
+        self.ignore_fillers = ignore_fillers
         self.save_settings()
 
     def update_max_simultaneous_downloads(
@@ -323,7 +330,7 @@ class Anime:
 
 
 class ParsedDetails(NamedTuple):
-    anitopy_parsed: dict[str, str]
+    anitopy_parsed: dict
     parsed_title: str
     parent_seasons_path: str
     anime_types: list[str]
@@ -332,36 +339,96 @@ class ParsedDetails(NamedTuple):
 
 class AnimeDetails:
     def __init__(self, anime: Anime, site: str) -> None:
+        """
+        This is a blocking init
+        """
         self.anime = anime
         self.site = site
         self.is_hls_download = (
             True if site == GOGO and SETTINGS.gogo_mode == GOGO_HLS_MODE else False
         )
-        self.sanitised_title = sanitise_title(anime.title)
+        self.sanitised_title = strip_title(anime.title)
         self.shortened_title = self.get_shortened_title()
         self.default_download_path = SETTINGS.download_folder_paths[0]
         self.set_anime_folder_path(self.get_anime_folder_path())
         self.dub_available, self.dub_page_link = self.get_dub_availablilty_status()
+        self.fillers_thread: Thread | None = None
+        self.set_filler_episodes()
         self.metadata, self.anime_page_content = self.get_metadata()
+        if self.fillers_thread:
+            self.fillers_thread.join()
         self.episode_count = self.metadata.episode_count
+        self.parsed_details: ParsedDetails | None
         self.quality = SETTINGS.quality
         self.sub_or_dub = SETTINGS.sub_or_dub
-        self.ddls_or_segs_urls: list[str] | list[list[str]] = []
-        self.download_info: list[str] = []
-        self.total_download_size_mbs = 0
         self.download_sizes_bytes: list[int] = []
-        self.lacked_episode_numbers: list[int] = []
+        self.potentially_haved_episodes: list[Path]
+        self.haved_episodes: list[int]
+        self.haved_start: int | None
+        self.haved_end: int | None
+        self.ddls_or_segs_urls: list[str] | list[list[str]]
+        self.download_info: list[str]
+        self.total_download_size_mbs: int
+        self.filler_episodes: list[int]
+        self.lacked_episodes: list[int]
+
+    def set_filler_episodes(self) -> None:
+        if not SETTINGS.ignore_fillers:
+            self.filler_episodes = []
+            return
+
+        def helper():
+            self.filler_episodes = get_filler_episodes(self.anime.title)
+            print(f"Got filler episodes for {self.anime.title}: {self.filler_episodes}")
+
+        self.fillers_thread = Thread(target=helper, daemon=True)
+        self.fillers_thread.start()
+
+    def set_lacked_episodes(self, start_episode: int, end_episode: int) -> None:
+        def is_filler(ep: int) -> bool:
+            if not self.filler_episodes:
+                return False
+            details_is_sequel = (
+                self.parsed_details is not None
+                and self.parsed_details.season_number > 1
+            )
+            fillers_contain_sequels = self.filler_episodes[-1] <= self.episode_count
+            # The filler site lists anime like Attack On Titan as a single show instead of each individual season
+            # We want to avoid filtering fillers from such anime
+            return (
+                not details_is_sequel
+                and fillers_contain_sequels
+                and ep in self.filler_episodes
+            )
+
+        self.lacked_episodes = [
+            episode
+            for episode in range(start_episode, end_episode + 1)
+            if (episode not in self.haved_episodes and not is_filler(episode))
+        ]
+        print(f"Lacked episodes for {self.anime.title}: {self.lacked_episodes}")
+
+    def get_lacked_links(self, links: list[str]) -> list[str]:
+        lacked_episode_numbers = self.lacked_episodes
+        # If we're missing more episodes than the site currently has
+        if len(lacked_episode_numbers) > len(links):
+            lacked_episode_numbers = lacked_episode_numbers[: len(links)]
+        first_eps_number = lacked_episode_numbers[0]
+        return [
+            links[eps_number - first_eps_number]
+            for eps_number in lacked_episode_numbers
+        ]
 
     def get_shortened_title(self):
-        # Around 5 words i.e., 5 * 8
-        max_anime_title_length = 40
+        word_length = 8
+        max_anime_title_length = 5 * word_length
         if len(self.sanitised_title) <= max_anime_title_length:
             return self.sanitised_title
         shortened = self.sanitised_title[: max_anime_title_length - 3]
         return f"{shortened.strip()}..."
 
     def episode_title(self, lacked_eps_idx: int, shortened: bool) -> str:
-        episode_number_str = str(self.lacked_episode_numbers[lacked_eps_idx]).zfill(2)
+        episode_number_str = str(self.lacked_episodes[lacked_eps_idx]).zfill(2)
         title = self.shortened_title if shortened else self.sanitised_title
         return f"{title} E{episode_number_str}"
 
@@ -406,6 +473,10 @@ class AnimeDetails:
             season_number = (
                 anitopy_parsed.get("anime_season", 1) if not anime_types else 1
             )
+            try:
+                season_number = int(season_number)
+            except ValueError:
+                season_number = 1
             parent_seasons_path = detect_path(parsed_title)
             if not parent_seasons_path:
                 return None
@@ -417,56 +488,56 @@ class AnimeDetails:
                 season_number,
             )
 
+        self.parsed_details = parse_title(self.sanitised_title)
         try:
-            lower_title = sanitise_title(self.anime.title, True).lower()
+            stripped_title = strip_title(self.anime.title, True).lower()
             folder = next(
                 caf["folder"]
                 for caf in SETTINGS.custom_anime_folders
-                if sanitise_title(caf["anime_title"], True).lower() == lower_title
+                if strip_title(caf["anime_title"], True).lower() == stripped_title
             )
             return folder
         except StopIteration:
             pass
-        parsed_details = parse_title(self.sanitised_title)
-        fully_sanitised_title = sanitise_title(self.anime.title, True, " ")
-        if not parsed_details:
-            parsed_details = parse_title(fully_sanitised_title)
+        fully_sanitised_title = strip_title(self.anime.title, True, " ")
+        if not self.parsed_details:
+            self.parsed_details = parse_title(fully_sanitised_title)
 
-        if parsed_details:
-            zfilled_season = str(parsed_details.season_number).zfill(2)
+        if self.parsed_details:
+            zfilled_season = str(self.parsed_details.season_number).zfill(2)
             potential_folders = (
                 [
-                    *parsed_details.anime_types,
+                    *self.parsed_details.anime_types,
                     *[
-                        f"{parsed_details.parsed_title} {at}"
-                        for at in parsed_details.anime_types
+                        f"{self.parsed_details.parsed_title} {at}"
+                        for at in self.parsed_details.anime_types
                     ],
                 ]
-                if parsed_details.anime_types
+                if self.parsed_details.anime_types
                 else [
-                    f"Season {parsed_details.season_number}",
-                    f"SN {parsed_details.season_number}",
-                    f"Sn {parsed_details.season_number}",
-                    f"S{parsed_details.season_number}",
-                    f"{parsed_details.parsed_title} Season {parsed_details.season_number}",
-                    f"{parsed_details.parsed_title} SN {parsed_details.season_number}",
-                    f"{parsed_details.parsed_title} Sn {parsed_details.season_number}",
-                    f"{parsed_details.parsed_title} S{parsed_details.season_number}",
+                    f"Season {self.parsed_details.season_number}",
+                    f"SN {self.parsed_details.season_number}",
+                    f"Sn {self.parsed_details.season_number}",
+                    f"S{self.parsed_details.season_number}",
+                    f"{self.parsed_details.parsed_title} Season {self.parsed_details.season_number}",
+                    f"{self.parsed_details.parsed_title} SN {self.parsed_details.season_number}",
+                    f"{self.parsed_details.parsed_title} Sn {self.parsed_details.season_number}",
+                    f"{self.parsed_details.parsed_title} S{self.parsed_details.season_number}",
                     f"Season {zfilled_season}",
                     f"SN {zfilled_season}",
                     f"Sn {zfilled_season}",
                     f"S{zfilled_season}",
-                    f"{parsed_details.parsed_title} Season {zfilled_season}",
-                    f"{parsed_details.parsed_title} SN {zfilled_season}",
-                    f"{parsed_details.parsed_title} Sn {zfilled_season}",
-                    f"{parsed_details.parsed_title} S{zfilled_season}",
+                    f"{self.parsed_details.parsed_title} Season {zfilled_season}",
+                    f"{self.parsed_details.parsed_title} SN {zfilled_season}",
+                    f"{self.parsed_details.parsed_title} Sn {zfilled_season}",
+                    f"{self.parsed_details.parsed_title} S{zfilled_season}",
                 ]
             )
 
             potential_folders += [self.sanitised_title, fully_sanitised_title]
 
             for f in potential_folders:
-                folder = os.path.join(parsed_details.parent_seasons_path, f)
+                folder = os.path.join(self.parsed_details.parent_seasons_path, f)
                 if os.path.isdir(folder):
                     return folder
 

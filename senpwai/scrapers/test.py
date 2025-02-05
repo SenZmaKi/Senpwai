@@ -8,7 +8,7 @@ from senpwai.common.scraper import (
     IBYTES_TO_MBS_DIVISOR,
     AnimeMetadata,
     Download,
-    sanitise_title,
+    strip_title,
 )
 from senpwai.common.static import ROOT_DIRECTORY
 
@@ -119,10 +119,10 @@ def test_check_results_for_anime(
     test_name = f"Matching results to {anime_title}"
     test_start(test_name)
     run_time = get_run_time_later()
-    query = sanitise_title(anime_title, True).lower()
+    query = strip_title(anime_title, True).lower()
     for r in results:
         title = r[0]
-        if query == sanitise_title(title, True).lower():
+        if query == strip_title(title, True).lower():
             pass_test(test_name, run_time())
             return r
     fail_test(
@@ -425,7 +425,7 @@ class ArgParser:
         self.anime_title = self.arg_value_finder(
             args, self.arg_title, DEFAULT_ANIME_TITLE
         )
-        self.anime_title = sanitise_title(self.anime_title)
+        self.anime_title = strip_title(self.anime_title)
 
         self.verbose = self.arg_in_group_was_passed(self.arg_verbose)
         self.start_eps, self.end_eps = self.parse_start_and_end_episode(args)

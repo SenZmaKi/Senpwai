@@ -25,9 +25,7 @@ from senpwai.common.scraper import (
     AiringStatus,
     Download,
     ffmpeg_is_installed,
-    lacked_episode_numbers,
-    lacked_episodes,
-    sanitise_title,
+    strip_title,
     try_installing_ffmpeg,
 )
 from senpwai.common.static import (
@@ -277,9 +275,9 @@ def search(title: str, site: str) -> Anime | None:
         else [Anime(*r, None) for r in gogo.search(title)]
     )
     results = None
-    title_fuzzy = sanitise_title(title, True).lower()
+    title_fuzzy = strip_title(title, True).lower()
     for a in animes:
-        if sanitise_title(a.title, True).lower() == title_fuzzy:
+        if strip_title(a.title, True).lower() == title_fuzzy:
             results = a
             break
     if results is None:
@@ -561,26 +559,21 @@ def install_ffmpeg_prompt() -> bool:
     return True
 
 
-def already_has_all_episodes(
+def get_lacked_links(
     anime_details: AnimeDetails,
     start_episode: int,
     end_episode: int,
     page_links: list[str],
-) -> bool:
-    anime_details.lacked_episode_numbers = lacked_episode_numbers(
-        start_episode, end_episode, anime_details.haved_episodes
-    )
-    if not anime_details.lacked_episode_numbers:
+) -> list[str]:
+    anime_details.set_lacked_episodes(start_episode, end_episode)
+    if not anime_details.lacked_episodes:
         print_error(
             "Bakayorou, you already have all episodes within the provided range!!!"
         )
-        return True
-    lacked_eps_page_links = lacked_episodes(
-        anime_details.lacked_episode_numbers, page_links
-    )
-    page_links.clear()
-    page_links.extend(lacked_eps_page_links)
-    return False
+        return []
+
+    lacked_links = anime_details.get_lacked_links(page_links)
+    return lacked_links
 
 
 def gogo_get_hls_links(download_page_links: list[str]) -> list[str]:
@@ -627,8 +620,10 @@ def handle_pahe(parsed: Namespace, anime_details: AnimeDetails):
         cast(str, anime_details.anime.id),
         anime_details.anime.page_link,
     )
-    if already_has_all_episodes(
-        anime_details, parsed.start_episode, parsed.end_episode, episode_page_links
+    if not (
+        episode_page_links := get_lacked_links(
+            anime_details, parsed.start_episode, parsed.end_episode, episode_page_links
+        )
     ):
         return
     download_page_links = pahe_get_download_page_links(
@@ -657,11 +652,13 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
                 parsed.end_episode,
                 anime_details.anime_page_content,
             )
-            if already_has_all_episodes(
-                anime_details,
-                parsed.start_episode,
-                parsed.end_episode,
-                download_page_links,
+            if not (
+                download_page_links := get_lacked_links(
+                    anime_details,
+                    parsed.start_episode,
+                    parsed.end_episode,
+                    download_page_links,
+                )
             ):
                 return
             hls_links = gogo_get_hls_links(download_page_links)
@@ -682,7 +679,7 @@ def handle_gogo(parsed: Namespace, anime_details: AnimeDetails):
         download_page_links = gogo_get_download_page_links(
             parsed.start_episode, parsed.end_episode, anime_details.anime_page_content
         )
-        if already_has_all_episodes(
+        if get_lacked_links(
             anime_details, parsed.start_episode, parsed.end_episode, download_page_links
         ):
             return

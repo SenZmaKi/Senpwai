@@ -15,7 +15,7 @@ from senpwai.common.scraper import (
     ProgressFunction,
     get_new_home_url_from_readme,
     closest_quality_index,
-    sanitise_title,
+    strip_title,
 )
 from senpwai.scrapers.gogo.constants import (
     AJAX_SEARCH_URL,
@@ -188,9 +188,9 @@ def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
 def dub_availability_and_link(anime_title: str) -> tuple[bool, str]:
     dub_title = f"{anime_title}{DUB_EXTENSION}"
     results = search(dub_title, False)
-    sanitised_dub_title = sanitise_title(dub_title, True)
+    sanitised_dub_title = strip_title(dub_title, True)
     for res_title, link in results:
-        if sanitised_dub_title == sanitise_title(res_title, True):
+        if sanitised_dub_title == strip_title(res_title, True):
             return True, link
     return False, ""
 
