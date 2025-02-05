@@ -379,7 +379,6 @@ class AnimeDetails:
 
         def helper():
             self.filler_episodes = get_filler_episodes(self.anime.title)
-            print(f"Got filler episodes for {self.anime.title}: {self.filler_episodes}")
 
         self.fillers_thread = Thread(target=helper, daemon=True)
         self.fillers_thread.start()
@@ -406,7 +405,6 @@ class AnimeDetails:
             for episode in range(start_episode, end_episode + 1)
             if (episode not in self.haved_episodes and not is_filler(episode))
         ]
-        print(f"Lacked episodes for {self.anime.title}: {self.lacked_episodes}")
 
     def get_lacked_links(self, links: list[str]) -> list[str]:
         lacked_episode_numbers = self.lacked_episodes

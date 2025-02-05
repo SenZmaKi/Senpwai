@@ -1,5 +1,5 @@
 import re
-from typing import NamedTuple, cast
+from typing import cast
 from senpwai.common.scraper import CLIENT, strip_title
 from bs4 import BeautifulSoup, Tag
 import time

@@ -62,25 +62,27 @@ class SummaryLabel(StyledLabel):
 class HavedEpisodes(StyledLabel):
     def __init__(
         self,
+    ):
+        super().__init__(font_size=18)
+
+    def update_text(
+        self,
         start: int | None,
         end: int | None,
         haved_count: int | None,
         total_episode_count: int,
-    ):
-        super().__init__(font_size=18)
-        self.start = start
-        self.end = end
-        self.count = haved_count
+    ) -> None:
         if not haved_count:
-            self.setText("You have no episodes of this anime.")
+            self.setText("You have no episodes of this anime")
         elif haved_count >= total_episode_count:
-            self.setText("You have all the current episodes of this anime, weeeeb.")
+            self.setText("You have all the current episodes of this anime, weeeeb")
         else:
             self.setText(
-                f"You have {haved_count} episodes from {start} to {end}."
+                f"You have {haved_count} episodes from {start} to {end}"
             ) if haved_count != 1 else self.setText(
-                f"You have {haved_count} episode from {start} to {end}."
+                f"You have {haved_count} episode from {start} to {end}"
             )
+        set_minimum_size_policy(self)
 
 
 class MakeAnimeDetailsThread(QThread):
@@ -223,20 +225,23 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
         second_row_of_buttons_widget = QWidget()
         second_row_of_buttons_layout = QHBoxLayout()
 
-        start_episode = (
-            str((self.anime_details.haved_end) + 1)
-            if (
-                self.anime_details.haved_end
-                and self.anime_details.haved_end < self.anime_details.episode_count
+        def get_start_episode() -> str:
+            start_episode = (
+                str((self.anime_details.haved_end) + 1)
+                if (
+                    self.anime_details.haved_end
+                    and self.anime_details.haved_end < self.anime_details.episode_count
+                )
+                else "1"
             )
-            else "1"
-        )
+            return start_episode
+
         input_size = QSize(80, 40)
         if anime_details.metadata.airing_status != AiringStatus.UPCOMING:
             self.start_episode_input = NumberInput(21)
             self.start_episode_input.setFixedSize(input_size)
             self.start_episode_input.setPlaceholderText("START")
-            self.start_episode_input.setText(str(start_episode))
+            self.start_episode_input.setText(get_start_episode())
             self.end_episode_input = NumberInput(21)
             self.end_episode_input.setPlaceholderText("STOP")
             self.end_episode_input.setFixedSize(input_size)
@@ -262,13 +267,13 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
         third_row_of_labels_widget = QWidget()
         third_row_of_labels_layout = QHBoxLayout()
 
-        haved_episodes = HavedEpisodes(
+        haved_episodes = HavedEpisodes()
+        haved_episodes.update_text(
             self.anime_details.haved_start,
             self.anime_details.haved_end,
             self.anime_details.haved_count,
             self.anime_details.episode_count,
         )
-        set_minimum_size_policy(haved_episodes)
         third_row_of_labels_layout.addWidget(haved_episodes)
 
         def set_custom_anime_folder(folder: str) -> None:
@@ -283,6 +288,13 @@ class ChosenAnimeWindow(AbstractTemporaryWindow):
             SETTINGS.add_custom_anime_folder(
                 self.anime_details.anime.title, self.anime_details.anime_folder_path
             )
+            haved_episodes.update_text(
+                self.anime_details.haved_start,
+                self.anime_details.haved_end,
+                self.anime_details.haved_count,
+                self.anime_details.episode_count,
+            )
+            self.start_episode_input.setText(get_start_episode())
 
         folder_button = FolderPickerButton(
             100,
