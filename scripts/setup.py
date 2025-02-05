@@ -60,6 +60,7 @@ def get_options(build_dir: str, assets_dir: str, senpcli_only: bool) -> dict:
     common_options = {
         "build_exe": build_dir,
         "silent_level": 3,
+        "include_msvcr": True,
         "replace_paths": [
             (os.path.abspath("."), ""),
         ],
