@@ -20,8 +20,6 @@ pip install senpwai
 
 -   **Android (Using [termux](https://github.com/termux/termux-app), note that the android port is currently really buggy and barely even works)**
 
-***CURRENTLY BROKEN !!!***
-
 ```sh
 pkg update -y && curl https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/termux/install.sh | bash
 ```
