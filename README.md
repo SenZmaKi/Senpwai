@@ -1,3 +1,5 @@
+## Dev got depressed and quit. Maybe one day I'll come back to take care of Senpwai,  but I can't promise anything.
+
 <h1 align="center">
 <img align="center" height="80px" width="80px" src="https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/.github/images/senpwai-icon.png" alt="senpwai-icon"> Senpwai</h1>
 <p align="center">
