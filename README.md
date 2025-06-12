@@ -37,6 +37,46 @@ Needs [Python 3.11](https://www.python.org/downloads/release/python-3119)+ insta
 pip install senpwai
 ```
 
+-   **NixOS**
+
+Add this repo's flake to your flake inputs
+
+```
+# flake.nix
+{
+  # ...
+  inputs = {
+    senpwai = {
+      type = "github";
+      owner = "SenZmaKi";
+      repo = "Senpwai";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+  # ...
+}
+```
+
+then install the package provided by the flake by adding it to either `environment.systemPackages` or `home.packages`
+
+> With `environment.systemPackages` (nixosModules)
+  ```
+    { inputs, ... }: {
+      environment.systemPackages = [
+        inputs.senpwai.packages.x86_64-linux.default
+      ];
+    }
+  ```
+
+> With `home.packages` (home-manager)
+ ```
+    { inputs, ... }: {
+      home.packages = [
+        inputs.senpwai.packages.x86_64-linux.default
+      ];
+    }
+  ```
+
 -   **Android**
 
 Check [Senpcli](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-guide.md)
