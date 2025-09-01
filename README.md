@@ -69,7 +69,7 @@ Check [Senpcli](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-gui
 ## Sponsors
 
 <p>
-<a href="https://github.com/Adam1400"><img src="https://github.com/Adam1400.png" width="80px" alt="Adam1400"/></a>&nbsp;&nbsp;<a href="https://github.com/KeithBoehler"><img src="https://github.com/KeithBoehler.png" width="80px" alt="KeithBoehler" /></a>
+ <a href="https://github.com/KeithBoehler"><img src="https://github.com/KeithBoehler.png" width="80px" alt="KeithBoehler" /></a>
 </p>
 
 ## Building from Source
