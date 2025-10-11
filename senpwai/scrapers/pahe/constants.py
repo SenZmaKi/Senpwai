@@ -23,7 +23,7 @@ LOAD_EPISODES_URL = "{}&page={}"
 Generates the load episodes link from the provided anime page link and page number.
 Example: {anime_page_link}&page={page_number}
 """
-KWIK_PAGE_REGEX = re.compile(r"https?://kwik.si/f/([^\"']+)")
+KWIK_PAGE_REGEX = re.compile(r"https?://kwik.cx/f/([^\"']+)")
 DUB_PATTERN = "eng"
 
 EPISODE_SIZE_REGEX = re.compile(r"\b(\d+)MB\b")
