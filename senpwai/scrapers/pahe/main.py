@@ -1,3 +1,4 @@
+import datetime
 import re
 import math
 from typing import Any, Callable, NamedTuple, cast
@@ -101,9 +102,7 @@ def get_episode_pages_info(
     start_page_num = math.ceil(start_episode / per_page)
     end_page_num = math.ceil(end_episode / per_page)
     total = (end_page_num - start_page_num) + 1
-    return EpisodePagesInfo(
-        start_page_num, end_page_num, total, first_page_json
-    )
+    return EpisodePagesInfo(start_page_num, end_page_num, total, first_page_json)
 
 
 class GetEpisodePageLinks(ProgressFunction):
@@ -130,7 +129,7 @@ class GetEpisodePageLinks(ProgressFunction):
             episode_num = episode["episode"] - (first_episode - 1)
             if episode_num == start_episode:
                 start_idx = idx
-            if episode_num == end_episode: 
+            if episode_num == end_episode:
                 end_idx = idx
                 break
         episodes_data = episodes_data[start_idx : end_idx + 1]
@@ -283,7 +282,7 @@ def calculate_total_download_size(bound_info: list[str]) -> int:
         match = cast(re.Match, EPISODE_SIZE_REGEX.search(episode))
         size = int(match.group(1))
         total_size += size
-    return total_size 
+    return total_size
 
 
 def get_char_code(content: str, s1: int) -> int:
