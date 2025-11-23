@@ -4,11 +4,13 @@ import 'package:senpwai/shared/log.dart';
 
 Future<void> testSearch() async {
   final scraper = AnimepaheScraper();
-  final result = await scraper.search(
+  final results = await scraper.search(
     options: SearchOptions(keyword: "one piece"),
   );
-  if (result.nextPage != null) {
-    await result.nextPage!();
+  expect(results.items.length, greaterThan(0));
+  if (results.nextPage != null) {
+    final results2 = await results.nextPage!();
+    expect(results2.items.length, greaterThan(0));
   }
 }
 

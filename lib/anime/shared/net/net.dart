@@ -11,7 +11,7 @@ Dio defaultDio() {
     PrettyDioLogger(
       enabled: kDebugMode,
       requestHeader: true,
-      responseBody: true,
+      responseBody: false,
     ),
   );
   return dio;

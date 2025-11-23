@@ -40,6 +40,8 @@ dependencies:
   dio_cookie_manager: ^3.3.0
   cookie_jar: ^4.0.8
   pretty_dio_logger: ^1.4.0
+  html: ^0.15.6
+  fuzzywuzzy: ^1.2.0
 
 dev_dependencies:
   flutter_test:
