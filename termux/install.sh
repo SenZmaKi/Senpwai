@@ -5,8 +5,8 @@ set -e
 echo -e "\033[0;32mUpdating pkg\033[0m"
 pkg update -y
 
-echo -e "\033[0;32mInstalling python 3.11\033[0m"
-pkg install python=3.11.* -y
+echo -e "\033[0;32mInstalling python\033[0m"
+pkg install python -y
 
 echo -e "\033[0;32mInstalling git\033[0m"
 pkg install git -y
@@ -26,7 +26,7 @@ source .venv/bin/activate
 echo -e "\033[0;32mInstalling python-cryptography\033[0m"
 apt download python-cryptography
 dpkg -x python-cryptography_* $PREFIX/tmp
-mv $PREFIX/tmp${PREFIX}/lib/python3.11/site-packages/* .venv/lib/python3.11/site-packages
+mv $PREFIX/tmp${PREFIX}/lib/python3.12/site-packages/* .venv/lib/python3.12/site-packages
 
 echo -e "\033[0;32mInstalling dependencies\033[0m"
 pip install -r termux/requirements.txt
