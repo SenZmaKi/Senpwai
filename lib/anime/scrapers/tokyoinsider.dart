@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
+import 'package:html/dom.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/anime/scrapers/shared/shared.dart';
 import 'package:senpwai/anime/shared/net/net.dart';
+
+List<Element> parsePageResults(Document htmlPage) =>
+    htmlPage.querySelectorAll("div.c_h2 > div > a, div.c_h2b > div > a");
 
 class Constants {
   static const baseUrl = "https://www.tokyoinsider.com";
@@ -50,9 +54,7 @@ class AnimeListCache {
     log.info(!_isInitialized ? "Initializing cache" : "Refreshing cache");
     final response = await _dio.get("${Constants.baseUrl}/anime/list");
     final htmlPage = parseHtml(response.data);
-    final targetElements = htmlPage.querySelectorAll(
-      "div.c_h2 > a, div.c_h2b > a",
-    );
+    final targetElements = parsePageResults(htmlPage);
     _cache = targetElements
         .map(
           (e) => SearchResult(
@@ -92,14 +94,24 @@ class AnimeListCache {
   }
 }
 
-class Episode {
-  final String title;
+class EpisodePage {
+  final String episodeTitle;
   final String url;
 
-  Episode({required this.title, required this.url});
+  EpisodePage({required this.episodeTitle, required this.url});
 
   @override
-  String toString() => "Episode(title=$title, url=$url)";
+  String toString() => "Episode(title=$episodeTitle, url=$url)";
+}
+
+class EpisodeDownloadLinks {
+  final String filename;
+  final String url;
+
+  EpisodeDownloadLinks({required this.filename, required this.url});
+
+  @override
+  String toString() => "Episode(filename=$filename, url=$url)";
 }
 
 class TokyoInsiderScraper {
@@ -116,15 +128,11 @@ class TokyoInsiderScraper {
     return _animeListCache.search(keyword: keyword);
   }
 
-  Future<List<Episode>> getEpisodes({
-    required String animeUrl,
-  }) async {
+  Future<List<EpisodePage>> getEpisodePages({required String animeUrl}) async {
     final response = await _dio.get(animeUrl);
     final htmlPage = parseHtml(response.data);
-    final targetElements = htmlPage.querySelectorAll(
-      "div.c_h2 > div > a, div.c_h2b > div > a",
-    );
-    final episode = targetElements.map((el) {
+    final targetElements = parsePageResults(htmlPage);
+    final episodePages = targetElements.map((el) {
       final path = el.attributes["href"];
       if (path == null) {
         throw ScrapingException(
@@ -132,9 +140,27 @@ class TokyoInsiderScraper {
         );
       }
       final url = "${Constants.baseUrl}$path";
-      final title = el.text.trim();
-      return Episode(title: title, url: url);
+      final episodeTitle = el.text.trim();
+      return EpisodePage(episodeTitle: episodeTitle, url: url);
     });
-    return episode.toList();
+    return episodePages.toList();
+  }
+
+  Future<List<EpisodeDownloadLinks>> getEpisodeDownloadLinks({
+    required EpisodePage episodePage,
+  }) async {
+    final response = await _dio.get(episodePage.url);
+    final htmlPage = parseHtml(response.data);
+    final targetElements = parsePageResults(htmlPage);
+    final episodeDownloadLinks = targetElements.map((el) {
+      final path = el.attributes["href"];
+      if (path == null) {
+        throw ScrapingException("Failed to find episode url for $episodePage");
+      }
+      final filename = el.text.trim();
+      final url = "${Constants.baseUrl}$path";
+      return EpisodeDownloadLinks(filename: filename, url: url);
+    }).toList();
+    return episodeDownloadLinks;
   }
 }
