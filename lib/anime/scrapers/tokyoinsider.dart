@@ -34,6 +34,8 @@ class SearchOptions {
   SearchOptions({required this.keyword});
 }
 
+class EpisodeUrl {}
+
 class AnimeListCache {
   /// `~ 6000` entries as of today 23rd November 2025
   Set<SearchResult>? _cache;
@@ -90,6 +92,16 @@ class AnimeListCache {
   }
 }
 
+class Episode {
+  final String title;
+  final String url;
+
+  Episode({required this.title, required this.url});
+
+  @override
+  String toString() => "Episode(title=$title, url=$url)";
+}
+
 class TokyoInsiderScraper {
   final Dio _dio;
   final log = Logger("senpwai.anime.scrapers.tokyoinsider");
@@ -102,5 +114,27 @@ class TokyoInsiderScraper {
   Future<List<SearchResult>> search({required SearchOptions options}) async {
     final keyword = options.keyword;
     return _animeListCache.search(keyword: keyword);
+  }
+
+  Future<List<Episode>> getEpisodes({
+    required String animeUrl,
+  }) async {
+    final response = await _dio.get(animeUrl);
+    final htmlPage = parseHtml(response.data);
+    final targetElements = htmlPage.querySelectorAll(
+      "div.c_h2 > div > a, div.c_h2b > div > a",
+    );
+    final episode = targetElements.map((el) {
+      final path = el.attributes["href"];
+      if (path == null) {
+        throw ScrapingException(
+          "Could not find episode url for animeUrl=$animeUrl",
+        );
+      }
+      final url = "${Constants.baseUrl}$path";
+      final title = el.text.trim();
+      return Episode(title: title, url: url);
+    });
+    return episode.toList();
   }
 }
