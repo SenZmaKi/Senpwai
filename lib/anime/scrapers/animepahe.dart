@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
+import 'package:senpwai/anime/scrapers/shared/shared.dart';
 import 'package:senpwai/anime/shared/net/net.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
@@ -82,6 +85,39 @@ class SearchOptions {
   SearchOptions({required this.keyword, this.page = 1});
 }
 
+class EpisodePagesInfo {
+  final int startPageNum;
+  final int endPageNum;
+  final int total;
+  final Map<String, dynamic> firstPageJson;
+
+  EpisodePagesInfo({
+    required this.startPageNum,
+    required this.endPageNum,
+    required this.total,
+    required this.firstPageJson,
+  });
+
+  @override
+  String toString() {
+    return "EpisodePagesInfo(startPageNum: $startPageNum, endPageNum: $endPageNum, total: $total, firstPageJson: $firstPageJson)";
+  }
+}
+
+class EpisodePage {
+  final String url;
+  final int episode;
+
+  EpisodePage({required this.url, required this.episode});
+}
+
+class EpisodeSession {
+  final String session;
+  final int episodeNumber;
+
+  EpisodeSession({required this.session, required this.episodeNumber});
+}
+
 class AnimepaheScraper {
   final Dio _apiDio;
   final log = Logger("senpwai.anime.scrapers.animepahe");
@@ -136,5 +172,97 @@ class AnimepaheScraper {
     );
     log.fine("Search results: $pagination");
     return pagination;
+  }
+
+  Future<Map<String, dynamic>> getEpisodeListPagesJson({
+    required String animeId,
+    required int pageNum,
+  }) async {
+    final response = await _apiDio.get(
+      "release",
+      queryParameters: {"id": animeId, "sort": "episode_asc", "page": pageNum},
+    );
+    return response.data;
+  }
+
+  Future<EpisodePagesInfo> calculateEpisodeListPagesInfo({
+    required int startEpisode,
+    required int endEpisode,
+    required String animeId,
+  }) async {
+    final page = await getEpisodeListPagesJson(animeId: animeId, pageNum: 1);
+    final perPage = page["per_page"] as int;
+    final startPageNum = (startEpisode / perPage).ceil();
+    final endPageNum = (endEpisode / perPage).ceil();
+    final total = (endPageNum - startPageNum) + 1;
+    return EpisodePagesInfo(
+      startPageNum: startPageNum,
+      endPageNum: endPageNum,
+      total: total,
+      firstPageJson: page,
+    );
+  }
+
+  Future<List<EpisodeSession>> getEpisodeListPageSessions({
+    required String animeId,
+    required int pageNum,
+    Map<String, dynamic>? pageJson,
+  }) async {
+    pageJson ??= await getEpisodeListPagesJson(
+      animeId: animeId,
+      pageNum: pageNum,
+    );
+    final episodes = pageJson["data"] as List<dynamic>;
+    return episodes
+        .map(
+          (e) => EpisodeSession(
+            session: e["session"],
+            episodeNumber: e["episode"],
+          ),
+        )
+        .toList();
+  }
+
+  List<EpisodePage> generateEpisodePages({
+    required String animeId,
+    required int firstEpisode,
+    required int startEpisode,
+    required int endEpisode,
+    required List<EpisodeSession> episodeSessions,
+  }) {
+    int? startIdx;
+    int? endIdx;
+
+    for (var idx = 0; idx < episodeSessions.length; idx++) {
+      // Sometimes for sequels animepahe continues the episode numbers from the last episode of the previous season
+      // For instance  "Boku no Hero Academia 2nd Season" episode 1 is shown as episode 14
+      // So we compute episode - (first_episode - 1) to get the real episode number e.g.,
+      // 14 - (14 - 1) = 1
+      // 15 - (14 - 1) = 2 and so on
+      final episodeSession = episodeSessions[idx];
+      final episode = episodeSession.episodeNumber - (firstEpisode - 1);
+      if (episode == startEpisode) {
+        startIdx = idx;
+      }
+      if (episode == endEpisode) {
+        endIdx = idx;
+        break;
+      }
+    }
+    if (startIdx == null || endIdx == null) {
+      throw ScrapingException(
+        message: "Could not find ${startIdx == null ? "start" : "end"} episode",
+        metadata: {
+          "animeId": animeId,
+          "startEpisode": startEpisode,
+          "endEpisode": endEpisode,
+          "episodeSessions": episodeSessions,
+        },
+      );
+    }
+    return episodeSessions
+        .sublist(startIdx, endIdx + 1)
+        .map((e) => EpisodePage(url: e.session, episode: e.episodeNumber))
+        .toList();
   }
 }

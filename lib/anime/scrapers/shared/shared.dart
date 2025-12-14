@@ -7,7 +7,8 @@ Document parseHtml(dynamic input) {
 
 class ScrapingException implements Exception {
   final String message;
-  ScrapingException(this.message);
+  final Map<String, dynamic> metadata;
+  ScrapingException({required this.message, required this.metadata});
 
   @override
   String toString() => 'ScrapingException: $message';

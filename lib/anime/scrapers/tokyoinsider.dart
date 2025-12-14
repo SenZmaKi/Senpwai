@@ -136,7 +136,8 @@ class TokyoInsiderScraper {
       final path = el.attributes["href"];
       if (path == null) {
         throw ScrapingException(
-          "Could not find episode url for animeUrl=$animeUrl",
+          message: "Could not find episode url",
+          metadata: {"animeUrl": animeUrl},
         );
       }
       final url = "${Constants.baseUrl}$path";
@@ -155,7 +156,10 @@ class TokyoInsiderScraper {
     final episodeDownloadLinks = targetElements.map((el) {
       final path = el.attributes["href"];
       if (path == null) {
-        throw ScrapingException("Failed to find episode url for $episodePage");
+        throw ScrapingException(
+          message: "Failed to find episode url",
+          metadata: {"episodePage": episodePage},
+        );
       }
       final filename = el.text.trim();
       final url = "${Constants.baseUrl}$path";
