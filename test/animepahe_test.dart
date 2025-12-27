@@ -1,27 +1,27 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
-import 'package:senpwai/anime/scrapers/animepahe.dart';
+import 'package:senpwai/anime/sources/animepahe.dart' as animepahe;
 import 'package:senpwai/shared/log.dart';
 
-final log = Logger("senpwai.anime.scrapers.animepahe.test");
+final log = Logger("senpwai.anime.sources.animepahe.test");
 
-Future<SearchResult> testSearch({AnimepaheScraper? scraper}) async {
-  scraper ??= AnimepaheScraper();
-  final results = await scraper.search(
-    options: SearchOptions(keyword: "one piece"),
+Future<animepahe.AnimeResult> testSearch({animepahe.Source? source}) async {
+  source ??= animepahe.Source();
+  final results = await source.search(
+    params: animepahe.SearchParams(term: "one piece"),
   );
   expect(results.items.length, greaterThan(0));
-  if (results.nextPage != null) {
-    final results2 = await results.nextPage!();
+  if (results.fetchNextPage != null) {
+    final results2 = await results.fetchNextPage!();
     expect(results2.items.length, greaterThan(0));
   }
   return results.items.first;
 }
 
-Future<void> testGetEpisodeListPagesJson() async {
-  final scraper = AnimepaheScraper();
-  final result = await testSearch(scraper: scraper);
-  final json = await scraper.getEpisodeListPagesJson(
+Future<void> testFetchEpisodeListPageJson() async {
+  final source = animepahe.Source();
+  final result = await testSearch(source: source);
+  final json = await source.fetchEpisodeListPageJson(
     animeId: result.session,
     pageNum: 1,
   );
@@ -29,10 +29,10 @@ Future<void> testGetEpisodeListPagesJson() async {
   expect(json["per_page"], isNotNull);
 }
 
-Future<void> testCalculateEpisodeListPagesInfo() async {
-  final scraper = AnimepaheScraper();
-  final result = await testSearch(scraper: scraper);
-  final info = await scraper.calculateEpisodeListPagesInfo(
+Future<void> testComputeEpisodePageRange() async {
+  final source = animepahe.Source();
+  final result = await testSearch(source: source);
+  final info = await source.computeEpisodePageRange(
     startEpisode: 1,
     endEpisode: 10,
     animeId: result.session,
@@ -42,13 +42,13 @@ Future<void> testCalculateEpisodeListPagesInfo() async {
   expect(info.firstPageJson["per_page"], isNotNull);
 }
 
-Future<List<EpisodeSession>> testGetEpisodeListPageSessions({
-  SearchResult? result,
-  AnimepaheScraper? scraper,
+Future<List<animepahe.EpisodeSession>> testFetchEpisodeSessions({
+  animepahe.AnimeResult? result,
+  animepahe.Source? source,
 }) async {
-  scraper ??= AnimepaheScraper();
-  result ??= await testSearch(scraper: scraper);
-  final sessions = await scraper.getEpisodeListPageSessions(
+  source ??= animepahe.Source();
+  result ??= await testSearch(source: source);
+  final sessions = await source.fetchEpisodeSessions(
     animeId: result.session,
     pageNum: 1,
   );
@@ -56,12 +56,12 @@ Future<List<EpisodeSession>> testGetEpisodeListPageSessions({
   return sessions;
 }
 
-Future<void> testGenerateEpisodePages() async {
-  final scraper = AnimepaheScraper();
-  final result = await testSearch(scraper: scraper);
-  final sessions = await testGetEpisodeListPageSessions(scraper: scraper);
+Future<void> testFindEpisodeSessionsWithinRange() async {
+  final source = animepahe.Source();
+  final result = await testSearch(source: source);
+  final sessions = await testFetchEpisodeSessions(source: source);
   const endEpisode = 10;
-  final pages = scraper.generateEpisodePages(
+  final pages = source.findEpisodeSessionsWithinRange(
     animeId: result.session,
     firstEpisode: 1,
     startEpisode: 1,
@@ -75,11 +75,11 @@ void main() {
   setUpAll(setupLogger);
 
   test("animepahe.search", testSearch);
-  test("animepahe.getEpisodeListPagesJson", testGetEpisodeListPagesJson);
+  test("animepahe.fetchEpisodeListPageJson", testFetchEpisodeListPageJson);
+  test("animepahe.computeEpisodePageRange", testComputeEpisodePageRange);
+  test("animepahe.fetchEpisodeSessions", testFetchEpisodeSessions);
   test(
-    "animepahe.calculateEpisodeListPagesInfo",
-    testCalculateEpisodeListPagesInfo,
+    "animepahe.findEpisodeSessionsWithinRange",
+    testFindEpisodeSessionsWithinRange,
   );
-  test("animepahe.getEpisodeListPageSessions", testGetEpisodeListPageSessions);
-  test("animepahe.generateEpisodePages", testGenerateEpisodePages);
 }

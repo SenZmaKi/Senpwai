@@ -3,9 +3,10 @@ import 'package:dio/dio.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:html/dom.dart';
 import 'package:logging/logging.dart';
-import 'package:senpwai/anime/scrapers/shared/shared.dart';
+import 'package:senpwai/anime/sources/shared/shared.dart';
 import 'package:senpwai/anime/shared/net/net.dart';
 
+final log = Logger("senpwai.anime.sources.tokyoinsider");
 List<Element> parsePageResults(Document htmlPage) =>
     htmlPage.querySelectorAll("div.c_h2 > div > a, div.c_h2b > div > a");
 
@@ -13,37 +14,43 @@ class Constants {
   static const baseUrl = "https://www.tokyoinsider.com";
 }
 
-class SearchResult {
+class AnimeResult {
   final String title;
   final String url;
 
-  SearchResult({required this.title, required this.url});
+  AnimeResult({required this.title, required this.url});
 
   @override
   String toString() {
-    return "SearchResult(title: $title, url: $url)";
+    return "AnimeResult(title: $title, url: $url)";
   }
 }
 
-class ResultAndScore {
-  final SearchResult result;
+class AnimeResultAndScore {
+  final AnimeResult result;
   final int score;
 
-  ResultAndScore({required this.result, required this.score});
+  AnimeResultAndScore({required this.result, required this.score});
 }
 
-class SearchOptions {
-  final String keyword;
+class SearchParams {
+  final String term;
 
-  SearchOptions({required this.keyword});
+  /// Minimum match score for the title to be considered a match
+  final int minMatchScore;
+
+  SearchParams({required this.term, this.minMatchScore = 70});
+
+  @override
+  String toString() {
+    return "SearchParams(term: $term, minMatchScore: $minMatchScore)";
+  }
 }
-
-class EpisodeUrl {}
 
 class AnimeListCache {
   /// `~ 6000` entries as of today 23rd November 2025
-  Set<SearchResult>? _cache;
-  final log = Logger("senpwai.anime.scrapers.tokyoinsider.cache");
+  Set<AnimeResult>? _cache;
+  final log = Logger("senpwai.anime.sources.tokyoinsider.animelistcache");
   final _expiryDuration = Duration(days: 1);
   bool _isInitialized = false;
   final Dio _dio;
@@ -57,7 +64,7 @@ class AnimeListCache {
     final targetElements = parsePageResults(htmlPage);
     _cache = targetElements
         .map(
-          (e) => SearchResult(
+          (e) => AnimeResult(
             title: e.text.trim(),
             url: "${Constants.baseUrl}${e.attributes['href']}",
           ),
@@ -75,19 +82,19 @@ class AnimeListCache {
     _isInitialized = true;
   }
 
-  Future<List<SearchResult>> search({
-    required String keyword,
-    int minScore = 70,
-  }) async {
+  Future<List<AnimeResult>> search({required SearchParams params}) async {
+    final term = params.term;
+    final minMatchScore = params.minMatchScore;
+
     await _initialize();
     final resultsAndRatios = _cache!
         .map(
-          (result) => ResultAndScore(
+          (result) => AnimeResultAndScore(
             result: result,
-            score: weightedRatio(keyword, result.title),
+            score: weightedRatio(term, result.title),
           ),
         )
-        .where((e) => e.score >= minScore)
+        .where((e) => e.score >= minMatchScore)
         .toList();
     resultsAndRatios.sort((a, b) => b.score.compareTo(a.score));
     return resultsAndRatios.map((e) => e.result).toList();
@@ -95,40 +102,44 @@ class AnimeListCache {
 }
 
 class EpisodePage {
-  final String episodeTitle;
+  final String title;
   final String url;
 
-  EpisodePage({required this.episodeTitle, required this.url});
+  EpisodePage({required this.title, required this.url});
 
   @override
-  String toString() => "Episode(title=$episodeTitle, url=$url)";
+  String toString() => "EpisodePage(title: $title, url: $url)";
 }
 
-class EpisodeDownloadLinks {
+class EpisodeDownloadLink {
   final String filename;
   final String url;
 
-  EpisodeDownloadLinks({required this.filename, required this.url});
+  EpisodeDownloadLink({required this.filename, required this.url});
 
   @override
-  String toString() => "Episode(filename=$filename, url=$url)";
+  String toString() => "EpisodeDownloadLink(filename: $filename, url: $url)";
 }
 
-class TokyoInsiderScraper {
+class Source {
   final Dio _dio;
-  final log = Logger("senpwai.anime.scrapers.tokyoinsider");
   late final AnimeListCache _animeListCache;
 
-  TokyoInsiderScraper() : _dio = defaultDio() {
+  Source() : _dio = defaultDio() {
     _animeListCache = AnimeListCache(dio: _dio);
   }
 
-  Future<List<SearchResult>> search({required SearchOptions options}) async {
-    final keyword = options.keyword;
-    return _animeListCache.search(keyword: keyword);
+  Future<List<AnimeResult>> search({required SearchParams params}) async {
+    log.info("Searching for $params");
+    final results = await _animeListCache.search(params: params);
+    log.fine("Search results: $results");
+    return results;
   }
 
-  Future<List<EpisodePage>> getEpisodePages({required String animeUrl}) async {
+  Future<List<EpisodePage>> fetchEpisodePages({
+    required String animeUrl,
+  }) async {
+    log.info("Fetching episode pages for $animeUrl");
     final response = await _dio.get(animeUrl);
     final htmlPage = parseHtml(response.data);
     final targetElements = parsePageResults(htmlPage);
@@ -141,15 +152,17 @@ class TokyoInsiderScraper {
         );
       }
       final url = "${Constants.baseUrl}$path";
-      final episodeTitle = el.text.trim();
-      return EpisodePage(episodeTitle: episodeTitle, url: url);
-    });
-    return episodePages.toList();
+      final title = el.text.trim();
+      return EpisodePage(title: title, url: url);
+    }).toList();
+    log.fine("Fetched episode pages: $episodePages");
+    return episodePages;
   }
 
-  Future<List<EpisodeDownloadLinks>> getEpisodeDownloadLinks({
+  Future<List<EpisodeDownloadLink>> fetchEpisodeDownloadLinks({
     required EpisodePage episodePage,
   }) async {
+    log.info("Fetching episode download links for $episodePage");
     final response = await _dio.get(episodePage.url);
     final htmlPage = parseHtml(response.data);
     final targetElements = parsePageResults(htmlPage);
@@ -163,8 +176,9 @@ class TokyoInsiderScraper {
       }
       final filename = el.text.trim();
       final url = "${Constants.baseUrl}$path";
-      return EpisodeDownloadLinks(filename: filename, url: url);
+      return EpisodeDownloadLink(filename: filename, url: url);
     }).toList();
+    log.fine("Fetched episode download links: $episodeDownloadLinks");
     return episodeDownloadLinks;
   }
 }

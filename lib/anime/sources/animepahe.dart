@@ -1,13 +1,13 @@
-import 'dart:convert';
-
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
-import 'package:senpwai/anime/scrapers/shared/shared.dart';
+import 'package:senpwai/anime/sources/shared/shared.dart';
 import 'package:senpwai/anime/shared/net/net.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
-class SearchResult {
+final log = Logger("senpwai.anime.sources.animepahe");
+
+class AnimeResult {
   int id;
   String title;
   String type;
@@ -19,7 +19,7 @@ class SearchResult {
   String poster;
   String session;
 
-  SearchResult({
+  AnimeResult({
     required this.id,
     required this.title,
     required this.type,
@@ -32,7 +32,7 @@ class SearchResult {
     required this.session,
   });
 
-  factory SearchResult.fromJson(Map<String, dynamic> json) => SearchResult(
+  factory AnimeResult.fromJson(Map<String, dynamic> json) => AnimeResult(
     id: json["id"],
     title: json["title"],
     type: json["type"],
@@ -47,7 +47,7 @@ class SearchResult {
 
   @override
   String toString() {
-    return "SearchResult(id: $id, title: $title, type: $type, episodes: $episodes, status: $status, season: $season, year: $year, score: $score, poster: $poster, session: $session)";
+    return "AnimeResult(id: $id, title: $title, type: $type, episodes: $episodes, status: $status, season: $season, year: $year, score: $score, poster: $poster, session: $session)";
   }
 }
 
@@ -56,19 +56,19 @@ class Pagination<T> {
   final int perPage;
   final int totalPages;
   final T items;
-  final Future<Pagination<T>> Function()? nextPage;
+  final Future<Pagination<T>> Function()? fetchNextPage;
 
   Pagination({
     required this.currentPage,
     required this.totalPages,
     required this.items,
-    required this.nextPage,
+    required this.fetchNextPage,
     required this.perPage,
   });
 
   @override
   String toString() {
-    return "Pagination(currentPage: $currentPage, totalPages: $totalPages, perPage: $perPage, items: $items, nextPage: $nextPage)";
+    return "Pagination(currentPage: $currentPage, totalPages: $totalPages, perPage: $perPage, items: $items, fetchNextPage: $fetchNextPage)";
   }
 }
 
@@ -78,20 +78,25 @@ class Constants {
   static const apiEntryPoint = "$paheHome/api?m=";
 }
 
-class SearchOptions {
-  final String keyword;
+class SearchParams {
+  final String term;
   final int page;
 
-  SearchOptions({required this.keyword, this.page = 1});
+  SearchParams({required this.term, this.page = 1});
+
+  @override
+  String toString() {
+    return "SearchParams(term: $term, page: $page)";
+  }
 }
 
-class EpisodePagesInfo {
+class EpisodePageRange {
   final int startPageNum;
   final int endPageNum;
   final int total;
   final Map<String, dynamic> firstPageJson;
 
-  EpisodePagesInfo({
+  EpisodePageRange({
     required this.startPageNum,
     required this.endPageNum,
     required this.total,
@@ -100,29 +105,24 @@ class EpisodePagesInfo {
 
   @override
   String toString() {
-    return "EpisodePagesInfo(startPageNum: $startPageNum, endPageNum: $endPageNum, total: $total, firstPageJson: $firstPageJson)";
+    return "EpisodePageRange(startPageNum: $startPageNum, endPageNum: $endPageNum, total: $total, firstPageJson: $firstPageJson)";
   }
-}
-
-class EpisodePage {
-  final String url;
-  final int episode;
-
-  EpisodePage({required this.url, required this.episode});
 }
 
 class EpisodeSession {
   final String session;
-  final int episodeNumber;
+  final int number;
 
-  EpisodeSession({required this.session, required this.episodeNumber});
+  EpisodeSession({required this.session, required this.number});
+
+  @override
+  String toString() => "EpisodeSession(session: $session, number: $number)";
 }
 
-class AnimepaheScraper {
+class Source {
   final Dio _apiDio;
-  final log = Logger("senpwai.anime.scrapers.animepahe");
 
-  AnimepaheScraper() : _apiDio = _buildApiDio();
+  Source() : _apiDio = _buildApiDio();
 
   static Dio _buildApiDio() {
     final uri = Uri.parse(Constants.paheHome);
@@ -139,42 +139,41 @@ class AnimepaheScraper {
     return apiDio;
   }
 
-  Future<Pagination<List<SearchResult>>> search({
-    required SearchOptions options,
+  Future<Pagination<List<AnimeResult>>> search({
+    required SearchParams params,
   }) async {
-    final keyword = options.keyword;
-    final page = options.page;
-
-    log.info("Searching for (keyword: $keyword, page: $page)");
+    log.info("Searching for $params");
+    final term = params.term;
+    final page = params.page;
 
     final response = await _apiDio.get(
       "search",
-      queryParameters: {"q": keyword, "page": page},
+      queryParameters: {"q": term, "page": page},
     );
     final data = response.data;
     final results = data["data"] as List<dynamic>;
-    final items = results.map((e) => SearchResult.fromJson(e)).toList();
+    final items = results.map((e) => AnimeResult.fromJson(e)).toList();
     final currentPage = page;
     final totalPages = data["total"] as int;
     final perPage = data["per_page"] as int;
 
     final nextPage = currentPage < totalPages
         ? () => search(
-            options: SearchOptions(keyword: keyword, page: page + 1),
+            params: SearchParams(term: term, page: page + 1),
           )
         : null;
     final pagination = Pagination(
       currentPage: currentPage,
       totalPages: totalPages,
       items: items,
-      nextPage: nextPage,
+      fetchNextPage: nextPage,
       perPage: perPage,
     );
     log.fine("Search results: $pagination");
     return pagination;
   }
 
-  Future<Map<String, dynamic>> getEpisodeListPagesJson({
+  Future<Map<String, dynamic>> fetchEpisodeListPageJson({
     required String animeId,
     required int pageNum,
   }) async {
@@ -185,17 +184,17 @@ class AnimepaheScraper {
     return response.data;
   }
 
-  Future<EpisodePagesInfo> calculateEpisodeListPagesInfo({
+  Future<EpisodePageRange> computeEpisodePageRange({
     required int startEpisode,
     required int endEpisode,
     required String animeId,
   }) async {
-    final page = await getEpisodeListPagesJson(animeId: animeId, pageNum: 1);
+    final page = await fetchEpisodeListPageJson(animeId: animeId, pageNum: 1);
     final perPage = page["per_page"] as int;
     final startPageNum = (startEpisode / perPage).ceil();
     final endPageNum = (endEpisode / perPage).ceil();
     final total = (endPageNum - startPageNum) + 1;
-    return EpisodePagesInfo(
+    return EpisodePageRange(
       startPageNum: startPageNum,
       endPageNum: endPageNum,
       total: total,
@@ -203,33 +202,33 @@ class AnimepaheScraper {
     );
   }
 
-  Future<List<EpisodeSession>> getEpisodeListPageSessions({
+  Future<List<EpisodeSession>> fetchEpisodeSessions({
     required String animeId,
     required int pageNum,
     Map<String, dynamic>? pageJson,
   }) async {
-    pageJson ??= await getEpisodeListPagesJson(
+    pageJson ??= await fetchEpisodeListPageJson(
       animeId: animeId,
       pageNum: pageNum,
     );
-    final episodes = pageJson["data"] as List<dynamic>;
-    return episodes
-        .map(
-          (e) => EpisodeSession(
-            session: e["session"],
-            episodeNumber: e["episode"],
-          ),
-        )
+    final episodeSessionsJson = pageJson["data"] as List<dynamic>;
+    final episodeSessions = episodeSessionsJson
+        .map((e) => EpisodeSession(session: e["session"], number: e["episode"]))
         .toList();
+    log.fine("Fetched episode sessions: $episodeSessions");
+    return episodeSessions;
   }
 
-  List<EpisodePage> generateEpisodePages({
+  List<EpisodeSession> findEpisodeSessionsWithinRange({
     required String animeId,
     required int firstEpisode,
     required int startEpisode,
     required int endEpisode,
     required List<EpisodeSession> episodeSessions,
   }) {
+    log.info(
+      "Finding episode sessions within range ($animeId: animeId, $firstEpisode: firstEpisode, $startEpisode: startEpisode, $endEpisode: endEpisode, $episodeSessions: episodeSessions)",
+    );
     int? startIdx;
     int? endIdx;
 
@@ -240,7 +239,7 @@ class AnimepaheScraper {
       // 14 - (14 - 1) = 1
       // 15 - (14 - 1) = 2 and so on
       final episodeSession = episodeSessions[idx];
-      final episode = episodeSession.episodeNumber - (firstEpisode - 1);
+      final episode = episodeSession.number - (firstEpisode - 1);
       if (episode == startEpisode) {
         startIdx = idx;
       }
@@ -260,9 +259,12 @@ class AnimepaheScraper {
         },
       );
     }
-    return episodeSessions
+    final withinRangeEpisodeSessions = episodeSessions
         .sublist(startIdx, endIdx + 1)
-        .map((e) => EpisodePage(url: e.session, episode: e.episodeNumber))
         .toList();
+    log.fine(
+      "Found episode sessions within range: $withinRangeEpisodeSessions",
+    );
+    return withinRangeEpisodeSessions;
   }
 }
