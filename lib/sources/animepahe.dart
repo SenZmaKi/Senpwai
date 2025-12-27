@@ -9,6 +9,15 @@ import 'package:senpwai/shared/shared.dart' as shared;
 
 final log = Logger("senpwai.anime.sources.animepahe");
 
+class DownloadLinkMatchException implements Exception {
+  final String message;
+
+  DownloadLinkMatchException(this.message);
+
+  @override
+  String toString() => 'DownloadLinkMatchException: $message';
+}
+
 class AnimeResult {
   int id;
   String title;
@@ -78,7 +87,7 @@ class Constants {
   static const paheDomain = "animepahe.si";
   static const paheHome = "https://$paheDomain";
   static const apiEntryPoint = "$paheHome/api?m=";
-  static const dubSuffix = "eng";
+  static const englishSuffix = "eng";
 
   static final estimatedSizeRegex = RegExp(r"\b(\d+)MB\b");
 
@@ -133,20 +142,20 @@ class DownloadLink {
   final String filename;
   final String url;
   final int estimatedSizeBytes;
-  final bool isDub;
-  final String resolution;
+  final Language audioLanguage;
+  final Resolution resolution;
 
   DownloadLink({
     required this.filename,
     required this.url,
     required this.estimatedSizeBytes,
-    required this.isDub,
+    required this.audioLanguage,
     required this.resolution,
   });
 
   @override
   String toString() {
-    return "DownloadLink(filename: $filename, url: $url, estimatedSizeBytes: $estimatedSizeBytes, isDub: $isDub, resolution: $resolution)";
+    return "DownloadLink(filename: $filename, url: $url, estimatedSizeBytes: $estimatedSizeBytes, audioLanguage: $audioLanguage, resolution: $resolution)";
   }
 }
 
@@ -336,7 +345,7 @@ class Source {
         metadata: {"filename": filename, "element": element},
       );
     }
-    final isDub = checkIfIsDub(filename);
+    final audioLanguage = parseAudioLanguage(filename);
     final estimatedSizeBytes = parseEstimatedSizeBytes(filename);
     if (estimatedSizeBytes == null) {
       throw ScrapingException(
@@ -348,13 +357,51 @@ class Source {
       filename: filename,
       url: url,
       resolution: resolution,
-      isDub: isDub,
+      audioLanguage: audioLanguage,
       estimatedSizeBytes: estimatedSizeBytes,
     );
   }
 
-  bool checkIfIsDub(String downloadFileName) =>
-      downloadFileName.endsWith(Constants.dubSuffix);
+  Language parseAudioLanguage(String downloadFileName) =>
+      downloadFileName.endsWith(Constants.englishSuffix)
+      ? Language.en
+      : Language.ja;
+
+  DownloadLink findBestDownloadLinkMatch({
+    required String animeTitle,
+    required int episodeNumber,
+    required Resolution resolution,
+    required Language audioLanguage,
+    required List<DownloadLink> downloadLinks,
+  }) {
+    log.info(
+      "Finding best download link match: (animeTitle: $animeTitle, episodeNumber: $episodeNumber, resolution: $resolution, audioLanguage: $audioLanguage, downloadLinks: $downloadLinks)",
+    );
+
+    final audioLanguageMatches = downloadLinks
+        .where((link) => link.audioLanguage == audioLanguage)
+        .toSet();
+    if (audioLanguageMatches.isEmpty) {
+      throw DownloadLinkMatchException(
+        'No $audioLanguage download links found for "$animeTitle" episode $episodeNumber',
+      );
+    }
+
+    final resolutionMatches = downloadLinks
+        .where((link) => link.resolution == resolution)
+        .toSet();
+    if (resolutionMatches.isEmpty) {
+      throw DownloadLinkMatchException(
+        'No $resolution download links found for "$animeTitle" episode $episodeNumber',
+      );
+    }
+
+    final bestMatch = audioLanguageMatches
+        .intersection(resolutionMatches)
+        .first;
+    log.fine("Found best download link match: $bestMatch");
+    return bestMatch;
+  }
 
   Future<List<DownloadLink>> fetchDownloadLinks({
     required String animeTitle,

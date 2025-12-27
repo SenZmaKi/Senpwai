@@ -1,13 +1,55 @@
+import 'package:collection/collection.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html;
+
+enum Language {
+  ja,
+  en;
+
+  @override
+  String toString() => switch (this) {
+    Language.ja => "Japanese",
+    Language.en => "English",
+  };
+}
+
+enum Resolution {
+  res4320p(4320), // 8K
+  res2160p(2160), // 4K
+  res1440p(1440), // 2K
+  res1080p(1080),
+  res720p(720),
+  res480p(480),
+  res360p(360),
+  res240p(240),
+  res144p(144);
+
+  final int value;
+
+  const Resolution(this.value);
+
+  static Resolution? fromInt(int height) =>
+      Resolution.values.firstWhereOrNull((res) => res.value == height);
+
+  static Resolution? fromString(String height) {
+    final intValue = int.tryParse(height);
+    if (intValue == null) return null;
+    return fromInt(intValue);
+  }
+
+  @override
+  String toString() => "${value}p";
+}
 
 Document parseHtml(dynamic input) {
   return html.parse(input);
 }
 
-String? parseResolution(String text) {
+Resolution? parseResolution(String text) {
   final match = Constants.resolutionRegex.firstMatch(text);
-  final resolution = match?.group(1) ?? match?.group(2);
+  final height = match?.group(1) ?? match?.group(2);
+  if (height == null) return null;
+  final resolution = Resolution.fromString(height);
   return resolution;
 }
 
