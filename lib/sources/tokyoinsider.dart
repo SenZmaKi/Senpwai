@@ -3,8 +3,8 @@ import 'package:dio/dio.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:html/dom.dart';
 import 'package:logging/logging.dart';
-import 'package:senpwai/anime/sources/shared/shared.dart';
-import 'package:senpwai/anime/shared/net/net.dart';
+import 'package:senpwai/sources/shared/shared.dart';
+import 'package:senpwai/shared/net/net.dart';
 
 final log = Logger("senpwai.anime.sources.tokyoinsider");
 List<Element> parsePageResults(Document htmlPage) =>

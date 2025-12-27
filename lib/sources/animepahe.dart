@@ -1,9 +1,11 @@
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
-import 'package:senpwai/anime/sources/shared/shared.dart';
-import 'package:senpwai/anime/shared/net/net.dart';
+import 'package:senpwai/sources/shared/shared.dart';
+import 'package:senpwai/shared/net/net.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:html/dom.dart' as html;
+import 'package:senpwai/shared/shared.dart' as shared;
 
 final log = Logger("senpwai.anime.sources.animepahe");
 
@@ -76,6 +78,14 @@ class Constants {
   static const paheDomain = "animepahe.si";
   static const paheHome = "https://$paheDomain";
   static const apiEntryPoint = "$paheHome/api?m=";
+  static const dubSuffix = "eng";
+
+  static final estimatedSizeRegex = RegExp(r"\b(\d+)MB\b");
+
+  static String buildEpisodePageUrl(
+    String animeSession,
+    String episodeSession,
+  ) => "${Constants.paheHome}/play/$animeSession/$episodeSession";
 }
 
 class SearchParams {
@@ -117,6 +127,27 @@ class EpisodeSession {
 
   @override
   String toString() => "EpisodeSession(session: $session, number: $number)";
+}
+
+class DownloadLink {
+  final String filename;
+  final String url;
+  final int estimatedSizeBytes;
+  final bool isDub;
+  final String resolution;
+
+  DownloadLink({
+    required this.filename,
+    required this.url,
+    required this.estimatedSizeBytes,
+    required this.isDub,
+    required this.resolution,
+  });
+
+  @override
+  String toString() {
+    return "DownloadLink(filename: $filename, url: $url, estimatedSizeBytes: $estimatedSizeBytes, isDub: $isDub, resolution: $resolution)";
+  }
 }
 
 class Source {
@@ -174,12 +205,16 @@ class Source {
   }
 
   Future<Map<String, dynamic>> fetchEpisodeListPageJson({
-    required String animeId,
+    required String animeSession,
     required int pageNum,
   }) async {
     final response = await _apiDio.get(
       "release",
-      queryParameters: {"id": animeId, "sort": "episode_asc", "page": pageNum},
+      queryParameters: {
+        "id": animeSession,
+        "sort": "episode_asc",
+        "page": pageNum,
+      },
     );
     return response.data;
   }
@@ -187,9 +222,12 @@ class Source {
   Future<EpisodePageRange> computeEpisodePageRange({
     required int startEpisode,
     required int endEpisode,
-    required String animeId,
+    required String animeSession,
   }) async {
-    final page = await fetchEpisodeListPageJson(animeId: animeId, pageNum: 1);
+    final page = await fetchEpisodeListPageJson(
+      animeSession: animeSession,
+      pageNum: 1,
+    );
     final perPage = page["per_page"] as int;
     final startPageNum = (startEpisode / perPage).ceil();
     final endPageNum = (endEpisode / perPage).ceil();
@@ -203,12 +241,12 @@ class Source {
   }
 
   Future<List<EpisodeSession>> fetchEpisodeSessions({
-    required String animeId,
+    required String animeSession,
     required int pageNum,
     Map<String, dynamic>? pageJson,
   }) async {
     pageJson ??= await fetchEpisodeListPageJson(
-      animeId: animeId,
+      animeSession: animeSession,
       pageNum: pageNum,
     );
     final episodeSessionsJson = pageJson["data"] as List<dynamic>;
@@ -220,14 +258,14 @@ class Source {
   }
 
   List<EpisodeSession> findEpisodeSessionsWithinRange({
-    required String animeId,
+    required String animeSession,
     required int firstEpisode,
     required int startEpisode,
     required int endEpisode,
     required List<EpisodeSession> episodeSessions,
   }) {
     log.info(
-      "Finding episode sessions within range ($animeId: animeId, $firstEpisode: firstEpisode, $startEpisode: startEpisode, $endEpisode: endEpisode, $episodeSessions: episodeSessions)",
+      "Finding episode sessions within range ($animeSession: animeSession, $firstEpisode: firstEpisode, $startEpisode: startEpisode, $endEpisode: endEpisode, $episodeSessions: episodeSessions)",
     );
     int? startIdx;
     int? endIdx;
@@ -252,7 +290,7 @@ class Source {
       throw ScrapingException(
         message: "Could not find ${startIdx == null ? "start" : "end"} episode",
         metadata: {
-          "animeId": animeId,
+          "animeSession": animeSession,
           "startEpisode": startEpisode,
           "endEpisode": endEpisode,
           "episodeSessions": episodeSessions,
@@ -266,5 +304,77 @@ class Source {
       "Found episode sessions within range: $withinRangeEpisodeSessions",
     );
     return withinRangeEpisodeSessions;
+  }
+
+  int? parseEstimatedSizeBytes(String filename) {
+    final match = Constants.estimatedSizeRegex.firstMatch(filename);
+    if (match == null) {
+      return null;
+    }
+    final size = match.group(1);
+    if (size == null) {
+      return null;
+    }
+    final sizeMegabytes = int.parse(size);
+    final sizeBytes = sizeMegabytes * shared.Constants.megaByte;
+    return sizeBytes;
+  }
+
+  DownloadLink parseDownloadLink(html.Element element) {
+    final url = element.attributes["href"];
+    if (url == null) {
+      throw ScrapingException(
+        message: "Failed to find direct download link",
+        metadata: {"url": url, "element": element},
+      );
+    }
+    final filename = element.text.trim();
+    final resolution = parseResolution(filename);
+    if (resolution == null) {
+      throw ScrapingException(
+        message: "Failed to parse resolution",
+        metadata: {"filename": filename, "element": element},
+      );
+    }
+    final isDub = checkIfIsDub(filename);
+    final estimatedSizeBytes = parseEstimatedSizeBytes(filename);
+    if (estimatedSizeBytes == null) {
+      throw ScrapingException(
+        message: "Failed to find estimated size bytes",
+        metadata: {"filename": filename, "element": element},
+      );
+    }
+    return DownloadLink(
+      filename: filename,
+      url: url,
+      resolution: resolution,
+      isDub: isDub,
+      estimatedSizeBytes: estimatedSizeBytes,
+    );
+  }
+
+  bool checkIfIsDub(String downloadFileName) =>
+      downloadFileName.endsWith(Constants.dubSuffix);
+
+  Future<List<DownloadLink>> fetchDownloadLinks({
+    required String animeTitle,
+    required String animeSession,
+    required EpisodeSession episodeSession,
+  }) async {
+    log.info(
+      "Fetching download links for (animeTitle: $animeTitle, animeSession: $animeSession, episodeSession: $episodeSession)",
+    );
+    final episodePageUrl = Constants.buildEpisodePageUrl(
+      animeSession,
+      episodeSession.session,
+    );
+    final response = await _apiDio.get(episodePageUrl);
+    final htmlPage = parseHtml(response.data);
+    final downloadAElements = htmlPage.querySelectorAll(
+      'a.dropdown-item[target="_blank"]',
+    );
+    final downloadLinks = downloadAElements.map(parseDownloadLink).toList();
+    log.fine("Fetched download links: $downloadLinks");
+    return downloadLinks;
   }
 }

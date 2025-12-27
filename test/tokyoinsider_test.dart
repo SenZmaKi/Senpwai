@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:senpwai/anime/sources/tokyoinsider.dart' as tokyoinsider;
+import 'package:senpwai/sources/tokyoinsider.dart' as tokyoinsider;
 import 'package:senpwai/shared/log.dart';
 
 Future<void> testSearch() async {
   final source = tokyoinsider.Source();
   final results = await source.search(
-    params: tokyoinsider.SearchParams(term: "one piece"),
+    params: tokyoinsider.SearchParams(term: "My Hero Academia"),
   );
 
   expect(results.length, greaterThan(0));
