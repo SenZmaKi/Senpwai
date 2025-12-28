@@ -111,8 +111,6 @@ Future<void> testFetchDirectDownloadLink({
   final source = animepahe.Source();
   final directDownloadLink = await source.fetchDirectDownloadLink(
     downloadLink: bestDownloadLinkMatch,
-    animeTitle: bestDownloadLinkMatch.animeTitle,
-    episodeNumber: bestDownloadLinkMatch.episodeNumber,
   );
   expect(directDownloadLink.url, isNotEmpty);
 }

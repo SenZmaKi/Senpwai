@@ -12,15 +12,18 @@ Future<void> testSearch() async {
 }
 
 Future<void> testFetchEpisodePages() async {
-  final animeUrl =
-      "https://www.tokyoinsider.com/anime/B/Boku_no_Hero_Academia_2nd_Season_(TV)";
   final source = tokyoinsider.Source();
-  final episodePages = await source.fetchEpisodePages(animeUrl: animeUrl);
+  final episodePages = await source.fetchEpisodePages(
+    animeUrl:
+        "https://www.tokyoinsider.com/anime/B/Boku_no_Hero_Academia_2nd_Season_(TV)",
+    animeTitle: "Boku no Hero Academia 2nd Season",
+  );
   expect(episodePages.length, greaterThan(0));
 }
 
 Future<void> testFetchEpisodeDownloadLinks() async {
   final episodePage = tokyoinsider.EpisodePage(
+    animeTitle: "Boku no Hero Academia 2nd Season",
     title: "Boku no Hero Academia 2nd Season episode 25",
     url:
         "https://www.tokyoinsider.com/anime/B/Boku_no_Hero_Academia_2nd_Season_(TV)/episode/25",

@@ -228,7 +228,7 @@ class Source {
     final totalPages = data["total"] as int;
     final perPage = data["per_page"] as int;
 
-    final nextPage = currentPage < totalPages
+    final fetchNextpage = currentPage < totalPages
         ? () => search(
             params: SearchParams(term: term, page: page + 1),
           )
@@ -237,7 +237,7 @@ class Source {
       currentPage: currentPage,
       totalPages: totalPages,
       items: items,
-      fetchNextPage: nextPage,
+      fetchNextPage: fetchNextpage,
       perPage: perPage,
     );
     log.fine("Search results: $pagination");
@@ -346,7 +346,7 @@ class Source {
     return withinRangeEpisodeSessions;
   }
 
-  int? parseEstimatedSizeBytes(String filename) {
+  int? _parseEstimatedSizeBytes(String filename) {
     final match = Constants.estimatedSizeRegex.firstMatch(filename);
     if (match == null) {
       return null;
@@ -360,7 +360,7 @@ class Source {
     return sizeBytes;
   }
 
-  DownloadLink parseDownloadLink({
+  DownloadLink _parseDownloadLink({
     required html.Element element,
     required String animeTitle,
     required int episodeNumber,
@@ -380,8 +380,8 @@ class Source {
         metadata: {"filename": filename, "element": element},
       );
     }
-    final audioLanguage = parseAudioLanguage(filename);
-    final estimatedSizeBytes = parseEstimatedSizeBytes(filename);
+    final audioLanguage = _parseAudioLanguage(filename);
+    final estimatedSizeBytes = _parseEstimatedSizeBytes(filename);
     if (estimatedSizeBytes == null) {
       throw SourceException(
         message: "Failed to find estimated size bytes",
@@ -399,7 +399,7 @@ class Source {
     );
   }
 
-  Language parseAudioLanguage(String downloadFileName) =>
+  Language _parseAudioLanguage(String downloadFileName) =>
       downloadFileName.endsWith(Constants.englishSuffix)
       ? Language.english
       : Language.japanese;
@@ -460,7 +460,7 @@ class Source {
     final episodeNumber = episodeSession.number;
     final downloadLinks = downloadAElements
         .map(
-          (element) => parseDownloadLink(
+          (element) => _parseDownloadLink(
             element: element,
             animeTitle: animeTitle,
             episodeNumber: episodeNumber,
@@ -556,12 +556,10 @@ class Source {
 
   Future<DirectDownloadLink> _fetchDirectDownloadLinkFromKwikPage({
     required String kwikPageLink,
-    required String animeTitle,
-    required int episodeNumber,
     required DownloadLink downloadLink,
   }) async {
     log.info(
-      "Fetching direct download link from kwik page link (animeTitle: $animeTitle, episodeNumber: $episodeNumber, downloadLink: $downloadLink, kwikPageLink: $kwikPageLink)",
+      "Fetching direct download link from kwik page link (downloadLink: $downloadLink, kwikPageLink: $kwikPageLink)",
     );
 
     final response = await _dio.get<String>(kwikPageLink);
@@ -574,18 +572,18 @@ class Source {
     }
 
     log.info(
-      "Extracting and decrypting kwik form (animeTitle: $animeTitle, episodeNumber: $episodeNumber, kwikPageLink: $kwikPageLink)",
+      "Extracting and decrypting kwik form (kwikPageLink: $kwikPageLink)",
     );
     final formHtml = _extractAndDecryptKwikForm(htmlPageText);
     log.fine(
-      "Extracted and decrypted kwik form (animeTitle: $animeTitle, episodeNumber: $episodeNumber, kwikPageLink: $kwikPageLink): $formHtml",
+      "Extracted and decrypted kwik form (kwikPageLink: $kwikPageLink): $formHtml",
     );
     log.info(
-      "Extracting post url and token from kwik form (animeTitle: $animeTitle, episodeNumber: $episodeNumber, kwikPageLink: $kwikPageLink)",
+      "Extracting post url and token from kwik form (kwikPageLink: $kwikPageLink)",
     );
     final (postUrl, token) = _extractPostUrlAndToken(formHtml);
     log.fine(
-      "Extracted post url and token from kwik form (animeTitle: $animeTitle, episodeNumber: $episodeNumber, kwikPageLink: $kwikPageLink): (postUrl: $postUrl, token: $token)",
+      "Extracted post url and token from kwik form (kwikPageLink: $kwikPageLink): (postUrl: $postUrl, token: $token)",
     );
 
     final postResponse = await _dio.post<String>(
@@ -607,26 +605,22 @@ class Source {
     }
 
     final directDownloadLink = DirectDownloadLink(
-      animeTitle: animeTitle,
-      episodeNumber: episodeNumber,
+      animeTitle: downloadLink.animeTitle,
+      episodeNumber: downloadLink.episodeNumber,
       filename: downloadLink.filename,
       url: directDownloadUrl,
     );
 
     log.fine(
-      "Fetched direct download link from kwik page link (animeTitle: $animeTitle, episodeNumber: $episodeNumber, downloadLink: $downloadLink, kwikPageLink: $kwikPageLink): $directDownloadLink",
+      "Fetched direct download link from kwik page link (downloadLink: $downloadLink, kwikPageLink: $kwikPageLink): $directDownloadLink",
     );
     return directDownloadLink;
   }
 
   Future<DirectDownloadLink> fetchDirectDownloadLink({
     required DownloadLink downloadLink,
-    required String animeTitle,
-    required int episodeNumber,
   }) async {
-    log.info(
-      "Fetching direct download link (animeTitle: $animeTitle, episodeNumber: $episodeNumber, downloadLink: $downloadLink)",
-    );
+    log.info("Fetching direct download link (downloadLink: $downloadLink)");
     final response = await _dio.get<String>(downloadLink.url);
     final htmlPageText = response.data;
     if (htmlPageText == null) {
@@ -648,13 +642,11 @@ class Source {
     }
     final kwikPageLink = kwikMatch.group(0)!;
     final directDownloadLink = await _fetchDirectDownloadLinkFromKwikPage(
-      animeTitle: animeTitle,
-      episodeNumber: episodeNumber,
       downloadLink: downloadLink,
       kwikPageLink: kwikPageLink,
     );
     log.fine(
-      "Fetched direct download link (animeTitle: $animeTitle, episodeNumber: $episodeNumber, downloadLink: $downloadLink, kwikPageLink: $kwikPageLink): $directDownloadLink",
+      "Fetched direct download link downloadLink: $downloadLink, kwikPageLink: $kwikPageLink): $directDownloadLink",
     );
     return directDownloadLink;
   }

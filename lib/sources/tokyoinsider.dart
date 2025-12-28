@@ -102,23 +102,37 @@ class AnimeListCache {
 }
 
 class EpisodePage {
+  final String animeTitle;
   final String title;
   final String url;
 
-  EpisodePage({required this.title, required this.url});
+  EpisodePage({
+    required this.animeTitle,
+    required this.title,
+    required this.url,
+  });
 
   @override
-  String toString() => "EpisodePage(title: $title, url: $url)";
+  String toString() =>
+      "EpisodePage(animeTitle: $animeTitle, title: $title, url: $url)";
 }
 
 class EpisodeDownloadLink {
+  final String animeTitle;
+  final String episodeTitle;
   final String filename;
   final String url;
 
-  EpisodeDownloadLink({required this.filename, required this.url});
+  EpisodeDownloadLink({
+    required this.animeTitle,
+    required this.filename,
+    required this.url,
+    required this.episodeTitle,
+  });
 
   @override
-  String toString() => "EpisodeDownloadLink(filename: $filename, url: $url)";
+  String toString() =>
+      "EpisodeDownloadLink(animeTitle: $animeTitle, episodeTitle: $episodeTitle, filename: $filename, url: $url)";
 }
 
 class Source {
@@ -130,16 +144,19 @@ class Source {
   }
 
   Future<List<AnimeResult>> search({required SearchParams params}) async {
-    log.info("Searching for $params");
+    log.info("Searching (params: $params)");
     final results = await _animeListCache.search(params: params);
-    log.fine("Search results: $results");
+    log.fine("Searched (params: $params, results: $results)");
     return results;
   }
 
   Future<List<EpisodePage>> fetchEpisodePages({
     required String animeUrl,
+    required String animeTitle,
   }) async {
-    log.info("Fetching episode pages for $animeUrl");
+    log.info(
+      "Fetching episode pages (animeTitle: $animeTitle, animeUrl: $animeUrl)",
+    );
     final response = await _dio.get(animeUrl);
     final htmlPage = parseHtml(response.data);
     final targetElements = parsePageResults(htmlPage);
@@ -153,16 +170,18 @@ class Source {
       }
       final url = "${Constants.baseUrl}$path";
       final title = el.text.trim();
-      return EpisodePage(title: title, url: url);
+      return EpisodePage(animeTitle: animeTitle, title: title, url: url);
     }).toList();
-    log.fine("Fetched episode pages: $episodePages");
+    log.fine(
+      "Fetched episode pages (animeTitle: $animeTitle, episodePages: $episodePages)",
+    );
     return episodePages;
   }
 
   Future<List<EpisodeDownloadLink>> fetchEpisodeDownloadLinks({
     required EpisodePage episodePage,
   }) async {
-    log.info("Fetching episode download links for $episodePage");
+    log.info("Fetching episode download links (episodePage: $episodePage)");
     final response = await _dio.get(episodePage.url);
     final htmlPage = parseHtml(response.data);
     final targetElements = parsePageResults(htmlPage);
@@ -176,9 +195,18 @@ class Source {
       }
       final filename = el.text.trim();
       final url = "${Constants.baseUrl}$path";
-      return EpisodeDownloadLink(filename: filename, url: url);
+      final animeTitle = episodePage.animeTitle;
+      final episodeTitle = episodePage.title;
+      return EpisodeDownloadLink(
+        filename: filename,
+        url: url,
+        animeTitle: animeTitle,
+        episodeTitle: episodeTitle,
+      );
     }).toList();
-    log.fine("Fetched episode download links: $episodeDownloadLinks");
+    log.fine(
+      "Fetched episode download links (episodePage: $episodePage, episodeDownloadLinks: $episodeDownloadLinks)",
+    );
     return episodeDownloadLinks;
   }
 }
