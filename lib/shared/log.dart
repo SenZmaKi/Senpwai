@@ -2,13 +2,30 @@ import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 
 extension LoggerExtensions on Logger {
-  void severeWithTrace(
+  void severeWithMetadata(
     Object? message, {
     Object? error,
     StackTrace? stackTrace,
+    Map<String, dynamic>? metadata,
   }) {
-    final msg = "$message error: $error stacktrace: $stackTrace";
+    final msg =
+        "$message (error: $error, stacktrace: $stackTrace, metadata: $metadata)";
     severe(msg);
+  }
+
+  void fineWithMetadata(Object? message, {Map<String, dynamic>? metadata}) {
+    final msg = "$message (metadata: $metadata)";
+    fine(msg);
+  }
+
+  void infoWithMetadata(Object? message, {Map<String, dynamic>? metadata}) {
+    final msg = "$message (metadata: $metadata)";
+    info(msg);
+  }
+
+  void warningWithMetadata(Object? message, {Map<String, dynamic>? metadata}) {
+    final msg = "$message (metadata: $metadata)";
+    warning(msg);
   }
 }
 

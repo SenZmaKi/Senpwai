@@ -5,6 +5,7 @@ import 'package:html/dom.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/log.dart';
 
 final log = Logger("senpwai.anime.sources.tokyoinsider");
 List<Element> parsePageResults(Document htmlPage) =>
@@ -58,7 +59,10 @@ class AnimeListCache {
   AnimeListCache({required Dio dio}) : _dio = dio;
 
   Future<void> _initializeCache() async {
-    log.info(!_isInitialized ? "Initializing cache" : "Refreshing cache");
+    log.infoWithMetadata(
+      !_isInitialized ? "Initializing cache" : "Refreshing cache",
+      metadata: {},
+    );
     final response = await _dio.get("${Constants.baseUrl}/anime/list");
     final htmlPage = parseHtml(response.data);
     final targetElements = parsePageResults(htmlPage);
@@ -70,7 +74,10 @@ class AnimeListCache {
           ),
         )
         .toSet();
-    log.fine("Cache initialized with ${_cache!.length} entries");
+    log.fineWithMetadata(
+      "Cache initialized",
+      metadata: {"entries": _cache!.length},
+    );
   }
 
   Future<void> _initialize() async {
@@ -144,9 +151,12 @@ class Source {
   }
 
   Future<List<AnimeResult>> search({required SearchParams params}) async {
-    log.info("Searching (params: $params)");
+    log.infoWithMetadata("Searching", metadata: {"params": params});
     final results = await _animeListCache.search(params: params);
-    log.fine("Searched (params: $params, results: $results)");
+    log.fineWithMetadata(
+      "Searched",
+      metadata: {"params": params, "results": results},
+    );
     return results;
   }
 
@@ -154,8 +164,9 @@ class Source {
     required String animeUrl,
     required String animeTitle,
   }) async {
-    log.info(
-      "Fetching episode pages (animeTitle: $animeTitle, animeUrl: $animeUrl)",
+    log.infoWithMetadata(
+      "Fetching episode pages",
+      metadata: {"animeTitle": animeTitle, "animeUrl": animeUrl},
     );
     final response = await _dio.get(animeUrl);
     final htmlPage = parseHtml(response.data);
@@ -172,8 +183,9 @@ class Source {
       final title = el.text.trim();
       return EpisodePage(animeTitle: animeTitle, title: title, url: url);
     }).toList();
-    log.fine(
-      "Fetched episode pages (animeTitle: $animeTitle, episodePages: $episodePages)",
+    log.fineWithMetadata(
+      "Fetched episode pages",
+      metadata: {"animeTitle": animeTitle, "episodePages": episodePages},
     );
     return episodePages;
   }
@@ -181,7 +193,10 @@ class Source {
   Future<List<EpisodeDownloadLink>> fetchEpisodeDownloadLinks({
     required EpisodePage episodePage,
   }) async {
-    log.info("Fetching episode download links (episodePage: $episodePage)");
+    log.infoWithMetadata(
+      "Fetching episode download links",
+      metadata: {"episodePage": episodePage},
+    );
     final response = await _dio.get(episodePage.url);
     final htmlPage = parseHtml(response.data);
     final targetElements = parsePageResults(htmlPage);
@@ -204,8 +219,12 @@ class Source {
         episodeTitle: episodeTitle,
       );
     }).toList();
-    log.fine(
-      "Fetched episode download links (episodePage: $episodePage, episodeDownloadLinks: $episodeDownloadLinks)",
+    log.fineWithMetadata(
+      "Fetched episode download links",
+      metadata: {
+        "episodePage": episodePage,
+        "episodeDownloadLinks": episodeDownloadLinks,
+      },
     );
     return episodeDownloadLinks;
   }

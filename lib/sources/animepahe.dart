@@ -7,6 +7,7 @@ import 'package:senpwai/shared/net/net.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:html/dom.dart' as html;
 import 'package:senpwai/shared/shared.dart' as shared;
+import 'package:senpwai/shared/log.dart';
 
 final log = Logger("senpwai.anime.sources.animepahe");
 
@@ -213,7 +214,7 @@ class Source {
   Future<Pagination<List<AnimeResult>>> search({
     required SearchParams params,
   }) async {
-    log.info("Searching for $params");
+    log.infoWithMetadata("Searching", metadata: {"params": params});
     final term = params.term;
     final page = params.page;
 
@@ -240,7 +241,10 @@ class Source {
       fetchNextPage: fetchNextpage,
       perPage: perPage,
     );
-    log.fine("Search results: $pagination");
+    log.fineWithMetadata(
+      "Search results",
+      metadata: {"pagination": pagination},
+    );
     return pagination;
   }
 
@@ -293,7 +297,10 @@ class Source {
     final episodeSessions = episodeSessionsJson
         .map((e) => EpisodeSession(session: e["session"], number: e["episode"]))
         .toList();
-    log.fine("Fetched episode sessions: $episodeSessions");
+    log.fineWithMetadata(
+      "Fetched episode sessions",
+      metadata: {"episodeSessions": episodeSessions},
+    );
     return episodeSessions;
   }
 
@@ -304,8 +311,15 @@ class Source {
     required int endEpisode,
     required List<EpisodeSession> episodeSessions,
   }) {
-    log.info(
-      "Finding episode sessions within range ($animeSession: animeSession, $firstEpisode: firstEpisode, $startEpisode: startEpisode, $endEpisode: endEpisode, $episodeSessions: episodeSessions)",
+    log.infoWithMetadata(
+      "Finding episode sessions within range",
+      metadata: {
+        "animeSession": animeSession,
+        "firstEpisode": firstEpisode,
+        "startEpisode": startEpisode,
+        "endEpisode": endEpisode,
+        "episodeSessions": episodeSessions,
+      },
     );
     int? startIdx;
     int? endIdx;
@@ -340,8 +354,9 @@ class Source {
     final withinRangeEpisodeSessions = episodeSessions
         .sublist(startIdx, endIdx + 1)
         .toList();
-    log.fine(
-      "Found episode sessions within range: $withinRangeEpisodeSessions",
+    log.fineWithMetadata(
+      "Found episode sessions within range",
+      metadata: {"withinRangeEpisodeSessions": withinRangeEpisodeSessions},
     );
     return withinRangeEpisodeSessions;
   }
@@ -411,8 +426,15 @@ class Source {
     required Language audioLanguage,
     required List<DownloadLink> downloadLinks,
   }) {
-    log.info(
-      "Finding best download link match: (animeTitle: $animeTitle, episodeNumber: $episodeNumber, resolution: $resolution, audioLanguage: $audioLanguage, downloadLinks: $downloadLinks)",
+    log.infoWithMetadata(
+      "Finding best download link match",
+      metadata: {
+        "animeTitle": animeTitle,
+        "episodeNumber": episodeNumber,
+        "resolution": resolution,
+        "audioLanguage": audioLanguage,
+        "downloadLinks": downloadLinks,
+      },
     );
 
     final audioLanguageMatches = downloadLinks
@@ -436,7 +458,10 @@ class Source {
     final bestMatch = audioLanguageMatches
         .intersection(resolutionMatches)
         .first;
-    log.fine("Found best download link match: $bestMatch");
+    log.fineWithMetadata(
+      "Found best download link match",
+      metadata: {"bestMatch": bestMatch},
+    );
     return bestMatch;
   }
 
@@ -445,8 +470,13 @@ class Source {
     required String animeSession,
     required EpisodeSession episodeSession,
   }) async {
-    log.info(
-      "Fetching download links for (animeTitle: $animeTitle, animeSession: $animeSession, episodeSession: $episodeSession)",
+    log.infoWithMetadata(
+      "Fetching download links",
+      metadata: {
+        "animeTitle": animeTitle,
+        "animeSession": animeSession,
+        "episodeSession": episodeSession,
+      },
     );
     final episodePageUrl = Constants.buildEpisodePageUrl(
       animeSession,
@@ -467,7 +497,10 @@ class Source {
           ),
         )
         .toList();
-    log.fine("Fetched download links: $downloadLinks");
+    log.fineWithMetadata(
+      "Fetched download links",
+      metadata: {"downloadLinks": downloadLinks},
+    );
     return downloadLinks;
   }
 
@@ -558,8 +591,9 @@ class Source {
     required String kwikPageLink,
     required DownloadLink downloadLink,
   }) async {
-    log.info(
-      "Fetching direct download link from kwik page link (downloadLink: $downloadLink, kwikPageLink: $kwikPageLink)",
+    log.infoWithMetadata(
+      "Fetching direct download link from kwik page link",
+      metadata: {"downloadLink": downloadLink, "kwikPageLink": kwikPageLink},
     );
 
     final response = await _dio.get<String>(kwikPageLink);
@@ -571,19 +605,27 @@ class Source {
       );
     }
 
-    log.info(
-      "Extracting and decrypting kwik form (kwikPageLink: $kwikPageLink)",
+    log.infoWithMetadata(
+      "Extracting and decrypting kwik form",
+      metadata: {"kwikPageLink": kwikPageLink},
     );
     final formHtml = _extractAndDecryptKwikForm(htmlPageText);
-    log.fine(
-      "Extracted and decrypted kwik form (kwikPageLink: $kwikPageLink): $formHtml",
+    log.fineWithMetadata(
+      "Extracted and decrypted kwik form",
+      metadata: {"kwikPageLink": kwikPageLink, "formHtml": formHtml},
     );
-    log.info(
-      "Extracting post url and token from kwik form (kwikPageLink: $kwikPageLink)",
+    log.infoWithMetadata(
+      "Extracting post url and token from kwik form",
+      metadata: {"kwikPageLink": kwikPageLink},
     );
     final (postUrl, token) = _extractPostUrlAndToken(formHtml);
-    log.fine(
-      "Extracted post url and token from kwik form (kwikPageLink: $kwikPageLink): (postUrl: $postUrl, token: $token)",
+    log.fineWithMetadata(
+      "Extracted post url and token from kwik form",
+      metadata: {
+        "kwikPageLink": kwikPageLink,
+        "postUrl": postUrl,
+        "token": token,
+      },
     );
 
     final postResponse = await _dio.post<String>(
@@ -611,8 +653,13 @@ class Source {
       url: directDownloadUrl,
     );
 
-    log.fine(
-      "Fetched direct download link from kwik page link (downloadLink: $downloadLink, kwikPageLink: $kwikPageLink): $directDownloadLink",
+    log.fineWithMetadata(
+      "Fetched direct download link from kwik page link",
+      metadata: {
+        "downloadLink": downloadLink,
+        "kwikPageLink": kwikPageLink,
+        "directDownloadLink": directDownloadLink,
+      },
     );
     return directDownloadLink;
   }
@@ -620,7 +667,10 @@ class Source {
   Future<DirectDownloadLink> fetchDirectDownloadLink({
     required DownloadLink downloadLink,
   }) async {
-    log.info("Fetching direct download link (downloadLink: $downloadLink)");
+    log.infoWithMetadata(
+      "Fetching direct download link",
+      metadata: {"downloadLink": downloadLink},
+    );
     final response = await _dio.get<String>(downloadLink.url);
     final htmlPageText = response.data;
     if (htmlPageText == null) {
@@ -645,8 +695,13 @@ class Source {
       downloadLink: downloadLink,
       kwikPageLink: kwikPageLink,
     );
-    log.fine(
-      "Fetched direct download link downloadLink: $downloadLink, kwikPageLink: $kwikPageLink): $directDownloadLink",
+    log.fineWithMetadata(
+      "Fetched direct download link",
+      metadata: {
+        "downloadLink": downloadLink,
+        "kwikPageLink": kwikPageLink,
+        "directDownloadLink": directDownloadLink,
+      },
     );
     return directDownloadLink;
   }
