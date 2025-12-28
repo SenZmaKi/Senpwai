@@ -42,6 +42,7 @@ dependencies:
   pretty_dio_logger: ^1.4.0
   html: ^0.15.6
   fuzzywuzzy: ^1.2.0
+  dio_cache_interceptor: ^4.0.5
 
 dev_dependencies:
   flutter_test:

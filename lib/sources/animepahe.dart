@@ -206,9 +206,9 @@ class Source {
     final cookies = [Cookie("__ddg1_", ""), Cookie("__ddg2_", "")];
     final cookieJar = CookieJar();
     cookieJar.saveFromResponse(uri, cookies);
-    final apiDio = defaultDio()..options.baseUrl = Constants.apiEntryPoint;
-    apiDio.interceptors.add(CookieManager(cookieJar));
-    return apiDio;
+    final dio = defaultDio()..options.baseUrl = Constants.apiEntryPoint;
+    dio.interceptors.add(CookieManager(cookieJar));
+    return dio;
   }
 
   Future<Pagination<List<AnimeResult>>> search({
