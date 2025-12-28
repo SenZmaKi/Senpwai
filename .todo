@@ -1,12 +1,3 @@
-Fix Shangri La Frontier S01 E05 going forward downloading the wrong episode on Animepahe
-https://www.riverbankcomputing.com/static/Docs/pyqtdeploy/demo.html#android
-Handle VC redistributable
-Publish Senpcli on PyPi
-Website
-Remove old versions from registry when updating
-Fix bring to front if already running white screening
-
-HLS Multipart download
-Better error handling and communication
-Theme support
-Throttle download speed
+-   Improve logs
+-   Improve namespacing privates
+-   Log with metadata

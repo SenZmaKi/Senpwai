@@ -146,7 +146,7 @@ class Source {
     final episodePages = targetElements.map((el) {
       final path = el.attributes["href"];
       if (path == null) {
-        throw ScrapingException(
+        throw SourceException(
           message: "Could not find episode url",
           metadata: {"animeUrl": animeUrl},
         );
@@ -169,7 +169,7 @@ class Source {
     final episodeDownloadLinks = targetElements.map((el) {
       final path = el.attributes["href"];
       if (path == null) {
-        throw ScrapingException(
+        throw SourceException(
           message: "Failed to find episode url",
           metadata: {"episodePage": episodePage},
         );

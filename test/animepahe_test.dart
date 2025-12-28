@@ -6,10 +6,8 @@ import 'package:senpwai/sources/shared/shared.dart';
 
 final log = Logger("senpwai.anime.sources.animepahe.test");
 
-Future<List<animepahe.AnimeResult>> testSearch({
-  animepahe.Source? source,
-}) async {
-  source ??= animepahe.Source();
+Future<List<animepahe.AnimeResult>> testSearch() async {
+  final source = animepahe.Source();
   final results = await source.search(
     params: animepahe.SearchParams(term: "My Hero Academia"),
   );
@@ -22,8 +20,8 @@ Future<List<animepahe.AnimeResult>> testSearch({
 }
 
 Future<void> testFetchEpisodeListPageJson() async {
+  final result = (await testSearch()).first;
   final source = animepahe.Source();
-  final result = (await testSearch(source: source)).first;
   final json = await source.fetchEpisodeListPageJson(
     animeSession: result.session,
     pageNum: 1,
@@ -33,8 +31,8 @@ Future<void> testFetchEpisodeListPageJson() async {
 }
 
 Future<void> testComputeEpisodePageRange() async {
+  final result = (await testSearch()).first;
   final source = animepahe.Source();
-  final result = (await testSearch(source: source)).first;
   final info = await source.computeEpisodePageRange(
     startEpisode: 1,
     endEpisode: 10,
@@ -44,11 +42,9 @@ Future<void> testComputeEpisodePageRange() async {
   expect(info.firstPageJson["per_page"], isNotNull);
 }
 
-Future<List<animepahe.EpisodeSession>> testFetchEpisodeSessions({
-  animepahe.AnimeResult? result,
-}) async {
+Future<List<animepahe.EpisodeSession>> testFetchEpisodeSessions() async {
+  final result = (await testSearch()).first;
   final source = animepahe.Source();
-  result ??= (await testSearch(source: source)).first;
   final sessions = await source.fetchEpisodeSessions(
     animeSession: result.session,
     pageNum: 1,
@@ -58,10 +54,10 @@ Future<List<animepahe.EpisodeSession>> testFetchEpisodeSessions({
 }
 
 Future<void> testFindEpisodeSessionsWithinRange() async {
-  final source = animepahe.Source();
-  final result = (await testSearch(source: source)).first;
+  final result = (await testSearch()).first;
   final sessions = await testFetchEpisodeSessions();
   const endEpisode = 10;
+  final source = animepahe.Source();
   final pages = source.findEpisodeSessionsWithinRange(
     animeSession: result.session,
     firstEpisode: 1,
@@ -72,13 +68,10 @@ Future<void> testFindEpisodeSessionsWithinRange() async {
   expect(pages.length, endEpisode);
 }
 
-Future<List<animepahe.DownloadLink>> testFetchDownloadLinks({
-  animepahe.AnimeResult? result,
-  animepahe.EpisodeSession? episodeSession,
-}) async {
+Future<List<animepahe.DownloadLink>> testFetchDownloadLinks() async {
+  final result = (await testSearch()).first;
+  final episodeSession = (await testFetchEpisodeSessions()).first;
   final source = animepahe.Source();
-  result ??= (await testSearch(source: source)).first;
-  episodeSession ??= (await testFetchEpisodeSessions()).first;
   final downloadLinks = await source.fetchDownloadLinks(
     animeTitle: result.title,
     animeSession: result.session,
@@ -88,25 +81,40 @@ Future<List<animepahe.DownloadLink>> testFetchDownloadLinks({
   return downloadLinks;
 }
 
-Future<void> testFindBestDownloadLinkMatch() async {
-  final result = (await testSearch()).first;
-  final episodeSession = (await testFetchEpisodeSessions()).first;
-  final downloadLinks = (await testFetchDownloadLinks(
-    result: result,
-    episodeSession: episodeSession,
-  ));
-  final resolution = Resolution.res720p;
-  final audioLanguage = Language.en;
+Future<animepahe.DownloadLink> testFindBestDownloadLinkMatch({
+  Resolution resolution = Resolution.res720p,
+  Language audioLanguage = Language.japanese,
+}) async {
+  final downloadLinks = (await testFetchDownloadLinks());
+  final animeTitle = downloadLinks.first.animeTitle;
+  final episodeNumber = downloadLinks.first.episodeNumber;
   final source = animepahe.Source();
   final bestMatch = source.findBestDownloadLinkMatch(
-    animeTitle: result.title,
-    episodeNumber: episodeSession.number,
+    animeTitle: animeTitle,
+    episodeNumber: episodeNumber,
     resolution: resolution,
     audioLanguage: audioLanguage,
     downloadLinks: downloadLinks,
   );
   expect(bestMatch.audioLanguage == audioLanguage, true);
   expect(bestMatch.resolution == resolution, true);
+  return bestMatch;
+}
+
+Future<void> testFetchDirectDownloadLink({
+  Resolution resolution = Resolution.res720p,
+  Language audioLanguage = Language.japanese,
+}) async {
+  final bestDownloadLinkMatch = await testFindBestDownloadLinkMatch(
+    resolution: resolution,
+  );
+  final source = animepahe.Source();
+  final directDownloadLink = await source.fetchDirectDownloadLink(
+    downloadLink: bestDownloadLinkMatch,
+    animeTitle: bestDownloadLinkMatch.animeTitle,
+    episodeNumber: bestDownloadLinkMatch.episodeNumber,
+  );
+  expect(directDownloadLink.url, isNotEmpty);
 }
 
 void main() {
@@ -123,4 +131,5 @@ void main() {
   test("animepahe.fetchDownloadLinks", testFetchDownloadLinks);
 
   test("animepahe.findBestDownloadLinkMatch", testFindBestDownloadLinkMatch);
+  test("animepahe.fetchDirectDownloadLink", testFetchDirectDownloadLink);
 }
