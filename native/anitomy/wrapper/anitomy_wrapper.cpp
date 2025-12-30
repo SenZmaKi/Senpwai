@@ -27,7 +27,7 @@ AnitomyResultC anitomy_parse(const char *input) {
   size_t i = 0;
   for (const auto &element : elements) {
     // element.first is ElementCategory, element.second is the value string
-    c_elements[i].kind = static_cast<int32_t>(element.first);
+    c_elements[i].category = static_cast<int32_t>(element.first);
 
     // Convert wide string to UTF-8
     std::wstring wvalue = element.second;

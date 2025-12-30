@@ -1,56 +1,54 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:senpwai/shared/anitomy.dart';
+import 'package:senpwai/sources/shared/anitomy/anitomy.dart';
+import 'package:senpwai/sources/shared/shared.dart';
+import "package:senpwai/shared/log.dart";
 
 void main() {
-  group('Anitomy FFI Tests', () {
-    test('Parse simple anime filename', () {
-      const filename = '[SubGroup] Anime Title - 01 [1080p].mkv';
-      final elements = parseFilename(filename);
+  setUpAll(setupLogger);
+  test('Parse simple anime filename', () {
+    const filename = '[SubGroup] Anime Title - 01 [1080p].mkv';
+    final parsed = parseFilename(filename);
 
-      expect(elements, isNotEmpty);
+    expect(parsed.title, 'Anime Title');
+    expect(parsed.episode, 1);
+    expect(parsed.resolution, Resolution.res1080p);
+  });
 
-      // Check for expected element categories
-      final categories = elements.map((e) => e.category).toSet();
-      expect(categories, contains(ElementCategory.releaseGroup));
-      expect(categories, contains(ElementCategory.animeTitle));
-      expect(categories, contains(ElementCategory.episodeNumber));
-      expect(categories, contains(ElementCategory.videoResolution));
-      expect(categories, contains(ElementCategory.fileExtension));
-    });
+  test('Parse filename with season and episode', () {
+    const filename = 'Series Name S02E15 [720p].mp4';
+    final parsed = parseFilename(filename);
 
-    test('Parse filename with season and episode', () {
-      const filename = 'Series Name S02E15 [720p].mp4';
-      final elements = parseFilename(filename);
+    expect(parsed.title, 'Series Name');
+    expect(parsed.episode, 15);
+    expect(parsed.season, 2);
+    expect(parsed.resolution, Resolution.res720p);
+  });
 
-      expect(elements, isNotEmpty);
+  test('Parse complex filename with multiple quality indicators', () {
+    const filename = '[HorribleSubs] Sword Art Online - 01 [1080p] 720p.mkv';
+    final parsed = parseFilename(filename);
 
-      final episodeElement = elements.firstWhere(
-        (e) => e.category == ElementCategory.episodeNumber,
-        orElse: () => throw Exception('Episode not found'),
-      );
-      expect(episodeElement.value, '15');
+    expect(parsed.title, 'Sword Art Online');
+    expect(parsed.episode, 1);
+    expect(parsed.resolution, Resolution.res1080p);
+  });
 
-      final seasonElement = elements.firstWhere(
-        (e) => e.category == ElementCategory.animeSeason,
-        orElse: () => throw Exception('Season not found'),
-      );
-      expect(seasonElement.value, '02'); // Anitomy preserves leading zeros
-    });
+  // test("Parse language", () {
+  //   const filename = "Attack On Tital 01 (en) Dub.mp4";
+  //   final parsed = parseFilename(filename);
+  //   expect(parsed.language, Language.english);
+  // });
 
-    test('Empty string returns empty list', () {
-      final elements = parseFilename('');
-      expect(elements, isEmpty);
-    });
+  test('Empty string returns empty result', () {
+    final parsed = parseFilename('');
+    expect(parsed.title, isNull);
+  });
 
-    test('Parse complex filename', () {
-      const filename = '[HorribleSubs] Sword Art Online - 01 [1080p].mkv';
-      final elements = parseFilename(filename);
+  test('Filename with year', () {
+    const filename = 'Anime Title (2023) - 01.mkv';
+    final parsed = parseFilename(filename);
 
-      expect(elements, isNotEmpty);
-
-      for (final element in elements) {
-        print('${element.category}: ${element.value}');
-      }
-    });
+    expect(parsed.title, isNotNull);
+    expect(parsed.episode, 1);
   });
 }

@@ -1,8 +1,4 @@
 # Senpwai
-macos/*.dylib
-linux/*.so
-windows/*.dll
-
 .dev-garbage/
 .test-downloads/
 .setup-scripts/

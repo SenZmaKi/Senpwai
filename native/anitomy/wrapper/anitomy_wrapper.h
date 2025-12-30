@@ -10,7 +10,7 @@ extern "C" {
 // C-compatible struct representing a parsed element
 // Maps to ElementCategory enum from anitomy
 typedef struct {
-  int32_t kind;          // ElementCategory value
+  int32_t category;      // ElementCategory value
   const char *value_ptr; // UTF-8 encoded string value
 } AnitomyElementC;
 
