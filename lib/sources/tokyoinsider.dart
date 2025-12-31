@@ -65,7 +65,9 @@ class AnimeListCache {
     );
     final response = await _dio.get("${Constants.baseUrl}/anime/list");
     final htmlPage = parseHtml(response.data);
-    final targetElements = parsePageResults(htmlPage);
+    final targetElements = htmlPage.querySelectorAll(
+      "div.c_h2 > a, div.c_h2b > a",
+    );
     _cache = targetElements
         .map(
           (e) => AnimeResult(
