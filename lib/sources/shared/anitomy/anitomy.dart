@@ -2,11 +2,10 @@ import 'package:collection/collection.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/sources/shared/shared.dart';
-import 'ffi.dart';
+import 'package:anitomy_dart/anitomy.dart' as anitomy;
 
+final _ani = anitomy.Anitomy();
 Logger log = Logger("senpwai.sources.shared.anitomy.anitomy");
-
-AnitomyFFI _anitomyFFi = AnitomyFFI();
 
 class AnitomyParseResult {
   int? season;
@@ -29,8 +28,8 @@ class AnitomyParseResult {
 }
 
 T? _parseCategory<T>({
-  required List<AnitomyElement> elements,
-  required ElementCategory category,
+  required List<anitomy.ElementPair> elements,
+  required anitomy.ElementCategory category,
   required T? Function(String elementValue) parser,
 }) {
   final element = elements.firstWhereOrNull(
@@ -46,25 +45,26 @@ T? _parseCategory<T>({
 
 AnitomyParseResult parseFilename(String filename) {
   log.infoWithMetadata("Parsing filename", metadata: {"filename": filename});
-  final parsed = _anitomyFFi.parse(filename);
+  _ani.parse(filename);
+  final elements = _ani.elements.items.toList();
   final season = _parseCategory(
-    elements: parsed,
-    category: ElementCategory.kElementAnimeSeason,
+    elements: elements,
+    category: anitomy.ElementCategory.animeSeason,
     parser: (elementValue) => int.parse(elementValue),
   );
   final episode = _parseCategory(
-    elements: parsed,
-    category: ElementCategory.kElementEpisodeNumber,
+    elements: elements,
+    category: anitomy.ElementCategory.episodeNumber,
     parser: (elementValue) => int.parse(elementValue),
   );
   final title = _parseCategory(
-    elements: parsed,
-    category: ElementCategory.kElementAnimeTitle,
+    elements: elements,
+    category: anitomy.ElementCategory.animeTitle,
     parser: (elementValue) => elementValue,
   );
   final language = _parseCategory(
-    elements: parsed,
-    category: ElementCategory.kElementLanguage,
+    elements: elements,
+    category: anitomy.ElementCategory.language,
     parser: (elementValue) => switch (elementValue) {
       "ENGLISH" => Language.english,
       "JAPANESE" => Language.japanese,
@@ -72,8 +72,8 @@ AnitomyParseResult parseFilename(String filename) {
     },
   );
   final resolution = _parseCategory(
-    elements: parsed,
-    category: ElementCategory.kElementVideoResolution,
+    elements: elements,
+    category: anitomy.ElementCategory.videoResolution,
     parser: parseResolution,
   );
 

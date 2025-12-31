@@ -1,4 +1,0 @@
-[submodule "native/anitomy/anitomy"]
-	path = native/anitomy/anitomy
-	url = https://github.com/erengy/anitomy.git
-    branch = master
