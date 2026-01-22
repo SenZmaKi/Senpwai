@@ -65,3 +65,24 @@ class SourceException implements Exception {
   @override
   String toString() => 'ScrapingException: $message, metadata: $metadata';
 }
+
+class Pagination<T> {
+  final int currentPage;
+  final int perPage;
+  final int totalPages;
+  final T items;
+  final Future<Pagination<T>> Function()? fetchNextPage;
+
+  Pagination({
+    required this.currentPage,
+    required this.totalPages,
+    required this.items,
+    required this.fetchNextPage,
+    required this.perPage,
+  });
+
+  @override
+  String toString() {
+    return "Pagination(currentPage: $currentPage, totalPages: $totalPages, perPage: $perPage, items: $items, fetchNextPage: $fetchNextPage)";
+  }
+}

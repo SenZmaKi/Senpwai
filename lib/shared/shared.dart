@@ -1,8 +1,10 @@
 import 'dart:io';
 
 class Constants {
-  static const byte = 1024;
-  static const megaByte = 1024 * 1024;
+  static const kiloByte = 1024;
+  static const megaByte = kiloByte * kiloByte;
+  static const gigaByte = megaByte * kiloByte;
+  static const teraByte = gigaByte * kiloByte;
 }
 
 class UnsupportedPlatformException implements Exception {
