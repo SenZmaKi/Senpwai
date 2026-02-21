@@ -1,1 +1,2 @@
 - Once you finish an implementation task prompt me using the question/prompt tool to review it and in the options for the prompt have good, medium, bad and other. Every time!!!
+- Before running tests run static analyzers

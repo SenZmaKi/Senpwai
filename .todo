@@ -1,2 +1,3 @@
--   Add watchcartoonsonline
--   Option to name episode files with resolution and sub or dub
+- Properly handle servers that don't support Range requests
+- Add watchcartoonsonline
+- Option to name episode files with resolution and sub or dub
