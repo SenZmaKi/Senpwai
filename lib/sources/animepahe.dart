@@ -172,10 +172,16 @@ class DirectDownloadLink {
 
 class Source {
   final Dio _dio;
+  static bool _isDioConfigured = false;
 
   Source() : _dio = _buildDio();
 
   static Dio _buildDio() {
+    final dio = GlobalDio.getInstance();
+    if (_isDioConfigured) {
+      return dio;
+    }
+
     final uri = Uri.parse(Constants.paheHome);
 
     /*
@@ -185,8 +191,8 @@ class Source {
     final cookies = [Cookie("__ddg1_", ""), Cookie("__ddg2_", "")];
     final cookieJar = CookieJar();
     cookieJar.saveFromResponse(uri, cookies);
-    final dio = defaultDio()..options.baseUrl = Constants.apiEntryPoint;
     dio.interceptors.add(CookieManager(cookieJar));
+    _isDioConfigured = true;
     return dio;
   }
 
@@ -194,11 +200,12 @@ class Source {
     required SearchParams params,
   }) async {
     log.infoWithMetadata("Searching", metadata: {"params": params});
+    final url = apiUrl("search");
     final term = params.term;
     final page = params.page;
 
     final response = await _dio.get(
-      "search",
+      url,
       queryParameters: {"q": term, "page": page},
     );
     final data = response.data;
@@ -227,12 +234,15 @@ class Source {
     return pagination;
   }
 
+  String apiUrl(String path) => "${Constants.apiEntryPoint}$path";
+
   Future<Map<String, dynamic>> fetchEpisodeListPageJson({
     required String animeSession,
     required int pageNum,
   }) async {
+    final url = apiUrl("release");
     final response = await _dio.get(
-      "release",
+      url,
       queryParameters: {
         "id": animeSession,
         "sort": "episode_asc",

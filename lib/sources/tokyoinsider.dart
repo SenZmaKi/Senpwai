@@ -148,7 +148,7 @@ class Source {
   final Dio _dio;
   late final AnimeListCache _animeListCache;
 
-  Source() : _dio = defaultDio() {
+  Source() : _dio = GlobalDio.getInstance() {
     _animeListCache = AnimeListCache(dio: _dio);
   }
 

@@ -52,7 +52,7 @@ class AnimeResult {
 class Source {
   final Dio _dio;
 
-  Source() : _dio = defaultDio();
+  Source() : _dio = GlobalDio.getInstance();
 
   Future<Pagination<List<AnimeResult>>> search({
     required SearchParams params,

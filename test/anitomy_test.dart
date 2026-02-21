@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:senpwai/sources/shared/anitomy/anitomy.dart';
+import 'package:senpwai/sources/shared/anitomy.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import "package:senpwai/shared/log.dart";
 
