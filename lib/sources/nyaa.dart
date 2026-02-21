@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:html/dom.dart';
 import 'package:logging/logging.dart';
