@@ -8,7 +8,7 @@ import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/shared.dart';
-import 'package:senpwai/sources/shared/anitomy.dart';
+import 'package:senpwai/anitomy/anitomy.dart';
 
 final _log = Logger("senpwai.anilist.client");
 

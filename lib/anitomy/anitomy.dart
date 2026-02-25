@@ -5,7 +5,7 @@ import 'package:senpwai/sources/shared/shared.dart';
 import 'package:anitomy_dart/anitomy.dart' as anitomy;
 
 final _ani = anitomy.Anitomy();
-Logger log = Logger("senpwai.sources.shared.anitomy.anitomy");
+Logger log = Logger("senpwai.anitomy.anitomy");
 
 class AnitomyParseResult {
   int? season;
