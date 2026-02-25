@@ -3,6 +3,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/sources/shared/shared.dart';
+import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:html/dom.dart' as html;

@@ -5,6 +5,7 @@ import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/shared.dart' as shared;
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/sources/shared/shared.dart';
+import 'package:senpwai/shared/shared.dart';
 
 final log = Logger('senpwai.anime.sources.nyaa');
 
