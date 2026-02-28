@@ -94,8 +94,6 @@ abstract class AnilistAnimeBase<T extends ToJson> with ToJson {
   final DateTime? startDate;
   final DateTime? endDate;
   final bool? isFavourite;
-  final List<AnilistRelation<T>> relations;
-  final List<AnilistRecommendation<T>> recommendations;
 
   const AnilistAnimeBase({
     required this.id,
@@ -115,8 +113,6 @@ abstract class AnilistAnimeBase<T extends ToJson> with ToJson {
     this.startDate,
     this.endDate,
     this.isFavourite,
-    required this.relations,
-    required this.recommendations,
   });
 
   @override
@@ -138,15 +134,11 @@ abstract class AnilistAnimeBase<T extends ToJson> with ToJson {
     "startDate": startDate?.toIso8601String(),
     "endDate": endDate?.toIso8601String(),
     "isFavourite": isFavourite,
-    "relations": relations.map((relation) => relation.toMap()).toList(),
-    "recommendations": recommendations
-        .map((recommendation) => recommendation.toMap())
-        .toList(),
   };
 }
 
 class AnilistAnime extends AnilistAnimeBase<AnilistAnime> {
-  AnilistAnime({
+  const AnilistAnime({
     required super.id,
     required super.title,
     super.format,
@@ -164,8 +156,6 @@ class AnilistAnime extends AnilistAnimeBase<AnilistAnime> {
     super.startDate,
     super.endDate,
     super.isFavourite,
-    required super.relations,
-    required super.recommendations,
   });
 
   factory AnilistAnime.fromJson(Map<String, dynamic> json) {
@@ -191,8 +181,6 @@ class AnilistAnime extends AnilistAnimeBase<AnilistAnime> {
       startDate: parsed.startDate,
       endDate: parsed.endDate,
       isFavourite: parsed.isFavourite,
-      relations: parsed.relations,
-      recommendations: parsed.recommendations,
     );
   }
 }
@@ -249,8 +237,6 @@ class AnilistAnimeWithListEntry
     super.startDate,
     super.endDate,
     super.isFavourite,
-    required super.relations,
-    required super.recommendations,
     this.listEntry,
   });
 
@@ -277,8 +263,6 @@ class AnilistAnimeWithListEntry
       startDate: parsed.startDate,
       endDate: parsed.endDate,
       isFavourite: parsed.isFavourite,
-      relations: parsed.relations,
-      recommendations: parsed.recommendations,
       listEntry: json["mediaListEntry"] == null
           ? null
           : AnilistMediaListEntry.fromJson(json["mediaListEntry"]),
@@ -310,8 +294,6 @@ class _ParsedAnimeFields<T extends ToJson> {
   final DateTime? startDate;
   final DateTime? endDate;
   final bool? isFavourite;
-  final List<AnilistRelation<T>> relations;
-  final List<AnilistRecommendation<T>> recommendations;
 
   const _ParsedAnimeFields({
     required this.id,
@@ -331,8 +313,6 @@ class _ParsedAnimeFields<T extends ToJson> {
     this.startDate,
     this.endDate,
     this.isFavourite,
-    required this.relations,
-    required this.recommendations,
   });
 }
 
@@ -374,8 +354,6 @@ _ParsedAnimeFields<T> _parseAnimeFields<T extends ToJson>(
     startDate: _parseFuzzyDate(json["startDate"] as Map<String, dynamic>?),
     endDate: _parseFuzzyDate(json["endDate"] as Map<String, dynamic>?),
     isFavourite: json["isFavourite"] as bool?,
-    relations: _parseRelations(json, relatedParser),
-    recommendations: _parseRecommendations(json, relatedParser),
   );
 }
 
@@ -392,7 +370,7 @@ DateTime? _parseFuzzyDate(Map<String, dynamic>? json) {
   return DateTime.utc(year.toInt(), month, day);
 }
 
-List<AnilistRelation<T>> _parseRelations<T extends ToJson>(
+List<AnilistRelation<T>> parseRelations<T extends ToJson>(
   Map<String, dynamic> json,
   T Function(Map<String, dynamic>) relatedParser,
 ) {
@@ -417,7 +395,7 @@ List<AnilistRelation<T>> _parseRelations<T extends ToJson>(
   return results;
 }
 
-List<AnilistRecommendation<T>> _parseRecommendations<T extends ToJson>(
+List<AnilistRecommendation<T>> parseRecommendations<T extends ToJson>(
   Map<String, dynamic> json,
   T Function(Map<String, dynamic>) relatedParser,
 ) {
@@ -448,6 +426,10 @@ class AnimeSearchParams extends PerPage {
   final int? seasonYear;
   final AnilistFormat? format;
   final AnilistMediaListStatus? listStatus;
+  final AnilistAiringStatus? airingStatus;
+  final AnilistMediaSort? sort;
+  final bool sortDescending;
+  final int page;
 
   const AnimeSearchParams({
     this.term,
@@ -456,14 +438,58 @@ class AnimeSearchParams extends PerPage {
     this.seasonYear,
     this.format,
     this.listStatus,
+    this.airingStatus,
+    this.sort,
+    this.sortDescending = true,
+    this.page = 1,
     super.perPage,
   });
 
+  AnimeSearchParams copyWithPage(int newPage) => AnimeSearchParams(
+    term: term,
+    genres: genres,
+    season: season,
+    seasonYear: seasonYear,
+    format: format,
+    listStatus: listStatus,
+    airingStatus: airingStatus,
+    sort: sort,
+    sortDescending: sortDescending,
+    page: newPage,
+    perPage: perPage,
+  );
+
   @override
   String toString() =>
-      "AnimeSearchParams(term: $term, genres: $genres, season: $season, seasonYear: $seasonYear, format: $format, listStatus: $listStatus, perPage: $perPage)";
+      "AnimeSearchParams(term: $term, genres: $genres, season: $season, seasonYear: $seasonYear, format: $format, listStatus: $listStatus, airingStatus: $airingStatus, sort: $sort, sortDescending: $sortDescending, page: $page, perPage: $perPage)";
 }
 
 class TrendingParams extends PerPage {
   const TrendingParams({super.perPage});
+}
+
+class AnilistViewer {
+  final int id;
+  final String name;
+  final String? avatarLarge;
+  final String? avatarMedium;
+
+  const AnilistViewer({
+    required this.id,
+    required this.name,
+    this.avatarLarge,
+    this.avatarMedium,
+  });
+
+  String? get avatarUrl => avatarLarge ?? avatarMedium;
+
+  factory AnilistViewer.fromJson(Map<String, dynamic> json) {
+    final avatar = json['avatar'] as Map<String, dynamic>?;
+    return AnilistViewer(
+      id: json['id'] as int,
+      name: json['name'] as String,
+      avatarLarge: avatar?['large'] as String?,
+      avatarMedium: avatar?['medium'] as String?,
+    );
+  }
 }

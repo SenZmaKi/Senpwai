@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/anilist/constants.dart' as constants;
@@ -7,6 +8,7 @@ import 'package:senpwai/anilist/exceptions.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/anitomy/anitomy.dart';
 
@@ -61,6 +63,9 @@ class AnilistGraphqlClient {
         headers: accessToken == null
             ? null
             : {"Authorization": "Bearer $accessToken"},
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(allowPostMethod: true)
+            .toExtra(),
       ),
     );
     final data = response.data;
@@ -112,10 +117,8 @@ abstract class AnilistClientBase {
   }
 
   int _inferSeasonNumber(AnilistAnimeBase anime) {
-    final prequels = anime.relations
-        .where((relation) => relation.type == AnilistRelationType.prequel)
-        .length;
-    return prequels + 1;
+    // Relations are lazy-loaded; default to season 1 for sync matching
+    return 1;
   }
 }
 
@@ -159,23 +162,24 @@ String mediaSearchQuery({required bool includeListEntry}) {
         \$season: MediaSeason,
         \$seasonYear: Int,
         \$format: MediaFormat,
+        \$status: MediaStatus,
+        \$sort: [MediaSort],
         \$page: Int,
         \$perPage: Int
       ) {
         Page(page: \$page, perPage: \$perPage) {
-          pageInfo { currentPage lastPage perPage }
+          pageInfo { currentPage lastPage perPage total }
           media(
             search: \$search,
             genre_in: \$genreIn,
             season: \$season,
             seasonYear: \$seasonYear,
             format: \$format,
+            status: \$status,
             type: ANIME,
-            sort: [SEARCH_MATCH, POPULARITY_DESC]
+            sort: \$sort
           ) {
             ${_mediaFields(includeListEntry: includeListEntry)}
-            ${_relationFields(includeListEntry: includeListEntry)}
-            ${_recommendationFields(includeListEntry: includeListEntry)}
           }
         }
       }
@@ -198,7 +202,7 @@ String trendingQuery({required bool includeListEntry}) {
   return '''
       query (\$season: MediaSeason, \$seasonYear: Int, \$page: Int, \$perPage: Int) {
         Page(page: \$page, perPage: \$perPage) {
-          pageInfo { currentPage lastPage perPage }
+          pageInfo { currentPage lastPage perPage total }
           media(
             season: \$season,
             seasonYear: \$seasonYear,
@@ -206,47 +210,60 @@ String trendingQuery({required bool includeListEntry}) {
             sort: [TRENDING_DESC, POPULARITY_DESC]
           ) {
             ${_mediaFields(includeListEntry: includeListEntry)}
-            ${_relationFields(includeListEntry: includeListEntry)}
-            ${_recommendationFields(includeListEntry: includeListEntry)}
           }
         }
       }
     ''';
 }
 
-String mediaListSearchQuery() => r'''
+String mediaListSearchQuery() {
+  return '''
       query (
-        $search: String,
-        $listStatus: MediaListStatus,
-        $page: Int,
-        $perPage: Int
+        \$search: String,
+        \$listStatus: MediaListStatus,
+        \$page: Int,
+        \$perPage: Int
       ) {
-        Page(page: $page, perPage: $perPage) {
-          pageInfo { currentPage lastPage perPage }
-          mediaList(search: $search, status: $listStatus, type: ANIME) {
+        Page(page: \$page, perPage: \$perPage) {
+          pageInfo { currentPage lastPage perPage total }
+          mediaList(search: \$search, status: \$listStatus, type: ANIME) {
             id
             status
             progress
             startedAt { year month day }
             media {
               ${_mediaFields(includeListEntry: false)}
-              ${_relationFields(includeListEntry: true)}
-              ${_recommendationFields(includeListEntry: true)}
             }
           }
         }
       }
     ''';
+}
 
 Map<String, dynamic> buildSearchVariables(AnimeSearchParams params) {
+  // Build sort list: use explicit sort if provided, otherwise default
+  List<String>? sortList;
+  if (params.sort != null) {
+    final sortValue = params.sortDescending
+        ? params.sort!.toGraphqlDesc()
+        : params.sort!.toGraphqlAsc();
+    sortList = [sortValue];
+  } else if (params.term != null && params.term!.isNotEmpty) {
+    sortList = ["SEARCH_MATCH", "POPULARITY_DESC"];
+  } else {
+    sortList = ["POPULARITY_DESC"];
+  }
+
   final variables = <String, dynamic>{
     "search": params.term,
     "genreIn": params.genres?.map((genre) => genre.toGraphql()).toList(),
     "season": params.season?.toGraphql(),
     "seasonYear": params.seasonYear,
     "format": params.format?.toGraphql(),
+    "status": params.airingStatus?.toGraphql(),
     "listStatus": params.listStatus?.toGraphql(),
-    "page": 1,
+    "sort": sortList,
+    "page": params.page,
     "perPage": params.perPage,
   }..removeWhere((_, value) => value == null);
 
@@ -263,6 +280,7 @@ Pagination<List<T>> buildPagination<T>({
   final currentPage = pageInfo?["currentPage"] ?? 1;
   final totalPages = pageInfo?["lastPage"] ?? 1;
   final resolvedPerPage = pageInfo?["perPage"] ?? fallbackPerPage;
+  final total = pageInfo?["total"] as int?;
   final fetchNextPage = currentPage < totalPages
       ? fetchNextPageCandidate
       : null;
@@ -273,6 +291,7 @@ Pagination<List<T>> buildPagination<T>({
     items: items,
     fetchNextPage: fetchNextPage,
     perPage: resolvedPerPage,
+    totalResults: total ?? (totalPages * resolvedPerPage),
   );
 }
 

@@ -13,19 +13,14 @@ class AnilistEmptyResponseException extends AnilistException {
     : super("AniList response body was empty");
 }
 
-class AnilistTokenExchangeException extends AnilistException {
-  const AnilistTokenExchangeException({Object? error})
-    : super("AniList token response missing access_token", error: error);
-}
-
 class AnilistAuthUrlOpenException extends AnilistException {
   const AnilistAuthUrlOpenException({Object? error})
     : super("Failed to open AniList auth URL", error: error);
 }
 
-class AnilistAuthMissingCodeException extends AnilistException {
-  const AnilistAuthMissingCodeException()
-    : super("Auth redirect missing code parameter");
+class AnilistAuthMissingTokenException extends AnilistException {
+  const AnilistAuthMissingTokenException()
+    : super("Auth redirect missing access_token parameter");
 }
 
 class AnilistAuthRequiredException extends AnilistException {

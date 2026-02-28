@@ -228,3 +228,37 @@ extension AnilistGenreExtension on AnilistGenre {
     _ => null,
   };
 }
+
+enum AnilistMediaSort {
+  score,
+  popularity,
+  trending,
+  favourites,
+  startDate,
+  titleRomaji,
+  titleEnglish,
+}
+
+extension AnilistMediaSortExtension on AnilistMediaSort {
+  String toGraphqlAsc() => switch (this) {
+    AnilistMediaSort.score => "SCORE",
+    AnilistMediaSort.popularity => "POPULARITY",
+    AnilistMediaSort.trending => "TRENDING",
+    AnilistMediaSort.favourites => "FAVOURITES",
+    AnilistMediaSort.startDate => "START_DATE",
+    AnilistMediaSort.titleRomaji => "TITLE_ROMAJI",
+    AnilistMediaSort.titleEnglish => "TITLE_ENGLISH",
+  };
+
+  String toGraphqlDesc() => "${toGraphqlAsc()}_DESC";
+
+  String toLabel() => switch (this) {
+    AnilistMediaSort.score => "Score",
+    AnilistMediaSort.popularity => "Popularity",
+    AnilistMediaSort.trending => "Trending",
+    AnilistMediaSort.favourites => "Favourites",
+    AnilistMediaSort.startDate => "Start Date",
+    AnilistMediaSort.titleRomaji => "Title (Romaji)",
+    AnilistMediaSort.titleEnglish => "Title (English)",
+  };
+}

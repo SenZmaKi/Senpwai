@@ -1,3 +1,4 @@
+- Ratelimit failure retry
 - Don't log anilist auth token in logs
 - Properly handle servers that don't support Range requests
 - Add watchcartoonsonline

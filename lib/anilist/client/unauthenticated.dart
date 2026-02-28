@@ -24,12 +24,15 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
     final data = await _graphql.postGraphQL(query: query, variables: variables);
     final pageData = data["data"]?["Page"] as Map<String, dynamic>?;
     final items = mapMediaItems(pageData);
+    final currentPage =
+        (pageData?["pageInfo"]?["currentPage"] as int?) ?? params.page;
 
     return buildPagination(
       pageData: pageData,
       fallbackPerPage: params.perPage,
       items: items,
-      fetchNextPageCandidate: () => searchAnime(params: params),
+      fetchNextPageCandidate: () =>
+          searchAnime(params: params.copyWithPage(currentPage + 1)),
     );
   }
 
@@ -47,6 +50,30 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
       return null;
     }
     return AnilistAnime.fromJson(media);
+  }
+
+  Future<List<AnilistRelation<AnilistAnime>>> fetchRelationsById(
+    int anilistId,
+  ) async {
+    final data = await _graphql.postGraphQL(
+      query: mediaByIdQuery(includeListEntry: false),
+      variables: {"id": anilistId},
+    );
+    final media = data["data"]?["Media"] as Map<String, dynamic>?;
+    if (media == null) return [];
+    return parseRelations(media, (json) => AnilistAnime.fromJson(json));
+  }
+
+  Future<List<AnilistRecommendation<AnilistAnime>>> fetchRecommendationsById(
+    int anilistId,
+  ) async {
+    final data = await _graphql.postGraphQL(
+      query: mediaByIdQuery(includeListEntry: false),
+      variables: {"id": anilistId},
+    );
+    final media = data["data"]?["Media"] as Map<String, dynamic>?;
+    if (media == null) return [];
+    return parseRecommendations(media, (json) => AnilistAnime.fromJson(json));
   }
 
   Future<Pagination<List<AnilistAnime>>> trendingThisSeason({

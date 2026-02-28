@@ -8,6 +8,7 @@ import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/net/net_config.dart';
 
 final log = Logger("senpwai.shared.net.download.download");
 
@@ -64,10 +65,10 @@ class Download {
         options: Options(
           headers: {"Range": "bytes=$startOffsetBytes-$endOffsetBytes"},
           responseType: ResponseType.stream,
-          extra: CacheOptions(
-            store: MemCacheStore(),
-            policy: CachePolicy.noCache,
-          ).toExtra(),
+          extra: NetConfig.getInstance()
+              // Don't cache binary data
+              .buildCacheOptions(policy: CachePolicy.noCache)
+              .toExtra(),
         ),
         cancelToken: state.cancelToken,
       );

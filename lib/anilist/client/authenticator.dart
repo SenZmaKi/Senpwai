@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/anilist/exceptions.dart';
+import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -24,15 +25,18 @@ class AnilistAuthenticatorClient {
       return true;
     } on DioException {
       return false;
+    } on AnilistException {
+      return false;
     }
   }
 
-  Future<Map<String, dynamic>> fetchViewer({String? accessToken}) async {
+  Future<AnilistViewer> fetchViewer({String? accessToken}) async {
     const query = r'''
       query {
         Viewer {
           id
           name
+          avatar { large medium }
         }
       }
     ''';
@@ -50,7 +54,11 @@ class AnilistAuthenticatorClient {
     if (data == null) {
       throw const AnilistEmptyResponseException();
     }
-    return data;
+    final viewerJson = data['data']?['Viewer'] as Map<String, dynamic>?;
+    if (viewerJson == null) {
+      throw const AnilistEmptyResponseException();
+    }
+    return AnilistViewer.fromJson(viewerJson);
   }
 
   Future<void> setToken(String newToken) async {
@@ -129,7 +137,7 @@ class AnilistAuthenticatorClient {
 
       if (newToken == null || newToken.isEmpty) {
         _log.severe("Auth failed: Access token missing from fragment");
-        throw const AnilistAuthMissingCodeException();
+        throw const AnilistAuthMissingTokenException();
       }
 
       // Update the internal state

@@ -46,6 +46,8 @@ dependencies:
   ffi: ^2.1.4
   url_launcher: ^6.3.1
   app_links: ^6.4.0
+  google_fonts: ^6.1.0
+  cached_network_image: ^3.3.1
   anitomy_dart:
     git:
       url: https://github.com/SenZmaKi/anitomy_dart

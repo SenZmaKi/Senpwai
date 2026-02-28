@@ -1,9 +1,74 @@
 # Misc
 
+- The app is designed for mobile, tablet and desktop so it should be responsive.
 - Once you finish an implementation task prompt me using the question/prompt tool to review it and in the options for the prompt have good, medium, bad and other. Every time!!!
 - Before running tests run static analyzers
 
 # Frontend Design
+
+## StatefulWidget Performance Guidelines
+
+Use `StatefulWidget` only when UI must change dynamically. Keep widgets efficient by following these rules:
+
+**State placement**
+
+- Push mutable state as deep in the tree as possible.
+- Avoid placing frequently changing state high in the widget tree.
+- Prefer small stateful leaf widgets instead of rebuilding large parents.
+
+**Rebuild cost**
+
+- Minimize widgets created inside `build()`.
+- Extract static parts into separate widgets.
+- Cache unchanged subtrees in `final` variables.
+- Use `const` constructors whenever possible.
+
+**Structure stability**
+
+- Avoid changing widget types or tree depth between rebuilds.
+- Prefer changing properties instead of conditionally wrapping widgets.
+- Use keys, especially `GlobalKey`, only when state must be preserved across moves.
+
+**Lifecycle**
+
+- Allocate resources in `initState()`.
+- Dispose resources in `dispose()`.
+- Call `setState()` only when UI must update.
+
+**Design principles**
+
+- `StatefulWidget` is immutable. Mutable data belongs in `State`.
+- Prefer `StatelessWidget` when UI depends only on inputs and context.
+- Keep rebuild frequency and scope as small as possible.
+
+**Rule of thumb**
+A well designed `StatefulWidget` updates only the minimal part of the UI and avoids unnecessary rebuilds.
+
+## Design System Architecture
+
+The app uses a layered, fully configurable design system in `lib/ui/core/theme.dart`.
+
+**Core types:**
+
+- `SenpwaiColorSet` — one mode's colors (primary, secondary, tertiary, background, surface, surfaceVariant, onSurface, onPrimary, error).
+- `SenpwaiColors` — wraps a `dark` and `light` `SenpwaiColorSet`. Every preset provides hand-crafted colors for both modes.
+- `SenpwaiTypography` — display/body font families, all size/weight tokens from display through body. Has a `neon` static preset.
+- `SenpwaiShapeStyle` — cardRadius, cardBorderWidth, inputRadius, buttonRadius. Has a `neon` static preset.
+- `SenpwaiTheme` — composes `SenpwaiColors` + `SenpwaiTypography` + `SenpwaiShapeStyle`. Has `toThemeData(Brightness)` that builds a full `ThemeData` for the given brightness (dark or light) using the matching `SenpwaiColorSet`.
+- `SenpwaiThemePreset` — enum of curated full themes (defaultTheme, gruvbox, dracula, catppuccin, monokai). Each has `toTheme()` returning a complete `SenpwaiTheme` with specialized colors, typography, and shapes.
+- `ThemeConfig` — `ChangeNotifier` holding ONE `SenpwaiTheme` + `BrightnessMode` + optional active preset. `applyPreset()` applies the full theme (colors + typography + shapes). Exposes `buildLightTheme()` / `buildDarkTheme()` for `MaterialApp`.
+- `ThemeConfigProvider` — `InheritedNotifier` that provides `ThemeConfig` via `ThemeConfigProvider.of(context)`.
+- `SenpwaiThemeExtension` — `ThemeExtension` on `ThemeData` for card styling and shimmer. Badge/score colors are derived from the existing `ColorScheme` (surface, onSurface, secondary) — NOT separate fields.
+
+**Font picker** uses `displayFontOptions` and `bodyFontOptions` lists of `FontOption`. Settings page exposes dropdowns that update `config.typography`.
+
+**Pagination** uses `PaginatedScrollMixin` from `lib/ui/core/pagination.dart` — mix into any `State` to get infinite scroll with configurable threshold.
+
+**Key rules:**
+
+- Never auto-adapt colors from dark to light. Each preset provides explicit hand-crafted dark and light color sets.
+- Brightness is always passed explicitly to `toThemeData(Brightness)`, never inferred from color luminance.
+- `ThemeConfig` holds a single `SenpwaiTheme` (not separate dark/light themes).
 
 name: frontend-design
 description: Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, or applications. Generates creative, polished code that avoids generic AI aesthetics.

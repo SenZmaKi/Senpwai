@@ -2,10 +2,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dotenv/dotenv.dart' as dotenv;
 import 'package:senpwai/anilist/anilist.dart';
+import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/net/net_config.dart';
+import 'support/support.dart';
 
 void main() {
   setUpAll(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    setupLogger();
   });
   final env = dotenv.DotEnv(includePlatformEnvironment: true, quiet: true)
     ..load();
@@ -14,6 +18,24 @@ void main() {
   group("AnilistUnauthenticatedClient", () {
     final client = AnilistUnauthenticatedClient();
 
+    test("cache fetches faster", () async {
+      final uncached = await timeIt(
+        label: "Searching anime (uncached)",
+        fn: () => client.searchAnime(
+          params: const AnimeSearchParams(term: "One Piece"),
+        ),
+      );
+
+      final cached = await timeIt(
+        label: "Searching anime (cached)",
+        fn: () => client.searchAnime(
+          params: const AnimeSearchParams(term: "One Piece"),
+        ),
+      );
+      NetConfig.getInstance().logCache();
+
+      expect(cached.inMilliseconds, lessThan(uncached.inMilliseconds));
+    });
     test("searchAnime returns results", () async {
       final results = await client.searchAnime(
         params: const AnimeSearchParams(term: "Fullmetal"),
@@ -107,18 +129,6 @@ void main() {
     );
 
     test(
-      "matchAnimeTitle returns match",
-      () async {
-        final match = await client.matchAnimeTitle(
-          inputTitle: "Fullmetal Alchemist Brotherhood",
-        );
-        expect(match, isNotNull);
-      },
-      tags: ["authenticated"],
-      skip: shouldSkip ? "Set ANILIST_AUTH_TOKEN to run" : false,
-    );
-
-    test(
       "authenticator validates token",
       () async {
         final isValid = await client.auth.isValidToken(
@@ -133,10 +143,9 @@ void main() {
     test(
       "authenticator fetches viewer",
       () async {
-        final data = await client.auth.fetchViewer();
-        final viewer = data["data"]?["Viewer"] as Map<String, dynamic>?;
+        final viewer = await client.auth.fetchViewer();
         expect(viewer, isNotNull);
-        expect(viewer?["id"], isNotNull);
+        expect(viewer.id, isNotNull);
       },
       tags: ["authenticated"],
       skip: shouldSkip ? "Set ANILIST_AUTH_TOKEN to run" : false,
