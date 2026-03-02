@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/models.dart';
-import 'package:senpwai/ui/components/anime_card.dart';
+import 'package:senpwai/ui/components/anime_card/anime_card.dart';
 import 'package:senpwai/ui/components/shimmer_card.dart';
+import 'package:senpwai/ui/core/responsive.dart';
 
-class AnimeGrid extends StatelessWidget {
+class AnimeCardGrid extends StatelessWidget {
   final List<AnilistAnimeBase> anime;
   final bool isLoading;
   final bool loadingMore;
   final int crossAxisCount;
 
-  const AnimeGrid({
+  const AnimeCardGrid({
     super.key,
     required this.anime,
     this.isLoading = false,
@@ -19,15 +20,18 @@ class AnimeGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = gridSpacing(context);
+    final aspectRatio = gridChildAspectRatio(context);
+
     if (isLoading) {
       return GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: crossAxisCount,
-          childAspectRatio: 0.55,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+          childAspectRatio: aspectRatio,
+          crossAxisSpacing: spacing,
+          mainAxisSpacing: spacing,
         ),
         itemCount: crossAxisCount * 2,
         itemBuilder: (_, __) => const ShimmerCard(),
@@ -71,24 +75,24 @@ class AnimeGrid extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            childAspectRatio: 0.55,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
+            childAspectRatio: aspectRatio,
+            crossAxisSpacing: spacing,
+            mainAxisSpacing: spacing,
           ),
           itemCount: anime.length,
           itemBuilder: (_, i) => AnimeCard(anime: anime[i]),
         ),
         if (loadingMore)
           Padding(
-            padding: const EdgeInsets.only(top: 12),
+            padding: EdgeInsets.only(top: spacing),
             child: GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: crossAxisCount,
-                childAspectRatio: 0.55,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+                childAspectRatio: aspectRatio,
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
               ),
               itemCount: crossAxisCount,
               itemBuilder: (_, __) => const ShimmerCard(),

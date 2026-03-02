@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/models.dart';
-import 'package:senpwai/ui/components/anime_card.dart';
+import 'package:senpwai/ui/components/anime_card/anime_card.dart';
 import 'package:senpwai/ui/components/shimmer_card.dart';
 
-class AnimeHorizontalList extends StatelessWidget {
+class AnimeCardHorizontal extends StatelessWidget {
   final List<AnilistAnimeBase> anime;
   final bool isLoading;
   final double itemWidth;
   final double itemHeight;
 
-  const AnimeHorizontalList({
+  const AnimeCardHorizontal({
     super.key,
     required this.anime,
     this.isLoading = false,

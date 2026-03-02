@@ -36,6 +36,9 @@ class SenpwaiColorSet {
   final Color onPrimary;
   final Color error;
 
+  /// Genre tag color palette for this color set.
+  final List<Color> genreColors;
+
   const SenpwaiColorSet({
     required this.primary,
     required this.secondary,
@@ -46,6 +49,7 @@ class SenpwaiColorSet {
     required this.onSurface,
     required this.onPrimary,
     required this.error,
+    required this.genreColors,
   });
 
   SenpwaiColorSet copyWith({
@@ -58,6 +62,7 @@ class SenpwaiColorSet {
     Color? onSurface,
     Color? onPrimary,
     Color? error,
+    List<Color>? genreColors,
   }) {
     return SenpwaiColorSet(
       primary: primary ?? this.primary,
@@ -69,6 +74,7 @@ class SenpwaiColorSet {
       onSurface: onSurface ?? this.onSurface,
       onPrimary: onPrimary ?? this.onPrimary,
       error: error ?? this.error,
+      genreColors: genreColors ?? this.genreColors,
     );
   }
 }
@@ -187,6 +193,81 @@ class SenpwaiShapeStyle {
       buttonRadius: buttonRadius ?? this.buttonRadius,
     );
   }
+}
+
+// ── Genre Palette Preset ──────────────────────────────────────────
+
+enum GenrePalettePreset {
+  vivid,
+  pastel,
+  muted,
+  neon;
+
+  String get label => switch (this) {
+    GenrePalettePreset.vivid => 'Vivid',
+    GenrePalettePreset.pastel => 'Pastel',
+    GenrePalettePreset.muted => 'Muted',
+    GenrePalettePreset.neon => 'Neon',
+  };
+
+  List<Color> get colors => switch (this) {
+    GenrePalettePreset.vivid => const [
+      Color(0xFFEF5350),
+      Color(0xFFEC407A),
+      Color(0xFFAB47BC),
+      Color(0xFF7E57C2),
+      Color(0xFF42A5F5),
+      Color(0xFF26C6DA),
+      Color(0xFF26A69A),
+      Color(0xFF66BB6A),
+      Color(0xFFD4E157),
+      Color(0xFFFFCA28),
+      Color(0xFFFFA726),
+      Color(0xFF8D6E63),
+    ],
+    GenrePalettePreset.pastel => const [
+      Color(0xFFEF9A9A),
+      Color(0xFFF48FB1),
+      Color(0xFFCE93D8),
+      Color(0xFF90CAF9),
+      Color(0xFF80DEEA),
+      Color(0xFFA5D6A7),
+      Color(0xFFFFE082),
+      Color(0xFFFFCC80),
+      Color(0xFF80CBC4),
+      Color(0xFF9FA8DA),
+      Color(0xFFC5E1A5),
+      Color(0xFFBCAAA4),
+    ],
+    GenrePalettePreset.muted => const [
+      Color(0xFF795548),
+      Color(0xFF546E7A),
+      Color(0xFF78909C),
+      Color(0xFF558B2F),
+      Color(0xFF37474F),
+      Color(0xFF4527A0),
+      Color(0xFF1565C0),
+      Color(0xFF0277BD),
+      Color(0xFF00695C),
+      Color(0xFF827717),
+      Color(0xFFC62828),
+      Color(0xFF6D4C41),
+    ],
+    GenrePalettePreset.neon => const [
+      Color(0xFFFF1744),
+      Color(0xFFD500F9),
+      Color(0xFF2979FF),
+      Color(0xFF00E5FF),
+      Color(0xFF00E676),
+      Color(0xFFFFD600),
+      Color(0xFFFF6D00),
+      Color(0xFF1DE9B6),
+      Color(0xFF3D5AFE),
+      Color(0xFFF50057),
+      Color(0xFF76FF03),
+      Color(0xFFFFAB40),
+    ],
+  };
 }
 
 // ── Composed Theme ─────────────────────────────────────────────────
@@ -391,6 +472,7 @@ class SenpwaiTheme {
           cardRadius: s.cardRadius,
           cardBorderColor: c.primary.withValues(alpha: 0.3),
           cardBorderWidth: s.cardBorderWidth,
+          genrePalette: c.genreColors,
           cardShadows: isDark
               ? [
                   BoxShadow(
@@ -443,6 +525,20 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFFE2E8F0),
           onPrimary: Color(0xFFFFFFFF),
           error: Color(0xFFFF3333),
+          genreColors: [
+            Color(0xFFEF5350),
+            Color(0xFFEC407A),
+            Color(0xFFAB47BC),
+            Color(0xFF7E57C2),
+            Color(0xFF42A5F5),
+            Color(0xFF26C6DA),
+            Color(0xFF26A69A),
+            Color(0xFF66BB6A),
+            Color(0xFFD4E157),
+            Color(0xFFFFCA28),
+            Color(0xFFFFA726),
+            Color(0xFF8D6E63),
+          ],
         ),
         light: SenpwaiColorSet(
           primary: Color(0xFF9B2C3E),
@@ -454,6 +550,20 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFF1A1A2E),
           onPrimary: Color(0xFFFFFFFF),
           error: Color(0xFFCC2222),
+          genreColors: [
+            Color(0xFFEF5350),
+            Color(0xFFEC407A),
+            Color(0xFFAB47BC),
+            Color(0xFF7E57C2),
+            Color(0xFF42A5F5),
+            Color(0xFF26C6DA),
+            Color(0xFF26A69A),
+            Color(0xFF66BB6A),
+            Color(0xFFD4E157),
+            Color(0xFFFFCA28),
+            Color(0xFFFFA726),
+            Color(0xFF8D6E63),
+          ],
         ),
       ),
       typography: SenpwaiTypography(
@@ -479,6 +589,20 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFFEBDBB2),
           onPrimary: Color(0xFF1D2021),
           error: Color(0xFFCC241D),
+          genreColors: [
+            Color(0xFFFF6D00),
+            Color(0xFFD79921),
+            Color(0xFF8EC07C),
+            Color(0xFF83A598),
+            Color(0xFFB57614),
+            Color(0xFFCC241D),
+            Color(0xFFD65D0E),
+            Color(0xFF458588),
+            Color(0xFF689D6A),
+            Color(0xFFB8BB26),
+            Color(0xFFD3869B),
+            Color(0xFF98971A),
+          ],
         ),
         light: SenpwaiColorSet(
           primary: Color(0xFFB57614),
@@ -490,6 +614,20 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFF3C3836),
           onPrimary: Color(0xFFFBF1C7),
           error: Color(0xFF9D0006),
+          genreColors: [
+            Color(0xFFFF6D00),
+            Color(0xFFD79921),
+            Color(0xFF8EC07C),
+            Color(0xFF83A598),
+            Color(0xFFB57614),
+            Color(0xFFCC241D),
+            Color(0xFFD65D0E),
+            Color(0xFF458588),
+            Color(0xFF689D6A),
+            Color(0xFFB8BB26),
+            Color(0xFFD3869B),
+            Color(0xFF98971A),
+          ],
         ),
       ),
       typography: SenpwaiTypography(
@@ -515,6 +653,20 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFFCDD6F4),
           onPrimary: Color(0xFF1E1E2E),
           error: Color(0xFFF38BA8),
+          genreColors: [
+            Color(0xFFEBA0AC),
+            Color(0xFFF5C2E7),
+            Color(0xFFCBA6F7),
+            Color(0xFF89B4FA),
+            Color(0xFF74C7EC),
+            Color(0xFF89DCEB),
+            Color(0xFF94E2D5),
+            Color(0xFFA6E3A1),
+            Color(0xFFB5E8B0),
+            Color(0xFFFFD080),
+            Color(0xFFFAB387),
+            Color(0xFFF38BA8),
+          ],
         ),
         light: SenpwaiColorSet(
           primary: Color(0xFF8839EF),
@@ -526,6 +678,20 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFF4C4F69),
           onPrimary: Color(0xFFEFF1F5),
           error: Color(0xFFD20F39),
+          genreColors: [
+            Color(0xFFEBA0AC),
+            Color(0xFFF5C2E7),
+            Color(0xFFCBA6F7),
+            Color(0xFF89B4FA),
+            Color(0xFF74C7EC),
+            Color(0xFF89DCEB),
+            Color(0xFF94E2D5),
+            Color(0xFFA6E3A1),
+            Color(0xFFB5E8B0),
+            Color(0xFFFFD080),
+            Color(0xFFFAB387),
+            Color(0xFFF38BA8),
+          ],
         ),
       ),
       typography: SenpwaiTypography(
@@ -553,6 +719,20 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFFF8F8F2),
           onPrimary: Color(0xFF272822),
           error: Color(0xFFF92672),
+          genreColors: [
+            Color(0xFFA6E22E),
+            Color(0xFFF92672),
+            Color(0xFF66D9EF),
+            Color(0xFFE6DB74),
+            Color(0xFFFD971F),
+            Color(0xFF819AFF),
+            Color(0xFFCC66FF),
+            Color(0xFF4DD4E6),
+            Color(0xFFFF7043),
+            Color(0xFF80CBC4),
+            Color(0xFFFF80AB),
+            Color(0xFFB9EE6A),
+          ],
         ),
         light: SenpwaiColorSet(
           primary: Color(0xFF4D7A0F),
@@ -564,6 +744,20 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFF272822),
           onPrimary: Color(0xFFF8F8F2),
           error: Color(0xFFC2185B),
+          genreColors: [
+            Color(0xFFA6E22E),
+            Color(0xFFF92672),
+            Color(0xFF66D9EF),
+            Color(0xFFE6DB74),
+            Color(0xFFFD971F),
+            Color(0xFF819AFF),
+            Color(0xFFCC66FF),
+            Color(0xFF4DD4E6),
+            Color(0xFFFF7043),
+            Color(0xFF80CBC4),
+            Color(0xFFFF80AB),
+            Color(0xFFB9EE6A),
+          ],
         ),
       ),
       typography: SenpwaiTypography(
@@ -672,6 +866,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
   final List<BoxShadow> cardShadows;
   final Color shimmerBase;
   final Color shimmerHighlight;
+  final List<Color> genrePalette;
 
   const SenpwaiThemeExtension({
     required this.cardRadius,
@@ -680,6 +875,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
     required this.cardShadows,
     required this.shimmerBase,
     required this.shimmerHighlight,
+    required this.genrePalette,
   });
 
   @override
@@ -690,6 +886,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
     List<BoxShadow>? cardShadows,
     Color? shimmerBase,
     Color? shimmerHighlight,
+    List<Color>? genrePalette,
   }) {
     return SenpwaiThemeExtension(
       cardRadius: cardRadius ?? this.cardRadius,
@@ -698,6 +895,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
       cardShadows: cardShadows ?? this.cardShadows,
       shimmerBase: shimmerBase ?? this.shimmerBase,
       shimmerHighlight: shimmerHighlight ?? this.shimmerHighlight,
+      genrePalette: genrePalette ?? this.genrePalette,
     );
   }
 
@@ -717,6 +915,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
       shimmerHighlight:
           Color.lerp(shimmerHighlight, other.shimmerHighlight, t) ??
           shimmerHighlight,
+      genrePalette: t < 0.5 ? genrePalette : other.genrePalette,
     );
   }
 }

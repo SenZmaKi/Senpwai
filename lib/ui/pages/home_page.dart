@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/ui/core/responsive.dart';
-import 'package:senpwai/ui/components/anime_horizontal_list.dart';
+import 'package:senpwai/ui/components/anime_card/anime_card_horizontal.dart';
 import 'package:senpwai/ui/components/section_header.dart';
 import 'package:senpwai/ui/components/user_avatar_button.dart';
 
@@ -204,38 +204,6 @@ class _HomePageState extends State<HomePage> {
                       color: theme.colorScheme.primary.withValues(alpha: 0.15),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        size: 24,
-                        color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Sign in with AniList to track progress & get recommendations',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.7,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton.tonal(
-                        onPressed: widget.onLoginTap,
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        child: const Text('Login'),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -251,7 +219,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           SliverToBoxAdapter(
-            child: AnimeHorizontalList(
+            child: AnimeCardHorizontal(
               anime: _trending,
               isLoading: _trendingLoading,
             ),
@@ -271,7 +239,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             SliverToBoxAdapter(
-              child: AnimeHorizontalList(
+              child: AnimeCardHorizontal(
                 anime: _watching,
                 isLoading: _watchingLoading,
               ),
@@ -290,7 +258,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           SliverToBoxAdapter(
-            child: AnimeHorizontalList(
+            child: AnimeCardHorizontal(
               anime: _topRated,
               isLoading: _topRatedLoading,
             ),
@@ -311,7 +279,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           SliverToBoxAdapter(
-            child: AnimeHorizontalList(
+            child: AnimeCardHorizontal(
               anime: _randomGenre,
               isLoading: _randomGenreLoading,
             ),

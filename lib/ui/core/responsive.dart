@@ -34,3 +34,27 @@ double horizontalPadding(BuildContext context) {
   if (isTablet(context)) return 24;
   return 16;
 }
+
+double gridSpacing(BuildContext context) {
+  final w = MediaQuery.sizeOf(context).width;
+  if (w >= 1600) return 16;
+  if (w >= Breakpoints.desktop) return 14;
+  if (w >= Breakpoints.tablet) return 12;
+  if (w >= Breakpoints.mobile) return 10;
+  return 8;
+}
+
+double gridChildAspectRatio(BuildContext context) {
+  final w = MediaQuery.sizeOf(context).width;
+  if (w < 380) return 0.59;
+  if (w < Breakpoints.mobile) return 0.57;
+  return 0.55;
+}
+
+double compactCardAspectRatio(BuildContext context) {
+  final w = MediaQuery.sizeOf(context).width;
+  if (w < Breakpoints.mobile) return 1.65;
+  if (w < Breakpoints.tablet) return 2.0;
+  if (w < Breakpoints.desktop) return 2.2;
+  return 2.4;
+}

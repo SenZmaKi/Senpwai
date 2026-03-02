@@ -1,7 +1,7 @@
 # Misc
 
 - The app is designed for mobile, tablet and desktop so it should be responsive.
-- Once you finish an implementation task prompt me using the question/prompt tool to review it and in the options for the prompt have good, medium, bad and other. Every time!!!
+- Once you finish an implementation task prompt me using the question/prompt tool to review it and in the options for the prompt have good, medium, bad and other. Every time even if you previously prompted me do it again.
 - Before running tests run static analyzers
 
 # Frontend Design

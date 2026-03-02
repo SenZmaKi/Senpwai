@@ -5,10 +5,11 @@ import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/ui/core/pagination.dart';
 import 'package:senpwai/ui/core/responsive.dart';
-import 'package:senpwai/ui/components/anime_grid.dart';
+import 'package:senpwai/ui/components/anime_card/anime_compact_card.dart';
+import 'package:senpwai/ui/components/anime_card/anime_detailed_card.dart';
+import 'package:senpwai/ui/components/anime_card/card_switcher.dart';
+import 'package:senpwai/ui/components/anime_card/anime_card_grid.dart';
 import 'package:senpwai/ui/components/filter_dropdown.dart';
-
-enum CardViewMode { grid, compact, detailed }
 
 class SearchPage extends StatefulWidget {
   final AnilistAuthenticatedClient authClient;
@@ -31,7 +32,8 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
   final _scrollController = ScrollController();
   Timer? _debounce;
 
-  AnilistGenre? _genre;
+  List<AnilistGenre> _genres = [];
+  bool _filtersExpanded = false;
   AnilistAiringStatus? _airingStatus;
   AnilistMediaListStatus? _listStatus;
   AnilistSeason? _season;
@@ -45,7 +47,6 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
   Pagination<List<AnilistAnimeBase>>? _pagination;
   bool _loading = false;
   bool _loadingMore = false;
-  bool _filtersExpanded = true;
 
   @override
   ScrollController get paginationScrollController => _scrollController;
@@ -85,7 +86,7 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
     });
     try {
       final term = _searchController.text.trim();
-      final genres = _genre != null ? [_genre!] : null;
+      final genres = _genres.isEmpty ? null : _genres;
 
       if (widget.isAuthenticated) {
         final result = await widget.authClient.searchAnime(
@@ -159,73 +160,14 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final mobile = isMobile(context);
-    final desktop = isDesktop(context);
     final pad = horizontalPadding(context);
     final cols = gridCrossAxisCount(context);
 
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
-        // Search bar
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(pad, mobile ? 12 : 16, pad, 0),
-            child: Row(
-              children: [
-                if (!mobile)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Text('Search', style: theme.textTheme.displaySmall),
-                  ),
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (_) => _onFilterChanged(),
-                    decoration: InputDecoration(
-                      hintText: 'Search anime...',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () {
-                                _searchController.clear();
-                                _onFilterChanged();
-                              },
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-                if (mobile) ...[
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: Icon(
-                      _filtersExpanded
-                          ? Icons.filter_list_off
-                          : Icons.filter_list,
-                    ),
-                    onPressed: () =>
-                        setState(() => _filtersExpanded = !_filtersExpanded),
-                    tooltip: 'Toggle filters',
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-
-        // Filters
-        SliverToBoxAdapter(
-          child: AnimatedCrossFade(
-            firstChild: _buildFilters(context, mobile, desktop, pad),
-            secondChild: const SizedBox.shrink(),
-            crossFadeState: _filtersExpanded || !mobile
-                ? CrossFadeState.showFirst
-                : CrossFadeState.showSecond,
-            duration: const Duration(milliseconds: 250),
-          ),
-        ),
+        // Search bar + filters combined
+        SliverToBoxAdapter(child: _buildSearchAndFilters(context, pad)),
 
         // Toolbar: sort + view toggle + result count
         SliverToBoxAdapter(
@@ -245,12 +187,13 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
                     }(),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontSize: isMobile(context) ? 11 : null,
                     ),
                   ),
                 const Spacer(),
                 // Sort dropdown
                 SizedBox(
-                  width: 140,
+                  width: isMobile(context) ? 110 : 140,
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<AnilistMediaSort?>(
                       value: _sort,
@@ -262,6 +205,7 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
                           color: theme.colorScheme.onSurface.withValues(
                             alpha: 0.5,
                           ),
+                          fontSize: isMobile(context) ? 11 : null,
                         ),
                       ),
                       items: AnilistMediaSort.values
@@ -270,7 +214,9 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
                               value: s,
                               child: Text(
                                 s.toLabel(),
-                                style: theme.textTheme.bodySmall,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: isMobile(context) ? 11 : null,
+                                ),
                               ),
                             ),
                           )
@@ -280,7 +226,9 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
                         _onFilterChanged();
                       },
                       dropdownColor: theme.colorScheme.surfaceContainerHighest,
-                      style: theme.textTheme.bodySmall,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: isMobile(context) ? 11 : null,
+                      ),
                     ),
                   ),
                 ),
@@ -288,7 +236,7 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
                 IconButton(
                   icon: Icon(
                     _sortDescending ? Icons.arrow_downward : Icons.arrow_upward,
-                    size: 18,
+                    size: isMobile(context) ? 16 : 18,
                   ),
                   tooltip: _sortDescending ? 'Descending' : 'Ascending',
                   onPressed: () {
@@ -297,34 +245,11 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
                   },
                   visualDensity: VisualDensity.compact,
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: isMobile(context) ? 2 : 4),
                 // View mode toggle
-                SegmentedButton<CardViewMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: CardViewMode.grid,
-                      icon: Icon(Icons.grid_view, size: 18),
-                    ),
-                    ButtonSegment(
-                      value: CardViewMode.compact,
-                      icon: Icon(Icons.view_agenda_outlined, size: 18),
-                    ),
-                    ButtonSegment(
-                      value: CardViewMode.detailed,
-                      icon: Icon(Icons.view_list, size: 18),
-                    ),
-                  ],
-                  selected: {_viewMode},
-                  onSelectionChanged: (s) =>
-                      setState(() => _viewMode = s.first),
-                  showSelectedIcon: false,
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: WidgetStateProperty.all(
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    ),
-                  ),
+                CardSwitcher(
+                  selected: _viewMode,
+                  onSwitch: (mode) => setState(() => _viewMode = mode),
                 ),
               ],
             ),
@@ -336,7 +261,7 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
           padding: EdgeInsets.fromLTRB(pad, 8, pad, 0),
           sliver: SliverToBoxAdapter(
             child: _viewMode == CardViewMode.grid
-                ? AnimeGrid(
+                ? AnimeCardGrid(
                     anime: _results,
                     isLoading: _loading,
                     loadingMore: _loadingMore,
@@ -392,7 +317,7 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
 
     return Column(
       children: [
-        ..._results.map((anime) => _DetailedAnimeCard(anime: anime)),
+        ..._results.map((anime) => AnimeDetailedCard(anime: anime)),
         if (_loadingMore)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
@@ -404,6 +329,9 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
 
   Widget _buildCompactList(BuildContext context) {
     final theme = Theme.of(context);
+    final cols = isMobile(context) ? 1 : 2;
+    final compactRatio = compactCardAspectRatio(context);
+    final spacing = gridSpacing(context);
 
     if (_loading) {
       return const Center(
@@ -441,7 +369,18 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
 
     return Column(
       children: [
-        ..._results.map((anime) => _CompactAnimeCard(anime: anime)),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            childAspectRatio: compactRatio,
+            crossAxisSpacing: spacing,
+            mainAxisSpacing: spacing,
+          ),
+          itemCount: _results.length,
+          itemBuilder: (_, i) => AnimeCompactCard(anime: _results[i]),
+        ),
         if (_loadingMore)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
@@ -451,96 +390,132 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
     );
   }
 
-  Widget _buildFilters(
-    BuildContext context,
-    bool mobile,
-    bool desktop,
-    double pad,
-  ) {
+  Widget _buildSearchAndFilters(BuildContext context, double pad) {
     final theme = Theme.of(context);
     final currentYear = DateTime.now().year;
     final years = List.generate(30, (i) => currentYear - i);
 
-    final filterWidgets = <Widget>[
-      FilterDropdown<AnilistGenre>(
-        label: 'Genre',
-        value: _genre,
-        items: AnilistGenre.values
-            .where((g) => g != AnilistGenre.hentai)
-            .map((g) => DropdownMenuItem(value: g, child: Text(g.toGraphql())))
-            .toList(),
-        onChanged: (v) {
-          setState(() => _genre = v);
-          _onFilterChanged();
-        },
+    // Helper: wrap a widget with a small section label above
+    Widget labeled(String lbl, Widget child) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            lbl,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
+          ),
+          const SizedBox(height: 4),
+          child,
+        ],
+      );
+    }
+
+    final searchField = labeled(
+      'Search',
+      TextField(
+        controller: _searchController,
+        onChanged: (_) => _onFilterChanged(),
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 9,
+          ),
+          hintText: 'Search anime...',
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    _searchController.clear();
+                    _onFilterChanged();
+                  },
+                )
+              : null,
+        ),
       ),
-      FilterDropdown<AnilistAiringStatus>(
-        label: 'Status',
-        value: _airingStatus,
-        items: AnilistAiringStatus.values
-            .map(
-              (s) => DropdownMenuItem(
-                value: s,
-                child: Text(
-                  s.toGraphql().replaceAll('_', ' ').toLowerCase().capitalize(),
+    );
+
+    final dropdowns = <Widget>[
+      labeled(
+        'Genres',
+        MultiSelectDropdown<AnilistGenre>(
+          label: 'Any',
+          selectedValues: _genres,
+          options: AnilistGenre.values
+              .where((g) => g != AnilistGenre.hentai)
+              .toList(),
+          optionLabel: (g) => g.toGraphql(),
+          onChanged: (values) {
+            setState(() => _genres = values);
+            _onFilterChanged();
+          },
+        ),
+      ),
+      labeled(
+        'Year',
+        FilterDropdown<int>(
+          label: 'Any',
+          value: _year,
+          items: years
+              .map((y) => DropdownMenuItem(value: y, child: Text(y.toString())))
+              .toList(),
+          onChanged: (v) {
+            setState(() => _year = v);
+            _onFilterChanged();
+          },
+        ),
+      ),
+      labeled(
+        'Season',
+        FilterDropdown<AnilistSeason>(
+          label: 'Any',
+          value: _season,
+          items: AnilistSeason.values
+              .map(
+                (s) => DropdownMenuItem(
+                  value: s,
+                  child: Text(s.toGraphql().toLowerCase().capitalize()),
                 ),
-              ),
-            )
-            .toList(),
-        onChanged: (v) {
-          setState(() => _airingStatus = v);
-          _onFilterChanged();
-        },
+              )
+              .toList(),
+          onChanged: (v) {
+            setState(() => _season = v);
+            _onFilterChanged();
+          },
+        ),
       ),
-      FilterDropdown<AnilistFormat>(
-        label: 'Format',
-        value: _format,
-        items: AnilistFormat.values
-            .map(
-              (f) => DropdownMenuItem(
-                value: f,
-                child: Text(f.toGraphql().replaceAll('_', ' ')),
-              ),
-            )
-            .toList(),
-        onChanged: (v) {
-          setState(() => _format = v);
-          _onFilterChanged();
-        },
+      labeled(
+        'Format',
+        FilterDropdown<AnilistFormat>(
+          label: 'Any',
+          value: _format,
+          items: AnilistFormat.values
+              .map(
+                (f) => DropdownMenuItem(
+                  value: f,
+                  child: Text(f.toGraphql().replaceAll('_', ' ')),
+                ),
+              )
+              .toList(),
+          onChanged: (v) {
+            setState(() => _format = v);
+            _onFilterChanged();
+          },
+        ),
       ),
-      FilterDropdown<AnilistSeason>(
-        label: 'Season',
-        value: _season,
-        items: AnilistSeason.values
-            .map(
-              (s) => DropdownMenuItem(
-                value: s,
-                child: Text(s.toGraphql().toLowerCase().capitalize()),
-              ),
-            )
-            .toList(),
-        onChanged: (v) {
-          setState(() => _season = v);
-          _onFilterChanged();
-        },
-      ),
-      FilterDropdown<int>(
-        label: 'Year',
-        value: _year,
-        items: years
-            .map((y) => DropdownMenuItem(value: y, child: Text(y.toString())))
-            .toList(),
-        onChanged: (v) {
-          setState(() => _year = v);
-          _onFilterChanged();
-        },
-      ),
-      if (widget.isAuthenticated)
-        FilterDropdown<AnilistMediaListStatus>(
-          label: 'My List',
-          value: _listStatus,
-          tooltip: 'Only show anime in your AniList library',
-          items: AnilistMediaListStatus.values
+      labeled(
+        'Status',
+        FilterDropdown<AnilistAiringStatus>(
+          label: 'Any',
+          value: _airingStatus,
+          items: AnilistAiringStatus.values
               .map(
                 (s) => DropdownMenuItem(
                   value: s,
@@ -555,322 +530,234 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
               )
               .toList(),
           onChanged: (v) {
-            setState(() => _listStatus = v);
+            setState(() => _airingStatus = v);
+            _onFilterChanged();
+          },
+        ),
+      ),
+      if (widget.isAuthenticated)
+        labeled(
+          'My List',
+          FilterDropdown<AnilistMediaListStatus>(
+            label: 'Any',
+            value: _listStatus,
+            tooltip: 'Only show anime in your AniList library',
+            items: AnilistMediaListStatus.values
+                .map(
+                  (s) => DropdownMenuItem(
+                    value: s,
+                    child: Text(
+                      s
+                          .toGraphql()
+                          .replaceAll('_', ' ')
+                          .toLowerCase()
+                          .capitalize(),
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (v) {
+              setState(() => _listStatus = v);
+              _onFilterChanged();
+            },
+          ),
+        ),
+    ];
+
+    // Active filter chips (tap to remove)
+    final activeChips = <Widget>[
+      ..._genres.map(
+        (g) => _ActiveFilterChip(
+          label: g.toGraphql(),
+          onRemove: () {
+            setState(() => _genres = List.from(_genres)..remove(g));
+            _onFilterChanged();
+          },
+        ),
+      ),
+      if (_year != null)
+        _ActiveFilterChip(
+          label: '$_year',
+          onRemove: () {
+            setState(() => _year = null);
+            _onFilterChanged();
+          },
+        ),
+      if (_season != null)
+        _ActiveFilterChip(
+          label: _season!.toGraphql().toLowerCase().capitalize(),
+          onRemove: () {
+            setState(() => _season = null);
+            _onFilterChanged();
+          },
+        ),
+      if (_format != null)
+        _ActiveFilterChip(
+          label: _format!.toGraphql().replaceAll('_', ' '),
+          onRemove: () {
+            setState(() => _format = null);
+            _onFilterChanged();
+          },
+        ),
+      if (_airingStatus != null)
+        _ActiveFilterChip(
+          label: _airingStatus!
+              .toGraphql()
+              .replaceAll('_', ' ')
+              .toLowerCase()
+              .capitalize(),
+          onRemove: () {
+            setState(() => _airingStatus = null);
+            _onFilterChanged();
+          },
+        ),
+      if (_listStatus != null)
+        _ActiveFilterChip(
+          label: _listStatus!
+              .toGraphql()
+              .replaceAll('_', ' ')
+              .toLowerCase()
+              .capitalize(),
+          onRemove: () {
+            setState(() => _listStatus = null);
             _onFilterChanged();
           },
         ),
     ];
 
-    final hasActiveFilter =
-        _genre != null ||
-        _airingStatus != null ||
-        _format != null ||
-        _season != null ||
-        _year != null ||
-        _listStatus != null;
+    // Minimum width needed to show search + all dropdowns inline without scrolling
+    // search(260) + gap(12) + each labeled dropdown(160 + 10 gap = 170)
+    final inlineWidth = 260.0 + 12 + dropdowns.length * 170.0;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(pad, 12, pad, 0),
-      child: Column(
-        crossAxisAlignment: desktop
-            ? CrossAxisAlignment.center
-            : CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: desktop ? WrapAlignment.center : WrapAlignment.start,
-            children: filterWidgets,
-          ),
-          if (hasActiveFilter)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: TextButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _genre = null;
-                    _airingStatus = null;
-                    _format = null;
-                    _season = null;
-                    _year = null;
-                    _listStatus = null;
-                  });
-                  _onFilterChanged();
-                },
-                icon: const Icon(Icons.clear_all, size: 16),
-                label: const Text('Clear filters'),
-                style: TextButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error,
-                  textStyle: theme.textTheme.bodySmall,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showInline = constraints.maxWidth >= inlineWidth;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(pad, showInline ? 20 : 12, pad, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Page title (only when everything fits inline)
+              if (showInline) ...[
+                Text('Search', style: theme.textTheme.displaySmall),
+                const SizedBox(height: 16),
+              ],
+              if (!showInline) ...[
+                // Narrow: search field + filter toggle button
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(child: searchField),
+                    const SizedBox(width: 8),
+                    IconButton.outlined(
+                      icon: Icon(
+                        Icons.tune,
+                        size: 20,
+                        color: _filtersExpanded
+                            ? theme.colorScheme.primary
+                            : null,
+                      ),
+                      style: IconButton.styleFrom(
+                        side: BorderSide(
+                          color: _filtersExpanded
+                              ? theme.colorScheme.primary.withValues(alpha: 0.6)
+                              : theme.colorScheme.outline.withValues(
+                                  alpha: 0.25,
+                                ),
+                        ),
+                        backgroundColor: _filtersExpanded
+                            ? theme.colorScheme.primary.withValues(alpha: 0.06)
+                            : null,
+                      ),
+                      tooltip: 'Filters',
+                      onPressed: () =>
+                          setState(() => _filtersExpanded = !_filtersExpanded),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-        ],
-      ),
+                if (_filtersExpanded) ...[
+                  const SizedBox(height: 10),
+                  Wrap(spacing: 10, runSpacing: 10, children: dropdowns),
+                ],
+              ] else ...[
+                // Wide: all fit in one row, no scrolling needed
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 260, child: searchField),
+                    const SizedBox(width: 12),
+                    ...dropdowns.map(
+                      (d) => Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: d,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              // Active filter chips
+              if (activeChips.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.label_outline, size: 15),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: activeChips,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
-// ── Detailed Card View ─────────────────────────────────
-
-class _DetailedAnimeCard extends StatelessWidget {
-  final AnilistAnimeBase anime;
-
-  const _DetailedAnimeCard({required this.anime});
+class _ActiveFilterChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onRemove;
+  const _ActiveFilterChip({required this.label, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final imageUrl = anime.coverImage?.large ?? anime.coverImage?.medium;
-    final title =
-        anime.title.english ?? anime.title.romaji ?? anime.title.native ?? '?';
-    final score = anime.averageScore;
-    final desc = anime.description;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(8),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {},
-          child: SizedBox(
-            height: 120,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Cover
-                if (imageUrl != null)
-                  AspectRatio(
-                    aspectRatio: 0.7,
-                    child: Image.network(imageUrl, fit: BoxFit.cover),
-                  )
-                else
-                  SizedBox(
-                    width: 84,
-                    child: Center(
-                      child: Icon(
-                        Icons.movie_outlined,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.2,
-                        ),
-                      ),
-                    ),
-                  ),
-                // Info
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            if (score != null) ...[
-                              Icon(
-                                Icons.star_rounded,
-                                size: 14,
-                                color: theme.colorScheme.secondary,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                '${score.round()}',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                            ],
-                            if (anime.format != null)
-                              Text(
-                                anime.format!.toGraphql().replaceAll('_', ' '),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.5,
-                                  ),
-                                  fontSize: 11,
-                                ),
-                              ),
-                            if (anime.episodes != null) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                '${anime.episodes} eps',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.5,
-                                  ),
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (anime.genres.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            anime.genres.take(4).join(', '),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.primary.withValues(
-                                alpha: 0.7,
-                              ),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                        if (desc != null) ...[
-                          const SizedBox(height: 4),
-                          Expanded(
-                            child: Text(
-                              desc.replaceAll(RegExp(r'<[^>]*>'), ''),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.4,
-                                ),
-                                fontSize: 11,
-                                height: 1.3,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return GestureDetector(
+      onTap: onRemove,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 3, 6, 3),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.4),
+            width: 0.8,
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ── Compact Card View ──────────────────────────────────
-
-class _CompactAnimeCard extends StatelessWidget {
-  final AnilistAnimeBase anime;
-
-  const _CompactAnimeCard({required this.anime});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final imageUrl = anime.coverImage?.medium ?? anime.coverImage?.large;
-    final title =
-        anime.title.english ?? anime.title.romaji ?? anime.title.native ?? '?';
-    final score = anime.averageScore;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Material(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(6),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {},
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              children: [
-                // Small cover thumbnail
-                if (imageUrl != null)
-                  SizedBox(
-                    width: 45,
-                    child: Image.network(imageUrl, fit: BoxFit.cover),
-                  )
-                else
-                  SizedBox(
-                    width: 45,
-                    child: Center(
-                      child: Icon(
-                        Icons.movie_outlined,
-                        size: 18,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.2,
-                        ),
-                      ),
-                    ),
-                  ),
-                const SizedBox(width: 10),
-                // Title
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                // Metadata chips
-                if (anime.format != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: Text(
-                      anime.format!.toGraphql().replaceAll('_', ' '),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.4,
-                        ),
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
-                if (anime.episodes != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 6),
-                    child: Text(
-                      '${anime.episodes} eps',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.4,
-                        ),
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
-                // Score
-                if (score != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.star_rounded,
-                          size: 13,
-                          color: theme.colorScheme.secondary,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '${score.round()}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(width: 12),
-              ],
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: theme.colorScheme.primary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.close,
+              size: 12,
+              color: theme.colorScheme.primary.withValues(alpha: 0.8),
+            ),
+          ],
         ),
       ),
     );

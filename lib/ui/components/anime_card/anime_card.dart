@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
+import 'package:senpwai/ui/core/responsive.dart';
 import 'package:senpwai/ui/core/theme.dart';
 
 class AnimeCard extends StatefulWidget {
@@ -26,6 +28,19 @@ class _AnimeCardState extends State<AnimeCard> {
     final title =
         anime.title.english ?? anime.title.romaji ?? anime.title.native ?? '?';
     final score = anime.averageScore;
+
+    final w = MediaQuery.sizeOf(context).width;
+    final isSmall = w < 380;
+    final desk = w >= Breakpoints.desktop;
+
+    final badgeInset = isSmall ? 4.0 : (desk ? 8.0 : 6.0);
+    final formatFontSize = isSmall ? 7.0 : (desk ? 9.0 : 8.0);
+    final titlePadH = isSmall ? 6.0 : (desk ? 10.0 : 8.0);
+    final titlePadTop = isSmall ? 5.0 : 6.0;
+    final titlePadBottom = isSmall ? 6.0 : (desk ? 10.0 : 8.0);
+    final subInfoFont = desk ? 11.0 : 10.0;
+    final gradH = isSmall ? 52.0 : (desk ? 72.0 : 64.0);
+    final placeholderIcon = isSmall ? 30.0 : (desk ? 44.0 : 40.0);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -90,7 +105,7 @@ class _AnimeCardState extends State<AnimeCard> {
                           color: ext.shimmerBase,
                           child: Icon(
                             Icons.movie_outlined,
-                            size: 40,
+                            size: placeholderIcon,
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.2,
                             ),
@@ -98,55 +113,17 @@ class _AnimeCardState extends State<AnimeCard> {
                         ),
                       if (score != null)
                         Positioned(
-                          top: 6,
-                          right: 6,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surface.withValues(
-                                alpha: 0.9,
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                ext.cardRadius.clamp(0, 8),
-                              ),
-                              border: Border.all(
-                                color: theme.colorScheme.secondary.withValues(
-                                  alpha: 0.4,
-                                ),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.star_rounded,
-                                  size: 12,
-                                  color: theme.colorScheme.secondary,
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '${score.round()}',
-                                  style: TextStyle(
-                                    color: theme.colorScheme.onSurface,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          top: badgeInset,
+                          right: badgeInset,
+                          child: AnimeScoreBadge(score: score),
                         ),
                       if (anime.format != null)
                         Positioned(
-                          top: 6,
-                          left: 6,
+                          top: badgeInset,
+                          left: badgeInset,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isSmall ? 5 : 6,
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
@@ -167,7 +144,7 @@ class _AnimeCardState extends State<AnimeCard> {
                               anime.format!.toGraphql().replaceAll('_', ' '),
                               style: TextStyle(
                                 color: theme.colorScheme.onSurface,
-                                fontSize: 8,
+                                fontSize: formatFontSize,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.5,
                               ),
@@ -178,7 +155,7 @@ class _AnimeCardState extends State<AnimeCard> {
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        height: 64,
+                        height: gradH,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -198,7 +175,12 @@ class _AnimeCardState extends State<AnimeCard> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                  padding: EdgeInsets.fromLTRB(
+                    titlePadH,
+                    titlePadTop,
+                    titlePadH,
+                    titlePadBottom,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -228,7 +210,7 @@ class _AnimeCardState extends State<AnimeCard> {
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.5,
                             ),
-                            fontSize: 10,
+                            fontSize: subInfoFont,
                           ),
                         ),
                     ],
