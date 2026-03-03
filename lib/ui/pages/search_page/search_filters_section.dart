@@ -278,10 +278,7 @@ class SearchFiltersSection extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (showInline) ...[
-                Text('Search', style: theme.textTheme.displaySmall),
-                const SizedBox(height: 16),
-              ],
+              if (showInline) const SizedBox(height: 20),
               if (!showInline) ...[
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,

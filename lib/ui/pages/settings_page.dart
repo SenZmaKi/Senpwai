@@ -22,17 +22,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final theme = Theme.of(context);
     final config = ref.watch(ThemeConfigNotifier.provider);
     final notifier = ref.read(ThemeConfigNotifier.provider.notifier);
-    final mobile = isMobile(context);
     final pad = horizontalPadding(context);
 
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(pad, mobile ? 12 : 16, pad, 0),
-            child: Text('Settings', style: theme.textTheme.displaySmall),
-          ),
-        ),
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(pad, 24, pad, 32),

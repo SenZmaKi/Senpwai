@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/shared/shared.dart';
+import 'package:senpwai/ui/components/anime_banner_carousel.dart';
 import 'package:senpwai/ui/components/anime_card/anime_poster_horizontal.dart';
 import 'package:senpwai/ui/components/section_header.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
@@ -237,21 +238,20 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
     final anilist = ref.watch(AnilistNotifier.provider);
-    final theme = Theme.of(context);
-    final mobile = isMobile(context);
     final pad = horizontalPadding(context);
 
     return RefreshIndicator(
       onRefresh: _load,
       child: CustomScrollView(
         slivers: [
-          if (!mobile)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(pad, 16, pad, 0),
-                child: Text('Home', style: theme.textTheme.displaySmall),
-              ),
+          // Banner Carousel
+          SliverToBoxAdapter(
+            child: AnimeBannerCarousel(
+              anime: _trending,
+              isLoading: _trendingLoading,
             ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
           // Login prompt for unauthenticated users
           // Currently Watching (authenticated only — shown first)

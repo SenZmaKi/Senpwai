@@ -31,6 +31,9 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFFE2E8F0),
           onPrimary: Color(0xFFFFFFFF),
           error: Color(0xFFFF3333),
+          imageOverlay: Color(0xFF000000),
+          onImageOverlay: Color(0xFFFFFFFF),
+          textShadow: Color(0x8A000000),
           genreColors: [
             Color(0xFFEF5350),
             Color(0xFFEC407A),
@@ -56,6 +59,9 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFF1A1A2E),
           onPrimary: Color(0xFFFFFFFF),
           error: Color(0xFFCC2222),
+          imageOverlay: Color(0xFFFFFFFF),
+          onImageOverlay: Color(0xFF1A1A2E),
+          textShadow: Color(0x8AFFFFFF),
           genreColors: [
             Color(0xFFEF5350),
             Color(0xFFEC407A),
@@ -95,6 +101,9 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFFEBDBB2),
           onPrimary: Color(0xFF1D2021),
           error: Color(0xFFCC241D),
+          imageOverlay: Color(0xFF1D2021),
+          onImageOverlay: Color(0xFFEBDBB2),
+          textShadow: Color(0x8A000000),
           genreColors: [
             Color(0xFFFF6D00),
             Color(0xFFD79921),
@@ -120,6 +129,9 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFF3C3836),
           onPrimary: Color(0xFFFBF1C7),
           error: Color(0xFF9D0006),
+          imageOverlay: Color(0xFFFBF1C7),
+          onImageOverlay: Color(0xFF3C3836),
+          textShadow: Color(0x8AFFFFFF),
           genreColors: [
             Color(0xFFFF6D00),
             Color(0xFFD79921),
@@ -159,6 +171,9 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFFCDD6F4),
           onPrimary: Color(0xFF1E1E2E),
           error: Color(0xFFF38BA8),
+          imageOverlay: Color(0xFF1E1E2E),
+          onImageOverlay: Color(0xFFCDD6F4),
+          textShadow: Color(0x8A000000),
           genreColors: [
             Color(0xFFEBA0AC),
             Color(0xFFF5C2E7),
@@ -184,6 +199,9 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFF4C4F69),
           onPrimary: Color(0xFFEFF1F5),
           error: Color(0xFFD20F39),
+          imageOverlay: Color(0xFFFFFFFF),
+          onImageOverlay: Color(0xFF4C4F69),
+          textShadow: Color(0x8AFFFFFF),
           genreColors: [
             Color(0xFFEBA0AC),
             Color(0xFFF5C2E7),
@@ -225,6 +243,9 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFFF8F8F2),
           onPrimary: Color(0xFF272822),
           error: Color(0xFFF92672),
+          imageOverlay: Color(0xFF1E1F1C),
+          onImageOverlay: Color(0xFFF8F8F2),
+          textShadow: Color(0x8A000000),
           genreColors: [
             Color(0xFFA6E22E),
             Color(0xFFF92672),
@@ -250,6 +271,9 @@ enum SenpwaiThemePreset {
           onSurface: Color(0xFF272822),
           onPrimary: Color(0xFFF8F8F2),
           error: Color(0xFFC2185B),
+          imageOverlay: Color(0xFFF8F8F2),
+          onImageOverlay: Color(0xFF272822),
+          textShadow: Color(0x8AFFFFFF),
           genreColors: [
             Color(0xFFA6E22E),
             Color(0xFFF92672),

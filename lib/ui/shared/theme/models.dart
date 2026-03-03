@@ -31,6 +31,9 @@ class SenpwaiColorSet {
   final Color onPrimary;
   final Color error;
   final List<Color> genreColors;
+  final Color imageOverlay;
+  final Color onImageOverlay;
+  final Color textShadow;
 
   const SenpwaiColorSet({
     required this.primary,
@@ -43,6 +46,9 @@ class SenpwaiColorSet {
     required this.onPrimary,
     required this.error,
     required this.genreColors,
+    required this.imageOverlay,
+    required this.onImageOverlay,
+    required this.textShadow,
   });
 
   SenpwaiColorSet copyWith({
@@ -56,6 +62,9 @@ class SenpwaiColorSet {
     Color? onPrimary,
     Color? error,
     List<Color>? genreColors,
+    Color? imageOverlay,
+    Color? onImageOverlay,
+    Color? textShadow,
   }) {
     return SenpwaiColorSet(
       primary: primary ?? this.primary,
@@ -68,6 +77,9 @@ class SenpwaiColorSet {
       onPrimary: onPrimary ?? this.onPrimary,
       error: error ?? this.error,
       genreColors: genreColors ?? this.genreColors,
+      imageOverlay: imageOverlay ?? this.imageOverlay,
+      onImageOverlay: onImageOverlay ?? this.onImageOverlay,
+      textShadow: textShadow ?? this.textShadow,
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/anime_card/card_hover_mixin.dart';
+import 'package:senpwai/ui/components/genre_tag.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
@@ -102,7 +103,7 @@ class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withValues(alpha: 0.9),
+                          ext.imageOverlay.withValues(alpha: 0.9),
                         ],
                       ),
                     ),
@@ -117,10 +118,11 @@ class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
                     maxLines: isSmall ? 2 : 3,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: ext.onImageOverlay,
                       fontWeight: FontWeight.w700,
                       fontSize: titleFont,
                       height: 1.3,
+                      shadows: [Shadow(blurRadius: 6, color: ext.textShadow)],
                     ),
                   ),
                 ),
@@ -200,37 +202,16 @@ class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
                     Wrap(
                       spacing: 4,
                       runSpacing: 4,
-                      children: anime.genres.take(genreCount).map((g) {
-                        final name = g.toGraphql();
-                        final gHash = name.codeUnits.fold(
-                          0,
-                          (int p, int c) => p * 31 + c,
-                        );
-                        final color = ext.randomColour(gHash);
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: color.withValues(alpha: 0.4),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Text(
-                            name,
-                            style: TextStyle(
-                              color: color,
+                      children: anime.genres
+                          .take(genreCount)
+                          .map(
+                            (g) => buildGenreTag(
+                              name: g.toGraphql(),
+                              ext: ext,
                               fontSize: genreFont,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.2,
                             ),
-                          ),
-                        );
-                      }).toList(),
+                          )
+                          .toList(),
                     ),
                   ],
                 ],

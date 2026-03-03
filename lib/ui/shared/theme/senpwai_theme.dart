@@ -221,6 +221,9 @@ class SenpwaiTheme {
                 ],
           shimmerBase: c.surface,
           shimmerHighlight: c.surfaceVariant,
+          imageOverlay: c.imageOverlay,
+          onImageOverlay: c.onImageOverlay,
+          textShadow: c.textShadow,
         ),
       ],
     );

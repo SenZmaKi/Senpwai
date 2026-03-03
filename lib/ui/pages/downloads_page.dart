@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
-import 'package:senpwai/ui/shared/responsive.dart';
 
 class DownloadsPage extends StatelessWidget {
   const DownloadsPage({super.key});
@@ -9,17 +8,9 @@ class DownloadsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ext = theme.extension<SenpwaiThemeExtension>()!;
-    final mobile = isMobile(context);
-    final pad = horizontalPadding(context);
 
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(pad, mobile ? 12 : 16, pad, 0),
-            child: Text('Downloads', style: theme.textTheme.displaySmall),
-          ),
-        ),
         SliverFillRemaining(
           hasScrollBody: false,
           child: Center(

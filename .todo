@@ -1,4 +1,4 @@
-- Devide whether or not to keep page title section
+- Media list status in anime cards with colors for each status exposed in theme config
 - More in navbar in mobile to reduce clutter
 - _postGraphQl should properly parse out errors from the GraphQL response and throw them as Anilist exceptions
 - Ratelimit failure retry

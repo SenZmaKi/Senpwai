@@ -11,6 +11,9 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
   final Color shimmerBase;
   final Color shimmerHighlight;
   final List<Color> randomColourPalette;
+  final Color imageOverlay;
+  final Color onImageOverlay;
+  final Color textShadow;
 
   Color randomColour(int seed) =>
       randomColourPalette[seed.abs() % randomColourPalette.length];
@@ -23,6 +26,9 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
     required this.shimmerBase,
     required this.shimmerHighlight,
     required this.randomColourPalette,
+    required this.imageOverlay,
+    required this.onImageOverlay,
+    required this.textShadow,
   });
 
   @override
@@ -34,6 +40,9 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
     Color? shimmerBase,
     Color? shimmerHighlight,
     List<Color>? randomColourPalette,
+    Color? imageOverlay,
+    Color? onImageOverlay,
+    Color? textShadow,
   }) {
     return SenpwaiThemeExtension(
       cardRadius: cardRadius ?? this.cardRadius,
@@ -43,6 +52,9 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
       shimmerBase: shimmerBase ?? this.shimmerBase,
       shimmerHighlight: shimmerHighlight ?? this.shimmerHighlight,
       randomColourPalette: randomColourPalette ?? this.randomColourPalette,
+      imageOverlay: imageOverlay ?? this.imageOverlay,
+      onImageOverlay: onImageOverlay ?? this.onImageOverlay,
+      textShadow: textShadow ?? this.textShadow,
     );
   }
 
@@ -65,6 +77,11 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
       randomColourPalette: t < 0.5
           ? randomColourPalette
           : other.randomColourPalette,
+      imageOverlay:
+          Color.lerp(imageOverlay, other.imageOverlay, t) ?? imageOverlay,
+      onImageOverlay:
+          Color.lerp(onImageOverlay, other.onImageOverlay, t) ?? onImageOverlay,
+      textShadow: Color.lerp(textShadow, other.textShadow, t) ?? textShadow,
     );
   }
 }

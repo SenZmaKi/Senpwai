@@ -5,6 +5,7 @@ import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/anime_card/card_hover_mixin.dart';
+import 'package:senpwai/ui/components/genre_tag.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
@@ -50,28 +51,16 @@ class _AnimeTableCardState extends State<AnimeTableCard> with CardHoverMixin {
         .toLowerCase()
         .capitalize();
 
-    final genreChips = anime.genres.take(mobile ? 4 : 6).map((g) {
-      final name = g.toGraphql();
-      final hash = name.codeUnits.fold(0, (int p, int c) => p * 31 + c);
-      final color = ext.randomColour(hash);
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withValues(alpha: 0.4), width: 0.8),
-        ),
-        child: Text(
-          name,
-          style: TextStyle(
-            color: color,
+    final genreChips = anime.genres
+        .take(mobile ? 4 : 6)
+        .map(
+          (g) => buildGenreTag(
+            name: g.toGraphql(),
+            ext: ext,
             fontSize: chipFontSize,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.2,
           ),
-        ),
-      );
-    }).toList();
+        )
+        .toList();
 
     final coverChild = imageUrl != null
         ? CachedNetworkImage(
