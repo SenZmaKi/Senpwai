@@ -18,24 +18,27 @@ void main() {
   group("AnilistUnauthenticatedClient", () {
     final client = AnilistUnauthenticatedClient();
 
-    test("cache fetches faster", () async {
-      final uncached = await timeIt(
-        label: "Searching anime (uncached)",
-        fn: () => client.searchAnime(
-          params: const AnimeSearchParams(term: "One Piece"),
-        ),
-      );
+    group("cache", () {
+      test("cache fetches faster", () async {
+        final uncached = await timeIt(
+          label: "Searching anime (uncached)",
+          fn: () => client.searchAnime(
+            params: const AnimeSearchParams(term: "One Piece"),
+          ),
+        );
 
-      final cached = await timeIt(
-        label: "Searching anime (cached)",
-        fn: () => client.searchAnime(
-          params: const AnimeSearchParams(term: "One Piece"),
-        ),
-      );
-      NetConfig.getInstance().logCache();
+        final cached = await timeIt(
+          label: "Searching anime (cached)",
+          fn: () => client.searchAnime(
+            params: const AnimeSearchParams(term: "One Piece"),
+          ),
+        );
+        NetConfig.getInstance().logCache();
 
-      expect(cached.inMilliseconds, lessThan(uncached.inMilliseconds));
+        expect(cached.inMilliseconds, lessThan(uncached.inMilliseconds));
+      });
     });
+
     test("searchAnime returns results", () async {
       final results = await client.searchAnime(
         params: const AnimeSearchParams(term: "Fullmetal"),

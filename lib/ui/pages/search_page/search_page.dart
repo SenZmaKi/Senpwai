@@ -40,7 +40,6 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
   Pagination<List<AnilistAnimeBase>>? _pagination;
   bool _loading = false;
   bool _loadingMore = false;
-  int _searchRequestId = 0;
 
   @override
   ScrollController get paginationScrollController => _scrollController;
@@ -142,7 +141,6 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
     final anilistNotifier = providerContainer.read(
       AnilistNotifier.provider.notifier,
     );
-    final requestId = ++_searchRequestId;
 
     setState(() {
       _loading = true;
@@ -171,7 +169,7 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
           ),
         );
 
-        if (mounted && requestId == _searchRequestId) {
+        if (mounted) {
           setState(() {
             _results = result.items;
             _pagination = result;
@@ -192,7 +190,7 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
           ),
         );
 
-        if (mounted && requestId == _searchRequestId) {
+        if (mounted) {
           setState(() {
             _results = result.items;
             _pagination = result;
@@ -202,7 +200,7 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
     } catch (error, stack) {
       _showSearchError(error, stack);
     } finally {
-      if (mounted && requestId == _searchRequestId) {
+      if (mounted) {
         setState(() => _loading = false);
       }
     }

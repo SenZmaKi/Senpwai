@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
@@ -7,6 +9,20 @@ import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/user_agents.dart';
 
 final _log = Logger("senpwai.shared.net.net_config");
+
+// The default cache key builder does no take the body into account.
+// This causes POST requests to the same URL to be served from the cache
+// even if the bodies have different content.
+String _cacheKeyBuilder({
+  required Uri url,
+  Map<String, String>? headers,
+  Object? body,
+}) {
+  final bodyString = body?.toString() ?? '';
+  final urlString = url.toString();
+  final bytes = utf8.encode('$urlString:$bodyString');
+  return sha256.convert(bytes).toString();
+}
 
 class NetConfig {
   final maxConnectionsPerHost = 25;
@@ -31,6 +47,7 @@ class NetConfig {
       policy: policy,
       maxStale: cacheMaxStale,
       allowPostMethod: allowPostMethod,
+      keyBuilder: _cacheKeyBuilder,
     );
   }
 
