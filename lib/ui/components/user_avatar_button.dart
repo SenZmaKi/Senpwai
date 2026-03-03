@@ -1,16 +1,15 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:senpwai/anilist/anilist.dart';
 
 class UserAvatarButton extends StatelessWidget {
-  final String? avatarUrl;
-  final String? userName;
+  final AnilistViewer? viewer;
   final bool isLoading;
   final VoidCallback onTap;
 
   const UserAvatarButton({
     super.key,
-    this.avatarUrl,
-    this.userName,
+    this.viewer,
     this.isLoading = false,
     required this.onTap,
   });
@@ -27,14 +26,14 @@ class UserAvatarButton extends StatelessWidget {
       );
     }
 
-    if (avatarUrl != null) {
+    if (viewer?.avatarUrl != null) {
       return Tooltip(
-        message: userName ?? 'Profile',
+        message: viewer?.name ?? 'Profile',
         child: GestureDetector(
           onTap: onTap,
           child: CircleAvatar(
             radius: 17,
-            backgroundImage: CachedNetworkImageProvider(avatarUrl!),
+            backgroundImage: CachedNetworkImageProvider(viewer!.avatarUrl!),
           ),
         ),
       );

@@ -1,129 +1,118 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:senpwai/anilist/client/authenticated.dart';
-import 'package:senpwai/anilist/client/unauthenticated.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/ui/core/anilist_state.dart';
 import 'package:senpwai/ui/core/theme.dart';
+import 'package:senpwai/ui/core/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page.dart';
 import 'package:senpwai/ui/pages/home_page.dart';
 import 'package:senpwai/ui/pages/search_page.dart';
 import 'package:senpwai/ui/pages/settings_page.dart';
 import 'package:senpwai/ui/shell/app_shell.dart';
+import 'package:toastification/toastification.dart';
+
+final _appNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   setupLogger();
-  runApp(const App());
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    final ctx = _appNavigatorKey.currentContext;
+    if (ctx != null) {
+      AppToast.showError(
+        ctx,
+        title: 'Unexpected error',
+        description: details.exceptionAsString(),
+        copyPayload: formatErrorForCopy(details.exception, details.stack),
+      );
+    }
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    final ctx = _appNavigatorKey.currentContext;
+    if (ctx != null) {
+      AppToast.showError(
+        ctx,
+        title: 'Unhandled error',
+        description: error.toString(),
+        copyPayload: formatErrorForCopy(error, stack),
+      );
+    }
+    return true;
+  };
+
+  runApp(const ProviderScope(child: App()));
 }
 
-class App extends StatefulWidget {
+class App extends ConsumerWidget {
   const App({super.key});
 
   @override
-  State<App> createState() => _AppState();
-}
-
-class _AppState extends State<App> {
-  final _themeConfig = ThemeConfig();
-
-  @override
-  void dispose() {
-    _themeConfig.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ThemeConfigProvider(
-      config: _themeConfig,
-      child: ListenableBuilder(
-        listenable: _themeConfig,
-        builder: (context, _) {
-          return MaterialApp(
-            title: 'Senpwai',
-            theme: _themeConfig.buildLightTheme(),
-            darkTheme: _themeConfig.buildDarkTheme(),
-            themeMode: _themeConfig.themeMode,
-            home: const _AppRoot(),
-          );
-        },
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeConfig = ref.watch(ThemeConfigNotifier.provider);
+    return ToastificationWrapper(
+      child: MaterialApp(
+        navigatorKey: _appNavigatorKey,
+        title: 'Senpwai',
+        theme: themeConfig.buildLightTheme(),
+        darkTheme: themeConfig.buildDarkTheme(),
+        themeMode: themeConfig.themeMode,
+        home: const _AppRoot(),
       ),
     );
   }
 }
 
-class _AppRoot extends StatefulWidget {
+class _AppRoot extends ConsumerStatefulWidget {
   const _AppRoot();
 
   @override
-  State<_AppRoot> createState() => _AppRootState();
+  ConsumerState<_AppRoot> createState() => _AppRootState();
 }
 
-class _AppRootState extends State<_AppRoot> {
-  final _authClient = AnilistAuthenticatedClient();
-  final _unauthClient = AnilistUnauthenticatedClient();
-
+class _AppRootState extends ConsumerState<_AppRoot> {
   int _currentPage = 0;
-  bool _isAuthenticated = false;
-  bool _isAuthLoading = false;
-  String? _avatarUrl;
-  String? _userName;
 
-  Future<void> _handleLogin() async {
-    if (_isAuthenticated) return;
-    setState(() => _isAuthLoading = true);
-    try {
-      await _authClient.auth.authenticate();
-      await _fetchUserInfo();
-      setState(() => _isAuthenticated = true);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login failed: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isAuthLoading = false);
-    }
+  @override
+  void initState() {
+    super.initState();
+    unawaited(ref.read(AnilistNotifier.provider.notifier).initialize());
   }
 
-  Future<void> _fetchUserInfo() async {
+  Future<void> _handleLogin() async {
     try {
-      final viewer = await _authClient.auth.fetchViewer();
-      setState(() {
-        _userName = viewer.name;
-        _avatarUrl = viewer.avatarUrl;
-      });
-    } catch (_) {}
+      await ref.read(AnilistNotifier.provider.notifier).login();
+    } catch (e, stack) {
+      if (mounted) {
+        AppToast.showError(
+          context,
+          title: 'Login failed',
+          description: e.toString(),
+          copyPayload: formatErrorForCopy(e, stack),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final anilist = ref.watch(AnilistNotifier.provider);
+
     return AppShell(
       currentIndex: _currentPage,
       onDestinationChanged: (i) => setState(() => _currentPage = i),
-      avatarUrl: _avatarUrl,
-      userName: _userName,
-      isAuthLoading: _isAuthLoading,
+      viewer: anilist.viewer,
+      isAuthLoading: anilist.isAuthLoading,
       onAvatarTap: _handleLogin,
       body: IndexedStack(
         index: _currentPage,
         children: [
-          HomePage(
-            authClient: _authClient,
-            unauthClient: _unauthClient,
-            isAuthenticated: _isAuthenticated,
-            avatarUrl: _avatarUrl,
-            userName: _userName,
-            isAuthLoading: _isAuthLoading,
-            onLoginTap: _handleLogin,
-          ),
-          SearchPage(
-            authClient: _authClient,
-            unauthClient: _unauthClient,
-            isAuthenticated: _isAuthenticated,
-          ),
+          HomePage(onLoginTap: _handleLogin),
+          const SearchPage(),
           const DownloadsPage(),
           const SettingsPage(),
         ],

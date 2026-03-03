@@ -1,37 +1,24 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
-import 'package:senpwai/ui/core/responsive.dart';
 import 'package:senpwai/ui/components/anime_card/anime_card_horizontal.dart';
 import 'package:senpwai/ui/components/section_header.dart';
 import 'package:senpwai/ui/components/user_avatar_button.dart';
+import 'package:senpwai/ui/core/anilist_state.dart';
+import 'package:senpwai/ui/core/responsive.dart';
 
-class HomePage extends StatefulWidget {
-  final AnilistAuthenticatedClient authClient;
-  final AnilistUnauthenticatedClient unauthClient;
-  final bool isAuthenticated;
-  final String? avatarUrl;
-  final String? userName;
-  final bool isAuthLoading;
+class HomePage extends ConsumerStatefulWidget {
   final VoidCallback onLoginTap;
 
-  const HomePage({
-    super.key,
-    required this.authClient,
-    required this.unauthClient,
-    required this.isAuthenticated,
-    this.avatarUrl,
-    this.userName,
-    this.isAuthLoading = false,
-    required this.onLoginTap,
-  });
+  const HomePage({super.key, required this.onLoginTap});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends ConsumerState<HomePage> {
   List<AnilistAnimeBase> _trending = [];
   List<AnilistAnimeBase> _watching = [];
   List<AnilistAnimeBase> _topRated = [];
@@ -49,19 +36,15 @@ class _HomePageState extends State<HomePage> {
     _load();
   }
 
-  @override
-  void didUpdateWidget(covariant HomePage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.isAuthenticated != widget.isAuthenticated) {
-      _load();
-    }
-  }
+  AnilistNotifier get _anilist => ref.read(AnilistNotifier.provider.notifier);
+  bool get _isAuthenticated =>
+      ref.read(AnilistNotifier.provider).isAuthenticated;
 
   Future<void> _load() async {
     _loadTrending();
     _loadTopRated();
     _loadRandomGenre();
-    if (widget.isAuthenticated) {
+    if (_isAuthenticated) {
       _loadWatching();
     } else {
       if (mounted) setState(() => _watchingLoading = false);
@@ -71,11 +54,11 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadTrending() async {
     setState(() => _trendingLoading = true);
     try {
-      if (widget.isAuthenticated) {
-        final result = await widget.authClient.trendingThisSeason();
+      if (_isAuthenticated) {
+        final result = await _anilist.authClient.trendingThisSeason();
         if (mounted) setState(() => _trending = result.items);
       } else {
-        final result = await widget.unauthClient.trendingThisSeason();
+        final result = await _anilist.unauthClient.trendingThisSeason();
         if (mounted) setState(() => _trending = result.items);
       }
     } catch (_) {
@@ -86,10 +69,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadWatching() async {
-    if (!widget.isAuthenticated) return;
+    if (!_isAuthenticated) return;
     setState(() => _watchingLoading = true);
     try {
-      final result = await widget.authClient.searchAnime(
+      final result = await _anilist.authClient.searchAnime(
         params: const AuthenticatedAnimeSearchParams(
           listStatus: AnilistMediaListStatus.current,
           onlyIncludeUserListEntry: true,
@@ -107,13 +90,13 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadTopRated() async {
     setState(() => _topRatedLoading = true);
     try {
-      if (widget.isAuthenticated) {
-        final result = await widget.authClient.searchAnime(
+      if (_isAuthenticated) {
+        final result = await _anilist.authClient.searchAnime(
           params: const AuthenticatedAnimeSearchParams(perPage: 15),
         );
         if (mounted) setState(() => _topRated = result.items);
       } else {
-        final result = await widget.unauthClient.searchAnime(
+        final result = await _anilist.unauthClient.searchAnime(
           params: const AnimeSearchParams(perPage: 15),
         );
         if (mounted) setState(() => _topRated = result.items);
@@ -133,13 +116,13 @@ class _HomePageState extends State<HomePage> {
     final random = genres[Random().nextInt(genres.length)];
     _randomGenreName = random.toGraphql();
     try {
-      if (widget.isAuthenticated) {
-        final result = await widget.authClient.searchAnime(
+      if (_isAuthenticated) {
+        final result = await _anilist.authClient.searchAnime(
           params: AuthenticatedAnimeSearchParams(genres: [random], perPage: 15),
         );
         if (mounted) setState(() => _randomGenre = result.items);
       } else {
-        final result = await widget.unauthClient.searchAnime(
+        final result = await _anilist.unauthClient.searchAnime(
           params: AnimeSearchParams(genres: [random], perPage: 15),
         );
         if (mounted) setState(() => _randomGenre = result.items);
@@ -153,6 +136,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final anilist = ref.watch(AnilistNotifier.provider);
     final theme = Theme.of(context);
     final mobile = isMobile(context);
     final pad = horizontalPadding(context);
@@ -168,9 +152,8 @@ class _HomePageState extends State<HomePage> {
                 child: Row(
                   children: [
                     UserAvatarButton(
-                      avatarUrl: widget.avatarUrl,
-                      userName: widget.userName,
-                      isLoading: widget.isAuthLoading,
+                      viewer: anilist.viewer,
+                      isLoading: anilist.isAuthLoading,
                       onTap: widget.onLoginTap,
                     ),
                     const Spacer(),
@@ -188,7 +171,7 @@ class _HomePageState extends State<HomePage> {
             ),
 
           // Login prompt for unauthenticated users
-          if (!widget.isAuthenticated)
+          if (!anilist.isAuthenticated)
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(pad, 8, pad, 4),
@@ -228,7 +211,7 @@ class _HomePageState extends State<HomePage> {
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
           // Currently Watching (authenticated only)
-          if (widget.isAuthenticated) ...[
+          if (anilist.isAuthenticated) ...[
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: pad),

@@ -1,0 +1,361 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:senpwai/anilist/anilist.dart';
+import 'package:senpwai/shared/shared.dart';
+import 'package:senpwai/ui/components/anime_card/card_switcher.dart';
+import 'package:senpwai/ui/core/anilist_state.dart';
+import 'package:senpwai/ui/core/pagination.dart';
+import 'package:senpwai/ui/core/responsive.dart';
+import 'package:senpwai/ui/core/toast.dart';
+import 'package:senpwai/ui/pages/search_page/search_filters_section.dart';
+import 'package:senpwai/ui/pages/search_page/search_results_section.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class SearchPage extends StatefulWidget {
+  const SearchPage({super.key});
+
+  @override
+  State<SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
+  final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
+  Timer? _debounce;
+
+  AnilistGenre? _genre;
+  bool _filtersExpanded = false;
+  AnilistAiringStatus? _airingStatus;
+  AnilistMediaListStatus? _listStatus;
+  AnilistSeason? _season;
+  int? _year;
+  AnilistFormat? _format;
+  AnilistMediaSort? _sort = AnilistMediaSort.trending;
+  bool _sortDescending = true;
+  CardViewMode _viewMode = CardViewMode.grid;
+
+  List<AnilistAnimeBase> _results = [];
+  Pagination<List<AnilistAnimeBase>>? _pagination;
+  bool _loading = false;
+  bool _loadingMore = false;
+  int _searchRequestId = 0;
+
+  @override
+  ScrollController get paginationScrollController => _scrollController;
+
+  @override
+  bool get isLoadingMore => _loadingMore;
+
+  @override
+  bool get hasNextPage => _pagination?.fetchNextPage != null;
+
+  @override
+  void initState() {
+    super.initState();
+    initPaginatedScroll();
+    _search();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    disposePaginatedScroll();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onFilterChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), _search);
+  }
+
+  void _applyFilter(VoidCallback updateState) {
+    setState(updateState);
+    _onFilterChanged();
+  }
+
+  void _onSearchTermChanged(String _) {
+    setState(() {});
+    _onFilterChanged();
+  }
+
+  void _clearSearchTerm() {
+    setState(() => _searchController.clear());
+    _onFilterChanged();
+  }
+
+  void _showSearchError(Object error, StackTrace stack) {
+    if (!mounted) return;
+    final String title;
+    final String description;
+
+    if (error is AnilistAuthRequiredException) {
+      title = 'Authentication required';
+      description = 'Sign in to use this filter.';
+    } else if (error is AnilistInvalidTokenException) {
+      title = 'Session expired';
+      description = 'Your AniList session has expired. Please sign in again.';
+    } else if (error is AnilistEmptyResponseException) {
+      title = 'Empty response';
+      description = 'AniList returned an empty response. Try again.';
+    } else if (error is DioException) {
+      final statusCode = error.response?.statusCode;
+      if (statusCode == 429) {
+        title = 'Rate limited';
+        description = 'Too many requests. Please wait a moment.';
+      } else if (statusCode != null && statusCode >= 500) {
+        title = 'AniList server error';
+        description = 'AniList returned $statusCode. Try again later.';
+      } else if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        title = 'Connection timeout';
+        description = 'Request timed out. Check your connection.';
+      } else if (error.type == DioExceptionType.connectionError) {
+        title = 'No connection';
+        description = 'Could not reach AniList. Check your internet.';
+      } else {
+        title = 'Search error';
+        description = error.message ?? error.toString();
+      }
+    } else if (error is AnilistException) {
+      title = 'Search error';
+      description = error.message;
+    } else {
+      title = 'Search error';
+      description = error.toString();
+    }
+
+    AppToast.showError(
+      context,
+      title: title,
+      description: description,
+      copyPayload: formatErrorForCopy(error, stack),
+    );
+  }
+
+  Future<void> _search() async {
+    final providerContainer = ProviderScope.containerOf(context, listen: false);
+    final anilist = providerContainer.read(AnilistNotifier.provider);
+    final anilistNotifier = providerContainer.read(
+      AnilistNotifier.provider.notifier,
+    );
+    final requestId = ++_searchRequestId;
+
+    setState(() {
+      _loading = true;
+      _results = [];
+      _pagination = null;
+    });
+
+    try {
+      final term = _searchController.text.trim();
+      final genres = _genre != null ? [_genre!] : null;
+
+      if (anilist.isAuthenticated) {
+        final result = await anilistNotifier.authClient.searchAnime(
+          params: AuthenticatedAnimeSearchParams(
+            term: term.isEmpty ? null : term,
+            genres: genres,
+            season: _season,
+            seasonYear: _year,
+            format: _format,
+            airingStatus: _airingStatus,
+            listStatus: _listStatus,
+            sort: _sort,
+            sortDescending: _sortDescending,
+            onlyIncludeUserListEntry: _listStatus != null,
+            perPage: 25,
+          ),
+        );
+
+        if (mounted && requestId == _searchRequestId) {
+          setState(() {
+            _results = result.items;
+            _pagination = result;
+          });
+        }
+      } else {
+        final result = await anilistNotifier.unauthClient.searchAnime(
+          params: AnimeSearchParams(
+            term: term.isEmpty ? null : term,
+            genres: genres,
+            season: _season,
+            seasonYear: _year,
+            format: _format,
+            airingStatus: _airingStatus,
+            sort: _sort,
+            sortDescending: _sortDescending,
+            perPage: 25,
+          ),
+        );
+
+        if (mounted && requestId == _searchRequestId) {
+          setState(() {
+            _results = result.items;
+            _pagination = result;
+          });
+        }
+      }
+    } catch (error, stack) {
+      _showSearchError(error, stack);
+    } finally {
+      if (mounted && requestId == _searchRequestId) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  @override
+  Future<void> loadNextPage() async {
+    if (_pagination?.fetchNextPage == null) return;
+
+    setState(() => _loadingMore = true);
+    try {
+      final next = await _pagination!.fetchNextPage!();
+      if (mounted) {
+        setState(() {
+          _results = [..._results, ...next.items];
+          _pagination = next;
+        });
+      }
+    } catch (error, stack) {
+      _showSearchError(error, stack);
+    } finally {
+      if (mounted) {
+        setState(() => _loadingMore = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final horizontalPad = horizontalPadding(context);
+
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        SliverToBoxAdapter(
+          child: SearchFiltersSection(
+            searchController: _searchController,
+            filtersExpanded: _filtersExpanded,
+            horizontalPadding: horizontalPad,
+            genre: _genre,
+            airingStatus: _airingStatus,
+            listStatus: _listStatus,
+            season: _season,
+            year: _year,
+            format: _format,
+            onFiltersExpandedChanged: (expanded) {
+              setState(() => _filtersExpanded = expanded);
+            },
+            onSearchChanged: _onSearchTermChanged,
+            onClearSearch: _clearSearchTerm,
+            onGenreChanged: (value) => _applyFilter(() => _genre = value),
+            onYearChanged: (value) => _applyFilter(() => _year = value),
+            onSeasonChanged: (value) => _applyFilter(() => _season = value),
+            onFormatChanged: (value) => _applyFilter(() => _format = value),
+            onAiringStatusChanged: (value) =>
+                _applyFilter(() => _airingStatus = value),
+            onListStatusChanged: (value) =>
+                _applyFilter(() => _listStatus = value),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(horizontalPad, 8, horizontalPad, 4),
+            child: Row(
+              children: [
+                if (!_loading)
+                  Text(
+                    () {
+                      final total = _pagination?.totalResults;
+                      if (total != null) {
+                        return '$total result${total == 1 ? '' : 's'}';
+                      }
+                      return '${_results.length} result${_results.length == 1 ? '' : 's'}';
+                    }(),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontSize: isMobile(context) ? 11 : null,
+                    ),
+                  ),
+                const Spacer(),
+                SizedBox(
+                  width: isMobile(context) ? 110 : 140,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<AnilistMediaSort?>(
+                      value: _sort,
+                      isExpanded: true,
+                      isDense: true,
+                      hint: Text(
+                        'Sort by',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
+                          fontSize: isMobile(context) ? 11 : null,
+                        ),
+                      ),
+                      items: AnilistMediaSort.values
+                          .map(
+                            (sort) => DropdownMenuItem<AnilistMediaSort?>(
+                              value: sort,
+                              child: Text(
+                                sort.toLabel(),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: isMobile(context) ? 11 : null,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        _applyFilter(() => _sort = value);
+                      },
+                      dropdownColor: theme.colorScheme.surfaceContainerHighest,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: isMobile(context) ? 11 : null,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    _sortDescending ? Icons.arrow_downward : Icons.arrow_upward,
+                    size: isMobile(context) ? 16 : 18,
+                  ),
+                  tooltip: _sortDescending ? 'Descending' : 'Ascending',
+                  onPressed: () {
+                    _applyFilter(() => _sortDescending = !_sortDescending);
+                  },
+                  visualDensity: VisualDensity.compact,
+                ),
+                SizedBox(width: isMobile(context) ? 2 : 4),
+                CardSwitcher(
+                  selected: _viewMode,
+                  onSwitch: (mode) => setState(() => _viewMode = mode),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(horizontalPad, 8, horizontalPad, 0),
+          sliver: SliverToBoxAdapter(
+            child: SearchResultsSection(
+              results: _results,
+              loading: _loading,
+              loadingMore: _loadingMore,
+              viewMode: _viewMode,
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+      ],
+    );
+  }
+}

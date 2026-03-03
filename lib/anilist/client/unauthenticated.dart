@@ -20,12 +20,31 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
     }
     final query = mediaSearchQuery(includeListEntry: false);
     final variables = buildSearchVariables(params);
+    _log.fineWithMetadata(
+      "AniList search request prepared",
+      metadata: {
+        "page": params.page,
+        "perPage": params.perPage,
+        "variables": variables,
+      },
+    );
 
     final data = await _graphql.postGraphQL(query: query, variables: variables);
     final pageData = data["data"]?["Page"] as Map<String, dynamic>?;
     final items = mapMediaItems(pageData);
     final currentPage =
         (pageData?["pageInfo"]?["currentPage"] as int?) ?? params.page;
+    final hasNextPage = pageData?["pageInfo"]?["hasNextPage"] as bool?;
+    final totalResults = pageData?["pageInfo"]?["total"] as int?;
+    _log.fineWithMetadata(
+      "AniList search response parsed",
+      metadata: {
+        "page": currentPage,
+        "items": items.length,
+        "total": totalResults,
+        "hasNextPage": hasNextPage,
+      },
+    );
 
     return buildPagination(
       pageData: pageData,
@@ -47,33 +66,77 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
     );
     final media = data["data"]?["Media"] as Map<String, dynamic>?;
     if (media == null) {
+      _log.warningWithMetadata(
+        "AniList anime not found by ID",
+        metadata: {"anilistId": anilistId},
+      );
       return null;
     }
+    _log.fineWithMetadata(
+      "AniList anime fetched by ID",
+      metadata: {"anilistId": anilistId},
+    );
     return AnilistAnime.fromJson(media);
   }
 
   Future<List<AnilistRelation<AnilistAnime>>> fetchRelationsById(
     int anilistId,
   ) async {
+    _log.infoWithMetadata(
+      "Fetching AniList relations by ID",
+      metadata: {"anilistId": anilistId},
+    );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: false),
       variables: {"id": anilistId},
     );
     final media = data["data"]?["Media"] as Map<String, dynamic>?;
-    if (media == null) return [];
-    return parseRelations(media, (json) => AnilistAnime.fromJson(json));
+    if (media == null) {
+      _log.warningWithMetadata(
+        "AniList relations source media missing",
+        metadata: {"anilistId": anilistId},
+      );
+      return [];
+    }
+    final relations = parseRelations(
+      media,
+      (json) => AnilistAnime.fromJson(json),
+    );
+    _log.fineWithMetadata(
+      "AniList relations fetched",
+      metadata: {"anilistId": anilistId, "count": relations.length},
+    );
+    return relations;
   }
 
   Future<List<AnilistRecommendation<AnilistAnime>>> fetchRecommendationsById(
     int anilistId,
   ) async {
+    _log.infoWithMetadata(
+      "Fetching AniList recommendations by ID",
+      metadata: {"anilistId": anilistId},
+    );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: false),
       variables: {"id": anilistId},
     );
     final media = data["data"]?["Media"] as Map<String, dynamic>?;
-    if (media == null) return [];
-    return parseRecommendations(media, (json) => AnilistAnime.fromJson(json));
+    if (media == null) {
+      _log.warningWithMetadata(
+        "AniList recommendations source media missing",
+        metadata: {"anilistId": anilistId},
+      );
+      return [];
+    }
+    final recommendations = parseRecommendations(
+      media,
+      (json) => AnilistAnime.fromJson(json),
+    );
+    _log.fineWithMetadata(
+      "AniList recommendations fetched",
+      metadata: {"anilistId": anilistId, "count": recommendations.length},
+    );
+    return recommendations;
   }
 
   Future<Pagination<List<AnilistAnime>>> trendingThisSeason({
@@ -98,6 +161,18 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
     );
     final pageData = data["data"]?["Page"] as Map<String, dynamic>?;
     final items = mapMediaItems(pageData);
+    final totalResults = pageData?["pageInfo"]?["total"] as int?;
+    final hasNextPage = pageData?["pageInfo"]?["hasNextPage"] as bool?;
+    _log.fineWithMetadata(
+      "AniList trending season fetched",
+      metadata: {
+        "season": season,
+        "seasonYear": seasonYear,
+        "items": items.length,
+        "total": totalResults,
+        "hasNextPage": hasNextPage,
+      },
+    );
 
     return buildPagination(
       pageData: pageData,

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ── Brightness Mode ────────────────────────────────────────────────
@@ -776,83 +777,86 @@ enum SenpwaiThemePreset {
 
 // ── Theme Config ───────────────────────────────────────────────────
 
-class ThemeConfig extends ChangeNotifier {
-  BrightnessMode _brightnessMode;
-  SenpwaiTheme _theme;
-  SenpwaiThemePreset? _activePreset;
+@immutable
+class ThemeConfig {
+  final BrightnessMode brightnessMode;
+  final SenpwaiTheme theme;
+  final SenpwaiThemePreset? activePreset;
 
   ThemeConfig({
-    BrightnessMode brightnessMode = BrightnessMode.dark,
+    this.brightnessMode = BrightnessMode.dark,
     SenpwaiThemePreset preset = SenpwaiThemePreset.defaultTheme,
-  }) : _brightnessMode = brightnessMode,
-       _activePreset = preset,
-       _theme = preset.toTheme();
+    SenpwaiTheme? theme,
+    this.activePreset,
+  }) : theme = theme ?? preset.toTheme();
 
-  BrightnessMode get brightnessMode => _brightnessMode;
-  set brightnessMode(BrightnessMode mode) {
-    if (_brightnessMode != mode) {
-      _brightnessMode = mode;
-      notifyListeners();
-    }
-  }
+  SenpwaiColors get colors => theme.colors;
+  SenpwaiTypography get typography => theme.typography;
+  SenpwaiShapeStyle get shape => theme.shape;
 
-  SenpwaiTheme get theme => _theme;
-  set theme(SenpwaiTheme t) {
-    _theme = t;
-    _activePreset = null;
-    notifyListeners();
-  }
-
-  SenpwaiThemePreset? get activePreset => _activePreset;
-
-  SenpwaiColors get colors => _theme.colors;
-  set colors(SenpwaiColors c) {
-    _theme = _theme.copyWith(colors: c);
-    _activePreset = null;
-    notifyListeners();
-  }
-
-  SenpwaiTypography get typography => _theme.typography;
-  set typography(SenpwaiTypography t) {
-    _theme = _theme.copyWith(typography: t);
-    notifyListeners();
-  }
-
-  SenpwaiShapeStyle get shape => _theme.shape;
-  set shape(SenpwaiShapeStyle s) {
-    _theme = _theme.copyWith(shape: s);
-    notifyListeners();
-  }
-
-  void applyPreset(SenpwaiThemePreset preset) {
-    _theme = preset.toTheme();
-    _activePreset = preset;
-    notifyListeners();
-  }
-
-  ThemeMode get themeMode => switch (_brightnessMode) {
+  ThemeMode get themeMode => switch (brightnessMode) {
     BrightnessMode.light => ThemeMode.light,
     BrightnessMode.dark => ThemeMode.dark,
     BrightnessMode.system => ThemeMode.system,
   };
 
-  ThemeData buildLightTheme() => _theme.toThemeData(Brightness.light);
-  ThemeData buildDarkTheme() => _theme.toThemeData(Brightness.dark);
+  ThemeData buildLightTheme() => theme.toThemeData(Brightness.light);
+  ThemeData buildDarkTheme() => theme.toThemeData(Brightness.dark);
+
+  ThemeConfig copyWith({
+    BrightnessMode? brightnessMode,
+    SenpwaiTheme? theme,
+    SenpwaiThemePreset? activePreset,
+  }) {
+    return ThemeConfig(
+      brightnessMode: brightnessMode ?? this.brightnessMode,
+      theme: theme ?? this.theme,
+      activePreset: activePreset,
+    );
+  }
 }
 
-// ── Provider ───────────────────────────────────────────────────────
+class ThemeConfigNotifier extends Notifier<ThemeConfig> {
+  static final provider = NotifierProvider<ThemeConfigNotifier, ThemeConfig>(
+    ThemeConfigNotifier.new,
+  );
 
-class ThemeConfigProvider extends InheritedNotifier<ThemeConfig> {
-  const ThemeConfigProvider({
-    super.key,
-    required ThemeConfig config,
-    required super.child,
-  }) : super(notifier: config);
+  @override
+  ThemeConfig build() => ThemeConfig();
 
-  static ThemeConfig of(BuildContext context) {
-    return context
-        .dependOnInheritedWidgetOfExactType<ThemeConfigProvider>()!
-        .notifier!;
+  void setBrightnessMode(BrightnessMode mode) {
+    if (state.brightnessMode == mode) return;
+    state = state.copyWith(
+      brightnessMode: mode,
+      activePreset: state.activePreset,
+    );
+  }
+
+  void setTheme(SenpwaiTheme theme) {
+    state = state.copyWith(theme: theme, activePreset: null);
+  }
+
+  void setColors(SenpwaiColors colors) {
+    state = state.copyWith(
+      theme: state.theme.copyWith(colors: colors),
+      activePreset: null,
+    );
+  }
+
+  void setTypography(SenpwaiTypography typography) {
+    state = state.copyWith(theme: state.theme.copyWith(typography: typography));
+  }
+
+  void setShape(SenpwaiShapeStyle shape) {
+    state = state.copyWith(theme: state.theme.copyWith(shape: shape));
+  }
+
+  void applyPreset(SenpwaiThemePreset preset) {
+    state = ThemeConfig(
+      brightnessMode: state.brightnessMode,
+      theme: preset.toTheme(),
+      activePreset: preset,
+    );
   }
 }
 

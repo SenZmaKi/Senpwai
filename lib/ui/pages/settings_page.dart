@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/ui/core/theme.dart';
 import 'package:senpwai/ui/core/responsive.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _notificationsEnabled = true;
   bool _autoUpdate = false;
   bool _nsfwFilter = true;
@@ -19,7 +20,8 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final config = ThemeConfigProvider.of(context);
+    final config = ref.watch(ThemeConfigNotifier.provider);
+    final notifier = ref.read(ThemeConfigNotifier.provider.notifier);
     final mobile = isMobile(context);
     final pad = horizontalPadding(context);
 
@@ -41,11 +43,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   _SectionTitle(title: 'Appearance', icon: Icons.palette),
                   const SizedBox(height: 12),
-                  _buildBrightnessSelector(context, config),
+                  _buildBrightnessSelector(context, config, notifier),
                   const SizedBox(height: 16),
-                  _buildPaletteSelector(context, config),
+                  _buildPaletteSelector(context, config, notifier),
                   const SizedBox(height: 16),
-                  _buildFontPicker(context, config),
+                  _buildFontPicker(context, config, notifier),
                   const SizedBox(height: 24),
 
                   _SectionTitle(title: 'General', icon: Icons.tune),
@@ -176,7 +178,11 @@ class _SettingsPageState extends State<SettingsPage> {
     return 'High (1080p)';
   }
 
-  Widget _buildBrightnessSelector(BuildContext context, ThemeConfig config) {
+  Widget _buildBrightnessSelector(
+    BuildContext context,
+    ThemeConfig config,
+    ThemeConfigNotifier notifier,
+  ) {
     final theme = Theme.of(context);
     final ext = theme.extension<SenpwaiThemeExtension>()!;
 
@@ -201,7 +207,7 @@ class _SettingsPageState extends State<SettingsPage> {
               )
               .toList(),
           selected: {config.brightnessMode},
-          onSelectionChanged: (s) => config.brightnessMode = s.first,
+          onSelectionChanged: (s) => notifier.setBrightnessMode(s.first),
           style: ButtonStyle(
             shape: WidgetStateProperty.all(
               RoundedRectangleBorder(
@@ -214,7 +220,11 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildPaletteSelector(BuildContext context, ThemeConfig config) {
+  Widget _buildPaletteSelector(
+    BuildContext context,
+    ThemeConfig config,
+    ThemeConfigNotifier notifier,
+  ) {
     final theme = Theme.of(context);
     final ext = theme.extension<SenpwaiThemeExtension>()!;
 
@@ -236,7 +246,7 @@ class _SettingsPageState extends State<SettingsPage> {
             return MouseRegion(
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
-                onTap: () => config.applyPreset(preset),
+                onTap: () => notifier.applyPreset(preset),
                 child: Tooltip(
                   message: preset.label,
                   child: AnimatedContainer(
@@ -280,7 +290,11 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildFontPicker(BuildContext context, ThemeConfig config) {
+  Widget _buildFontPicker(
+    BuildContext context,
+    ThemeConfig config,
+    ThemeConfigNotifier notifier,
+  ) {
     final theme = Theme.of(context);
     final allFonts = availableGoogleFonts();
 
@@ -304,8 +318,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 currentValue: config.typography.displayFamily,
                 allFonts: allFonts,
                 onSelected: (v) {
-                  config.typography = config.typography.copyWith(
-                    displayFamily: v,
+                  notifier.setTypography(
+                    config.typography.copyWith(displayFamily: v),
                   );
                 },
               ),
@@ -318,7 +332,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 currentValue: config.typography.bodyFamily,
                 allFonts: allFonts,
                 onSelected: (v) {
-                  config.typography = config.typography.copyWith(bodyFamily: v);
+                  notifier.setTypography(
+                    config.typography.copyWith(bodyFamily: v),
+                  );
                 },
               ),
             ),

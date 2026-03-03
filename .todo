@@ -1,3 +1,4 @@
+- _postGraphQl should properly parse out errors from the GraphQL response and throw them as Anilist exceptions
 - Ratelimit failure retry
 - Don't log anilist auth token in logs
 - Properly handle servers that don't support Range requests

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/ui/core/responsive.dart';
 import 'package:senpwai/ui/components/user_avatar_button.dart';
 
@@ -6,8 +7,7 @@ class AppShell extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onDestinationChanged;
   final Widget body;
-  final String? avatarUrl;
-  final String? userName;
+  final AnilistViewer? viewer;
   final bool isAuthLoading;
   final VoidCallback onAvatarTap;
 
@@ -16,8 +16,7 @@ class AppShell extends StatelessWidget {
     required this.currentIndex,
     required this.onDestinationChanged,
     required this.body,
-    this.avatarUrl,
-    this.userName,
+    this.viewer,
     this.isAuthLoading = false,
     required this.onAvatarTap,
   });
@@ -54,8 +53,7 @@ class AppShell extends StatelessWidget {
               currentIndex: currentIndex,
               onDestinationChanged: onDestinationChanged,
               destinations: _destinations,
-              avatarUrl: avatarUrl,
-              userName: userName,
+              viewer: viewer,
               isAuthLoading: isAuthLoading,
               onAvatarTap: onAvatarTap,
             ),
@@ -104,8 +102,7 @@ class _DesktopRail extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onDestinationChanged;
   final List<_Dest> destinations;
-  final String? avatarUrl;
-  final String? userName;
+  final AnilistViewer? viewer;
   final bool isAuthLoading;
   final VoidCallback onAvatarTap;
 
@@ -113,8 +110,7 @@ class _DesktopRail extends StatelessWidget {
     required this.currentIndex,
     required this.onDestinationChanged,
     required this.destinations,
-    this.avatarUrl,
-    this.userName,
+    this.viewer,
     this.isAuthLoading = false,
     required this.onAvatarTap,
   });
@@ -128,8 +124,7 @@ class _DesktopRail extends StatelessWidget {
       leading: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: UserAvatarButton(
-          avatarUrl: avatarUrl,
-          userName: userName,
+          viewer: viewer,
           isLoading: isAuthLoading,
           onTap: onAvatarTap,
         ),

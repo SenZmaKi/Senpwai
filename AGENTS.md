@@ -3,6 +3,9 @@
 - The app is designed for mobile, tablet and desktop so it should be responsive.
 - Once you finish an implementation task prompt me using the question/prompt tool to review it and in the options for the prompt have good, medium, bad and other. Every time even if you previously prompted me do it again.
 - Before running tests run static analyzers
+- Anything that is clickable and technically a button should have button for accesibility for instance on hover cursor should change to a hand.
+- When refactoring code don't care about backwards compatibility, upstream enforces downstream so downstream should update to the new upstream architecture. Aggressive refactors.
+- If I'm suggesting and you feel like it goes against your better judgement then tell me why it is a bad idea.
 
 # Frontend Design
 
