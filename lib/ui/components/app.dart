@@ -10,6 +10,46 @@ import 'package:senpwai/ui/pages/search_page/search_page.dart';
 import 'package:senpwai/ui/pages/settings_page.dart';
 import 'package:senpwai/ui/components/app_shell.dart';
 import 'package:toastification/toastification.dart';
+import 'package:flutter/foundation.dart';
+import 'package:senpwai/shared/log.dart';
+import 'package:window_manager/window_manager.dart';
+
+Future<void> initApp() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  setupLogger();
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    final ctx = App.navigatorKey.currentContext;
+    if (ctx != null) {
+      AppToast.showError(
+        ctx,
+        title: 'Unexpected error',
+        description: details.exceptionAsString(),
+        copyPayload: formatErrorForCopy(details.exception, details.stack),
+      );
+    }
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    final ctx = App.navigatorKey.currentContext;
+    if (ctx != null) {
+      AppToast.showError(
+        ctx,
+        title: 'Unhandled error',
+        description: error.toString(),
+        copyPayload: formatErrorForCopy(error, stack),
+      );
+    }
+    return true;
+  };
+  await windowManager.ensureInitialized();
+  WindowOptions windowOptions = WindowOptions();
+  windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.show();
+    await windowManager.focus();
+  });
+}
 
 class App extends ConsumerWidget {
   static final GlobalKey<NavigatorState> navigatorKey =
