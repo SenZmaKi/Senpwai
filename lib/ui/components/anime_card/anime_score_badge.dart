@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
-import 'package:senpwai/ui/shared/theme.dart';
+import 'package:senpwai/ui/shared/theme/theme.dart';
 
 class AnimeScoreBadge extends StatelessWidget {
   final double score;

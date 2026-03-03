@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/shared/shared.dart';
-import 'package:senpwai/ui/shared/components/filter_dropdown.dart';
+import 'package:senpwai/ui/components/filter_dropdown.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
 
 class SearchFiltersSection extends ConsumerWidget {

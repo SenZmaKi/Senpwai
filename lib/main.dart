@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
-import 'package:senpwai/ui/shared/theme.dart';
-import 'package:senpwai/ui/shared/components/toast.dart';
+import 'package:senpwai/ui/shared/theme/theme.dart';
+import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page.dart';
 import 'package:senpwai/ui/pages/home_page.dart';
 import 'package:senpwai/ui/pages/search_page/search_page.dart';
 import 'package:senpwai/ui/pages/settings_page.dart';
-import 'package:senpwai/ui/shared/components/app_shell.dart';
+import 'package:senpwai/ui/components/app_shell.dart';
 import 'package:toastification/toastification.dart';
 
 final _appNavigatorKey = GlobalKey<NavigatorState>();

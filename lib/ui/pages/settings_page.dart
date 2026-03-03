@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:senpwai/ui/shared/theme.dart';
+import 'package:senpwai/ui/shared/theme/theme.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {

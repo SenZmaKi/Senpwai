@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/anilist.dart';
-import 'package:senpwai/ui/shared/components/anime_card/anime_card_grid.dart';
-import 'package:senpwai/ui/shared/components/anime_card/anime_compact_card.dart';
-import 'package:senpwai/ui/shared/components/anime_card/anime_detailed_card.dart';
-import 'package:senpwai/ui/shared/components/anime_card/card_switcher.dart';
+import 'package:senpwai/ui/components/anime_card/anime_card_grid.dart';
+import 'package:senpwai/ui/components/anime_card/anime_compact_card.dart';
+import 'package:senpwai/ui/components/anime_card/anime_detailed_card.dart';
+import 'package:senpwai/ui/components/anime_card/card_switcher.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
 class SearchResultsSection extends StatelessWidget {

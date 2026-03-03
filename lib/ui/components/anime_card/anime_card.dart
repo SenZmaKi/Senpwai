@@ -2,9 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
-import 'package:senpwai/ui/shared/components/anime_card/anime_score_badge.dart';
+import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
-import 'package:senpwai/ui/shared/theme.dart';
+import 'package:senpwai/ui/shared/theme/theme.dart';
 
 class AnimeCard extends StatefulWidget {
   final AnilistAnimeBase anime;
