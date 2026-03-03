@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/models.dart';
-import 'package:senpwai/ui/components/anime_card/anime_card.dart';
-import 'package:senpwai/ui/components/shimmer_card.dart';
+import 'package:senpwai/ui/shared/components/anime_card/anime_card.dart';
+import 'package:senpwai/ui/shared/components/shimmer_card.dart';
 
 class AnimeCardHorizontal extends StatelessWidget {
   final List<AnilistAnimeBase> anime;

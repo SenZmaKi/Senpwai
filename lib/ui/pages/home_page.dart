@@ -3,11 +3,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
-import 'package:senpwai/ui/components/anime_card/anime_card_horizontal.dart';
-import 'package:senpwai/ui/components/section_header.dart';
-import 'package:senpwai/ui/components/user_avatar_button.dart';
-import 'package:senpwai/ui/core/anilist_state.dart';
-import 'package:senpwai/ui/core/responsive.dart';
+import 'package:senpwai/ui/shared/components/anime_card/anime_card_horizontal.dart';
+import 'package:senpwai/ui/shared/components/section_header.dart';
+import 'package:senpwai/ui/shared/components/user_avatar_button.dart';
+import 'package:senpwai/ui/shared/anilist.dart';
+import 'package:senpwai/ui/shared/responsive.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   final VoidCallback onLoginTap;

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:senpwai/ui/core/theme.dart';
+import 'package:senpwai/ui/shared/theme.dart';
 
 class ShimmerCard extends StatefulWidget {
   const ShimmerCard({super.key});

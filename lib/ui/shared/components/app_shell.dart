@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/anilist.dart';
-import 'package:senpwai/ui/core/responsive.dart';
-import 'package:senpwai/ui/components/user_avatar_button.dart';
+import 'package:senpwai/ui/shared/responsive.dart';
+import 'package:senpwai/ui/shared/components/user_avatar_button.dart';
 
 class AppShell extends StatelessWidget {
   final int currentIndex;

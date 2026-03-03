@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:senpwai/ui/core/theme.dart';
-import 'package:senpwai/ui/core/responsive.dart';
+import 'package:senpwai/ui/shared/theme.dart';
+import 'package:senpwai/ui/shared/responsive.dart';
 
 class DownloadsPage extends StatelessWidget {
   const DownloadsPage({super.key});

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:toastification/toastification.dart';
-import 'package:senpwai/ui/core/responsive.dart';
+import 'package:senpwai/ui/shared/responsive.dart';
 
 class AppToast {
   AppToast._();
