@@ -24,7 +24,7 @@ class AnimeScoreBadge extends StatelessWidget {
         color: theme.colorScheme.surface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(ext.cardRadius.clamp(0, 8)),
         border: Border.all(
-          color: theme.colorScheme.secondary.withValues(alpha: 0.4),
+          color: theme.colorScheme.tertiary.withValues(alpha: 0.4),
           width: 0.5,
         ),
       ),
@@ -34,7 +34,7 @@ class AnimeScoreBadge extends StatelessWidget {
           Icon(
             Icons.star_rounded,
             size: iconSize,
-            color: theme.colorScheme.secondary,
+            color: theme.colorScheme.primary,
           ),
           const SizedBox(width: 2),
           Text(

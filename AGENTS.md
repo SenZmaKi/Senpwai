@@ -58,7 +58,7 @@ The app uses a layered, fully configurable design system in `lib/ui/core/theme.d
 - `SenpwaiTypography` — display/body font families, all size/weight tokens from display through body. Has a `neon` static preset.
 - `SenpwaiShapeStyle` — cardRadius, cardBorderWidth, inputRadius, buttonRadius. Has a `neon` static preset.
 - `SenpwaiTheme` — composes `SenpwaiColors` + `SenpwaiTypography` + `SenpwaiShapeStyle`. Has `toThemeData(Brightness)` that builds a full `ThemeData` for the given brightness (dark or light) using the matching `SenpwaiColorSet`.
-- `SenpwaiThemePreset` — enum of curated full themes (defaultTheme, gruvbox, dracula, catppuccin, monokai). Each has `toTheme()` returning a complete `SenpwaiTheme` with specialized colors, typography, and shapes.
+- `SenpwaiThemePreset` — enum of curated anime-inspired themes (defaultTheme, naruto, kaneki, gojo, deku). Each has `toTheme()` returning a complete `SenpwaiTheme` with specialized colors, typography, and shapes.
 - `ThemeConfig` — `ChangeNotifier` holding ONE `SenpwaiTheme` + `BrightnessMode` + optional active preset. `applyPreset()` applies the full theme (colors + typography + shapes). Exposes `buildLightTheme()` / `buildDarkTheme()` for `MaterialApp`.
 - `ThemeConfigProvider` — `InheritedNotifier` that provides `ThemeConfig` via `ThemeConfigProvider.of(context)`.
 - `SenpwaiThemeExtension` — `ThemeExtension` on `ThemeData` for card styling and shimmer. Badge/score colors are derived from the existing `ColorScheme` (surface, onSurface, secondary) — NOT separate fields.

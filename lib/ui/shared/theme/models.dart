@@ -30,7 +30,7 @@ class SenpwaiColorSet {
   final Color onSurface;
   final Color onPrimary;
   final Color error;
-  final List<Color> genreColors;
+  final List<Color> randomColors;
   final Color imageOverlay;
   final Color onImageOverlay;
   final Color textShadow;
@@ -45,7 +45,7 @@ class SenpwaiColorSet {
     required this.onSurface,
     required this.onPrimary,
     required this.error,
-    required this.genreColors,
+    required this.randomColors,
     required this.imageOverlay,
     required this.onImageOverlay,
     required this.textShadow,
@@ -61,7 +61,7 @@ class SenpwaiColorSet {
     Color? onSurface,
     Color? onPrimary,
     Color? error,
-    List<Color>? genreColors,
+    List<Color>? randomColors,
     Color? imageOverlay,
     Color? onImageOverlay,
     Color? textShadow,
@@ -76,7 +76,7 @@ class SenpwaiColorSet {
       onSurface: onSurface ?? this.onSurface,
       onPrimary: onPrimary ?? this.onPrimary,
       error: error ?? this.error,
-      genreColors: genreColors ?? this.genreColors,
+      randomColors: randomColors ?? this.randomColors,
       imageOverlay: imageOverlay ?? this.imageOverlay,
       onImageOverlay: onImageOverlay ?? this.onImageOverlay,
       textShadow: textShadow ?? this.textShadow,

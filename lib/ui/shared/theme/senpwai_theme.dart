@@ -204,7 +204,7 @@ class SenpwaiTheme {
           cardRadius: s.cardRadius,
           cardBorderColor: c.primary.withValues(alpha: 0.3),
           cardBorderWidth: s.cardBorderWidth,
-          randomColourPalette: c.genreColors,
+          randomColourPalette: c.randomColors,
           cardShadows: isDark
               ? [
                   BoxShadow(
