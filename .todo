@@ -1,3 +1,5 @@
+- Devide whether or not to keep page title section
+- More in navbar in mobile to reduce clutter
 - _postGraphQl should properly parse out errors from the GraphQL response and throw them as Anilist exceptions
 - Ratelimit failure retry
 - Don't log anilist auth token in logs

@@ -161,8 +161,8 @@ String mediaSearchQuery({required bool includeListEntry}) {
         \$genreIn: [String],
         \$season: MediaSeason,
         \$seasonYear: Int,
-        \$format: MediaFormat,
-        \$status: MediaStatus,
+        \$formatIn: [MediaFormat],
+        \$statusIn: [MediaStatus],
         \$sort: [MediaSort],
         \$page: Int,
         \$perPage: Int
@@ -174,8 +174,8 @@ String mediaSearchQuery({required bool includeListEntry}) {
             genre_in: \$genreIn,
             season: \$season,
             seasonYear: \$seasonYear,
-            format: \$format,
-            status: \$status,
+            format_in: \$formatIn,
+            status_in: \$statusIn,
             type: ANIME,
             sort: \$sort
           ) {
@@ -219,14 +219,14 @@ String trendingQuery({required bool includeListEntry}) {
 String mediaListSearchQuery() {
   return '''
       query (
-        \$search: String,
         \$listStatus: MediaListStatus,
+        \$userId: Int,
         \$page: Int,
         \$perPage: Int
       ) {
         Page(page: \$page, perPage: \$perPage) {
           pageInfo { currentPage lastPage perPage total }
-          mediaList(search: \$search, status: \$listStatus, type: ANIME) {
+          mediaList(status: \$listStatus, userId: \$userId, type: ANIME) {
             id
             status
             progress
@@ -254,15 +254,35 @@ Map<String, dynamic> buildSearchVariables(AnimeSearchParams params) {
     sortList = ["POPULARITY_DESC"];
   }
 
+  final variables =
+      <String, dynamic>{
+        "search": params.term,
+        "genreIn": params.genres?.map((genre) => genre.toGraphql()).toList(),
+        "season": params.season?.toGraphql(),
+        "seasonYear": params.seasonYear,
+        "formatIn": params.formats
+            ?.map((format) => format.toGraphql())
+            .toList(),
+        "statusIn": params.airingStatuses
+            ?.map((status) => status.toGraphql())
+            .toList(),
+        "sort": sortList,
+        "page": params.page,
+        "perPage": params.perPage,
+      }..removeWhere(
+        (_, value) => value == null || (value is List && value.isEmpty),
+      );
+
+  return variables;
+}
+
+Map<String, dynamic> buildMediaListVariables(
+  AnimeSearchParams params, {
+  required int userId,
+}) {
   final variables = <String, dynamic>{
-    "search": params.term,
-    "genreIn": params.genres?.map((genre) => genre.toGraphql()).toList(),
-    "season": params.season?.toGraphql(),
-    "seasonYear": params.seasonYear,
-    "format": params.format?.toGraphql(),
-    "status": params.airingStatus?.toGraphql(),
     "listStatus": params.listStatus?.toGraphql(),
-    "sort": sortList,
+    "userId": userId,
     "page": params.page,
     "perPage": params.perPage,
   }..removeWhere((_, value) => value == null);

@@ -6,6 +6,7 @@ class FilterDropdown<T> extends StatelessWidget {
   final List<DropdownMenuItem<T>> items;
   final ValueChanged<T?> onChanged;
   final String? tooltip;
+  final bool enabled;
 
   const FilterDropdown({
     super.key,
@@ -14,57 +15,72 @@ class FilterDropdown<T> extends StatelessWidget {
     required this.items,
     required this.onChanged,
     this.tooltip,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isActive = value != null;
+    final disabledAlpha = enabled ? 1.0 : 0.4;
 
-    Widget dropdown = Container(
-      width: 160,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isActive
-              ? theme.colorScheme.primary.withValues(alpha: 0.6)
-              : theme.colorScheme.outline.withValues(alpha: 0.25),
-        ),
-        color: isActive
-            ? theme.colorScheme.primary.withValues(alpha: 0.06)
-            : null,
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          isDense: true,
-          hint: Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+    Widget dropdown = Opacity(
+      opacity: enabled ? 1.0 : 0.5,
+      child: IgnorePointer(
+        ignoring: !enabled,
+        child: Container(
+          width: 160,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isActive
+                  ? theme.colorScheme.primary.withValues(
+                      alpha: 0.6 * disabledAlpha,
+                    )
+                  : theme.colorScheme.outline.withValues(alpha: 0.25),
             ),
+            color: isActive
+                ? theme.colorScheme.primary.withValues(alpha: 0.06)
+                : null,
           ),
-          items: [
-            DropdownMenuItem<T>(
-              value: null as T?,
-              child: Text(
-                'Any',
-                style: theme.textTheme.bodySmall?.copyWith(
+          child: SizedBox(
+            height: 32,
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<T>(
+                value: value,
+                isExpanded: true,
+                isDense: true,
+                hint: Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+                items: [
+                  DropdownMenuItem<T>(
+                    value: null as T?,
+                    child: Text(
+                      'Any',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  ...items,
+                ],
+                onChanged: onChanged,
+                style: theme.textTheme.bodySmall,
+                dropdownColor: theme.colorScheme.surfaceContainerHighest,
+                icon: Icon(
+                  Icons.arrow_drop_down,
+                  size: 20,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             ),
-            ...items,
-          ],
-          onChanged: onChanged,
-          style: theme.textTheme.bodySmall,
-          dropdownColor: theme.colorScheme.surfaceContainerHighest,
-          icon: Icon(
-            Icons.arrow_drop_down,
-            size: 20,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -85,6 +101,7 @@ class MultiSelectDropdown<T> extends StatelessWidget {
   final String Function(T) optionLabel;
   final ValueChanged<List<T>> onChanged;
   final String? tooltip;
+  final bool enabled;
 
   const MultiSelectDropdown({
     super.key,
@@ -94,15 +111,21 @@ class MultiSelectDropdown<T> extends StatelessWidget {
     required this.optionLabel,
     required this.onChanged,
     this.tooltip,
+    this.enabled = true,
   });
 
   String get _buttonText {
     if (selectedValues.isEmpty) return label;
-    if (selectedValues.length == 1) return optionLabel(selectedValues.first);
-    return '${selectedValues.length} selected';
+    return optionLabel(selectedValues.first);
+  }
+
+  int get _extraCount {
+    if (selectedValues.length <= 1) return 0;
+    return selectedValues.length - 1;
   }
 
   void _showDialog(BuildContext context) {
+    if (!enabled) return;
     final theme = Theme.of(context);
     final selected = List<T>.from(selectedValues);
 
@@ -163,42 +186,77 @@ class MultiSelectDropdown<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isActive = selectedValues.isNotEmpty;
+    final extraCount = _extraCount;
 
-    Widget button = GestureDetector(
-      onTap: () => _showDialog(context),
-      child: Container(
-        width: 160,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isActive
-                ? theme.colorScheme.primary.withValues(alpha: 0.6)
-                : theme.colorScheme.outline.withValues(alpha: 0.25),
-          ),
-          color: isActive
-              ? theme.colorScheme.primary.withValues(alpha: 0.06)
-              : null,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                _buttonText,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: isActive
-                      ? theme.colorScheme.onSurface
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-                overflow: TextOverflow.ellipsis,
+    Widget button = Opacity(
+      opacity: enabled ? 1.0 : 0.5,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: GestureDetector(
+          onTap: enabled ? () => _showDialog(context) : null,
+          child: Container(
+            width: 160,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isActive
+                    ? theme.colorScheme.primary.withValues(alpha: 0.6)
+                    : theme.colorScheme.outline.withValues(alpha: 0.25),
+              ),
+              color: isActive
+                  ? theme.colorScheme.primary.withValues(alpha: 0.06)
+                  : null,
+            ),
+            child: SizedBox(
+              height: 32,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _buttonText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isActive
+                            ? theme.colorScheme.onSurface
+                            : theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (extraCount > 0) ...[
+                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.15,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '+$extraCount',
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                  Icon(
+                    Icons.arrow_drop_down,
+                    size: 20,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ],
               ),
             ),
-            Icon(
-              Icons.arrow_drop_down,
-              size: 20,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-          ],
+          ),
         ),
       ),
     );

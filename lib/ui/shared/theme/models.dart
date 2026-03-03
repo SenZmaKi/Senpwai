@@ -180,21 +180,21 @@ class SenpwaiShapeStyle {
   }
 }
 
-enum GenrePalettePreset {
+enum RandomColourPalettePreset {
   vivid,
   pastel,
   muted,
   neon;
 
   String get label => switch (this) {
-    GenrePalettePreset.vivid => 'Vivid',
-    GenrePalettePreset.pastel => 'Pastel',
-    GenrePalettePreset.muted => 'Muted',
-    GenrePalettePreset.neon => 'Neon',
+    RandomColourPalettePreset.vivid => 'Vivid',
+    RandomColourPalettePreset.pastel => 'Pastel',
+    RandomColourPalettePreset.muted => 'Muted',
+    RandomColourPalettePreset.neon => 'Neon',
   };
 
   List<Color> get colors => switch (this) {
-    GenrePalettePreset.vivid => const [
+    RandomColourPalettePreset.vivid => const [
       Color(0xFFEF5350),
       Color(0xFFEC407A),
       Color(0xFFAB47BC),
@@ -208,7 +208,7 @@ enum GenrePalettePreset {
       Color(0xFFFFA726),
       Color(0xFF8D6E63),
     ],
-    GenrePalettePreset.pastel => const [
+    RandomColourPalettePreset.pastel => const [
       Color(0xFFEF9A9A),
       Color(0xFFF48FB1),
       Color(0xFFCE93D8),
@@ -222,7 +222,7 @@ enum GenrePalettePreset {
       Color(0xFFC5E1A5),
       Color(0xFFBCAAA4),
     ],
-    GenrePalettePreset.muted => const [
+    RandomColourPalettePreset.muted => const [
       Color(0xFF795548),
       Color(0xFF546E7A),
       Color(0xFF78909C),
@@ -236,7 +236,7 @@ enum GenrePalettePreset {
       Color(0xFFC62828),
       Color(0xFF6D4C41),
     ],
-    GenrePalettePreset.neon => const [
+    RandomColourPalettePreset.neon => const [
       Color(0xFFFF1744),
       Color(0xFFD500F9),
       Color(0xFF2979FF),

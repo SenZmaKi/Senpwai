@@ -424,9 +424,9 @@ class AnimeSearchParams extends PerPage {
   final List<AnilistGenre>? genres;
   final AnilistSeason? season;
   final int? seasonYear;
-  final AnilistFormat? format;
+  final List<AnilistFormat>? formats;
   final AnilistMediaListStatus? listStatus;
-  final AnilistAiringStatus? airingStatus;
+  final List<AnilistAiringStatus>? airingStatuses;
   final AnilistMediaSort? sort;
   final bool sortDescending;
   final int page;
@@ -436,9 +436,9 @@ class AnimeSearchParams extends PerPage {
     this.genres,
     this.season,
     this.seasonYear,
-    this.format,
+    this.formats,
     this.listStatus,
-    this.airingStatus,
+    this.airingStatuses,
     this.sort,
     this.sortDescending = true,
     this.page = 1,
@@ -450,9 +450,9 @@ class AnimeSearchParams extends PerPage {
     genres: genres,
     season: season,
     seasonYear: seasonYear,
-    format: format,
+    formats: formats,
     listStatus: listStatus,
-    airingStatus: airingStatus,
+    airingStatuses: airingStatuses,
     sort: sort,
     sortDescending: sortDescending,
     page: newPage,
@@ -461,7 +461,7 @@ class AnimeSearchParams extends PerPage {
 
   @override
   String toString() =>
-      "AnimeSearchParams(term: $term, genres: $genres, season: $season, seasonYear: $seasonYear, format: $format, listStatus: $listStatus, airingStatus: $airingStatus, sort: $sort, sortDescending: $sortDescending, page: $page, perPage: $perPage)";
+      "AnimeSearchParams(term: $term, genres: $genres, season: $season, seasonYear: $seasonYear, formats: $formats, listStatus: $listStatus, airingStatuses: $airingStatuses, sort: $sort, sortDescending: $sortDescending, page: $page, perPage: $perPage)";
 }
 
 class TrendingParams extends PerPage {

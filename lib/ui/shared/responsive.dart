@@ -51,7 +51,7 @@ double gridChildAspectRatio(BuildContext context) {
   return 0.55;
 }
 
-double compactCardAspectRatio(BuildContext context) {
+double landscapeCardAspectRatio(BuildContext context) {
   final w = MediaQuery.sizeOf(context).width;
   if (w < Breakpoints.mobile) return 1.65;
   if (w < Breakpoints.tablet) return 2.0;

@@ -9,20 +9,21 @@ class SearchFiltersSection extends ConsumerWidget {
   final TextEditingController searchController;
   final bool filtersExpanded;
   final double horizontalPadding;
-  final AnilistGenre? genre;
-  final AnilistAiringStatus? airingStatus;
+  final List<AnilistGenre> genres;
+  final List<AnilistAiringStatus> airingStatuses;
   final AnilistMediaListStatus? listStatus;
   final AnilistSeason? season;
   final int? year;
-  final AnilistFormat? format;
+  final List<AnilistFormat> formats;
+  final bool isListFilterActive;
   final ValueChanged<bool> onFiltersExpandedChanged;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearSearch;
-  final ValueChanged<AnilistGenre?> onGenreChanged;
+  final ValueChanged<List<AnilistGenre>> onGenresChanged;
   final ValueChanged<int?> onYearChanged;
   final ValueChanged<AnilistSeason?> onSeasonChanged;
-  final ValueChanged<AnilistFormat?> onFormatChanged;
-  final ValueChanged<AnilistAiringStatus?> onAiringStatusChanged;
+  final ValueChanged<List<AnilistFormat>> onFormatsChanged;
+  final ValueChanged<List<AnilistAiringStatus>> onAiringStatusesChanged;
   final ValueChanged<AnilistMediaListStatus?> onListStatusChanged;
 
   const SearchFiltersSection({
@@ -30,20 +31,21 @@ class SearchFiltersSection extends ConsumerWidget {
     required this.searchController,
     required this.filtersExpanded,
     required this.horizontalPadding,
-    required this.genre,
-    required this.airingStatus,
+    required this.genres,
+    required this.airingStatuses,
     required this.listStatus,
     required this.season,
     required this.year,
-    required this.format,
+    required this.formats,
+    this.isListFilterActive = false,
     required this.onFiltersExpandedChanged,
     required this.onSearchChanged,
     required this.onClearSearch,
-    required this.onGenreChanged,
+    required this.onGenresChanged,
     required this.onYearChanged,
     required this.onSeasonChanged,
-    required this.onFormatChanged,
-    required this.onAiringStatusChanged,
+    required this.onFormatsChanged,
+    required this.onAiringStatusesChanged,
     required this.onListStatusChanged,
   });
 
@@ -81,6 +83,7 @@ class SearchFiltersSection extends ConsumerWidget {
       required ValueChanged<T?> onChanged,
       String label = 'Any',
       String? tooltip,
+      bool enabled = true,
     }) {
       return labeled(
         title,
@@ -90,42 +93,43 @@ class SearchFiltersSection extends ConsumerWidget {
           tooltip: tooltip,
           items: items,
           onChanged: onChanged,
+          enabled: enabled,
         ),
       );
     }
 
-    final searchField = labeled(
-      'Search',
-      TextField(
-        controller: searchController,
-        onChanged: onSearchChanged,
-        decoration: InputDecoration(
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 9,
-          ),
-          hintText: 'Search anime...',
-          prefixIcon: const Icon(Icons.search, size: 20),
-          suffixIcon: searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, size: 18),
-                  onPressed: onClearSearch,
-                )
-              : null,
-        ),
+    final searchInput = TextField(
+      controller: searchController,
+      onChanged: onSearchChanged,
+      enabled: !isListFilterActive,
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        hintText: 'Search anime...',
+        prefixIcon: const Icon(Icons.search, size: 20),
+        suffixIcon: searchController.text.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: onClearSearch,
+              )
+            : null,
       ),
     );
+    final searchField = labeled('Search', searchInput);
 
     final dropdowns = <Widget>[
-      buildFilterDropdown<AnilistGenre>(
-        title: 'Genre',
-        value: genre,
-        items: AnilistGenre.values
-            .where((g) => g != AnilistGenre.hentai)
-            .map((g) => DropdownMenuItem(value: g, child: Text(g.toGraphql())))
-            .toList(),
-        onChanged: onGenreChanged,
+      labeled(
+        'Genre',
+        MultiSelectDropdown<AnilistGenre>(
+          label: 'Any',
+          selectedValues: genres,
+          options: AnilistGenre.values
+              .where((g) => g != AnilistGenre.hentai)
+              .toList(),
+          optionLabel: (g) => g.toGraphql(),
+          onChanged: onGenresChanged,
+          enabled: !isListFilterActive,
+        ),
       ),
       buildFilterDropdown<int>(
         title: 'Year',
@@ -134,6 +138,7 @@ class SearchFiltersSection extends ConsumerWidget {
             .map((y) => DropdownMenuItem(value: y, child: Text(y.toString())))
             .toList(),
         onChanged: onYearChanged,
+        enabled: !isListFilterActive,
       ),
       buildFilterDropdown<AnilistSeason>(
         title: 'Season',
@@ -147,38 +152,30 @@ class SearchFiltersSection extends ConsumerWidget {
             )
             .toList(),
         onChanged: onSeasonChanged,
+        enabled: !isListFilterActive,
       ),
-      buildFilterDropdown<AnilistFormat>(
-        title: 'Format',
-        value: format,
-        items: AnilistFormat.values
-            .map(
-              (f) => DropdownMenuItem(
-                value: f,
-                child: Text(f.toGraphql().replaceAll('_', ' ')),
-              ),
-            )
-            .toList(),
-        onChanged: onFormatChanged,
+      labeled(
+        'Format',
+        MultiSelectDropdown<AnilistFormat>(
+          label: 'Any',
+          selectedValues: formats,
+          options: AnilistFormat.values,
+          optionLabel: (f) => f.toGraphql().replaceAll('_', ' '),
+          onChanged: onFormatsChanged,
+          enabled: !isListFilterActive,
+        ),
       ),
-      buildFilterDropdown<AnilistAiringStatus>(
-        title: 'Status',
-        value: airingStatus,
-        items: AnilistAiringStatus.values
-            .map(
-              (status) => DropdownMenuItem(
-                value: status,
-                child: Text(
-                  status
-                      .toGraphql()
-                      .replaceAll('_', ' ')
-                      .toLowerCase()
-                      .capitalize(),
-                ),
-              ),
-            )
-            .toList(),
-        onChanged: onAiringStatusChanged,
+      labeled(
+        'Status',
+        MultiSelectDropdown<AnilistAiringStatus>(
+          label: 'Any',
+          selectedValues: airingStatuses,
+          options: AnilistAiringStatus.values,
+          optionLabel: (s) =>
+              s.toGraphql().replaceAll('_', ' ').toLowerCase().capitalize(),
+          onChanged: onAiringStatusesChanged,
+          enabled: !isListFilterActive,
+        ),
       ),
       if (isAuthenticated)
         buildFilterDropdown<AnilistMediaListStatus>(
@@ -205,57 +202,66 @@ class SearchFiltersSection extends ConsumerWidget {
 
     final activeChips = <Widget>[];
 
-    void addActiveChip({
-      required bool enabled,
-      required String label,
-      required VoidCallback onRemove,
-    }) {
-      if (!enabled) return;
-      activeChips.add(_ActiveFilterChip(label: label, onRemove: onRemove));
+    for (final genre in genres) {
+      activeChips.add(
+        _ActiveFilterChip(
+          label: genre.toGraphql(),
+          onRemove: () =>
+              onGenresChanged(genres.where((g) => g != genre).toList()),
+        ),
+      );
     }
-
-    addActiveChip(
-      enabled: genre != null,
-      label: genre?.toGraphql() ?? '',
-      onRemove: () => onGenreChanged(null),
-    );
-    addActiveChip(
-      enabled: year != null,
-      label: year?.toString() ?? '',
-      onRemove: () => onYearChanged(null),
-    );
-    addActiveChip(
-      enabled: season != null,
-      label: season?.toGraphql().toLowerCase().capitalize() ?? '',
-      onRemove: () => onSeasonChanged(null),
-    );
-    addActiveChip(
-      enabled: format != null,
-      label: format?.toGraphql().replaceAll('_', ' ') ?? '',
-      onRemove: () => onFormatChanged(null),
-    );
-    addActiveChip(
-      enabled: airingStatus != null,
-      label:
-          airingStatus
-              ?.toGraphql()
+    if (year != null) {
+      activeChips.add(
+        _ActiveFilterChip(
+          label: year.toString(),
+          onRemove: () => onYearChanged(null),
+        ),
+      );
+    }
+    if (season != null) {
+      activeChips.add(
+        _ActiveFilterChip(
+          label: season!.toGraphql().toLowerCase().capitalize(),
+          onRemove: () => onSeasonChanged(null),
+        ),
+      );
+    }
+    for (final format in formats) {
+      activeChips.add(
+        _ActiveFilterChip(
+          label: format.toGraphql().replaceAll('_', ' '),
+          onRemove: () =>
+              onFormatsChanged(formats.where((f) => f != format).toList()),
+        ),
+      );
+    }
+    for (final status in airingStatuses) {
+      activeChips.add(
+        _ActiveFilterChip(
+          label: status
+              .toGraphql()
               .replaceAll('_', ' ')
               .toLowerCase()
-              .capitalize() ??
-          '',
-      onRemove: () => onAiringStatusChanged(null),
-    );
-    addActiveChip(
-      enabled: listStatus != null,
-      label:
-          listStatus
-              ?.toGraphql()
+              .capitalize(),
+          onRemove: () => onAiringStatusesChanged(
+            airingStatuses.where((s) => s != status).toList(),
+          ),
+        ),
+      );
+    }
+    if (listStatus != null) {
+      activeChips.add(
+        _ActiveFilterChip(
+          label: listStatus!
+              .toGraphql()
               .replaceAll('_', ' ')
               .toLowerCase()
-              .capitalize() ??
-          '',
-      onRemove: () => onListStatusChanged(null),
-    );
+              .capitalize(),
+          onRemove: () => onListStatusChanged(null),
+        ),
+      );
+    }
 
     final inlineWidth = 260.0 + 12 + dropdowns.length * 170.0;
 
@@ -314,7 +320,7 @@ class SearchFiltersSection extends ConsumerWidget {
                 ],
               ] else ...[
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     SizedBox(width: 260, child: searchField),
                     const SizedBox(width: 12),

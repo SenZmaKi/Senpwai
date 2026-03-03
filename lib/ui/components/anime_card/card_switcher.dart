@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
-enum CardViewMode { grid, compact, detailed }
+enum CardViewMode { poster, landscape, table }
 
 class CardSwitcher extends StatelessWidget {
   final CardViewMode selected;
@@ -23,19 +23,19 @@ class CardSwitcher extends StatelessWidget {
     return SegmentedButton<CardViewMode>(
       segments: [
         ButtonSegment(
-          value: CardViewMode.grid,
+          value: CardViewMode.poster,
           icon: Icon(Icons.grid_view, size: iconSize),
-          tooltip: 'Grid',
+          tooltip: 'Poster',
         ),
         ButtonSegment(
-          value: CardViewMode.compact,
+          value: CardViewMode.landscape,
           icon: Icon(Icons.art_track, size: iconSize),
-          tooltip: 'Compact',
+          tooltip: 'Landscape',
         ),
         ButtonSegment(
-          value: CardViewMode.detailed,
+          value: CardViewMode.table,
           icon: Icon(Icons.view_list, size: iconSize),
-          tooltip: 'Detailed',
+          tooltip: 'Table',
         ),
       ],
       selected: {selected},

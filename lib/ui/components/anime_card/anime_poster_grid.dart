@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/models.dart';
-import 'package:senpwai/ui/components/anime_card/anime_card.dart';
+import 'package:senpwai/ui/components/anime_card/anime_poster_card.dart';
 import 'package:senpwai/ui/components/shimmer_card.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
-class AnimeCardGrid extends StatelessWidget {
+class AnimePosterGrid extends StatelessWidget {
   final List<AnilistAnimeBase> anime;
   final bool isLoading;
   final bool loadingMore;
   final int crossAxisCount;
 
-  const AnimeCardGrid({
+  const AnimePosterGrid({
     super.key,
     required this.anime,
     this.isLoading = false,
@@ -67,38 +67,21 @@ class AnimeCardGrid extends StatelessWidget {
       );
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            childAspectRatio: aspectRatio,
-            crossAxisSpacing: spacing,
-            mainAxisSpacing: spacing,
-          ),
-          itemCount: anime.length,
-          itemBuilder: (_, i) => AnimeCard(anime: anime[i]),
-        ),
-        if (loadingMore)
-          Padding(
-            padding: EdgeInsets.only(top: spacing),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                childAspectRatio: aspectRatio,
-                crossAxisSpacing: spacing,
-                mainAxisSpacing: spacing,
-              ),
-              itemCount: crossAxisCount,
-              itemBuilder: (_, __) => const ShimmerCard(),
-            ),
-          ),
-      ],
+    final shimmerCount = loadingMore ? crossAxisCount : 0;
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: aspectRatio,
+        crossAxisSpacing: spacing,
+        mainAxisSpacing: spacing,
+      ),
+      itemCount: anime.length + shimmerCount,
+      itemBuilder: (_, i) => i < anime.length
+          ? AnimePosterCard(anime: anime[i])
+          : const ShimmerCard(),
     );
   }
 }

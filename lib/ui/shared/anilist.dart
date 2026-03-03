@@ -52,11 +52,17 @@ class AnilistNotifier extends Notifier<AnilistStateData> {
       await refreshViewer();
     } finally {
       state = state.copyWith(isAuthLoading: false);
+      _focusWindow();
     }
+  }
+
+  void _focusWindow() {
+    // TODO: Implement
   }
 
   Future<void> refreshViewer() async {
     final viewer = await authClient.auth.fetchViewer();
+    authClient.viewerId = viewer.id;
     state = state.copyWith(viewer: viewer);
   }
 }

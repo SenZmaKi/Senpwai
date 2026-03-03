@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/anilist.dart';
-import 'package:senpwai/ui/components/anime_card/anime_card_grid.dart';
-import 'package:senpwai/ui/components/anime_card/anime_compact_card.dart';
-import 'package:senpwai/ui/components/anime_card/anime_detailed_card.dart';
+import 'package:senpwai/ui/components/anime_card/anime_poster_grid.dart';
+import 'package:senpwai/ui/components/anime_card/anime_landscape_card.dart';
+import 'package:senpwai/ui/components/anime_card/anime_table_card.dart';
 import 'package:senpwai/ui/components/anime_card/card_switcher.dart';
+import 'package:senpwai/ui/components/shimmer_card.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
 class SearchResultsSection extends StatelessWidget {
@@ -23,25 +24,33 @@ class SearchResultsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (viewMode) {
-      CardViewMode.grid => AnimeCardGrid(
+      CardViewMode.poster => AnimePosterGrid(
         anime: results,
         isLoading: loading,
         loadingMore: loadingMore,
         crossAxisCount: gridCrossAxisCount(context),
       ),
-      CardViewMode.compact => _buildCompactList(context),
-      CardViewMode.detailed => _buildDetailedList(context),
+      CardViewMode.landscape => _buildLandscapeList(context),
+      CardViewMode.table => _buildTableList(context),
     };
   }
 
-  Widget _buildDetailedList(BuildContext context) {
+  Widget _buildTableList(BuildContext context) {
     final theme = Theme.of(context);
+    final mobile = isMobile(context);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final skeletonHeight = mobile
+        ? (screenWidth < 400 ? 106.0 : 122.0)
+        : (screenWidth < Breakpoints.tablet ? 134.0 : 152.0);
 
     if (loading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: CircularProgressIndicator(),
+      return Column(
+        children: List.generate(
+          6,
+          (_) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: SizedBox(height: skeletonHeight, child: const ShimmerCard()),
+          ),
         ),
       );
     }
@@ -73,28 +82,40 @@ class SearchResultsSection extends StatelessWidget {
 
     return Column(
       children: [
-        ...results.map((anime) => AnimeDetailedCard(anime: anime)),
+        ...results.map((anime) => AnimeTableCard(anime: anime)),
         if (loadingMore)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator()),
+          ...List.generate(
+            2,
+            (_) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: SizedBox(
+                height: skeletonHeight,
+                child: const ShimmerCard(),
+              ),
+            ),
           ),
       ],
     );
   }
 
-  Widget _buildCompactList(BuildContext context) {
+  Widget _buildLandscapeList(BuildContext context) {
     final theme = Theme.of(context);
     final cols = isMobile(context) ? 1 : 2;
-    final compactRatio = compactCardAspectRatio(context);
+    final landscapeRatio = landscapeCardAspectRatio(context);
     final spacing = gridSpacing(context);
 
     if (loading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: CircularProgressIndicator(),
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: cols,
+          childAspectRatio: landscapeRatio,
+          crossAxisSpacing: spacing,
+          mainAxisSpacing: spacing,
         ),
+        itemCount: cols * 3,
+        itemBuilder: (_, __) => const ShimmerCard(),
       );
     }
 
@@ -123,26 +144,21 @@ class SearchResultsSection extends StatelessWidget {
       );
     }
 
-    return Column(
-      children: [
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: cols,
-            childAspectRatio: compactRatio,
-            crossAxisSpacing: spacing,
-            mainAxisSpacing: spacing,
-          ),
-          itemCount: results.length,
-          itemBuilder: (_, i) => AnimeCompactCard(anime: results[i]),
-        ),
-        if (loadingMore)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-      ],
+    final shimmerCount = loadingMore ? cols : 0;
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: cols,
+        childAspectRatio: landscapeRatio,
+        crossAxisSpacing: spacing,
+        mainAxisSpacing: spacing,
+      ),
+      itemCount: results.length + shimmerCount,
+      itemBuilder: (_, i) => i < results.length
+          ? AnimeLandscapeCard(anime: results[i])
+          : const ShimmerCard(),
     );
   }
 }

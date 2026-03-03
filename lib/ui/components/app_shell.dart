@@ -1,7 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
-import 'package:senpwai/ui/components/user_avatar_button.dart';
 
 class AppShell extends StatelessWidget {
   final int currentIndex;
@@ -72,18 +72,47 @@ class AppShell extends StatelessWidget {
       body: body,
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
-        onDestinationSelected: onDestinationChanged,
-        destinations: _destinations
-            .map(
-              (d) => NavigationDestination(
-                icon: Icon(d.icon),
-                selectedIcon: Icon(d.selectedIcon),
-                label: d.label,
-              ),
-            )
-            .toList(),
+        onDestinationSelected: (index) {
+          if (index == _destinations.length) {
+            onAvatarTap();
+          } else {
+            onDestinationChanged(index);
+          }
+        },
+        destinations: [
+          ..._destinations.map(
+            (d) => NavigationDestination(
+              icon: Icon(d.icon),
+              selectedIcon: Icon(d.selectedIcon),
+              label: d.label,
+            ),
+          ),
+          NavigationDestination(
+            icon: _buildAvatarIcon(context),
+            label: isAuthLoading
+                ? 'Loading'
+                : (viewer != null ? viewer!.name : 'Login'),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildAvatarIcon(BuildContext context) {
+    if (isAuthLoading) {
+      return const SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    if (viewer?.avatarUrl != null) {
+      return CircleAvatar(
+        radius: 12,
+        backgroundImage: CachedNetworkImageProvider(viewer!.avatarUrl!),
+      );
+    }
+    return const Icon(Icons.login);
   }
 }
 
@@ -119,25 +148,48 @@ class _DesktopRail extends StatelessWidget {
   Widget build(BuildContext context) {
     return NavigationRail(
       selectedIndex: currentIndex,
-      onDestinationSelected: onDestinationChanged,
+      onDestinationSelected: (index) {
+        if (index == destinations.length) {
+          onAvatarTap();
+        } else {
+          onDestinationChanged(index);
+        }
+      },
       labelType: NavigationRailLabelType.all,
-      leading: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: UserAvatarButton(
-          viewer: viewer,
-          isLoading: isAuthLoading,
-          onTap: onAvatarTap,
+      destinations: [
+        ...destinations.map(
+          (d) => NavigationRailDestination(
+            icon: Icon(d.icon),
+            selectedIcon: Icon(d.selectedIcon),
+            label: Text(d.label),
+          ),
         ),
-      ),
-      destinations: destinations
-          .map(
-            (d) => NavigationRailDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.selectedIcon),
-              label: Text(d.label),
-            ),
-          )
-          .toList(),
+        NavigationRailDestination(
+          icon: _buildRailAvatarIcon(),
+          label: Text(
+            isAuthLoading
+                ? 'Loading'
+                : (viewer != null ? viewer!.name : 'Login'),
+          ),
+        ),
+      ],
     );
+  }
+
+  Widget _buildRailAvatarIcon() {
+    if (isAuthLoading) {
+      return const SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    if (viewer?.avatarUrl != null) {
+      return CircleAvatar(
+        radius: 12,
+        backgroundImage: CachedNetworkImageProvider(viewer!.avatarUrl!),
+      );
+    }
+    return const Icon(Icons.login);
   }
 }

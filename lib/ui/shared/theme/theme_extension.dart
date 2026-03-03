@@ -10,7 +10,10 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
   final List<BoxShadow> cardShadows;
   final Color shimmerBase;
   final Color shimmerHighlight;
-  final List<Color> genrePalette;
+  final List<Color> randomColourPalette;
+
+  Color randomColour(int seed) =>
+      randomColourPalette[seed.abs() % randomColourPalette.length];
 
   const SenpwaiThemeExtension({
     required this.cardRadius,
@@ -19,7 +22,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
     required this.cardShadows,
     required this.shimmerBase,
     required this.shimmerHighlight,
-    required this.genrePalette,
+    required this.randomColourPalette,
   });
 
   @override
@@ -30,7 +33,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
     List<BoxShadow>? cardShadows,
     Color? shimmerBase,
     Color? shimmerHighlight,
-    List<Color>? genrePalette,
+    List<Color>? randomColourPalette,
   }) {
     return SenpwaiThemeExtension(
       cardRadius: cardRadius ?? this.cardRadius,
@@ -39,7 +42,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
       cardShadows: cardShadows ?? this.cardShadows,
       shimmerBase: shimmerBase ?? this.shimmerBase,
       shimmerHighlight: shimmerHighlight ?? this.shimmerHighlight,
-      genrePalette: genrePalette ?? this.genrePalette,
+      randomColourPalette: randomColourPalette ?? this.randomColourPalette,
     );
   }
 
@@ -59,7 +62,9 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
       shimmerHighlight:
           Color.lerp(shimmerHighlight, other.shimmerHighlight, t) ??
           shimmerHighlight,
-      genrePalette: t < 0.5 ? genrePalette : other.genrePalette,
+      randomColourPalette: t < 0.5
+          ? randomColourPalette
+          : other.randomColourPalette,
     );
   }
 }

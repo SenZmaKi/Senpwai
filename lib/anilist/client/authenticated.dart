@@ -9,21 +9,18 @@ import 'package:senpwai/shared/shared.dart';
 final _log = Logger("senpwai.anilist.client.authenticated");
 
 class AuthenticatedAnimeSearchParams extends AnimeSearchParams {
-  final bool onlyIncludeUserListEntry;
-
   const AuthenticatedAnimeSearchParams({
     super.term,
     super.genres,
     super.season,
     super.seasonYear,
-    super.format,
+    super.formats,
     super.listStatus,
-    super.airingStatus,
+    super.airingStatuses,
     super.sort,
     super.sortDescending,
     super.page,
     super.perPage,
-    this.onlyIncludeUserListEntry = false,
   });
 
   @override
@@ -33,22 +30,79 @@ class AuthenticatedAnimeSearchParams extends AnimeSearchParams {
         genres: genres,
         season: season,
         seasonYear: seasonYear,
-        format: format,
+        formats: formats,
         listStatus: listStatus,
-        airingStatus: airingStatus,
+        airingStatuses: airingStatuses,
         sort: sort,
         sortDescending: sortDescending,
         page: newPage,
         perPage: perPage,
-        onlyIncludeUserListEntry: onlyIncludeUserListEntry,
       );
 }
 
 class AnilistAuthenticatedClient extends AnilistClientBase {
   final auth = AnilistAuthenticatorClient();
   final _graphql = AnilistGraphqlClient();
+  int? viewerId;
 
   AnilistAuthenticatedClient();
+
+  Future<int> _getViewerId() async {
+    viewerId ??= (await auth.fetchViewer()).id;
+    return viewerId!;
+  }
+
+  Future<Pagination<List<AnilistAnimeWithListEntry>>> listUserMediaList({
+    required AnilistMediaListStatus listStatus,
+    int page = 1,
+    int perPage = 25,
+  }) async {
+    _log.infoWithMetadata(
+      "Listing user media list",
+      metadata: {"listStatus": listStatus, "page": page, "perPage": perPage},
+    );
+    final token = auth.token;
+    if (token == null) {
+      throw const AnilistAuthRequiredException();
+    }
+
+    final userId = await _getViewerId();
+    final query = mediaListSearchQuery();
+    final variables = <String, dynamic>{
+      "listStatus": listStatus.toGraphql(),
+      "userId": userId,
+      "page": page,
+      "perPage": perPage,
+    };
+    _log.fineWithMetadata(
+      "User media list request prepared",
+      metadata: {"userId": userId, "variables": variables},
+    );
+
+    final data = await _graphql.postGraphQL(
+      query: query,
+      variables: variables,
+      accessToken: token,
+    );
+    final pageData = data["data"]?["Page"] as Map<String, dynamic>?;
+    final items = mapMediaListItems(pageData);
+    final currentPage = (pageData?["pageInfo"]?["currentPage"] as int?) ?? page;
+    _log.fineWithMetadata(
+      "User media list response parsed",
+      metadata: {"page": currentPage, "items": items.length},
+    );
+
+    return buildPagination(
+      pageData: pageData,
+      fallbackPerPage: perPage,
+      items: items,
+      fetchNextPageCandidate: () => listUserMediaList(
+        listStatus: listStatus,
+        page: currentPage + 1,
+        perPage: perPage,
+      ),
+    );
+  }
 
   Future<Pagination<List<AnilistAnimeWithListEntry>>> searchAnime({
     AuthenticatedAnimeSearchParams params =
@@ -60,16 +114,13 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
       throw const AnilistAuthRequiredException();
     }
 
-    final query = params.onlyIncludeUserListEntry
-        ? mediaListSearchQuery()
-        : mediaSearchQuery(includeListEntry: true);
+    final query = mediaSearchQuery(includeListEntry: true);
     final variables = buildSearchVariables(params);
     _log.fineWithMetadata(
       "AniList search request prepared",
       metadata: {
         "page": params.page,
         "perPage": params.perPage,
-        "onlyIncludeUserListEntry": params.onlyIncludeUserListEntry,
         "variables": variables,
       },
     );
@@ -80,9 +131,7 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
       accessToken: token,
     );
     final pageData = data["data"]?["Page"] as Map<String, dynamic>?;
-    final items = params.onlyIncludeUserListEntry
-        ? mapMediaListItems(pageData)
-        : mapMediaItemsWithListEntry(pageData);
+    final items = mapMediaItemsWithListEntry(pageData);
     final currentPage =
         (pageData?["pageInfo"]?["currentPage"] as int?) ?? params.page;
     final hasNextPage = pageData?["pageInfo"]?["hasNextPage"] as bool?;

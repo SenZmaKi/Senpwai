@@ -20,21 +20,23 @@ class SearchPage extends StatefulWidget {
   State<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
+class _SearchPageState extends State<SearchPage>
+    with PaginatedScrollMixin, SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
   Timer? _debounce;
+  late final AnimationController _sortIconController;
 
-  AnilistGenre? _genre;
+  List<AnilistGenre> _genres = [];
   bool _filtersExpanded = false;
-  AnilistAiringStatus? _airingStatus;
+  List<AnilistAiringStatus> _airingStatuses = [];
   AnilistMediaListStatus? _listStatus;
   AnilistSeason? _season;
   int? _year;
-  AnilistFormat? _format;
+  List<AnilistFormat> _formats = [];
   AnilistMediaSort? _sort = AnilistMediaSort.trending;
   bool _sortDescending = true;
-  CardViewMode _viewMode = CardViewMode.grid;
+  CardViewMode _viewMode = CardViewMode.poster;
 
   List<AnilistAnimeBase> _results = [];
   Pagination<List<AnilistAnimeBase>>? _pagination;
@@ -53,6 +55,10 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
   @override
   void initState() {
     super.initState();
+    _sortIconController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
     initPaginatedScroll();
     _search();
   }
@@ -61,6 +67,7 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
   void dispose() {
     _debounce?.cancel();
     _searchController.dispose();
+    _sortIconController.dispose();
     disposePaginatedScroll();
     _scrollController.dispose();
     super.dispose();
@@ -150,21 +157,35 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
 
     try {
       final term = _searchController.text.trim();
-      final genres = _genre != null ? [_genre!] : null;
+      final genres = _genres.isNotEmpty ? _genres : null;
+      final formats = _formats.isNotEmpty ? _formats : null;
+      final airingStatuses = _airingStatuses.isNotEmpty
+          ? _airingStatuses
+          : null;
 
-      if (anilist.isAuthenticated) {
+      if (anilist.isAuthenticated && _listStatus != null) {
+        final result = await anilistNotifier.authClient.listUserMediaList(
+          listStatus: _listStatus!,
+          perPage: 25,
+        );
+
+        if (mounted) {
+          setState(() {
+            _results = result.items;
+            _pagination = result;
+          });
+        }
+      } else if (anilist.isAuthenticated) {
         final result = await anilistNotifier.authClient.searchAnime(
           params: AuthenticatedAnimeSearchParams(
             term: term.isEmpty ? null : term,
             genres: genres,
             season: _season,
             seasonYear: _year,
-            format: _format,
-            airingStatus: _airingStatus,
-            listStatus: _listStatus,
+            formats: formats,
+            airingStatuses: airingStatuses,
             sort: _sort,
             sortDescending: _sortDescending,
-            onlyIncludeUserListEntry: _listStatus != null,
             perPage: 25,
           ),
         );
@@ -182,8 +203,8 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
             genres: genres,
             season: _season,
             seasonYear: _year,
-            format: _format,
-            airingStatus: _airingStatus,
+            formats: formats,
+            airingStatuses: airingStatuses,
             sort: _sort,
             sortDescending: _sortDescending,
             perPage: 25,
@@ -241,25 +262,37 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
             searchController: _searchController,
             filtersExpanded: _filtersExpanded,
             horizontalPadding: horizontalPad,
-            genre: _genre,
-            airingStatus: _airingStatus,
+            genres: _genres,
+            airingStatuses: _airingStatuses,
             listStatus: _listStatus,
             season: _season,
             year: _year,
-            format: _format,
+            formats: _formats,
+            isListFilterActive: _listStatus != null,
             onFiltersExpandedChanged: (expanded) {
               setState(() => _filtersExpanded = expanded);
             },
             onSearchChanged: _onSearchTermChanged,
             onClearSearch: _clearSearchTerm,
-            onGenreChanged: (value) => _applyFilter(() => _genre = value),
+            onGenresChanged: (value) => _applyFilter(() => _genres = value),
             onYearChanged: (value) => _applyFilter(() => _year = value),
             onSeasonChanged: (value) => _applyFilter(() => _season = value),
-            onFormatChanged: (value) => _applyFilter(() => _format = value),
-            onAiringStatusChanged: (value) =>
-                _applyFilter(() => _airingStatus = value),
-            onListStatusChanged: (value) =>
-                _applyFilter(() => _listStatus = value),
+            onFormatsChanged: (value) => _applyFilter(() => _formats = value),
+            onAiringStatusesChanged: (value) =>
+                _applyFilter(() => _airingStatuses = value),
+            onListStatusChanged: (value) => _applyFilter(() {
+              _listStatus = value;
+              if (value != null) {
+                _searchController.clear();
+                _genres = [];
+                _airingStatuses = [];
+                _season = null;
+                _year = null;
+                _formats = [];
+                _sort = AnilistMediaSort.trending;
+                _sortDescending = true;
+              }
+            }),
           ),
         ),
         SliverToBoxAdapter(
@@ -282,55 +315,100 @@ class _SearchPageState extends State<SearchPage> with PaginatedScrollMixin {
                     ),
                   ),
                 const Spacer(),
-                SizedBox(
-                  width: isMobile(context) ? 110 : 140,
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<AnilistMediaSort?>(
-                      value: _sort,
-                      isExpanded: true,
-                      isDense: true,
-                      hint: Text(
-                        'Sort by',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.5,
-                          ),
-                          fontSize: isMobile(context) ? 11 : null,
-                        ),
-                      ),
-                      items: AnilistMediaSort.values
-                          .map(
-                            (sort) => DropdownMenuItem<AnilistMediaSort?>(
-                              value: sort,
-                              child: Text(
-                                sort.toLabel(),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontSize: isMobile(context) ? 11 : null,
-                                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Opacity(
+                    opacity: _listStatus != null ? 0.5 : 1.0,
+                    child: IgnorePointer(
+                      ignoring: _listStatus != null,
+                      child: SizedBox(
+                        width: isMobile(context) ? 100 : 120,
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<AnilistMediaSort?>(
+                            value: _sort,
+                            isExpanded: true,
+                            isDense: true,
+                            icon: Icon(
+                              Icons.unfold_more,
+                              size: 16,
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.5,
                               ),
                             ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        _applyFilter(() => _sort = value);
-                      },
-                      dropdownColor: theme.colorScheme.surfaceContainerHighest,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontSize: isMobile(context) ? 11 : null,
+                            hint: Text(
+                              'Sort by',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                                fontSize: isMobile(context) ? 11 : null,
+                              ),
+                            ),
+                            items: AnilistMediaSort.values
+                                .map(
+                                  (sort) => DropdownMenuItem<AnilistMediaSort?>(
+                                    value: sort,
+                                    child: Text(
+                                      sort.toLabel(),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            fontSize: isMobile(context)
+                                                ? 11
+                                                : null,
+                                          ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              _applyFilter(() => _sort = value);
+                            },
+                            dropdownColor:
+                                theme.colorScheme.surfaceContainerHighest,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: isMobile(context) ? 11 : null,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: Icon(
-                    _sortDescending ? Icons.arrow_downward : Icons.arrow_upward,
-                    size: isMobile(context) ? 16 : 18,
+                Opacity(
+                  opacity: _listStatus != null ? 0.5 : 1.0,
+                  child: IgnorePointer(
+                    ignoring: _listStatus != null,
+                    child: IconButton(
+                      icon: AnimatedBuilder(
+                        animation: _sortIconController,
+                        builder: (context, child) => Transform.rotate(
+                          angle: _sortIconController.value * 3.14159,
+                          child: child,
+                        ),
+                        child: Icon(
+                          _sortDescending
+                              ? Icons.arrow_downward
+                              : Icons.arrow_upward,
+                          size: isMobile(context) ? 16 : 18,
+                        ),
+                      ),
+                      tooltip: _sortDescending ? 'Descending' : 'Ascending',
+                      onPressed: () {
+                        _sortIconController.forward(from: 0);
+                        _applyFilter(() => _sortDescending = !_sortDescending);
+                      },
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
-                  tooltip: _sortDescending ? 'Descending' : 'Ascending',
-                  onPressed: () {
-                    _applyFilter(() => _sortDescending = !_sortDescending);
-                  },
-                  visualDensity: VisualDensity.compact,
                 ),
                 SizedBox(width: isMobile(context) ? 2 : 4),
                 CardSwitcher(

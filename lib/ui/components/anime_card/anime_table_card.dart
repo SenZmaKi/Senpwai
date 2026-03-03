@@ -4,22 +4,21 @@ import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
+import 'package:senpwai/ui/components/anime_card/card_hover_mixin.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
-class AnimeDetailedCard extends StatefulWidget {
+class AnimeTableCard extends StatefulWidget {
   final AnilistAnimeBase anime;
   final VoidCallback? onTap;
 
-  const AnimeDetailedCard({super.key, required this.anime, this.onTap});
+  const AnimeTableCard({super.key, required this.anime, this.onTap});
 
   @override
-  State<AnimeDetailedCard> createState() => _AnimeDetailedCardState();
+  State<AnimeTableCard> createState() => _AnimeTableCardState();
 }
 
-class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
-  bool _hovered = false;
-
+class _AnimeTableCardState extends State<AnimeTableCard> with CardHoverMixin {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -27,7 +26,6 @@ class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
     final anime = widget.anime;
     final mobile = isMobile(context);
     final screenWidth = MediaQuery.sizeOf(context).width;
-    // Responsive sizing based on available screen width
     final cardHeight = mobile
         ? (screenWidth < 400 ? 106.0 : 122.0)
         : (screenWidth < Breakpoints.tablet ? 134.0 : 152.0);
@@ -37,6 +35,8 @@ class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
     final title =
         anime.title.english ?? anime.title.romaji ?? anime.title.native ?? '?';
     final score = anime.averageScore;
+
+    final placeholderColor = ext.randomColour(anime.id);
 
     final seasonLabel = [
       if (anime.season != null)
@@ -53,7 +53,7 @@ class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
     final genreChips = anime.genres.take(mobile ? 4 : 6).map((g) {
       final name = g.toGraphql();
       final hash = name.codeUnits.fold(0, (int p, int c) => p * 31 + c);
-      final color = ext.genrePalette[hash.abs() % ext.genrePalette.length];
+      final color = ext.randomColour(hash);
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
         decoration: BoxDecoration(
@@ -77,9 +77,10 @@ class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
         ? CachedNetworkImage(
             imageUrl: imageUrl,
             fit: BoxFit.cover,
-            placeholder: (_, __) => Container(color: ext.shimmerBase),
+            placeholder: (_, __) =>
+                Container(color: placeholderColor.withValues(alpha: 0.3)),
             errorWidget: (_, __, ___) => Container(
-              color: ext.shimmerBase,
+              color: placeholderColor.withValues(alpha: 0.3),
               child: Icon(
                 Icons.broken_image,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
@@ -87,7 +88,7 @@ class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
             ),
           )
         : Container(
-            color: ext.shimmerBase,
+            color: placeholderColor.withValues(alpha: 0.3),
             child: Icon(
               Icons.movie_outlined,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
@@ -96,7 +97,6 @@ class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
 
     Widget content;
     if (mobile) {
-      // Mobile: 2-column (image | title + genres + compact stats row)
       content = SizedBox(
         height: cardHeight,
         child: Row(
@@ -162,15 +162,12 @@ class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
         ),
       );
     } else {
-      // Desktop/tablet: AniList-style tabular layout
-      // Col 1: image | Col 2: title+genres | Col 3: score | Col 4: format+eps | Col 5: season+status
       content = SizedBox(
         height: cardHeight,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(width: coverWidth, child: coverChild),
-            // Col 2: Title + genres (flexible, takes remaining space)
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 13, 8, 13),
@@ -193,7 +190,6 @@ class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
                 ),
               ),
             ),
-            // Col 3: Score
             if (score != null)
               SizedBox(
                 width: 84,
@@ -202,7 +198,6 @@ class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
                   theme: theme,
                 ),
               ),
-            // Col 4: Format + episodes
             if (anime.format != null || anime.episodes != null)
               SizedBox(
                 width: 110,
@@ -230,7 +225,6 @@ class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
                   theme: theme,
                 ),
               ),
-            // Col 5: Season + status
             if (seasonLabel.isNotEmpty || statusLabel != null)
               SizedBox(
                 width: 110,
@@ -265,42 +259,11 @@ class _AnimeDetailedCardState extends State<AnimeDetailedCard> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        cursor: SystemMouseCursors.click,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          decoration: BoxDecoration(
-            color: theme.cardTheme.color ?? theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(ext.cardRadius),
-            border: ext.cardBorderWidth > 0
-                ? Border.all(
-                    color: ext.cardBorderColor,
-                    width: ext.cardBorderWidth,
-                  )
-                : null,
-            boxShadow: _hovered
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.28),
-                      blurRadius: 14,
-                      offset: const Offset(0, 5),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(ext.cardRadius),
-            child: InkWell(onTap: widget.onTap, child: content),
-          ),
-        ),
+      child: buildHoverableCard(
+        ext: ext,
+        theme: theme,
+        onTap: widget.onTap,
+        child: content,
       ),
     );
   }
@@ -338,7 +301,7 @@ class _Dot extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 5),
     child: Text(
-      '·',
+      '\u00b7',
       style: TextStyle(
         color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
         fontSize: 14,

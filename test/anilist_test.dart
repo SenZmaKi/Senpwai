@@ -122,6 +122,19 @@ void main() {
     );
 
     test(
+      "listUserMediaList returns results",
+      () async {
+        final results = await client.listUserMediaList(
+          listStatus: AnilistMediaListStatus.current,
+          perPage: 25,
+        );
+        expect(results.items, isNotEmpty);
+      },
+      tags: ["authenticated"],
+      skip: shouldSkip ? "Set ANILIST_AUTH_TOKEN to run" : false,
+    );
+
+    test(
       "trendingThisSeason returns results",
       () async {
         final results = await client.trendingThisSeason();
