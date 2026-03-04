@@ -1,8 +1,13 @@
+- Fix windows app links
+- Center search filters
+- When hovering over navbar items cursor should change to hand
+- Fix system brightness option wrapping to next line on large screen
+- Fix cursor not changing to hand when hovering on single select filters
+- Turn mouse to cursor on all buttony things
 - Media list status in anime cards with colors for each status exposed in theme config
 - More in navbar in mobile to reduce clutter
-- _postGraphQl should properly parse out errors from the GraphQL response and throw them as Anilist exceptions
+- \_postGraphQl should properly parse out errors from the GraphQL response and throw them as Anilist exceptions
 - Ratelimit failure retry
-- Don't log anilist auth token in logs
 - Properly handle servers that don't support Range requests
 - Add watchcartoonsonline
 - Option to name episode files with resolution and sub or dub
