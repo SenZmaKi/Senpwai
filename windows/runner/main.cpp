@@ -1,13 +1,14 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
-#include <windows.h>
 #include <string>
+#include <windows.h>
 
-#include "flutter_window.h"
-#include "utils.h"
 #include "app_links/app_links_plugin_c_api.h"
+#include "flutter_window.h"
+#include "url_protocol_registration.h"
+#include "utils.h"
 
-bool SendAppLinkToInstance(const std::wstring& title) {
+bool SendAppLinkToInstance(const std::wstring &title) {
   HWND hwnd = ::FindWindow(L"FLUTTER_RUNNER_WIN32_WINDOW", title.c_str());
 
   if (hwnd) {
@@ -17,25 +18,19 @@ bool SendAppLinkToInstance(const std::wstring& title) {
     GetWindowPlacement(hwnd, &place);
 
     switch (place.showCmd) {
-      case SW_SHOWMAXIMIZED:
-        ShowWindow(hwnd, SW_SHOWMAXIMIZED);
-        break;
-      case SW_SHOWMINIMIZED:
-        ShowWindow(hwnd, SW_RESTORE);
-        break;
-      default:
-        ShowWindow(hwnd, SW_NORMAL);
-        break;
+    case SW_SHOWMAXIMIZED:
+      ShowWindow(hwnd, SW_SHOWMAXIMIZED);
+      break;
+    case SW_SHOWMINIMIZED:
+      ShowWindow(hwnd, SW_RESTORE);
+      break;
+    default:
+      ShowWindow(hwnd, SW_NORMAL);
+      break;
     }
 
-    SetWindowPos(
-        0,
-        HWND_TOP,
-        0,
-        0,
-        0,
-        0,
-        SWP_SHOWWINDOW | SWP_NOSIZE | SWP_NOMOVE);
+    SetWindowPos(0, HWND_TOP, 0, 0, 0, 0,
+                 SWP_SHOWWINDOW | SWP_NOSIZE | SWP_NOMOVE);
     SetForegroundWindow(hwnd);
     return true;
   }
@@ -45,6 +40,8 @@ bool SendAppLinkToInstance(const std::wstring& title) {
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  RegisterUrlProtocol(L"senpwai");
+
   if (SendAppLinkToInstance(L"senpwai")) {
     return EXIT_SUCCESS;
   }
@@ -60,8 +57,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   flutter::DartProject project(L"data");
 
-  std::vector<std::string> command_line_arguments =
-      GetCommandLineArguments();
+  std::vector<std::string> command_line_arguments = GetCommandLineArguments();
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
