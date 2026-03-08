@@ -328,11 +328,40 @@ class SearchFiltersSection extends ConsumerWidget {
                     ),
                     if (filtersExpanded) ...[
                       const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        alignment: WrapAlignment.center,
-                        children: dropdowns,
+                      Builder(
+                        builder: (context) {
+                          final colWidth =
+                              (constraints.maxWidth -
+                                  2 * horizontalPadding -
+                                  10) /
+                              2;
+                          final rows = <Widget>[];
+                          for (int i = 0; i < dropdowns.length; i += 2) {
+                            rows.add(
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: colWidth,
+                                    child: dropdowns[i],
+                                  ),
+                                  const SizedBox(width: 10),
+                                  if (i + 1 < dropdowns.length)
+                                    SizedBox(
+                                      width: colWidth,
+                                      child: dropdowns[i + 1],
+                                    ),
+                                ],
+                              ),
+                            );
+                            if (i + 2 < dropdowns.length)
+                              rows.add(const SizedBox(height: 10));
+                          }
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: rows,
+                          );
+                        },
                       ),
                     ],
                   ] else ...[
@@ -345,7 +374,7 @@ class SearchFiltersSection extends ConsumerWidget {
                         ...dropdowns.map(
                           (dropdown) => Padding(
                             padding: const EdgeInsets.only(right: 10),
-                            child: dropdown,
+                            child: SizedBox(width: 160, child: dropdown),
                           ),
                         ),
                       ],

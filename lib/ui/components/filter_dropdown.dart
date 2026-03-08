@@ -31,7 +31,7 @@ class FilterDropdown<T> extends StatelessWidget {
         child: IgnorePointer(
           ignoring: !enabled,
           child: Container(
-            width: 160,
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
@@ -198,7 +198,7 @@ class MultiSelectDropdown<T> extends StatelessWidget {
         child: GestureDetector(
           onTap: enabled ? () => _showDialog(context) : null,
           child: Container(
-            width: 160,
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
