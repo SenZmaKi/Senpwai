@@ -32,9 +32,10 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
   Timer? _autoScrollTimer;
   int _currentPage = 0;
   bool _userInteracting = false;
+  late List<AnilistAnimeBase> _items;
 
-  List<AnilistAnimeBase> get _items {
-    final withBanner = widget.anime.where((a) => a.bannerImage != null).toList()
+  List<AnilistAnimeBase> _computeItems(List<AnilistAnimeBase> anime) {
+    final withBanner = anime.where((a) => a.bannerImage != null).toList()
       ..shuffle();
     return withBanner.take(widget.maxItems).toList();
   }
@@ -43,6 +44,7 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
   void initState() {
     super.initState();
     _pageController = PageController();
+    _items = _computeItems(widget.anime);
     _startAutoScroll();
   }
 
@@ -50,6 +52,7 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
   void didUpdateWidget(AnimeBannerCarousel old) {
     super.didUpdateWidget(old);
     if (old.anime != widget.anime) {
+      _items = _computeItems(widget.anime);
       _currentPage = 0;
       if (_pageController.hasClients) {
         _pageController.jumpToPage(0);

@@ -54,6 +54,7 @@ dependencies:
   flutter_riverpod: ^3.0.3
   crypto: ^3.0.6
   window_manager: ^0.5.1
+  flutter_native_splash: ^2.4.7
 
 dev_dependencies:
   flutter_test:

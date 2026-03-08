@@ -12,7 +12,7 @@ class ThemeConfig {
   final SenpwaiThemePreset? activePreset;
 
   ThemeConfig({
-    this.brightnessMode = BrightnessMode.dark,
+    this.brightnessMode = BrightnessMode.system,
     SenpwaiThemePreset preset = SenpwaiThemePreset.defaultTheme,
     SenpwaiTheme? theme,
     this.activePreset,
