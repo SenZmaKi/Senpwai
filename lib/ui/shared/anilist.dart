@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:senpwai/shared/window_manager.dart';
 
 class AnilistStateData {
   final bool isAuthenticated;
@@ -53,12 +53,8 @@ class AnilistNotifier extends Notifier<AnilistStateData> {
       await refreshViewer();
     } finally {
       state = state.copyWith(isAuthLoading: false);
-      _focusWindow();
+      WindowManager.getInstance().focus();
     }
-  }
-
-  void _focusWindow() async {
-    await windowManager.focus();
   }
 
   Future<void> refreshViewer() async {

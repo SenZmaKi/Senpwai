@@ -24,60 +24,63 @@ class FilterDropdown<T> extends StatelessWidget {
     final isActive = value != null;
     final disabledAlpha = enabled ? 1.0 : 0.4;
 
-    Widget dropdown = Opacity(
-      opacity: enabled ? 1.0 : 0.5,
-      child: IgnorePointer(
-        ignoring: !enabled,
-        child: Container(
-          width: 160,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
+    Widget dropdown = MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.5,
+        child: IgnorePointer(
+          ignoring: !enabled,
+          child: Container(
+            width: 160,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isActive
+                    ? theme.colorScheme.primary.withValues(
+                        alpha: 0.6 * disabledAlpha,
+                      )
+                    : theme.colorScheme.outline.withValues(alpha: 0.25),
+              ),
               color: isActive
-                  ? theme.colorScheme.primary.withValues(
-                      alpha: 0.6 * disabledAlpha,
-                    )
-                  : theme.colorScheme.outline.withValues(alpha: 0.25),
+                  ? theme.colorScheme.primary.withValues(alpha: 0.06)
+                  : null,
             ),
-            color: isActive
-                ? theme.colorScheme.primary.withValues(alpha: 0.06)
-                : null,
-          ),
-          child: SizedBox(
-            height: 32,
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<T>(
-                value: value,
-                isExpanded: true,
-                isDense: true,
-                hint: Text(
-                  label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            child: SizedBox(
+              height: 32,
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<T>(
+                  value: value,
+                  isExpanded: true,
+                  isDense: true,
+                  hint: Text(
+                    label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
                   ),
-                ),
-                items: [
-                  DropdownMenuItem<T>(
-                    value: null as T?,
-                    child: Text(
-                      'Any',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.5,
+                  items: [
+                    DropdownMenuItem<T>(
+                      value: null as T?,
+                      child: Text(
+                        'Any',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                     ),
+                    ...items,
+                  ],
+                  onChanged: onChanged,
+                  style: theme.textTheme.bodySmall,
+                  dropdownColor: theme.colorScheme.surfaceContainerHighest,
+                  icon: Icon(
+                    Icons.arrow_drop_down,
+                    size: 20,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
-                  ...items,
-                ],
-                onChanged: onChanged,
-                style: theme.textTheme.bodySmall,
-                dropdownColor: theme.colorScheme.surfaceContainerHighest,
-                icon: Icon(
-                  Icons.arrow_drop_down,
-                  size: 20,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             ),

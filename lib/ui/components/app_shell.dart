@@ -62,14 +62,14 @@ class AppShell extends StatelessWidget {
               thickness: 1,
               color: theme.dividerTheme.color ?? theme.dividerColor,
             ),
-            Expanded(child: body),
+            Expanded(child: SafeArea(top: true, bottom: true, child: body)),
           ],
         ),
       );
     }
 
     return Scaffold(
-      body: body,
+      body: SafeArea(top: true, bottom: false, child: body),
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: (index) {
@@ -82,13 +82,22 @@ class AppShell extends StatelessWidget {
         destinations: [
           ..._destinations.map(
             (d) => NavigationDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.selectedIcon),
+              icon: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Icon(d.icon),
+              ),
+              selectedIcon: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Icon(d.selectedIcon),
+              ),
               label: d.label,
             ),
           ),
           NavigationDestination(
-            icon: _buildAvatarIcon(context),
+            icon: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: _buildAvatarIcon(context),
+            ),
             label: isAuthLoading
                 ? 'Loading'
                 : (viewer != null ? viewer!.name : 'Login'),
@@ -146,33 +155,32 @@ class _DesktopRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NavigationRail(
-      selectedIndex: currentIndex,
-      onDestinationSelected: (index) {
-        if (index == destinations.length) {
-          onAvatarTap();
-        } else {
-          onDestinationChanged(index);
-        }
-      },
-      labelType: NavigationRailLabelType.all,
-      destinations: [
-        ...destinations.map(
-          (d) => NavigationRailDestination(
-            icon: Icon(d.icon),
-            selectedIcon: Icon(d.selectedIcon),
-            label: Text(d.label),
-          ),
+    return SafeArea(
+      child: SizedBox(
+        width: 96,
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            for (var index = 0; index < destinations.length; index++)
+              _RailTile(
+                icon: destinations[index].icon,
+                selectedIcon: destinations[index].selectedIcon,
+                label: destinations[index].label,
+                selected: currentIndex == index,
+                onTap: () => onDestinationChanged(index),
+              ),
+            const Spacer(),
+            _RailAvatarTile(
+              label: isAuthLoading
+                  ? 'Loading'
+                  : (viewer != null ? viewer!.name : 'Login'),
+              icon: _buildRailAvatarIcon(),
+              onTap: onAvatarTap,
+            ),
+            const SizedBox(height: 12),
+          ],
         ),
-        NavigationRailDestination(
-          icon: _buildRailAvatarIcon(),
-          label: Text(
-            isAuthLoading
-                ? 'Loading'
-                : (viewer != null ? viewer!.name : 'Login'),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -191,5 +199,120 @@ class _DesktopRail extends StatelessWidget {
       );
     }
     return const Icon(Icons.login);
+  }
+}
+
+class _RailTile extends StatelessWidget {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _RailTile({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: selected
+                  ? colorScheme.primary.withValues(alpha: 0.15)
+                  : Colors.transparent,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selected ? selectedIcon : icon,
+                  color: selected
+                      ? colorScheme.primary
+                      : colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 11,
+                    color: selected
+                        ? colorScheme.primary
+                        : colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RailAvatarTile extends StatelessWidget {
+  final String label;
+  final Widget icon;
+  final VoidCallback onTap;
+
+  const _RailAvatarTile({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                icon,
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

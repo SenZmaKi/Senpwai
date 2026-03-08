@@ -4,6 +4,7 @@ import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/ui/components/filter_dropdown.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
+import 'package:senpwai/ui/shared/responsive.dart';
 
 class SearchFiltersSection extends ConsumerWidget {
   final TextEditingController searchController;
@@ -115,7 +116,9 @@ class SearchFiltersSection extends ConsumerWidget {
             : null,
       ),
     );
-    final searchField = labeled('Search', searchInput);
+    final searchField = isDesktop(context)
+        ? labeled('Search', searchInput)
+        : searchInput;
 
     final dropdowns = <Widget>[
       labeled(
@@ -268,6 +271,10 @@ class SearchFiltersSection extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final showInline = constraints.maxWidth >= inlineWidth;
+        final maxContentWidth = showInline
+            ? inlineWidth + 24
+            : (constraints.maxWidth > 920 ? 920.0 : constraints.maxWidth);
+
         return Padding(
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
@@ -275,78 +282,94 @@ class SearchFiltersSection extends ConsumerWidget {
             horizontalPadding,
             0,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (showInline) const SizedBox(height: 20),
-              if (!showInline) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(child: searchField),
-                    const SizedBox(width: 8),
-                    IconButton.outlined(
-                      icon: Icon(
-                        Icons.tune,
-                        size: 20,
-                        color: filtersExpanded
-                            ? theme.colorScheme.primary
-                            : null,
-                      ),
-                      style: IconButton.styleFrom(
-                        side: BorderSide(
-                          color: filtersExpanded
-                              ? theme.colorScheme.primary.withValues(alpha: 0.6)
-                              : theme.colorScheme.outline.withValues(
-                                  alpha: 0.25,
-                                ),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxContentWidth),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (showInline) const SizedBox(height: 20),
+                  if (!showInline) ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(child: searchField),
+                        const SizedBox(width: 8),
+                        IconButton.outlined(
+                          icon: Icon(
+                            Icons.tune,
+                            size: 20,
+                            color: filtersExpanded
+                                ? theme.colorScheme.primary
+                                : null,
+                          ),
+                          style: IconButton.styleFrom(
+                            side: BorderSide(
+                              color: filtersExpanded
+                                  ? theme.colorScheme.primary.withValues(
+                                      alpha: 0.6,
+                                    )
+                                  : theme.colorScheme.outline.withValues(
+                                      alpha: 0.25,
+                                    ),
+                            ),
+                            backgroundColor: filtersExpanded
+                                ? theme.colorScheme.primary.withValues(
+                                    alpha: 0.06,
+                                  )
+                                : null,
+                          ),
+                          tooltip: 'Filters',
+                          onPressed: () =>
+                              onFiltersExpandedChanged(!filtersExpanded),
                         ),
-                        backgroundColor: filtersExpanded
-                            ? theme.colorScheme.primary.withValues(alpha: 0.06)
-                            : null,
+                      ],
+                    ),
+                    if (filtersExpanded) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        alignment: WrapAlignment.center,
+                        children: dropdowns,
                       ),
-                      tooltip: 'Filters',
-                      onPressed: () =>
-                          onFiltersExpandedChanged(!filtersExpanded),
+                    ],
+                  ] else ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        SizedBox(width: 260, child: searchField),
+                        const SizedBox(width: 12),
+                        ...dropdowns.map(
+                          (dropdown) => Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: dropdown,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-                if (filtersExpanded) ...[
-                  const SizedBox(height: 10),
-                  Wrap(spacing: 10, runSpacing: 10, children: dropdowns),
+                  if (activeChips.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.label_outline, size: 15),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: activeChips,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ] else ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    SizedBox(width: 260, child: searchField),
-                    const SizedBox(width: 12),
-                    ...dropdowns.map(
-                      (dropdown) => Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: dropdown,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              if (activeChips.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Icon(Icons.label_outline, size: 15),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: activeChips,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
+              ),
+            ),
           ),
         );
       },

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
@@ -12,7 +13,7 @@ import 'package:senpwai/ui/components/app_shell.dart';
 import 'package:toastification/toastification.dart';
 import 'package:flutter/foundation.dart';
 import 'package:senpwai/shared/log.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:senpwai/shared/window_manager.dart';
 
 Future<void> initApp() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,14 +42,10 @@ Future<void> initApp() async {
         copyPayload: formatErrorForCopy(error, stack),
       );
     }
+
     return true;
   };
-  await windowManager.ensureInitialized();
-  WindowOptions windowOptions = WindowOptions();
-  windowManager.waitUntilReadyToShow(windowOptions, () async {
-    await windowManager.show();
-    await windowManager.focus();
-  });
+  WindowManager.getInstance().init();
 }
 
 class App extends ConsumerWidget {

@@ -15,37 +15,106 @@ class CardSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mob = isMobile(context);
-    final iconSize = mob ? 16.0 : 18.0;
-    final padH = mob ? 6.0 : 8.0;
-    final padV = mob ? 3.0 : 4.0;
+    final theme = Theme.of(context);
+    final iconSize = 18.0;
+    final pillRadius = 10.0;
+    final buttonSize = 34.0;
 
-    return SegmentedButton<CardViewMode>(
-      segments: [
-        ButtonSegment(
-          value: CardViewMode.poster,
-          icon: Icon(Icons.grid_view, size: iconSize),
-          tooltip: 'Poster',
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(pillRadius),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.25),
         ),
-        ButtonSegment(
-          value: CardViewMode.landscape,
-          icon: Icon(Icons.art_track, size: iconSize),
-          tooltip: 'Landscape',
-        ),
-        ButtonSegment(
-          value: CardViewMode.table,
-          icon: Icon(Icons.view_list, size: iconSize),
-          tooltip: 'Table',
-        ),
-      ],
-      selected: {selected},
-      onSelectionChanged: (s) => onSwitch(s.first),
-      showSelectedIcon: false,
-      style: ButtonStyle(
-        visualDensity: VisualDensity.compact,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: WidgetStateProperty.all(
-          EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SwitcherItem(
+            icon: Icons.grid_view,
+            tooltip: 'Poster',
+            selected: selected == CardViewMode.poster,
+            size: buttonSize,
+            iconSize: iconSize,
+            radius: pillRadius - 1,
+            onTap: () => onSwitch(CardViewMode.poster),
+          ),
+          _SwitcherItem(
+            icon: Icons.art_track,
+            tooltip: 'Landscape',
+            selected: selected == CardViewMode.landscape,
+            size: buttonSize,
+            iconSize: iconSize,
+            radius: pillRadius - 1,
+            onTap: () => onSwitch(CardViewMode.landscape),
+          ),
+          _SwitcherItem(
+            icon: Icons.view_list,
+            tooltip: 'Table',
+            selected: selected == CardViewMode.table,
+            size: buttonSize,
+            iconSize: iconSize,
+            radius: pillRadius - 1,
+            onTap: () => onSwitch(CardViewMode.table),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SwitcherItem extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final bool selected;
+  final double size;
+  final double iconSize;
+  final double radius;
+  final VoidCallback onTap;
+
+  const _SwitcherItem({
+    required this.icon,
+    required this.tooltip,
+    required this.selected,
+    required this.size,
+    required this.iconSize,
+    required this.radius,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(radius),
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: selected
+                    ? colorScheme.primary.withValues(alpha: 0.16)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(radius),
+              ),
+              child: Icon(
+                icon,
+                size: iconSize,
+                color: selected
+                    ? colorScheme.primary
+                    : colorScheme.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+          ),
         ),
       ),
     );
