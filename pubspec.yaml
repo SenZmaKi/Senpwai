@@ -71,6 +71,18 @@ dev_dependencies:
   dotenv: ^4.2.0
   flutter_launcher_icons: ^0.14.4
 
+flutter_native_splash:
+  color: "#F5F0F1"
+  color_dark: "#080A0F"
+  image: assets/images/senpwai-icon.png
+  image_dark: assets/images/senpwai-icon.png
+
+  android_12:
+    color: "#F5F0F1"
+    color_dark: "#080A0F"
+    image: assets/images/senpwai-icon.png
+    image_dark: assets/images/senpwai-icon.png
+
 flutter_launcher_icons:
   image_path: "assets/images/senpwai-icon.png"
 
