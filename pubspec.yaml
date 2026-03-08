@@ -68,6 +68,23 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
   dotenv: ^4.2.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  image_path: "assets/images/senpwai-icon.png"
+
+  android: true
+  ios: false
+
+  web:
+    generate: false
+
+  windows:
+    generate: true
+    icon_size: 48
+
+  macos:
+    generate: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
