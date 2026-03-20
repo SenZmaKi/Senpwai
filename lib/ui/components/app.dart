@@ -13,7 +13,7 @@ import 'package:senpwai/ui/components/app_shell.dart';
 import 'package:toastification/toastification.dart';
 import 'package:flutter/foundation.dart';
 import 'package:senpwai/shared/log.dart';
-import 'package:senpwai/shared/window_manager.dart';
+import 'package:senpwai/ui/shared/window_manager.dart';
 
 Future<void> initApp() async {
   WidgetsFlutterBinding.ensureInitialized();

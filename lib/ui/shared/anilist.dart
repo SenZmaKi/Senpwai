@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
-import 'package:senpwai/shared/window_manager.dart';
+import 'package:senpwai/ui/shared/window_manager.dart';
 
 class AnilistStateData {
   final bool isAuthenticated;
