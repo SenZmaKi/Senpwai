@@ -230,6 +230,48 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
+  List<Widget> _buildSection({
+    required String title,
+    required IconData icon,
+    required List<AnilistAnimeBase> items,
+    required bool isLoading,
+    required bool isLoadingMore,
+    required Future<Pagination<List<AnilistAnimeBase>>> Function()? fetchNext,
+    required void Function(
+      List<AnilistAnimeBase>,
+      Future<Pagination<List<AnilistAnimeBase>>> Function()?,
+    )
+    onResult,
+    required void Function(bool) setLoading,
+  }) {
+    final pad = horizontalPadding(context);
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: pad),
+          child: SectionHeader(title: title, icon: icon),
+        ),
+      ),
+      SliverToBoxAdapter(
+        child: AnimePosterHorizontal(
+          anime: items,
+          isLoading: isLoading,
+          isLoadingMore: isLoadingMore,
+          onLoadMore: fetchNext != null
+              ? () => _loadMore(
+                  current: items,
+                  fetchNext: fetchNext,
+                  isLoading: isLoadingMore,
+                  onResult: onResult,
+                  setLoading: setLoading,
+                )
+              : null,
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 20)),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(AnilistNotifier.provider, (previous, next) {
@@ -238,13 +280,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
     final anilist = ref.watch(AnilistNotifier.provider);
-    final pad = horizontalPadding(context);
 
     return RefreshIndicator(
       onRefresh: _load,
       child: CustomScrollView(
         slivers: [
-          // Banner Carousel
           SliverToBoxAdapter(
             child: AnimeBannerCarousel(
               anime: _trending,
@@ -253,142 +293,65 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-          // Login prompt for unauthenticated users
-          // Currently Watching (authenticated only — shown first)
-          if (anilist.isAuthenticated) ...[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: pad),
-                child: const SectionHeader(
-                  title: 'Currently Watching',
-                  icon: Icons.play_circle_outline,
-                ),
-              ),
+          if (anilist.isAuthenticated)
+            ..._buildSection(
+              title: 'Currently Watching',
+              icon: Icons.play_circle_outline,
+              items: _watching,
+              isLoading: _watchingLoading,
+              isLoadingMore: _watchingLoadingMore,
+              fetchNext: _watchingFetchNext,
+              onResult: (items, next) {
+                _watching = items;
+                _watchingFetchNext = next;
+              },
+              setLoading: (v) => setState(() => _watchingLoadingMore = v),
             ),
-            SliverToBoxAdapter(
-              child: AnimePosterHorizontal(
-                anime: _watching,
-                isLoading: _watchingLoading,
-                isLoadingMore: _watchingLoadingMore,
-                onLoadMore: _watchingFetchNext != null
-                    ? () => _loadMore(
-                        current: _watching,
-                        fetchNext: _watchingFetchNext,
-                        isLoading: _watchingLoadingMore,
-                        onResult: (items, next) {
-                          _watching = items;
-                          _watchingFetchNext = next;
-                        },
-                        setLoading: (v) =>
-                            setState(() => _watchingLoadingMore = v),
-                      )
-                    : null,
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-          ],
 
-          // Trending Section
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: pad),
-              child: const SectionHeader(
-                title: 'Trending This Season',
-                icon: Icons.local_fire_department,
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: AnimePosterHorizontal(
-              anime: _trending,
-              isLoading: _trendingLoading,
-              isLoadingMore: _trendingLoadingMore,
-              onLoadMore: _trendingFetchNext != null
-                  ? () => _loadMore(
-                      current: _trending,
-                      fetchNext: _trendingFetchNext,
-                      isLoading: _trendingLoadingMore,
-                      onResult: (items, next) {
-                        _trending = items;
-                        _trendingFetchNext = next;
-                      },
-                      setLoading: (v) =>
-                          setState(() => _trendingLoadingMore = v),
-                    )
-                  : null,
-            ),
+          ..._buildSection(
+            title: 'Trending This Season',
+            icon: Icons.local_fire_department,
+            items: _trending,
+            isLoading: _trendingLoading,
+            isLoadingMore: _trendingLoadingMore,
+            fetchNext: _trendingFetchNext,
+            onResult: (items, next) {
+              _trending = items;
+              _trendingFetchNext = next;
+            },
+            setLoading: (v) => setState(() => _trendingLoadingMore = v),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
-          // Top Results
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: pad),
-              child: const SectionHeader(
-                title: 'Popular Anime',
-                icon: Icons.trending_up,
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: AnimePosterHorizontal(
-              anime: _topRated,
-              isLoading: _topRatedLoading,
-              isLoadingMore: _topRatedLoadingMore,
-              onLoadMore: _topRatedFetchNext != null
-                  ? () => _loadMore(
-                      current: _topRated,
-                      fetchNext: _topRatedFetchNext,
-                      isLoading: _topRatedLoadingMore,
-                      onResult: (items, next) {
-                        _topRated = items;
-                        _topRatedFetchNext = next;
-                      },
-                      setLoading: (v) =>
-                          setState(() => _topRatedLoadingMore = v),
-                    )
-                  : null,
-            ),
+          ..._buildSection(
+            title: 'Popular Anime',
+            icon: Icons.trending_up,
+            items: _topRated,
+            isLoading: _topRatedLoading,
+            isLoadingMore: _topRatedLoadingMore,
+            fetchNext: _topRatedFetchNext,
+            onResult: (items, next) {
+              _topRated = items;
+              _topRatedFetchNext = next;
+            },
+            setLoading: (v) => setState(() => _topRatedLoadingMore = v),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
-          // Genre Explore Sections
-          for (final section in _genreSections) ...[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: pad),
-                child: SectionHeader(
-                  title: section.name.isEmpty
-                      ? 'Discover'
-                      : 'Explore: ${section.name}',
-                  icon: Icons.explore_outlined,
-                ),
-              ),
+          for (final section in _genreSections)
+            ..._buildSection(
+              title: section.name.isEmpty
+                  ? 'Discover'
+                  : 'Explore: ${section.name}',
+              icon: Icons.explore_outlined,
+              items: section.items,
+              isLoading: section.loading,
+              isLoadingMore: section.loadingMore,
+              fetchNext: section.fetchNext,
+              onResult: (items, next) {
+                section.items = items;
+                section.fetchNext = next;
+              },
+              setLoading: (v) => setState(() => section.loadingMore = v),
             ),
-            SliverToBoxAdapter(
-              child: AnimePosterHorizontal(
-                anime: section.items,
-                isLoading: section.loading,
-                isLoadingMore: section.loadingMore,
-                onLoadMore: section.fetchNext != null
-                    ? () => _loadMore(
-                        current: section.items,
-                        fetchNext: section.fetchNext,
-                        isLoading: section.loadingMore,
-                        onResult: (items, next) {
-                          section.items = items;
-                          section.fetchNext = next;
-                        },
-                        setLoading: (v) =>
-                            setState(() => section.loadingMore = v),
-                      )
-                    : null,
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-          ],
 
           const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],

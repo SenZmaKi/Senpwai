@@ -8,7 +8,7 @@ import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page.dart';
 import 'package:senpwai/ui/pages/home_page.dart';
 import 'package:senpwai/ui/pages/search_page/search_page.dart';
-import 'package:senpwai/ui/pages/settings_page.dart';
+import 'package:senpwai/ui/pages/settings_page/settings_page.dart';
 import 'package:senpwai/ui/components/app_shell.dart';
 import 'package:toastification/toastification.dart';
 import 'package:flutter/foundation.dart';

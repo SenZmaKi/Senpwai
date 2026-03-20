@@ -6,6 +6,7 @@
 - Anything that is clickable and technically a button should have button for accesibility for instance on hover cursor should change to a hand.
 - When refactoring code don't care about backwards compatibility, upstream enforces downstream so downstream should update to the new upstream architecture. Aggressive refactors.
 - If I'm suggesting and you feel like it goes against your better judgement then tell me why it is a bad idea.
+- Try to keep ui files as small as possible in terms of lines of code ~300 lines max. If it gets too big then break it down into smaller components and files.
 
 # Frontend Design
 
