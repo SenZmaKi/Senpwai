@@ -21,13 +21,13 @@ class DownloadsPage extends StatelessWidget {
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.08),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(ext.cardRadius + 8),
                   ),
                   child: Icon(
                     Icons.download_for_offline_outlined,
                     size: 48,
-                    color: theme.colorScheme.primary.withOpacity(0.5),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -39,7 +39,7 @@ class DownloadsPage extends StatelessWidget {
                     'Downloaded episodes will appear here.\nBrowse anime and start downloading!',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                       height: 1.5,
                     ),
                   ),

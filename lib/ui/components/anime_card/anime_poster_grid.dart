@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/ui/components/anime_card/anime_poster_card.dart';
+import 'package:senpwai/ui/components/empty_results_placeholder.dart';
 import 'package:senpwai/ui/components/shimmer_card.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
@@ -39,32 +40,7 @@ class AnimePosterGrid extends StatelessWidget {
     }
 
     if (anime.isEmpty) {
-      return SizedBox(
-        height: 200,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.search_off,
-                size: 48,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.3),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'No results found',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.4),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return const EmptyResultsPlaceholder();
     }
 
     final shimmerCount = loadingMore ? crossAxisCount : 0;

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
 class ShimmerCard extends StatefulWidget {
-  const ShimmerCard({super.key});
+  final double? height;
+  final double? borderRadius;
+
+  const ShimmerCard({super.key, this.height, this.borderRadius});
 
   @override
   State<ShimmerCard> createState() => _ShimmerCardState();
@@ -30,12 +33,14 @@ class _ShimmerCardState extends State<ShimmerCard>
   @override
   Widget build(BuildContext context) {
     final ext = Theme.of(context).extension<SenpwaiThemeExtension>()!;
+    final radius = widget.borderRadius ?? ext.cardRadius;
     return AnimatedBuilder(
       animation: _controller,
       builder: (_, __) {
         return Container(
+          height: widget.height,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(ext.cardRadius),
+            borderRadius: BorderRadius.circular(radius),
             gradient: LinearGradient(
               begin: Alignment(-1.0 + 2.0 * _controller.value, 0),
               end: Alignment(1.0 + 2.0 * _controller.value, 0),

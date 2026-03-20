@@ -5,8 +5,14 @@ import 'package:senpwai/anilist/models.dart';
 class MediaListStatusDot extends StatelessWidget {
   final AnilistAnimeBase anime;
   final double size;
+  final double trailingGap;
 
-  const MediaListStatusDot({super.key, required this.anime, this.size = 10});
+  const MediaListStatusDot({
+    super.key,
+    required this.anime,
+    this.size = 10,
+    this.trailingGap = 5,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -18,19 +24,21 @@ class MediaListStatusDot extends StatelessWidget {
     if (listStatus == null) return const SizedBox.shrink();
 
     final color = statusColor(listStatus);
-    final label = listStatus.toGraphql().replaceAll('_', ' ');
 
-    return Tooltip(
-      message: label,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 4),
-          ],
+    return Padding(
+      padding: EdgeInsets.only(right: trailingGap),
+      child: Tooltip(
+        message: listStatus.toDisplayLabel(),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 4),
+            ],
+          ),
         ),
       ),
     );

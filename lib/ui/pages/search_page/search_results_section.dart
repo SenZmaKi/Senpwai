@@ -4,6 +4,7 @@ import 'package:senpwai/ui/components/anime_card/anime_poster_grid.dart';
 import 'package:senpwai/ui/components/anime_card/anime_landscape_card.dart';
 import 'package:senpwai/ui/components/anime_card/anime_table_card.dart';
 import 'package:senpwai/ui/components/anime_card/card_switcher.dart';
+import 'package:senpwai/ui/components/empty_results_placeholder.dart';
 import 'package:senpwai/ui/components/shimmer_card.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
@@ -36,7 +37,6 @@ class SearchResultsSection extends StatelessWidget {
   }
 
   Widget _buildTableList(BuildContext context) {
-    final theme = Theme.of(context);
     final mobile = isMobile(context);
     final screenWidth = MediaQuery.sizeOf(context).width;
     final skeletonHeight = mobile
@@ -56,28 +56,7 @@ class SearchResultsSection extends StatelessWidget {
     }
 
     if (results.isEmpty) {
-      return SizedBox(
-        height: 200,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.search_off,
-                size: 48,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'No results found',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return const EmptyResultsPlaceholder();
     }
 
     return Column(
@@ -99,7 +78,6 @@ class SearchResultsSection extends StatelessWidget {
   }
 
   Widget _buildLandscapeList(BuildContext context) {
-    final theme = Theme.of(context);
     final cols = isDesktop(context) ? 3 : (isMobile(context) ? 1 : 2);
     final landscapeRatio = landscapeCardAspectRatio(context);
     final spacing = gridSpacing(context);
@@ -120,28 +98,7 @@ class SearchResultsSection extends StatelessWidget {
     }
 
     if (results.isEmpty) {
-      return SizedBox(
-        height: 200,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.search_off,
-                size: 48,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'No results found',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return const EmptyResultsPlaceholder();
     }
 
     final shimmerCount = loadingMore ? cols : 0;

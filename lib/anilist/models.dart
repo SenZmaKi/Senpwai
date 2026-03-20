@@ -28,6 +28,8 @@ class AnilistTitle with ToJson {
     "native": native,
   };
 
+  String get display => english ?? romaji ?? native ?? '?';
+
   List<String> toTitleCandidates() {
     final titles = <String>[];
     if (romaji != null && romaji!.trim().isNotEmpty) titles.add(romaji!);
@@ -45,6 +47,8 @@ class AnilistCoverImage with ToJson {
 
   factory AnilistCoverImage.fromJson(Map<String, dynamic>? json) =>
       AnilistCoverImage(large: json?["large"], medium: json?["medium"]);
+
+  String? get best => large ?? medium;
 
   @override
   Map<String, dynamic> toMap() => {"large": large, "medium": medium};
@@ -114,6 +118,11 @@ abstract class AnilistAnimeBase<T extends ToJson> with ToJson {
     this.endDate,
     this.isFavourite,
   });
+
+  String get seasonLabel => [
+    if (season != null) season!.toDisplayLabel(),
+    if (seasonYear != null) '$seasonYear',
+  ].join(' ');
 
   @override
   Map<String, dynamic> toMap() => {

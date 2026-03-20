@@ -1,11 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
-import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/anime_card/card_hover_mixin.dart';
 import 'package:senpwai/ui/components/anime_card/media_list_status_dot.dart';
+import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/components/genre_tag.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
@@ -27,9 +26,8 @@ class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
     final theme = Theme.of(context);
     final ext = theme.extension<SenpwaiThemeExtension>()!;
     final anime = widget.anime;
-    final imageUrl = anime.coverImage?.large ?? anime.coverImage?.medium;
-    final title =
-        anime.title.english ?? anime.title.romaji ?? anime.title.native ?? '?';
+    final imageUrl = anime.coverImage?.best;
+    final title = anime.title.display;
     final score = anime.averageScore;
     final desc = anime.description;
 
@@ -48,11 +46,7 @@ class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
 
     final placeholderColor = ext.randomColour(anime.id);
 
-    final seasonLabel = [
-      if (anime.season != null)
-        anime.season!.toGraphql().toLowerCase().capitalize(),
-      if (anime.seasonYear != null) '${anime.seasonYear}',
-    ].join(' ');
+    final seasonLabel = anime.seasonLabel;
 
     return buildHoverableCard(
       ext: ext,
@@ -66,32 +60,11 @@ class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (imageUrl != null)
-                  CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(
-                      color: placeholderColor.withValues(alpha: 0.3),
-                    ),
-                    errorWidget: (_, __, ___) => Container(
-                      color: placeholderColor.withValues(alpha: 0.3),
-                      child: Icon(
-                        Icons.broken_image,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.3,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    color: placeholderColor.withValues(alpha: 0.3),
-                    child: Icon(
-                      Icons.movie_outlined,
-                      size: isSmall ? 28 : 36,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-                    ),
-                  ),
+                AnimeCoverImage(
+                  imageUrl: imageUrl,
+                  placeholderColor: placeholderColor,
+                  noImageIconSize: isSmall ? 28 : 36,
+                ),
                 Positioned(
                   left: 0,
                   right: 0,
@@ -151,9 +124,6 @@ class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
                           size: isSmall ? 8 : 10,
                         ),
                       ),
-                      if (anime is AnilistAnimeWithListEntry &&
-                          anime.listEntry?.status != null)
-                        const SizedBox(width: 5),
                       Expanded(
                         child: Text(
                           seasonLabel.isNotEmpty
@@ -179,7 +149,7 @@ class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
                     Text(
                       [
                         if (anime.format != null)
-                          anime.format!.toGraphql().replaceAll('_', ' '),
+                          anime.format!.toDisplayLabel(),
                         if (anime.episodes != null)
                           '${anime.episodes} episodes',
                       ].join(' \u2022 '),
@@ -216,9 +186,8 @@ class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
                       children: anime.genres
                           .take(genreCount)
                           .map(
-                            (g) => buildGenreTag(
+                            (g) => GenreTag(
                               name: g.toGraphql(),
-                              ext: ext,
                               fontSize: genreFont,
                             ),
                           )

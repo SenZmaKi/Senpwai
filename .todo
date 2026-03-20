@@ -1,8 +1,5 @@
-- When hovering over navbar items cursor should change to hand
-- Fix cursor not changing to hand when hovering on single select filters
-- Turn mouse to cursor on all buttony things, should probably abstract this into a single component that can be used for all buttony things
 - Memory usage
-- Media list status in anime cards with colors for each status exposed in theme config
+- Download speed limit
 
 - More in navbar in mobile to reduce clutter
 - \_postGraphQl should properly parse out errors from the GraphQL response and throw them as Anilist exceptions

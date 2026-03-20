@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
-import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/ui/components/filter_dropdown.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
@@ -148,10 +147,8 @@ class SearchFiltersSection extends ConsumerWidget {
         value: season,
         items: AnilistSeason.values
             .map(
-              (s) => DropdownMenuItem(
-                value: s,
-                child: Text(s.toGraphql().toLowerCase().capitalize()),
-              ),
+              (s) =>
+                  DropdownMenuItem(value: s, child: Text(s.toDisplayLabel())),
             )
             .toList(),
         onChanged: onSeasonChanged,
@@ -163,7 +160,7 @@ class SearchFiltersSection extends ConsumerWidget {
           label: 'Any',
           selectedValues: formats,
           options: AnilistFormat.values,
-          optionLabel: (f) => f.toGraphql().replaceAll('_', ' '),
+          optionLabel: (f) => f.toDisplayLabel(),
           onChanged: onFormatsChanged,
           enabled: !isListFilterActive,
         ),
@@ -174,8 +171,7 @@ class SearchFiltersSection extends ConsumerWidget {
           label: 'Any',
           selectedValues: airingStatuses,
           options: AnilistAiringStatus.values,
-          optionLabel: (s) =>
-              s.toGraphql().replaceAll('_', ' ').toLowerCase().capitalize(),
+          optionLabel: (s) => s.toDisplayLabel(),
           onChanged: onAiringStatusesChanged,
           enabled: !isListFilterActive,
         ),
@@ -189,13 +185,7 @@ class SearchFiltersSection extends ConsumerWidget {
               .map(
                 (status) => DropdownMenuItem(
                   value: status,
-                  child: Text(
-                    status
-                        .toGraphql()
-                        .replaceAll('_', ' ')
-                        .toLowerCase()
-                        .capitalize(),
-                  ),
+                  child: Text(status.toDisplayLabel()),
                 ),
               )
               .toList(),
@@ -225,7 +215,7 @@ class SearchFiltersSection extends ConsumerWidget {
     if (season != null) {
       activeChips.add(
         _ActiveFilterChip(
-          label: season!.toGraphql().toLowerCase().capitalize(),
+          label: season!.toDisplayLabel(),
           onRemove: () => onSeasonChanged(null),
         ),
       );
@@ -233,7 +223,7 @@ class SearchFiltersSection extends ConsumerWidget {
     for (final format in formats) {
       activeChips.add(
         _ActiveFilterChip(
-          label: format.toGraphql().replaceAll('_', ' '),
+          label: format.toDisplayLabel(),
           onRemove: () =>
               onFormatsChanged(formats.where((f) => f != format).toList()),
         ),
@@ -242,11 +232,7 @@ class SearchFiltersSection extends ConsumerWidget {
     for (final status in airingStatuses) {
       activeChips.add(
         _ActiveFilterChip(
-          label: status
-              .toGraphql()
-              .replaceAll('_', ' ')
-              .toLowerCase()
-              .capitalize(),
+          label: status.toDisplayLabel(),
           onRemove: () => onAiringStatusesChanged(
             airingStatuses.where((s) => s != status).toList(),
           ),
@@ -256,11 +242,7 @@ class SearchFiltersSection extends ConsumerWidget {
     if (listStatus != null) {
       activeChips.add(
         _ActiveFilterChip(
-          label: listStatus!
-              .toGraphql()
-              .replaceAll('_', ' ')
-              .toLowerCase()
-              .capitalize(),
+          label: listStatus!.toDisplayLabel(),
           onRemove: () => onListStatusChanged(null),
         ),
       );

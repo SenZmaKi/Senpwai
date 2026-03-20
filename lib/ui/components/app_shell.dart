@@ -3,6 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
+Widget _buildAvatarIcon(AnilistViewer? viewer, bool isAuthLoading) {
+  if (isAuthLoading) {
+    return const SizedBox(
+      width: 24,
+      height: 24,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    );
+  }
+  if (viewer?.avatarUrl != null) {
+    return CircleAvatar(
+      radius: 12,
+      backgroundImage: CachedNetworkImageProvider(viewer!.avatarUrl!),
+    );
+  }
+  return const Icon(Icons.login);
+}
+
 class AppShell extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onDestinationChanged;
@@ -97,7 +114,7 @@ class AppShell extends StatelessWidget {
                 NavigationDestination(
                   icon: MouseRegion(
                     cursor: SystemMouseCursors.click,
-                    child: _buildAvatarIcon(context),
+                    child: _buildAvatarIcon(viewer, isAuthLoading),
                   ),
                   label: isAuthLoading
                       ? 'Loading'
@@ -106,23 +123,6 @@ class AppShell extends StatelessWidget {
               ],
             ),
     );
-  }
-
-  Widget _buildAvatarIcon(BuildContext context) {
-    if (isAuthLoading) {
-      return const SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-    if (viewer?.avatarUrl != null) {
-      return CircleAvatar(
-        radius: 12,
-        backgroundImage: CachedNetworkImageProvider(viewer!.avatarUrl!),
-      );
-    }
-    return const Icon(Icons.login);
   }
 }
 
@@ -171,11 +171,11 @@ class _DesktopRail extends StatelessWidget {
                 onTap: () => onDestinationChanged(index),
               ),
             const Spacer(),
-            _RailAvatarTile(
+            _RailTile(
+              iconWidget: _buildAvatarIcon(viewer, isAuthLoading),
               label: isAuthLoading
                   ? 'Loading'
                   : (viewer != null ? viewer!.name : 'Login'),
-              icon: _buildRailAvatarIcon(),
               onTap: onAvatarTap,
             ),
             const SizedBox(height: 12),
@@ -184,37 +184,22 @@ class _DesktopRail extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildRailAvatarIcon() {
-    if (isAuthLoading) {
-      return const SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-    if (viewer?.avatarUrl != null) {
-      return CircleAvatar(
-        radius: 12,
-        backgroundImage: CachedNetworkImageProvider(viewer!.avatarUrl!),
-      );
-    }
-    return const Icon(Icons.login);
-  }
 }
 
 class _RailTile extends StatelessWidget {
-  final IconData icon;
-  final IconData selectedIcon;
+  final IconData? icon;
+  final IconData? selectedIcon;
+  final Widget? iconWidget;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
   const _RailTile({
-    required this.icon,
-    required this.selectedIcon,
+    this.icon,
+    this.selectedIcon,
+    this.iconWidget,
     required this.label,
-    required this.selected,
+    this.selected = false,
     required this.onTap,
   });
 
@@ -242,12 +227,13 @@ class _RailTile extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  selected ? selectedIcon : icon,
-                  color: selected
-                      ? colorScheme.primary
-                      : colorScheme.onSurface.withValues(alpha: 0.4),
-                ),
+                iconWidget ??
+                    Icon(
+                      selected ? selectedIcon! : icon!,
+                      color: selected
+                          ? colorScheme.primary
+                          : colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
                 const SizedBox(height: 4),
                 Text(
                   label,
@@ -257,54 +243,6 @@ class _RailTile extends StatelessWidget {
                     color: selected
                         ? colorScheme.primary
                         : colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RailAvatarTile extends StatelessWidget {
-  final String label;
-  final Widget icon;
-  final VoidCallback onTap;
-
-  const _RailAvatarTile({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                icon,
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 11,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

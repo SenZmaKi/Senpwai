@@ -6,8 +6,11 @@ import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/genre_tag.dart';
+import 'package:senpwai/ui/components/overlay_chip.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
+
+import 'package:senpwai/ui/components/shimmer_card.dart';
 
 class AnimeBannerCarousel extends StatefulWidget {
   final List<AnilistAnimeBase> anime;
@@ -184,12 +187,7 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
   Widget _buildShimmer(SenpwaiThemeExtension ext, double height) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: _ShimmerBlock(
-        height: height,
-        borderRadius: ext.cardRadius,
-        shimmerBase: ext.shimmerBase,
-        shimmerHighlight: ext.shimmerHighlight,
-      ),
+      child: ShimmerCard(height: height, borderRadius: ext.cardRadius),
     );
   }
 }
@@ -210,8 +208,7 @@ class _BannerSlide extends StatelessWidget {
     final textColor = ext.onImageOverlay;
     final shadowColor = ext.textShadow;
 
-    final title =
-        anime.title.english ?? anime.title.romaji ?? anime.title.native ?? '?';
+    final title = anime.title.display;
     final score = anime.averageScore;
     final genres = anime.genres.take(3).map((g) => g.toGraphql()).toList();
 
@@ -306,18 +303,30 @@ class _BannerSlide extends StatelessWidget {
                     const SizedBox(width: 8),
                   ],
                   if (anime.format != null) ...[
-                    _InfoChip(
-                      label: anime.format!.toGraphql().replaceAll('_', ' '),
-                      theme: theme,
-                      ext: ext,
+                    OverlayChip(
+                      child: Text(
+                        anime.format!.toDisplayLabel(),
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8),
                   ],
                   if (anime.episodes != null)
-                    _InfoChip(
-                      label: '${anime.episodes} eps',
-                      theme: theme,
-                      ext: ext,
+                    OverlayChip(
+                      child: Text(
+                        '${anime.episodes} eps',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -328,13 +337,7 @@ class _BannerSlide extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 4,
                   children: genres
-                      .map(
-                        (g) => buildGenreTag(
-                          name: g,
-                          ext: ext,
-                          fontSize: mobile ? 10 : 11,
-                        ),
-                      )
+                      .map((g) => GenreTag(name: g, fontSize: mobile ? 10 : 11))
                       .toList(),
                 ),
               ],
@@ -342,104 +345,6 @@ class _BannerSlide extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  final String label;
-  final ThemeData theme;
-  final SenpwaiThemeExtension ext;
-
-  const _InfoChip({
-    required this.label,
-    required this.theme,
-    required this.ext,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(ext.cardRadius.clamp(0, 8)),
-        border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.4),
-          width: 0.5,
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: theme.colorScheme.onSurface,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.4,
-        ),
-      ),
-    );
-  }
-}
-
-class _ShimmerBlock extends StatefulWidget {
-  final double height;
-  final double borderRadius;
-  final Color shimmerBase;
-  final Color shimmerHighlight;
-
-  const _ShimmerBlock({
-    required this.height,
-    required this.borderRadius,
-    required this.shimmerBase,
-    required this.shimmerHighlight,
-  });
-
-  @override
-  State<_ShimmerBlock> createState() => _ShimmerBlockState();
-}
-
-class _ShimmerBlockState extends State<_ShimmerBlock>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, __) {
-        return Container(
-          height: widget.height,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            gradient: LinearGradient(
-              begin: Alignment(-1.0 + 2.0 * _controller.value, 0),
-              end: Alignment(1.0 + 2.0 * _controller.value, 0),
-              colors: [
-                widget.shimmerBase,
-                widget.shimmerHighlight,
-                widget.shimmerBase,
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ),
-          ),
-        );
-      },
     );
   }
 }

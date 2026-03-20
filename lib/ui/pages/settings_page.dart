@@ -82,7 +82,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     trailing: Switch.adaptive(
                       value: _nsfwFilter,
                       onChanged: (v) => setState(() => _nsfwFilter = v),
-                      activeColor: theme.colorScheme.primary,
+                      activeTrackColor: theme.colorScheme.primary,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -113,7 +113,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     trailing: Switch.adaptive(
                       value: _autoUpdate,
                       onChanged: (v) => setState(() => _autoUpdate = v),
-                      activeColor: theme.colorScheme.primary,
+                      activeTrackColor: theme.colorScheme.primary,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -131,7 +131,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       value: _notificationsEnabled,
                       onChanged: (v) =>
                           setState(() => _notificationsEnabled = v),
-                      activeColor: theme.colorScheme.primary,
+                      activeTrackColor: theme.colorScheme.primary,
                     ),
                   ),
                   const SizedBox(height: 24),

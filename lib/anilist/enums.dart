@@ -1,3 +1,5 @@
+import 'package:senpwai/shared/shared.dart';
+
 enum AnilistFormat { tv, tvShort, movie, special, ova, ona, music }
 
 extension AnilistFormatExtension on AnilistFormat {
@@ -10,6 +12,8 @@ extension AnilistFormatExtension on AnilistFormat {
     AnilistFormat.ona => "ONA",
     AnilistFormat.music => "MUSIC",
   };
+
+  String toDisplayLabel() => toGraphql().replaceAll('_', ' ');
 
   static AnilistFormat? fromGraphql(String? value) => switch (value) {
     "TV" => AnilistFormat.tv,
@@ -32,6 +36,8 @@ extension AnilistSeasonExtension on AnilistSeason {
     AnilistSeason.summer => "SUMMER",
     AnilistSeason.fall => "FALL",
   };
+
+  String toDisplayLabel() => toGraphql().toLowerCase().capitalize();
 
   static AnilistSeason? fromGraphql(String? value) => switch (value) {
     "WINTER" => AnilistSeason.winter,
@@ -67,6 +73,9 @@ extension AnilistMediaListStatusExtension on AnilistMediaListStatus {
     AnilistMediaListStatus.paused => "PAUSED",
     AnilistMediaListStatus.repeating => "REPEATING",
   };
+
+  String toDisplayLabel() =>
+      toGraphql().replaceAll('_', ' ').toLowerCase().capitalize();
 
   static AnilistMediaListStatus? fromGraphql(String? value) => switch (value) {
     "CURRENT" => AnilistMediaListStatus.current,
@@ -112,6 +121,9 @@ extension AnilistRelationTypeExtension on AnilistRelationType {
     AnilistRelationType.contains => "CONTAINS",
   };
 
+  String toDisplayLabel() =>
+      toGraphql().replaceAll('_', ' ').toLowerCase().capitalize();
+
   static AnilistRelationType? fromGraphql(String? value) => switch (value) {
     "ADAPTATION" => AnilistRelationType.adaptation,
     "PREQUEL" => AnilistRelationType.prequel,
@@ -146,6 +158,9 @@ extension AnilistAiringStatusExtension on AnilistAiringStatus {
     AnilistAiringStatus.cancelled => "CANCELLED",
     AnilistAiringStatus.hiatus => "HIATUS",
   };
+
+  String toDisplayLabel() =>
+      toGraphql().replaceAll('_', ' ').toLowerCase().capitalize();
 
   static AnilistAiringStatus? fromGraphql(String? value) => switch (value) {
     "FINISHED" => AnilistAiringStatus.finished,
