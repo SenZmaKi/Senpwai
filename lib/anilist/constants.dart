@@ -6,4 +6,3 @@ class Constants {
   static const authRedirectUri = "senpwai://auth/callback";
   static const defaultPerPage = 25;
 }
-
