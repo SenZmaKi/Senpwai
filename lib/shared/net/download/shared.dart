@@ -28,6 +28,7 @@ class DownloadParams {
   final int sizeBytes;
   final int numberOfParts;
   final File targetFile;
+  final int? maxBytesPerSecond;
 
   DownloadParams({
     required this.url,
@@ -36,6 +37,7 @@ class DownloadParams {
     required this.downloadDirectory,
     required this.sizeBytes,
     required this.numberOfParts,
+    required this.maxBytesPerSecond,
   }) : targetFile = File(
          path.join(downloadDirectory.path, "$title.$fileExtension"),
        );

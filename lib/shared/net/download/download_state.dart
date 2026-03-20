@@ -8,6 +8,49 @@ final log = Logger("senpwai.shared.net.download.download_state");
 
 enum DownloadStatus { idle, downloading, paused, cancelled, completed, failed }
 
+class RateTracker {
+  final Stopwatch _updatesStopwatch = Stopwatch();
+  int _bytesDownloadedBuffer = 0;
+  static const _minUpdateDuration = Duration(seconds: 1);
+  Timer? _inactivityTimer;
+
+  double _bytesPerSecond = 0;
+  double get bytesPerSecond => _bytesPerSecond;
+
+  RateTracker() {
+    _updatesStopwatch.start();
+    _resetInactivityTimer();
+  }
+
+  void update(int bytesDownloaded) {
+    _resetInactivityTimer();
+
+    _bytesDownloadedBuffer += bytesDownloaded;
+    final elapsedMs = _updatesStopwatch.elapsedMilliseconds;
+
+    if (bytesDownloaded == 0 || elapsedMs < _minUpdateDuration.inMilliseconds) {
+      return;
+    }
+
+    _bytesPerSecond = _bytesDownloadedBuffer / (elapsedMs / 1000);
+
+    _updatesStopwatch.reset();
+    _bytesDownloadedBuffer = 0;
+  }
+
+  void _resetInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(const Duration(seconds: 10), () {
+      _bytesPerSecond = 0;
+    });
+  }
+
+  void dispose() {
+    _inactivityTimer?.cancel();
+    _updatesStopwatch.stop();
+  }
+}
+
 class DownloadState {
   final DownloadParams params;
   final CancelToken _cancelToken = CancelToken();
@@ -15,7 +58,11 @@ class DownloadState {
   final _partCompleters = <int, Completer<void>>{};
   final _progressController = StreamController<DownloadProgress>.broadcast();
 
-  DownloadStatus status = DownloadStatus.idle;
+  RateTracker? rateTracker;
+
+  DownloadStatus _status = DownloadStatus.idle;
+
+  DownloadStatus get status => _status;
 
   DownloadState({required this.params});
 
@@ -38,6 +85,21 @@ class DownloadState {
     if (!_progressController.isClosed) _progressController.add(prog);
   }
 
+  void startRateTracking() {
+    rateTracker?.dispose();
+    rateTracker = RateTracker();
+  }
+
+  void _stopRateTracking() {
+    rateTracker?.dispose();
+    rateTracker = null;
+  }
+
+  void updateRate(int bytesDownloaded) {
+    if (isTerminal || status == DownloadStatus.paused) return;
+    rateTracker?.update(bytesDownloaded);
+  }
+
   void registerPart(
     int partNumber,
     StreamSubscription<List<int>> sub,
@@ -54,11 +116,14 @@ class DownloadState {
 
   void finalize(DownloadStatus status) {
     if (isTerminal) return;
-    this.status = status;
+    _stopRateTracking();
+    _status = status;
     if (!_progressController.isClosed) _progressController.close();
   }
 
   Future<void> waitTillFinished() => _progressController.stream.drain();
+
+  void updateToDownloading() => _status = DownloadStatus.downloading;
 
   void pause() {
     if (status != DownloadStatus.downloading) {
@@ -66,10 +131,11 @@ class DownloadState {
       return;
     }
     log.infoWithMetadata("Pausing download", metadata: {"params": params});
+    _stopRateTracking();
     for (final sub in _subscriptions.values) {
       sub.pause();
     }
-    status = DownloadStatus.paused;
+    _status = DownloadStatus.paused;
   }
 
   void resume() {
@@ -78,10 +144,11 @@ class DownloadState {
       return;
     }
     log.infoWithMetadata("Resuming download", metadata: {"params": params});
+    startRateTracking();
     for (final sub in _subscriptions.values) {
       sub.resume();
     }
-    status = DownloadStatus.downloading;
+    _status = DownloadStatus.downloading;
   }
 
   Future<void> cancel() async {

@@ -16,6 +16,7 @@ class Download {
   final DownloadParams params;
   final _dio = GlobalDio.getInstance();
   late final DownloadState state = DownloadState(params: params);
+  Future<void>? _downloadFuture;
 
   Download({required this.params});
 
@@ -80,6 +81,8 @@ class Download {
           subscription.cancel();
           return;
         }
+        state.updateRate(data.length);
+
         // Pause to prevent race condition with async write
         subscription.pause();
         try {
@@ -123,12 +126,17 @@ class Download {
     }
   }
 
-  Future<void> start() async {
-    if (state.isStarted) {
-      log.fine("start() noop: already started");
-      return;
+  Future<void> startAndWait() {
+    if (_downloadFuture != null) {
+      log.fine("startAndWait() noop: already started");
+      return _downloadFuture!;
     }
-    state.status = DownloadStatus.downloading;
+    _downloadFuture = _internalStartAndWait();
+    return _downloadFuture!;
+  }
+
+  Future<void> _internalStartAndWait() async {
+    state.updateToDownloading();
 
     log.infoWithMetadata("Starting download", metadata: {"params": params});
     final stopWatch = Stopwatch()..start();
@@ -140,6 +148,7 @@ class Download {
         sizeBytes: params.sizeBytes,
         numberOfParts: params.numberOfParts,
       );
+      state.startRateTracking();
 
       final tasks = partRanges.mapIndexed(
         (idx, range) => _downloadPart(

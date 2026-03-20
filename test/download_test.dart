@@ -24,6 +24,7 @@ Download _makeDownload(Directory tempDir, {int numberOfParts = 8}) {
       downloadDirectory: tempDir,
       sizeBytes: _payload.length,
       numberOfParts: numberOfParts,
+      maxBytesPerSecond: null,
     ),
   );
 }
@@ -43,7 +44,7 @@ Future<void> _deleteDirectoryWithRetry(Directory directory) async {
 void main() {
   setUpAll(() async {
     setupLogger();
-    _payload = List<int>.generate(2 * 1024 * 1024, (index) => index % 251);
+    _payload = List<int>.generate(5 * 1024 * 1024, (index) => index % 251);
     _payloadSha256 = sha256.convert(_payload).toString();
     _server = DownloadServer(payload: _payload);
     await _server.start();
@@ -132,6 +133,7 @@ void main() {
           downloadDirectory: Directory.systemTemp,
           sizeBytes: 100,
           numberOfParts: 1,
+          maxBytesPerSecond: null,
         ),
       );
       expect(state.status, DownloadStatus.idle);
@@ -150,6 +152,7 @@ void main() {
           downloadDirectory: Directory.systemTemp,
           sizeBytes: 100,
           numberOfParts: 1,
+          maxBytesPerSecond: null,
         ),
       );
       state.pause();
@@ -171,7 +174,7 @@ void main() {
         );
         try {
           final download = _makeDownload(tempDir, numberOfParts: 1);
-          await download.start();
+          await download.startAndWait();
 
           expect(download.state.status, DownloadStatus.completed);
           final bytes = await download.params.targetFile.readAsBytes();
@@ -202,7 +205,7 @@ void main() {
             progressBar.update(totalDownloaded);
           }, onDone: progressBar.complete);
 
-          await download.start();
+          await download.startAndWait();
           await sub.cancel();
           progressBar.complete();
 
@@ -230,7 +233,7 @@ void main() {
             totalReported += p.bytesDownloaded;
           });
 
-          await download.start();
+          await download.startAndWait();
           await sub.cancel();
 
           expect(totalReported, _payload.length);
@@ -264,7 +267,7 @@ void main() {
             }
           }, onDone: progressBar.complete);
 
-          download.start();
+          download.startAndWait();
           await firstProgressCompleter.future.timeout(Duration(seconds: 15));
 
           download.state.pause();
@@ -312,7 +315,7 @@ void main() {
             }
           });
 
-          final startFuture = download.start();
+          final startFuture = download.startAndWait();
           await firstProgressCompleter.future.timeout(Duration(seconds: 15));
 
           await download.state.cancel();
@@ -339,8 +342,8 @@ void main() {
         );
         try {
           final download = _makeDownload(tempDir, numberOfParts: 1);
-          final future1 = download.start();
-          final future2 = download.start();
+          final future1 = download.startAndWait();
+          final future2 = download.startAndWait();
           await Future.wait([future1, future2]);
 
           expect(download.state.status, DownloadStatus.completed);
@@ -369,9 +372,10 @@ void main() {
               downloadDirectory: nestedDir,
               sizeBytes: _payload.length,
               numberOfParts: 2,
+              maxBytesPerSecond: null,
             ),
           );
-          await download.start();
+          await download.startAndWait();
 
           expect(await nestedDir.exists(), true);
           expect(download.state.status, DownloadStatus.completed);
@@ -403,10 +407,16 @@ void main() {
               downloadDirectory: tempDir,
               sizeBytes: expectedSize,
               numberOfParts: 1, // Single part - server doesn't support Range
+              maxBytesPerSecond: null,
             ),
           );
 
-          await download.start();
+          // download.state.progress.listen((p) {
+          //   double mbps = download.state.bytesPerSecond / 1024 / 1024;
+          //   print('');
+          //   stdout.write('\rMBps: ${mbps}    ');
+          // });
+          await download.startAndWait();
 
           expect(download.state.status, DownloadStatus.completed);
           final file = download.params.targetFile;
@@ -450,10 +460,11 @@ void main() {
               downloadDirectory: tempDir,
               sizeBytes: expectedSize,
               numberOfParts: 4,
+              maxBytesPerSecond: null,
             ),
           );
 
-          await download.start();
+          await download.startAndWait();
 
           expect(download.state.status, DownloadStatus.completed);
           final file = download.params.targetFile;
