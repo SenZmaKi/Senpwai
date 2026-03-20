@@ -22,10 +22,10 @@ bool useVerticalNav(BuildContext context) =>
 
 int gridCrossAxisCount(BuildContext context) {
   final w = MediaQuery.sizeOf(context).width;
-  if (w >= 1600) return 7;
-  if (w >= Breakpoints.desktop) return 6;
-  if (w >= Breakpoints.tablet) return 4;
-  if (w >= Breakpoints.mobile) return 3;
+  if (w >= 1600) return 8;
+  if (w >= Breakpoints.desktop) return 7;
+  if (w >= Breakpoints.tablet) return 5;
+  if (w >= Breakpoints.mobile) return 4;
   return 2;
 }
 

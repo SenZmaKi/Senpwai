@@ -45,65 +45,66 @@ class AppShell extends StatelessWidget {
     final vertical = useVerticalNav(context);
     final theme = Theme.of(context);
 
-    if (vertical) {
-      return Scaffold(
-        body: Row(
+    return Scaffold(
+      body: SafeArea(
+        bottom: vertical,
+        child: Row(
           children: [
-            _DesktopRail(
-              currentIndex: currentIndex,
-              onDestinationChanged: onDestinationChanged,
-              destinations: _destinations,
-              viewer: viewer,
-              isAuthLoading: isAuthLoading,
-              onAvatarTap: onAvatarTap,
-            ),
-            VerticalDivider(
-              width: 1,
-              thickness: 1,
-              color: theme.dividerTheme.color ?? theme.dividerColor,
-            ),
-            Expanded(child: SafeArea(top: true, bottom: true, child: body)),
+            if (vertical) ...[
+              _DesktopRail(
+                currentIndex: currentIndex,
+                onDestinationChanged: onDestinationChanged,
+                destinations: _destinations,
+                viewer: viewer,
+                isAuthLoading: isAuthLoading,
+                onAvatarTap: onAvatarTap,
+              ),
+              VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color: theme.dividerTheme.color ?? theme.dividerColor,
+              ),
+            ],
+            Expanded(key: const ValueKey('shell-body'), child: body),
           ],
         ),
-      );
-    }
-
-    return Scaffold(
-      body: SafeArea(top: true, bottom: false, child: body),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
-        onDestinationSelected: (index) {
-          if (index == _destinations.length) {
-            onAvatarTap();
-          } else {
-            onDestinationChanged(index);
-          }
-        },
-        destinations: [
-          ..._destinations.map(
-            (d) => NavigationDestination(
-              icon: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: Icon(d.icon),
-              ),
-              selectedIcon: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: Icon(d.selectedIcon),
-              ),
-              label: d.label,
-            ),
-          ),
-          NavigationDestination(
-            icon: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: _buildAvatarIcon(context),
-            ),
-            label: isAuthLoading
-                ? 'Loading'
-                : (viewer != null ? viewer!.name : 'Login'),
-          ),
-        ],
       ),
+      bottomNavigationBar: vertical
+          ? null
+          : NavigationBar(
+              selectedIndex: currentIndex,
+              onDestinationSelected: (index) {
+                if (index == _destinations.length) {
+                  onAvatarTap();
+                } else {
+                  onDestinationChanged(index);
+                }
+              },
+              destinations: [
+                ..._destinations.map(
+                  (d) => NavigationDestination(
+                    icon: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Icon(d.icon),
+                    ),
+                    selectedIcon: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Icon(d.selectedIcon),
+                    ),
+                    label: d.label,
+                  ),
+                ),
+                NavigationDestination(
+                  icon: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: _buildAvatarIcon(context),
+                  ),
+                  label: isAuthLoading
+                      ? 'Loading'
+                      : (viewer != null ? viewer!.name : 'Login'),
+                ),
+              ],
+            ),
     );
   }
 

@@ -100,7 +100,7 @@ class SearchResultsSection extends StatelessWidget {
 
   Widget _buildLandscapeList(BuildContext context) {
     final theme = Theme.of(context);
-    final cols = isMobile(context) ? 1 : 2;
+    final cols = isDesktop(context) ? 3 : (isMobile(context) ? 1 : 2);
     final landscapeRatio = landscapeCardAspectRatio(context);
     final spacing = gridSpacing(context);
 

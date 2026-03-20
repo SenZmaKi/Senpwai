@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:senpwai/ui/shared/responsive.dart';
 
 enum CardViewMode { poster, landscape, table }
 

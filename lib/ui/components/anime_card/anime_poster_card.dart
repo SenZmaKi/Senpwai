@@ -5,6 +5,7 @@ import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/anime_card/card_hover_mixin.dart';
+import 'package:senpwai/ui/components/anime_card/media_list_status_dot.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
@@ -151,14 +152,31 @@ class _AnimePosterCardState extends State<AnimePosterCard> with CardHoverMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: MediaListStatusDot(
+                        anime: anime,
+                        size: isSmall ? 8 : (desk ? 10 : 9),
+                      ),
+                    ),
+                    if (anime is AnilistAnimeWithListEntry &&
+                        anime.listEntry?.status != null)
+                      const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 2),
                 if (anime.episodes != null || anime.status != null)

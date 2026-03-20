@@ -7,7 +7,6 @@ import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/user_agents.dart';
-import 'package:senpwai/shared/shared.dart';
 
 final _log = Logger("senpwai.shared.net.net_config");
 

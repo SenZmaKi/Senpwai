@@ -5,6 +5,7 @@ import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/anime_card/card_hover_mixin.dart';
+import 'package:senpwai/ui/components/anime_card/media_list_status_dot.dart';
 import 'package:senpwai/ui/components/genre_tag.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
@@ -98,14 +99,27 @@ class _AnimeTableCardState extends State<AnimeTableCard> with CardHoverMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
+                    Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: MediaListStatusDot(anime: anime, size: 8),
+                        ),
+                        if (anime is AnilistAnimeWithListEntry &&
+                            anime.listEntry?.status != null)
+                          const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
                     if (anime.genres.isNotEmpty)
@@ -163,14 +177,27 @@ class _AnimeTableCardState extends State<AnimeTableCard> with CardHoverMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
+                    Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: MediaListStatusDot(anime: anime, size: 9),
+                        ),
+                        if (anime is AnilistAnimeWithListEntry &&
+                            anime.listEntry?.status != null)
+                          const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     if (anime.genres.isNotEmpty)

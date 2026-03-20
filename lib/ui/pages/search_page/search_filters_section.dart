@@ -354,8 +354,9 @@ class SearchFiltersSection extends ConsumerWidget {
                                 ],
                               ),
                             );
-                            if (i + 2 < dropdowns.length)
+                            if (i + 2 < dropdowns.length) {
                               rows.add(const SizedBox(height: 10));
+                            }
                           }
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

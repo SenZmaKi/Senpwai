@@ -5,6 +5,7 @@ import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/anime_card/card_hover_mixin.dart';
+import 'package:senpwai/ui/components/anime_card/media_list_status_dot.dart';
 import 'package:senpwai/ui/components/genre_tag.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
@@ -143,6 +144,16 @@ class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: MediaListStatusDot(
+                          anime: anime,
+                          size: isSmall ? 8 : 10,
+                        ),
+                      ),
+                      if (anime is AnilistAnimeWithListEntry &&
+                          anime.listEntry?.status != null)
+                        const SizedBox(width: 5),
                       Expanded(
                         child: Text(
                           seasonLabel.isNotEmpty
