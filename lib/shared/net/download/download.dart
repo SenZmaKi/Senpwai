@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:async/async.dart';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/net/download/download_config.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
@@ -14,6 +16,7 @@ final log = Logger("senpwai.shared.net.download.download");
 
 class Download {
   final DownloadParams params;
+  final config = DownloadConfig.getInstance();
   final _dio = GlobalDio.getInstance();
   late final DownloadState state = DownloadState(params: params);
   Future<void>? _downloadFuture;
@@ -43,6 +46,32 @@ class Download {
     return partRanges;
   }
 
+  Future<void> _waitTillBandwidthAvailable() async {
+    if (!config.isOverMaxBytesPerSecond(RateTracker.globalBytesPerSecond)) {
+      return;
+    }
+    final completer = Completer<void>();
+    final combinedStream = StreamGroup.merge([
+      RateTracker.globalUpdateStream,
+      DownloadState.globalStatusStream,
+      // Periodic timer to recheck bandwidth availability in case
+      // rate state is slightly out of sync when we receive an event
+      // Probably not really needed, just here as a safeguard
+      Stream.periodic(Duration(seconds: 5)),
+    ]);
+    final subscription = combinedStream.listen((event) {
+      if (!config.isOverMaxBytesPerSecond(RateTracker.globalBytesPerSecond)) {
+        if (!completer.isCompleted) completer.complete();
+      }
+    });
+
+    try {
+      await completer.future;
+    } finally {
+      subscription.cancel();
+    }
+  }
+
   Future<void> _downloadPart({
     required int partNumber,
     required int startOffsetBytes,
@@ -53,6 +82,7 @@ class Download {
     log.fine(
       "Downloading part $partNumber (offset=$startOffsetBytes, len=$lengthBytes)",
     );
+    await _waitTillBandwidthAvailable();
 
     RandomAccessFile? raf;
     final completer = Completer<void>();
@@ -93,8 +123,11 @@ class Download {
               bytesDownloaded: data.length,
             ),
           );
-        } finally {
+          await _waitTillBandwidthAvailable();
           subscription.resume();
+        } catch (e, st) {
+          subscription.cancel();
+          if (!completer.isCompleted) completer.completeError(e, st);
         }
       });
 

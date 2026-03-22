@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/download/download.dart';
+import 'package:senpwai/shared/net/download/download_config.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
+import 'package:senpwai/shared/shared.dart' as shared;
 
 import 'support/download_server.dart';
 import 'support/progress_bar.dart';
@@ -24,7 +27,6 @@ Download _makeDownload(Directory tempDir, {int numberOfParts = 8}) {
       downloadDirectory: tempDir,
       sizeBytes: _payload.length,
       numberOfParts: numberOfParts,
-      maxBytesPerSecond: null,
     ),
   );
 }
@@ -44,7 +46,10 @@ Future<void> _deleteDirectoryWithRetry(Directory directory) async {
 void main() {
   setUpAll(() async {
     setupLogger();
-    _payload = List<int>.generate(5 * 1024 * 1024, (index) => index % 251);
+    _payload = List<int>.generate(
+      5 * shared.Constants.megaByte,
+      (index) => index % 251,
+    );
     _payloadSha256 = sha256.convert(_payload).toString();
     _server = DownloadServer(payload: _payload);
     await _server.start();
@@ -133,7 +138,6 @@ void main() {
           downloadDirectory: Directory.systemTemp,
           sizeBytes: 100,
           numberOfParts: 1,
-          maxBytesPerSecond: null,
         ),
       );
       expect(state.status, DownloadStatus.idle);
@@ -152,7 +156,6 @@ void main() {
           downloadDirectory: Directory.systemTemp,
           sizeBytes: 100,
           numberOfParts: 1,
-          maxBytesPerSecond: null,
         ),
       );
       state.pause();
@@ -200,7 +203,7 @@ void main() {
             desc: 'multi-part download',
           );
           var totalDownloaded = 0;
-          final sub = download.state.progress.listen((p) {
+          final sub = download.state.progressStream.listen((p) {
             totalDownloaded += p.bytesDownloaded;
             progressBar.update(totalDownloaded);
           }, onDone: progressBar.complete);
@@ -229,7 +232,7 @@ void main() {
         try {
           final download = _makeDownload(tempDir, numberOfParts: 4);
           var totalReported = 0;
-          final sub = download.state.progress.listen((p) {
+          final sub = download.state.progressStream.listen((p) {
             totalReported += p.bytesDownloaded;
           });
 
@@ -237,6 +240,37 @@ void main() {
           await sub.cancel();
 
           expect(totalReported, _payload.length);
+        } finally {
+          await _deleteDirectoryWithRetry(tempDir);
+        }
+      },
+    );
+
+    test(
+      'download throttling',
+      timeout: Timeout(Duration(minutes: 2)),
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp(
+          'senpwai-dl-throttle-',
+        );
+        try {
+          final maxBytesPerSecond = 1 * shared.Constants.kiloByte;
+          DownloadConfig.getInstance().updateMaxBytesPerSecond(
+            maxBytesPerSecond.toDouble(),
+          );
+          final download = _makeDownload(tempDir, numberOfParts: 4);
+          final sub = RateTracker.globalUpdateStream.listen((bytesPerSecond) {
+            print('');
+            print('\rMBps: ${bytesPerSecond / shared.Constants.megaByte}    ');
+            expect(
+              bytesPerSecond,
+              lessThan(maxBytesPerSecond),
+              reason: 'bytesPerSecond < maxBytesPerSecond',
+            );
+          });
+
+          await download.startAndWait();
+          await sub.cancel();
         } finally {
           await _deleteDirectoryWithRetry(tempDir);
         }
@@ -259,7 +293,7 @@ void main() {
           var totalDownloaded = 0;
           final firstProgressCompleter = Completer<void>();
 
-          final sub = download.state.progress.listen((p) {
+          final sub = download.state.progressStream.listen((p) {
             totalDownloaded += p.bytesDownloaded;
             progressBar.update(totalDownloaded);
             if (!firstProgressCompleter.isCompleted && totalDownloaded > 0) {
@@ -309,7 +343,7 @@ void main() {
           final download = _makeDownload(tempDir, numberOfParts: 1);
           final firstProgressCompleter = Completer<void>();
 
-          final sub = download.state.progress.listen((p) {
+          final sub = download.state.progressStream.listen((p) {
             if (!firstProgressCompleter.isCompleted) {
               firstProgressCompleter.complete();
             }
@@ -372,7 +406,6 @@ void main() {
               downloadDirectory: nestedDir,
               sizeBytes: _payload.length,
               numberOfParts: 2,
-              maxBytesPerSecond: null,
             ),
           );
           await download.startAndWait();
@@ -395,9 +428,8 @@ void main() {
           'senpwai-dl-external-',
         );
         try {
-          // Use Cloudflare's test file (100KB) - single part since it doesn't support Range
-          const url = 'https://speed.cloudflare.com/__down?bytes=102400';
-          const expectedSize = 102400;
+          final expectedSize = 10 * shared.Constants.megaByte;
+          final url = 'https://speed.cloudflare.com/__down?bytes=$expectedSize';
 
           final download = Download(
             params: DownloadParams(
@@ -407,15 +439,15 @@ void main() {
               downloadDirectory: tempDir,
               sizeBytes: expectedSize,
               numberOfParts: 1, // Single part - server doesn't support Range
-              maxBytesPerSecond: null,
             ),
           );
 
-          // download.state.progress.listen((p) {
-          //   double mbps = download.state.bytesPerSecond / 1024 / 1024;
-          //   print('');
-          //   stdout.write('\rMBps: ${mbps}    ');
-          // });
+          download.state.progressStream.listen((p) {
+            final bytesPerSecond = download.state.rateTracker.bytesPerSecond;
+            double mbps = bytesPerSecond / shared.Constants.megaByte;
+            print('');
+            print('\rMBps: ${mbps}    ');
+          });
           await download.startAndWait();
 
           expect(download.state.status, DownloadStatus.completed);
@@ -428,6 +460,62 @@ void main() {
         }
       },
     );
+
+    test('downloads real file with throttling', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'senpwai-dl-external-throttle-',
+      );
+      try {
+        final maxBytesPerSecond = 1 * shared.Constants.megaByte;
+        DownloadConfig.getInstance().updateMaxBytesPerSecond(
+          maxBytesPerSecond.toDouble(),
+        );
+        final expectedSize = 50 * shared.Constants.megaByte;
+        final url = 'https://speed.cloudflare.com/__down?bytes=$expectedSize';
+
+        final download = Download(
+          params: DownloadParams(
+            url: url,
+            title: 'external-throttle-test',
+            fileExtension: 'bin',
+            downloadDirectory: tempDir,
+            sizeBytes: expectedSize,
+            numberOfParts: 1, // Single part - server doesn't support Range
+          ),
+        );
+        String? _lastStatus;
+
+        void _printRate(double mbps, double maxMbps) {
+          final currentStatus =
+              'Curr: ${mbps.toStringAsFixed(4)} MBps | Max: ${maxMbps.toStringAsFixed(4)} MBps';
+
+          // Only proceed if the content has changed
+          if (currentStatus != _lastStatus) {
+            // Use stdout.write instead of print if you want total control over \r
+            stdout.write('\r$currentStatus');
+            _lastStatus = currentStatus;
+          }
+        }
+
+        download.state.progressStream.listen((p) {
+          final bytesPerSecond = download.state.rateTracker.bytesPerSecond;
+          double mbps = bytesPerSecond / shared.Constants.megaByte;
+          double maxMbps = maxBytesPerSecond / shared.Constants.megaByte;
+          _printRate(mbps, maxMbps);
+        });
+        print('');
+        await download.startAndWait();
+        print('');
+
+        expect(download.state.status, DownloadStatus.completed);
+        final file = download.params.targetFile;
+        expect(await file.exists(), true);
+        final bytes = await file.readAsBytes();
+        expect(bytes.length, expectedSize);
+      } finally {
+        await _deleteDirectoryWithRetry(tempDir);
+      }
+    }, timeout: Timeout(Duration(minutes: 5)));
 
     test(
       'downloads real file with range requests',
@@ -460,7 +548,6 @@ void main() {
               downloadDirectory: tempDir,
               sizeBytes: expectedSize,
               numberOfParts: 4,
-              maxBytesPerSecond: null,
             ),
           );
 
