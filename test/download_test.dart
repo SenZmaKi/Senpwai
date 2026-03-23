@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
-
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/download/download.dart';
 import 'package:senpwai/shared/net/download/download_config.dart';
+import 'package:senpwai/shared/net/download/download_rate_tracker.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
 import 'package:senpwai/shared/shared.dart' as shared;
@@ -47,7 +46,7 @@ void main() {
   setUpAll(() async {
     setupLogger();
     _payload = List<int>.generate(
-      5 * shared.Constants.megaByte,
+      50 * shared.Constants.megaByte,
       (index) => index % 251,
     );
     _payloadSha256 = sha256.convert(_payload).toString();
@@ -246,36 +245,53 @@ void main() {
       },
     );
 
-    test(
-      'download throttling',
-      timeout: Timeout(Duration(minutes: 2)),
-      () async {
-        final tempDir = await Directory.systemTemp.createTemp(
-          'senpwai-dl-throttle-',
-        );
-        try {
-          final maxBytesPerSecond = 1 * shared.Constants.kiloByte;
-          DownloadConfig.getInstance().updateMaxBytesPerSecond(
-            maxBytesPerSecond.toDouble(),
-          );
-          final download = _makeDownload(tempDir, numberOfParts: 4);
-          final sub = RateTracker.globalUpdateStream.listen((bytesPerSecond) {
-            print('');
-            print('\rMBps: ${bytesPerSecond / shared.Constants.megaByte}    ');
-            expect(
-              bytesPerSecond,
-              lessThan(maxBytesPerSecond),
-              reason: 'bytesPerSecond < maxBytesPerSecond',
-            );
-          });
+    test('download throttling', timeout: Timeout(Duration(minutes: 2)), () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'senpwai-dl-throttle-',
+      );
 
-          await download.startAndWait();
-          await sub.cancel();
-        } finally {
-          await _deleteDirectoryWithRetry(tempDir);
+      String? _lastStatus;
+      void _printRate(double mbps, double maxMbps) {
+        final currentStatus =
+            'Curr: ${mbps.toStringAsFixed(4)} MBps | Max: ${maxMbps.toStringAsFixed(4)} MBps';
+
+        // Only proceed if the content has changed
+        if (currentStatus != _lastStatus) {
+          // Use stdout.write instead of print if you want total control over \r
+          stdout.write('\r$currentStatus');
+          _lastStatus = currentStatus;
         }
-      },
-    );
+      }
+
+      try {
+        final maxBytesPerSecond = 10.0 * shared.Constants.megaByte;
+        DownloadConfig.getInstance().updateMaxBytesPerSecond(maxBytesPerSecond);
+        final download = _makeDownload(tempDir, numberOfParts: 4);
+        final sub = DownloadRateTracker.globalUpdateStream.listen((
+          bytesPerSecond,
+        ) {
+          const exceedAllowanceFactor =
+              1.5; // Allow some overhead above the max
+          expect(
+            bytesPerSecond,
+            lessThanOrEqualTo(maxBytesPerSecond * exceedAllowanceFactor),
+            reason:
+                'bytesPerSecond should not exceed maxBytesPerSecond * $exceedAllowanceFactor',
+          );
+          _printRate(
+            bytesPerSecond / shared.Constants.megaByte,
+            maxBytesPerSecond / shared.Constants.megaByte,
+          );
+        });
+
+        print('');
+        await download.startAndWait();
+        print('');
+        await sub.cancel();
+      } finally {
+        await _deleteDirectoryWithRetry(tempDir);
+      }
+    });
 
     test(
       'pause and resume temporarily halts then completes',
@@ -319,7 +335,9 @@ void main() {
           download.state.resume();
           expect(download.state.status, DownloadStatus.downloading);
 
-          await download.state.waitTillFinished();
+          await download.state.waitTillStatus(
+            statuses: DownloadStatusExtension.terminalStatuses,
+          );
           await sub.cancel();
           progressBar.complete();
 

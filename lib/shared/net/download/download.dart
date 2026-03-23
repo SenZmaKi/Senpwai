@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:async/async.dart';
+import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
@@ -8,6 +8,7 @@ import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/download/download_config.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
+import 'package:senpwai/shared/net/download/download_throttler.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
@@ -46,116 +47,113 @@ class Download {
     return partRanges;
   }
 
-  Future<void> _waitTillBandwidthAvailable() async {
-    if (!config.isOverMaxBytesPerSecond(RateTracker.globalBytesPerSecond)) {
-      return;
-    }
-    final completer = Completer<void>();
-    final combinedStream = StreamGroup.merge([
-      RateTracker.globalUpdateStream,
-      DownloadState.globalStatusStream,
-      // Periodic timer to recheck bandwidth availability in case
-      // rate state is slightly out of sync when we receive an event
-      // Probably not really needed, just here as a safeguard
-      Stream.periodic(Duration(seconds: 5)),
-    ]);
-    final subscription = combinedStream.listen((event) {
-      if (!config.isOverMaxBytesPerSecond(RateTracker.globalBytesPerSecond)) {
-        if (!completer.isCompleted) completer.complete();
-      }
-    });
-
-    try {
-      await completer.future;
-    } finally {
-      subscription.cancel();
-    }
-  }
-
   Future<void> _downloadPart({
     required int partNumber,
     required int startOffsetBytes,
     required int lengthBytes,
   }) async {
-    if (state.isTerminal) return;
+    var currentOffset = startOffsetBytes;
+    var remainingBytes = lengthBytes;
 
-    log.fine(
-      "Downloading part $partNumber (offset=$startOffsetBytes, len=$lengthBytes)",
-    );
-    await _waitTillBandwidthAvailable();
+    log.fine("Part $partNumber: Initializing at offset $currentOffset");
 
+    while (remainingBytes > 0 && !state.isTerminal) {
+      try {
+        final processedCount = await _runDownloadIteration(
+          partNumber: partNumber,
+          offset: currentOffset,
+          length: remainingBytes,
+        );
+
+        currentOffset += processedCount;
+        remainingBytes -= processedCount;
+      } on DioException catch (e) {
+        if (e.type == DioExceptionType.receiveTimeout) {
+          await _handleTimeoutAndPause(partNumber);
+          continue;
+        }
+        rethrow;
+      }
+    }
+  }
+
+  /// Handles the actual connection and data streaming for a single attempt.
+  Future<int> _runDownloadIteration({
+    required int partNumber,
+    required int offset,
+    required int length,
+  }) async {
     RandomAccessFile? raf;
-    final completer = Completer<void>();
+    StreamSubscription<Uint8List>? subscription;
+    int bytes = 0;
+
     try {
       raf = await params.targetFile.open(mode: FileMode.writeOnly);
-      await raf.setPosition(startOffsetBytes);
+      await raf.setPosition(offset);
 
-      final endOffsetBytes = startOffsetBytes + lengthBytes - 1;
-      final response = await _dio.get<ResponseBody>(
-        params.url,
-        options: Options(
-          headers: {"Range": "bytes=$startOffsetBytes-$endOffsetBytes"},
-          responseType: ResponseType.stream,
-          extra: NetConfig.getInstance()
-              // Don't cache binary data
-              .buildCacheOptions(policy: CachePolicy.noCache)
-              .toExtra(),
-        ),
-        cancelToken: state.cancelToken,
-      );
+      final response = await _establishConnection(offset, length);
+      final throttledStream = DownloadThrottler.getInstance()
+          .getThrottledStream(response);
 
-      final subscription = response.data!.stream.listen(null);
-
-      subscription.onData((data) async {
-        if (state.isTerminal) {
-          subscription.cancel();
-          return;
-        }
-        state.updateRate(data.length);
-
-        // Pause to prevent race condition with async write
-        subscription.pause();
-        try {
+      final completer = Completer<void>();
+      subscription = throttledStream.listen(
+        (data) async {
+          subscription?.pause();
           await raf?.writeFrom(data);
+
           state.addProgress(
             DownloadProgress(
               partNumber: partNumber,
               bytesDownloaded: data.length,
             ),
           );
-          await _waitTillBandwidthAvailable();
-          subscription.resume();
-        } catch (e, st) {
-          subscription.cancel();
-          if (!completer.isCompleted) completer.completeError(e, st);
-        }
-      });
 
-      subscription.onDone(() {
-        if (!completer.isCompleted) completer.complete();
-      });
-
-      subscription.onError((e, st) {
-        if (!completer.isCompleted) completer.completeError(e, st);
-      });
+          bytes += data.length;
+          subscription?.resume();
+        },
+        onDone: completer.complete,
+        onError: completer.completeError,
+        cancelOnError: true,
+      );
 
       state.registerPart(partNumber, subscription, completer);
       await completer.future;
-      log.fine("Completed part $partNumber");
-    } on DioException catch (e) {
-      if (CancelToken.isCancel(e)) {
-        log.fine("Part $partNumber cancelled");
-        throw DownloadCancelledException("Part $partNumber cancelled by user");
-      }
-      log.severeWithMetadata(
-        "Part $partNumber failed",
-        error: e,
-        metadata: {"partNumber": partNumber},
-      );
-      rethrow;
+
+      return bytes;
     } finally {
+      await subscription?.cancel();
       await raf?.close();
       state.unregisterPart(partNumber);
+    }
+  }
+
+  /// Helper to configure the Dio request for a specific range.
+  Future<Response<ResponseBody>> _establishConnection(int offset, int length) {
+    final end = offset + length - 1;
+    return _dio.get<ResponseBody>(
+      params.url,
+      options: Options(
+        headers: {"Range": "bytes=$offset-$end"},
+        responseType: ResponseType.stream,
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
+      ),
+      cancelToken: state.cancelToken,
+    );
+  }
+
+  Future<void> _handleTimeoutAndPause(int partNumber) async {
+    log.warning(
+      "Part $partNumber: Network idle. Standing by for resume signal.",
+    );
+
+    final status = await state.waitTillStatus();
+
+    if (status != DownloadStatus.downloading) {
+      throw DownloadCancelledException(
+        "Resume aborted. System status: $status",
+      );
     }
   }
 

@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:senpwai/shared/net/download/download_config.dart';
+import 'package:senpwai/shared/net/download/download_throttler.dart';
 
 class DownloadCancelledException implements Exception {
   final String message;

@@ -1,7 +1,7 @@
 class DownloadConfig {
   double _maxBytesPerSecond;
 
-  get maxBytesPerSecond => _maxBytesPerSecond;
+  double get maxBytesPerSecond => _maxBytesPerSecond;
 
   void updateMaxBytesPerSecond(double maxBytesPerSecond) {
     _maxBytesPerSecond = maxBytesPerSecond;
