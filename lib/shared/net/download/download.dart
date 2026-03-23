@@ -98,6 +98,11 @@ class Download {
       final completer = Completer<void>();
       subscription = throttledStream.listen(
         (data) async {
+          while (state.isPaused && !state.isTerminal) {
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+          }
+          if (state.isTerminal) return;
+
           subscription?.pause();
           await raf?.writeFrom(data);
 

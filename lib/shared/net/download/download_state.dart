@@ -70,6 +70,9 @@ class DownloadState {
   ) {
     _subscriptions[partNumber] = sub;
     _partCompleters[partNumber] = completer;
+    if (isPaused) {
+      sub.pause();
+    }
   }
 
   void unregisterPart(int partNumber) {
@@ -119,10 +122,12 @@ class DownloadState {
     _updateStatus(DownloadStatus.downloading);
   }
 
-  Future<DownloadStatus> waitTillStatus({List<DownloadStatus>? statuses}) =>
-      statuses != null
-      ? statusStream.first
-      : statusStream.firstWhere((status) => statuses!.contains(status));
+  Future<DownloadStatus> waitTillStatus({List<DownloadStatus>? statuses}) {
+    if (statuses == null || statuses.isEmpty) {
+      return statusStream.first;
+    }
+    return statusStream.firstWhere((status) => statuses.contains(status));
+  }
 
   Future<void> cancel() async {
     if (isTerminal || status == DownloadStatus.idle) {

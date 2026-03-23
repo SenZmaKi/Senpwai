@@ -27,8 +27,13 @@ class DownloadRateTracker {
     _trackers.add(this);
   }
 
-  void start() {
+  void _ensureTicker() {
+    if (_ticker?.isActive ?? false) return;
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+  }
+
+  void start() {
+    _ensureTicker();
     _updatesStopwatch.start();
     _resetInactivityTimer();
   }
@@ -41,6 +46,7 @@ class DownloadRateTracker {
   }
 
   void resume() {
+    _ensureTicker();
     _updatesStopwatch.start();
     _resetInactivityTimer();
   }
