@@ -3,6 +3,7 @@ import 'dart:io';
 class FillingBar {
   int _total;
   int _current = 0;
+  double _bytesPerSecond = 0;
   int _lastRenderedUnits = -1;
   final String fill;
   final String space;
@@ -10,6 +11,7 @@ class FillingBar {
   String _desc;
   final bool time;
   final bool percentage;
+  final bool rate;
   final void Function(String) _write;
   final _clock = Stopwatch()..start();
 
@@ -21,6 +23,7 @@ class FillingBar {
     this.width = 40,
     this.time = true,
     this.percentage = true,
+    this.rate = false,
     void Function(String)? writer,
   }) : _total = total,
        _desc = desc,
@@ -36,8 +39,11 @@ class FillingBar {
     _render();
   }
 
-  void update(int value) {
+  void update(int value, {double? bytesPerSecond}) {
     _current = value.clamp(0, _total);
+    if (bytesPerSecond != null) {
+      _bytesPerSecond = bytesPerSecond;
+    }
     _render();
   }
 
@@ -62,6 +68,9 @@ class FillingBar {
     final filled = fill * progress;
     final empty = space * (width - progress);
     final percent = percentage ? '${(ratio * 100).toStringAsFixed(1)}%' : '';
+    final rateSegment = rate
+        ? '[ ${(_bytesPerSecond / (1024 * 1024)).toStringAsFixed(2)} MBps ]'
+        : '';
 
     var timeSegment = '';
     if (time) {
@@ -78,7 +87,7 @@ class FillingBar {
     }
 
     final frame =
-        '\r$_desc : $filled$empty $_current/$_total $percent $timeSegment';
+        '\r$_desc : $filled$empty $_current/$_total $percent $timeSegment $rateSegment';
     _write(frame);
   }
 
