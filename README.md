@@ -1,3 +1,6 @@
+# Developer's Note
+I'm currently working on Senpwai v3.0.0 which is a Flutter rewrite offering true cross-platform support (both mobile and desktop), better ui/ux, more sources, fixes the main issues with the current version and is just better in general. Maintenance on the current version is halted given my efforts are on v3.0.0. You can find updates about the same on the Discord Server. Hopefully I should be able to release it soon.
+
 <h1 align="center">
 <img align="center" height="80px" width="80px" src="https://raw.githubusercontent.com/SenZmaKi/Senpwai/master/.github/images/senpwai-icon.png" alt="senpwai-icon"> Senpwai</h1>
 <p align="center">
@@ -47,7 +50,7 @@ Check [Senpcli](https://github.com/SenZmaKi/Senpwai/blob/master/docs/senpcli-gui
 
 ## Features
 
--   Download any anime from [Animepahe](https://animepahe.si) or [Gogoanime](https://anitaku.bz).
+-   Download any anime from [Animepahe](https://animepahe.com) or [Gogoanime](https://anitaku.bz).
 -   Keep track of an anime and automatically download new episodes when they release.
 -   Download a complete season or episodes within a range (e.g., 69-420).
 -   Choose between video qualities: 360p, 480p (Gogoanime only), 720p, or 1080p.
