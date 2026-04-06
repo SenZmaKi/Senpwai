@@ -22,3 +22,6 @@ NOTE
 scripts/changelog.md
 .env
 tokyo.html
+
+## pyenv variables
+.python-version
