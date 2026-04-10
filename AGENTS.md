@@ -7,6 +7,7 @@
 - When refactoring code don't care about backwards compatibility, upstream enforces downstream so downstream should update to the new upstream architecture. Aggressive refactors.
 - If I'm suggesting and you feel like it goes against your better judgement then tell me why it is a bad idea.
 - Try to keep ui files as small as possible in terms of lines of code ~300 lines max. If it gets too big then break it down into smaller components and files.
+- Find libtorrent_dart library implementation at ../libtorrent_dart/ and anitomy_dart at ../anitomy_dart/ (I made the libraries so we're in full control over them)
 
 # Frontend Design
 

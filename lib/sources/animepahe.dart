@@ -66,7 +66,7 @@ class AnimeResult {
 }
 
 class Constants {
-  static const paheDomain = "animepahe.si";
+  static const paheDomain = "animepahe.com";
   static const paheHome = "https://$paheDomain";
   static const apiEntryPoint = "$paheHome/api?m=";
   static const englishSuffix = "eng";
