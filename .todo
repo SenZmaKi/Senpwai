@@ -1,5 +1,5 @@
 - Memory usage
-- Download speed limit
+- Confirm whether clearAllDataOnInit is necessary for cf_bypass
 
 - More in navbar in mobile to reduce clutter
 - \_postGraphQl should properly parse out errors from the GraphQL response and throw them as Anilist exceptions

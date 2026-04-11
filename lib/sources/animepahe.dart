@@ -1,11 +1,10 @@
+import 'dart:io';
 import 'dart:math';
-import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:html/dom.dart' as html;
 import 'package:senpwai/shared/shared.dart' as shared;
 import 'package:senpwai/shared/log.dart';
@@ -54,7 +53,7 @@ class AnimeResult {
     status: json["status"],
     season: json["season"],
     year: json["year"],
-    score: json["score"],
+    score: (json["score"] as num?)?.toDouble() ?? 0.0,
     poster: json["poster"],
     session: json["session"],
   );
@@ -66,12 +65,15 @@ class AnimeResult {
 }
 
 class Constants {
-  static const paheDomain = "animepahe.com";
+  static const paheDomain = "animepahe.pw";
   static const paheHome = "https://$paheDomain";
   static const apiEntryPoint = "$paheHome/api?m=";
   static const englishSuffix = "eng";
 
   static final estimatedSizeRegex = RegExp(r"\b(\d+)MB\b");
+  // When you change this you also have to change the regex below
+  static final kwikDomain = "kwik.cx";
+  static final kwikHome = "https://$kwikDomain";
   static final kwikLinkRegex = RegExp(r"""https?://kwik\.cx/f/([^\"']+)""");
   static final kwikParamRegex = RegExp(
     r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""",
@@ -175,26 +177,26 @@ class Source {
   final Dio _dio;
   static bool _isDioConfigured = false;
 
-  Source() : _dio = _buildDio();
+  Source() : _dio = GlobalDio.getInstance();
 
-  static Dio _buildDio() {
-    final dio = GlobalDio.getInstance();
-    if (_isDioConfigured) {
-      return dio;
-    }
-
-    final uri = Uri.parse(Constants.paheHome);
-
-    /*
-    For some reason these cookies just need to be set, they don't even need to be valid
-    Also as I am writing this only only __ddg2_ is necessary
-    */
-    final cookies = [Cookie("__ddg1_", ""), Cookie("__ddg2_", "")];
-    final cookieJar = CookieJar();
-    cookieJar.saveFromResponse(uri, cookies);
-    dio.interceptors.add(CookieManager(cookieJar));
+  static Future<void> ensureInitialized() async {
+    if (_isDioConfigured) return;
+    GlobalDio.getInstance();
+    await _seedDdgCookiesIfMissing();
     _isDioConfigured = true;
-    return dio;
+  }
+
+  static Future<void> _seedDdgCookiesIfMissing() async {
+    final cookieJar = GlobalDio.cookieJar;
+    final paheUri = Uri.parse(Constants.paheHome);
+    final existing = await cookieJar.loadForRequest(paheUri);
+    final hasDdg = existing.any((c) => c.name.startsWith("__ddg"));
+    if (!hasDdg) {
+      await cookieJar.saveFromResponse(
+        paheUri,
+        [Cookie("__ddg1_", ""), Cookie("__ddg2_", "")],
+      );
+    }
   }
 
   Future<Pagination<List<AnimeResult>>> search({

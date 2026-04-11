@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:fuzzywuzzy/fuzzywuzzy.dart';
+import 'package:senpwai/sources/shared/fuzzy.dart';
 import 'package:html/dom.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/sources/shared/shared.dart';
@@ -100,7 +100,7 @@ class AnimeListCache {
         .map(
           (result) => AnimeResultAndScore(
             result: result,
-            score: weightedRatio(term, result.title),
+            score: titleSimilarity(term, result.title),
           ),
         )
         .where((e) => e.score >= minMatchScore)
@@ -157,7 +157,7 @@ class Source {
     final results = await _animeListCache.search(params: params);
     log.fineWithMetadata(
       "Searched",
-      metadata: {"params": params, "results": results},
+      metadata: {"params": params, "results": results.length},
     );
     return results;
   }
