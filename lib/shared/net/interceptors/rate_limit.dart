@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
@@ -72,16 +74,6 @@ class RateLimitInterceptor extends Interceptor {
     final response = err.response;
 
     if (response?.statusCode == 429) {
-      final hasRetried = err.requestOptions.extra["rateLimitRetried"] == true;
-      if (hasRetried) {
-        _log.severeWithMetadata(
-          "Still rate-limited after retry after delay",
-          error: err,
-          stackTrace: err.stackTrace,
-        );
-        handler.next(err);
-        return;
-      }
       final uri = err.requestOptions.uri;
       final host = uri.host;
 
@@ -95,21 +87,20 @@ class RateLimitInterceptor extends Interceptor {
         metadata: {"host": host, "delay": delay.inSeconds, "url": uri},
       );
 
-      final retryTime = _now().add(delay);
-      _blockedUntil[host] = retryTime;
+      _blockedUntil[host] = _now().add(delay);
 
       await Future<void>.delayed(delay);
 
-      final retryRequest = err.requestOptions.copyWith(
-        extra: {...err.requestOptions.extra, "rateLimitRetried": true},
-      );
       _log.infoWithMetadata(
         "Rate-Limit retry",
         metadata: {"host": host, "delay": delay.inSeconds, "url": uri},
       );
-      final retryResponse = await dio.fetch<dynamic>(retryRequest);
-
-      handler.resolve(retryResponse);
+      try {
+        final retryResponse = await dio.fetch<dynamic>(err.requestOptions);
+        handler.resolve(retryResponse);
+      } on DioException catch (retryErr) {
+        handler.next(retryErr);
+      }
       return;
     }
 

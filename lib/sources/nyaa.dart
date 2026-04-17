@@ -95,8 +95,18 @@ class Source {
       );
     }
 
-    // Get the second-to-last pagination link for total pages
+    // Get the second-to-last pagination link for total pages.
+    // When all results fit on one page Nyaa renders no pagination element.
     final paginationItems = htmlPage.querySelectorAll("ul.pagination > li");
+    if (paginationItems.length < 2) {
+      return Pagination(
+        currentPage: params.page,
+        items: results,
+        perPage: Constants.resultsPerPage,
+        fetchNextPage: null,
+        totalPages: 1,
+      );
+    }
     final totalPagesStr = paginationItems[paginationItems.length - 2].text;
     final totalPages = int.parse(totalPagesStr);
     final fetchNextPage = params.page < totalPages

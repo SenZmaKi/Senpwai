@@ -2,8 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/anilist/anilist.dart';
-import 'package:senpwai/sources/shared/matcher.dart';
-import 'package:senpwai/sources/shared/matcher.dart' as m;
+import 'package:senpwai/sources/shared/matcher/tokyoinsider.dart';
+import 'package:senpwai/sources/shared/shared.dart' as shared;
 import 'package:senpwai/shared/log.dart';
 
 final _log = Logger("senpwai.sources.matcher.tokyoinsider.test");
@@ -36,8 +36,8 @@ void main() {
     );
     expect(
       best.score,
-      greaterThan(m.Constants.minPerfectMatchScore),
-      reason: "$label: score ${best.score} should exceed ${m.Constants.minPerfectMatchScore}",
+      greaterThan(shared.Constants.minMatchScore),
+      reason: "$label: score ${best.score} should exceed ${shared.Constants.minMatchScore}",
     );
   }
 

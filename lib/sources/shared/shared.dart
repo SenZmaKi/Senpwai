@@ -55,6 +55,10 @@ Resolution? parseResolution(String text) {
 
 class Constants {
   static final resolutionRegex = RegExp(r'\b(?:(\d{3,4})p|\d+x(\d+))\b');
+
+  /// Minimum fuzzy title similarity score (0–100) for a source result to be
+  /// considered a valid match against an AniList title candidate.
+  static const minMatchScore = 90;
 }
 
 class SourceException implements Exception {
