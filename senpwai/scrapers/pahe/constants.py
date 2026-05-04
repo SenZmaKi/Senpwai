@@ -1,7 +1,7 @@
 import re
 
 PAHE = "pahe"
-PAHE_DOMAIN = "animepahe.si"
+PAHE_DOMAIN = "animepahe.pw"
 PAHE_HOME_URL = f"https://{PAHE_DOMAIN}"
 FULL_SITE_NAME = "Animepahe"
 API_ENTRY_POINT = f"{PAHE_HOME_URL}/api?m="
