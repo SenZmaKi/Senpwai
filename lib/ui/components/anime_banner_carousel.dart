@@ -11,6 +11,7 @@ import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
 import 'package:senpwai/ui/components/shimmer_card.dart';
+import 'package:senpwai/ui/pages/anime_page/anime_page.dart';
 
 class AnimeBannerCarousel extends StatefulWidget {
   final List<AnilistAnimeBase> anime;
@@ -136,7 +137,14 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
               onPageChanged: _onPageChanged,
               itemCount: items.length,
               itemBuilder: (context, index) {
-                return _BannerSlide(anime: items[index]);
+                final item = items[index];
+                return MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => AnimeViewPage.open(context, item),
+                    child: _BannerSlide(anime: item),
+                  ),
+                );
               },
             ),
           ),

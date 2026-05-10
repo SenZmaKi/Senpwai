@@ -6,6 +6,7 @@ import 'package:senpwai/ui/components/anime_card/card_hover_mixin.dart';
 import 'package:senpwai/ui/components/anime_card/media_list_status_dot.dart';
 import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/components/overlay_chip.dart';
+import 'package:senpwai/ui/pages/anime_page/anime_page.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
@@ -47,7 +48,7 @@ class _AnimePosterCardState extends State<AnimePosterCard> with CardHoverMixin {
     return buildHoverableCard(
       ext: ext,
       theme: theme,
-      onTap: widget.onTap,
+      onTap: widget.onTap ?? () => AnimeViewPage.open(context, anime),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

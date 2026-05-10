@@ -83,10 +83,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     icon: Icons.filter_alt_outlined,
                     title: 'NSFW Filter',
                     subtitle: 'Hide adult content from results',
-                    trailing: Switch.adaptive(
+                    trailing: Switch(
                       value: _nsfwFilter,
                       onChanged: (v) => setState(() => _nsfwFilter = v),
-                      activeTrackColor: theme.colorScheme.primary,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -117,10 +116,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     icon: Icons.update,
                     title: 'Auto-Update Downloads',
                     subtitle: 'Automatically fetch new episodes',
-                    trailing: Switch.adaptive(
+                    trailing: Switch(
                       value: _autoUpdate,
                       onChanged: (v) => setState(() => _autoUpdate = v),
-                      activeTrackColor: theme.colorScheme.primary,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -134,11 +132,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     icon: Icons.notifications_active_outlined,
                     title: 'Push Notifications',
                     subtitle: 'Get notified for new episodes',
-                    trailing: Switch.adaptive(
+                    trailing: Switch(
                       value: _notificationsEnabled,
                       onChanged: (v) =>
                           setState(() => _notificationsEnabled = v),
-                      activeTrackColor: theme.colorScheme.primary,
                     ),
                   ),
                   const SizedBox(height: 24),

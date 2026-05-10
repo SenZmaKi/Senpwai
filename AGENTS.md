@@ -1,13 +1,15 @@
 # Misc
 
 - The app is designed for mobile, tablet and desktop so it should be responsive.
-- Once you finish an implementation task prompt me using the question/prompt tool to review it and in the options for the prompt have good, medium, bad and other. Every time even if you previously prompted me do it again.
+- Validate your implementation with static analyzers don't run tests unless I explicitly ask you to.
+- Don't ignore preexisting errors or warnings.
 - Before running tests run static analyzers
-- Anything that is clickable and technically a button should have button for accesibility for instance on hover cursor should change to a hand.
+- Anything that is clickable and technically a button should behave like a button for accesibility for instance on hover cursor should change to a hand.
 - When refactoring code don't care about backwards compatibility, upstream enforces downstream so downstream should update to the new upstream architecture. Aggressive refactors.
 - If I'm suggesting and you feel like it goes against your better judgement then tell me why it is a bad idea.
 - Try to keep ui files as small as possible in terms of lines of code ~300 lines max. If it gets too big then break it down into smaller components and files.
 - Find libtorrent_dart library implementation at ../libtorrent_dart/ and anitomy_dart at ../anitomy_dart/ (I made the libraries so we're in full control over them)
+- Ignore the python codebase we are rebuilding it in flutter just use it as a reference.
 
 # Frontend Design
 
@@ -51,39 +53,9 @@ A well designed `StatefulWidget` updates only the minimal part of the UI and avo
 
 ## Design System Architecture
 
-The app uses a layered, fully configurable design system in `lib/ui/core/theme.dart`.
-
-**Core types:**
-
-- `SenpwaiColorSet` — one mode's colors (primary, secondary, tertiary, background, surface, surfaceVariant, onSurface, onPrimary, error).
-- `SenpwaiColors` — wraps a `dark` and `light` `SenpwaiColorSet`. Every preset provides hand-crafted colors for both modes.
-- `SenpwaiTypography` — display/body font families, all size/weight tokens from display through body. Has a `neon` static preset.
-- `SenpwaiShapeStyle` — cardRadius, cardBorderWidth, inputRadius, buttonRadius. Has a `neon` static preset.
-- `SenpwaiTheme` — composes `SenpwaiColors` + `SenpwaiTypography` + `SenpwaiShapeStyle`. Has `toThemeData(Brightness)` that builds a full `ThemeData` for the given brightness (dark or light) using the matching `SenpwaiColorSet`.
-- `SenpwaiThemePreset` — enum of curated anime-inspired themes (defaultTheme, naruto, kaneki, gojo, deku). Each has `toTheme()` returning a complete `SenpwaiTheme` with specialized colors, typography, and shapes.
-- `ThemeConfig` — `ChangeNotifier` holding ONE `SenpwaiTheme` + `BrightnessMode` + optional active preset. `applyPreset()` applies the full theme (colors + typography + shapes). Exposes `buildLightTheme()` / `buildDarkTheme()` for `MaterialApp`.
-- `ThemeConfigProvider` — `InheritedNotifier` that provides `ThemeConfig` via `ThemeConfigProvider.of(context)`.
-- `SenpwaiThemeExtension` — `ThemeExtension` on `ThemeData` for card styling and shimmer. Badge/score colors are derived from the existing `ColorScheme` (surface, onSurface, secondary) — NOT separate fields.
-
-**Font picker** uses `displayFontOptions` and `bodyFontOptions` lists of `FontOption`. Settings page exposes dropdowns that update `config.typography`.
-
-**Pagination** uses `PaginatedScrollMixin` from `lib/ui/core/pagination.dart` — mix into any `State` to get infinite scroll with configurable threshold.
-
-**Key rules:**
-
-- Never auto-adapt colors from dark to light. Each preset provides explicit hand-crafted dark and light color sets.
-- Brightness is always passed explicitly to `toThemeData(Brightness)`, never inferred from color luminance.
-- `ThemeConfig` holds a single `SenpwaiTheme` (not separate dark/light themes).
-
-name: frontend-design
-description: Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, or applications. Generates creative, polished code that avoids generic AI aesthetics.
-license: Complete terms in LICENSE.txt
-
----
-
-This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.
-
-The user provides frontend requirements: a component, page, application, or interface to build. They may include context about the purpose, audience, or technical constraints.
+- The app uses a layered, fully configurable design system in `lib/ui/core/theme.dart`.
+- Instead of building something from scratch check if a shared component already exists.
+- If you do build something from scratch and you feel like a component could be reused elsewhere then abstract it for later reuse.
 
 ## Design Thinking
 

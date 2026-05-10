@@ -1,7 +1,11 @@
 import 'dart:async';
 
+import 'package:cf_bypass/cf_bypass.dart' hide LoggerExtensions;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/shared/dev_config.dart';
+import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/ui/pages/anime_page/cf_bypass_page.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 import 'package:senpwai/ui/components/toast.dart';
@@ -18,6 +22,8 @@ import 'package:senpwai/ui/shared/window_manager.dart';
 Future<void> initApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   setupLogger();
+  applyDevConfig();
+  _initCfBypassSolver();
 
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
@@ -46,6 +52,33 @@ Future<void> initApp() async {
     return true;
   };
   WindowManager.getInstance().init();
+}
+
+/// Wires a CF bypass solver that pushes [CfBypassPage] when a challenge is detected.
+void _initCfBypassSolver() {
+  // Ensure Dio (and its interceptor) is initialized.
+  GlobalDio.getInstance();
+  GlobalDio.cfBypassInterceptor?.setSolver((url) async {
+    final ctx = App.navigatorKey.currentContext;
+    if (ctx == null) {
+      return CfBypassResult(
+        success: false,
+        url: url,
+        error: 'No navigation context available',
+        cookies: [],
+      );
+    }
+    final result = await Navigator.of(ctx).push<CfBypassResult>(
+      MaterialPageRoute(builder: (_) => CfBypassPage(url: url)),
+    );
+    return result ??
+        CfBypassResult(
+          success: false,
+          url: url,
+          error: 'User cancelled CF bypass',
+          cookies: [],
+        );
+  });
 }
 
 class App extends ConsumerWidget {

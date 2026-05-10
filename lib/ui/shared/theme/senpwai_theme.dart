@@ -197,6 +197,40 @@ class SenpwaiTheme {
         ),
         side: BorderSide(color: c.primary.withValues(alpha: 0.3)),
       ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled) &&
+              states.contains(WidgetState.selected)) {
+            return c.onPrimary.withValues(alpha: 0.6);
+          }
+          if (states.contains(WidgetState.selected)) {
+            return c.onPrimary;
+          }
+          return null;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled) &&
+              states.contains(WidgetState.selected)) {
+            return c.primary.withValues(alpha: 0.35);
+          }
+          if (states.contains(WidgetState.selected)) {
+            return c.primary;
+          }
+          return null;
+        }),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return c.primary.withValues(alpha: 0.2);
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return c.primary.withValues(alpha: 0.1);
+          }
+          if (states.contains(WidgetState.focused)) {
+            return c.primary.withValues(alpha: 0.15);
+          }
+          return Colors.transparent;
+        }),
+      ),
       dividerTheme: DividerThemeData(color: c.primary.withValues(alpha: 0.15)),
       iconTheme: IconThemeData(color: c.onSurface),
       extensions: [
