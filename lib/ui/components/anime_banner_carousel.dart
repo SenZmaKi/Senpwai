@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/genre_tag.dart';
 import 'package:senpwai/ui/components/overlay_chip.dart';
@@ -36,11 +37,21 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
   Timer? _autoScrollTimer;
   int _currentPage = 0;
   bool _userInteracting = false;
-  late List<AnilistAnimeBase> _items;
+  late List<_BannerCarouselItem> _items;
 
-  List<AnilistAnimeBase> _computeItems(List<AnilistAnimeBase> anime) {
-    final withBanner = anime.where((a) => a.bannerImage != null).toList()
-      ..shuffle();
+  List<_BannerCarouselItem> _computeItems(List<AnilistAnimeBase> anime) {
+    final withBanner =
+        anime
+            .map((item) {
+              final bannerUrl = normalizeImageUrl(item.bannerImage);
+              if (bannerUrl == null) {
+                return null;
+              }
+              return _BannerCarouselItem(anime: item, bannerUrl: bannerUrl);
+            })
+            .nonNulls
+            .toList()
+          ..shuffle();
     return withBanner.take(widget.maxItems).toList();
   }
 
@@ -141,8 +152,11 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
                 return MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: GestureDetector(
-                    onTap: () => AnimeViewPage.open(context, item),
-                    child: _BannerSlide(anime: item),
+                    onTap: () => AnimeViewPage.open(context, item.anime),
+                    child: _BannerSlide(
+                      anime: item.anime,
+                      bannerUrl: item.bannerUrl,
+                    ),
                   ),
                 );
               },
@@ -200,10 +214,18 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
   }
 }
 
+class _BannerCarouselItem {
+  final AnilistAnimeBase anime;
+  final String bannerUrl;
+
+  const _BannerCarouselItem({required this.anime, required this.bannerUrl});
+}
+
 class _BannerSlide extends StatelessWidget {
   final AnilistAnimeBase anime;
+  final String bannerUrl;
 
-  const _BannerSlide({required this.anime});
+  const _BannerSlide({required this.anime, required this.bannerUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -230,7 +252,7 @@ class _BannerSlide extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         CachedNetworkImage(
-          imageUrl: (anime.bannerImage)!,
+          imageUrl: bannerUrl,
           fit: BoxFit.cover,
           placeholder: (_, __) => Container(
             color: ext.randomColour(anime.id).withValues(alpha: 0.2),

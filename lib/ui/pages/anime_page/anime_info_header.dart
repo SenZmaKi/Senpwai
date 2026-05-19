@@ -23,6 +23,7 @@ class AnimeInfoHeader extends StatelessWidget {
     final coverHeight = coverWidth * 1.42;
     final coverOverlap = coverHeight * 0.4;
     final placeholderColor = ext.randomColour(anime.id);
+    final bannerUrl = normalizeImageUrl(anime.bannerImage);
 
     return SliverToBoxAdapter(
       child: Stack(
@@ -33,11 +34,11 @@ class AnimeInfoHeader extends StatelessWidget {
             height: bannerHeight + coverOverlap,
             child: Stack(
               children: [
-                if (anime.bannerImage != null)
+                if (bannerUrl != null)
                   Positioned.fill(
                     bottom: coverOverlap,
                     child: CachedNetworkImage(
-                      imageUrl: anime.bannerImage!,
+                      imageUrl: bannerUrl,
                       fit: BoxFit.cover,
                       placeholder: (_, __) => Container(
                         color: placeholderColor.withValues(alpha: 0.2),
@@ -65,10 +66,7 @@ class AnimeInfoHeader extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          colors.surface,
-                        ],
+                        colors: [Colors.transparent, colors.surface],
                       ),
                     ),
                   ),
@@ -94,9 +92,7 @@ class AnimeInfoHeader extends StatelessWidget {
                         width: coverWidth,
                         height: coverHeight,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(
-                            ext.cardRadius,
-                          ),
+                          borderRadius: BorderRadius.circular(ext.cardRadius),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.4),
@@ -113,9 +109,7 @@ class AnimeInfoHeader extends StatelessWidget {
                       ),
                       const SizedBox(width: 16),
                       // Title + quick stats
-                      Expanded(
-                        child: _TitleBlock(anime: anime),
-                      ),
+                      Expanded(child: _TitleBlock(anime: anime)),
                     ],
                   ),
                 ),
@@ -137,6 +131,7 @@ class _TitleBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final nativeTitle = anime.title.native?.trim();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,11 +147,12 @@ class _TitleBlock extends StatelessWidget {
             height: 1.2,
           ),
         ),
-        if (anime.title.native != null &&
-            anime.title.native != anime.title.display) ...[
+        if (nativeTitle != null &&
+            nativeTitle.isNotEmpty &&
+            nativeTitle != anime.title.display) ...[
           const SizedBox(height: 4),
           Text(
-            anime.title.native!,
+            nativeTitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -238,10 +234,7 @@ class _StatChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: chipColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: chipColor.withValues(alpha: 0.3),
-          width: 0.5,
-        ),
+        border: Border.all(color: chipColor.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -277,7 +270,8 @@ class AnimeMetadataSection extends StatelessWidget {
     // Build a single inline summary string
     final parts = <String>[
       if (anime.seasonLabel.isNotEmpty) anime.seasonLabel,
-      if (anime.startDate != null) _formatDateRange(anime.startDate, anime.endDate),
+      if (anime.startDate != null)
+        _formatDateRange(anime.startDate, anime.endDate),
     ];
 
     return SliverToBoxAdapter(
@@ -294,14 +288,23 @@ class AnimeMetadataSection extends StatelessWidget {
                 runSpacing: 6,
                 children: anime.genres.map((g) {
                   final ext = theme.extension<SenpwaiThemeExtension>()!;
-                  final hash = g.toGraphql().codeUnits.fold(0, (int p, int c) => p * 31 + c);
+                  final hash = g.toGraphql().codeUnits.fold(
+                    0,
+                    (int p, int c) => p * 31 + c,
+                  );
                   final tagColor = ext.randomColour(hash);
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: tagColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: tagColor.withValues(alpha: 0.3), width: 0.5),
+                      border: Border.all(
+                        color: tagColor.withValues(alpha: 0.3),
+                        width: 0.5,
+                      ),
                     ),
                     child: Text(
                       g.toGraphql(),
@@ -351,8 +354,18 @@ class AnimeMetadataSection extends StatelessWidget {
   }
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   String _fmtDate(DateTime d) => '${_months[d.month - 1]} ${d.year}';

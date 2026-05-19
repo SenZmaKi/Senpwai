@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/anilist.dart';
+import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
 Widget _buildAvatarIcon(AnilistViewer? viewer, bool isAuthLoading) {
@@ -11,10 +12,11 @@ Widget _buildAvatarIcon(AnilistViewer? viewer, bool isAuthLoading) {
       child: CircularProgressIndicator(strokeWidth: 2),
     );
   }
-  if (viewer?.avatarUrl != null) {
+  final avatarUrl = normalizeImageUrl(viewer?.avatarUrl);
+  if (avatarUrl != null) {
     return CircleAvatar(
       radius: 12,
-      backgroundImage: CachedNetworkImageProvider(viewer!.avatarUrl!),
+      backgroundImage: CachedNetworkImageProvider(avatarUrl),
     );
   }
   return const Icon(Icons.login);
@@ -116,9 +118,7 @@ class AppShell extends StatelessWidget {
                     cursor: SystemMouseCursors.click,
                     child: _buildAvatarIcon(viewer, isAuthLoading),
                   ),
-                  label: isAuthLoading
-                      ? 'Loading'
-                      : (viewer != null ? viewer!.name : 'Login'),
+                  label: isAuthLoading ? 'Loading' : (viewer?.name ?? 'Login'),
                 ),
               ],
             ),
@@ -173,9 +173,7 @@ class _DesktopRail extends StatelessWidget {
             const Spacer(),
             _RailTile(
               iconWidget: _buildAvatarIcon(viewer, isAuthLoading),
-              label: isAuthLoading
-                  ? 'Loading'
-                  : (viewer != null ? viewer!.name : 'Login'),
+              label: isAuthLoading ? 'Loading' : (viewer?.name ?? 'Login'),
               onTap: onAvatarTap,
             ),
             const SizedBox(height: 12),

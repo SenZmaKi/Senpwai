@@ -1,6 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+String? normalizeImageUrl(String? imageUrl) {
+  final trimmed = imageUrl?.trim();
+  if (trimmed == null || trimmed.isEmpty) {
+    return null;
+  }
+  return trimmed;
+}
+
 class AnimeCoverImage extends StatelessWidget {
   final String? imageUrl;
   final Color placeholderColor;
@@ -18,9 +26,10 @@ class AnimeCoverImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    if (imageUrl != null) {
+    final resolvedImageUrl = normalizeImageUrl(imageUrl);
+    if (resolvedImageUrl != null) {
       return CachedNetworkImage(
-        imageUrl: imageUrl!,
+        imageUrl: resolvedImageUrl,
         fit: fit,
         placeholder: (_, __) =>
             Container(color: placeholderColor.withValues(alpha: 0.3)),

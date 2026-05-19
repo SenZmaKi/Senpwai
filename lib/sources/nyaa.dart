@@ -132,23 +132,63 @@ class Source {
               el.querySelector("td > a")?.attributes["title"] ==
               "Anime - English-translated",
         )
-        .map((el) {
+        .map<AnimeResult?>((el) {
           final tds = el.querySelectorAll("td");
+          if (tds.length < 8) {
+            log.warningWithMetadata(
+              "Skipping malformed Nyaa row",
+              metadata: {"reason": "missing columns", "columns": tds.length},
+            );
+            return null;
+          }
           // Column 2 (index 1) - Title
           final aTags = tds[1].querySelectorAll("a");
           log.infoWithMetadata("aTags", metadata: {"aTags": aTags});
+          if (aTags.isEmpty) {
+            log.warningWithMetadata(
+              "Skipping malformed Nyaa row",
+              metadata: {"reason": "missing title links"},
+            );
+            return null;
+          }
           final filename = aTags.last.text;
           // Column 3 (index 2) - Download links
           final downloadLinks = tds[2].querySelectorAll("a");
-          final torrentFileResource = downloadLinks[0].attributes["href"]!;
+          if (downloadLinks.length < 2) {
+            log.warningWithMetadata(
+              "Skipping malformed Nyaa row",
+              metadata: {
+                "reason": "missing download links",
+                "links": downloadLinks.length,
+                "filename": filename,
+              },
+            );
+            return null;
+          }
+          final torrentFileResource = downloadLinks[0].attributes["href"];
+          final magnetUrl = downloadLinks[1].attributes["href"];
+          final dateEpoch = tds[4].attributes["data-timestamp"];
+          if (torrentFileResource == null ||
+              magnetUrl == null ||
+              dateEpoch == null) {
+            log.warningWithMetadata(
+              "Skipping malformed Nyaa row",
+              metadata: {
+                "reason": "missing required attributes",
+                "hasTorrentFileResource": torrentFileResource != null,
+                "hasMagnetUrl": magnetUrl != null,
+                "hasDateEpoch": dateEpoch != null,
+                "filename": filename,
+              },
+            );
+            return null;
+          }
           final torrentFileUrl = '${Constants.baseUrl}$torrentFileResource';
-          final magnetUrl = downloadLinks[1].attributes["href"]!;
           // Column 4 (index 3) - Size
           final sizeBytesStr = tds[3].text;
           final sizeBytes = _parseSizeBytes(sizeBytesStr);
 
           // Column 5 (index 4) - Date
-          final dateEpoch = tds[4].attributes["data-timestamp"]!;
           final dateAdded = DateTime.fromMillisecondsSinceEpoch(
             int.parse(dateEpoch) * 1000,
           );
@@ -178,7 +218,7 @@ class Source {
             torrentFileDownloadCount: torrentFileDownloadCount,
           );
         })
-        .cast<AnimeResult>()
+        .nonNulls
         .toList();
   }
 

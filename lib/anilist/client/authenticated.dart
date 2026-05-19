@@ -48,8 +48,9 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
   AnilistAuthenticatedClient();
 
   Future<int> _getViewerId() async {
-    viewerId ??= (await auth.fetchViewer()).id;
-    return viewerId!;
+    final resolvedViewerId = viewerId ?? (await auth.fetchViewer()).id;
+    viewerId = resolvedViewerId;
+    return resolvedViewerId;
   }
 
   Future<Pagination<List<AnilistAnimeWithListEntry>>> listUserMediaList({

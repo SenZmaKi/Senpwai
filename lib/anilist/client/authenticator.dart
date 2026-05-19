@@ -16,8 +16,13 @@ class AnilistAuthenticatorClient {
   final _dio = GlobalDio.getInstance();
   String? token;
 
-  Future<bool> isAuthenticated() async =>
-      token == null ? false : isValidToken(token: token!);
+  Future<bool> isAuthenticated() async {
+    final resolvedToken = token;
+    if (resolvedToken == null) {
+      return false;
+    }
+    return isValidToken(token: resolvedToken);
+  }
 
   Future<bool> isValidToken({required String token}) async {
     try {
