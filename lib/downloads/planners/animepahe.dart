@@ -100,6 +100,7 @@ class AnimePaheDownloadPlanner {
       final plannedTarget = _targetPlanner.planEpisodeFile(
         directory: request.downloadFolder,
         jobTitle: request.httpJobTitle,
+        episodeNumber: directLink.episodeNumber,
         sourceFileName: directLink.filename,
         resolvedUrl: resolvedTarget.resolvedUrl,
         dedupeSuffix: index == 0 ? null : '(${index + 1})',

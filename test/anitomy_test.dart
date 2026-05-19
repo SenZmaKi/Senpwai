@@ -51,4 +51,13 @@ void main() {
     expect(parsed.title, isNotNull);
     expect(parsed.episode, 1);
   });
+
+  test('Parse Japanese season suffix without treating it as episode', () {
+    const filename = 'Kingdom 4期';
+    final parsed = parseFilename(filename);
+
+    expect(parsed.title, 'Kingdom');
+    expect(parsed.season, 4);
+    expect(parsed.episode, isNull);
+  });
 }

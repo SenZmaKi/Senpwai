@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/ui/components/app.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/anime_page/nyaa_plan_review_dialog.dart';
 import 'package:senpwai/ui/pages/anime_page/download_widgets.dart';
@@ -39,7 +40,9 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       text: widget.pageState.startEpisode.toString(),
     );
     _endController = TextEditingController(
-      text: widget.pageState.endEpisode.toString(),
+      text: widget.pageState.endEpisodeUsesLatest
+          ? ''
+          : widget.pageState.endEpisode.toString(),
     );
   }
 
@@ -48,7 +51,9 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
     super.didUpdateWidget(oldWidget);
     // Sync controllers when state changes externally
     final newStart = widget.pageState.startEpisode.toString();
-    final newEnd = widget.pageState.endEpisode.toString();
+    final newEnd = widget.pageState.endEpisodeUsesLatest
+        ? ''
+        : widget.pageState.endEpisode.toString();
     if (_startController.text != newStart) _startController.text = newStart;
     if (_endController.text != newEnd) _endController.text = newEnd;
   }
@@ -193,11 +198,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
               )
             : const Icon(Icons.download_rounded, size: 20),
         label: Text(
-          state.isSubmittingDownload
-              ? 'Preparing...'
-              : state.selectedSource != null
-              ? 'Download'
-              : 'No source available',
+          state.submitButtonLabel,
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         ),
         style: ElevatedButton.styleFrom(
@@ -266,6 +267,10 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
             isDense: true,
           ),
           onChanged: (v) {
+            if (v.trim().isEmpty) {
+              notifier.useLatestEndEpisode();
+              return;
+            }
             final val = int.tryParse(v);
             if (val != null) notifier.setEndEpisode(val);
           },
@@ -385,47 +390,40 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
   Future<void> _handleDownload(BuildContext context) async {
     final notifier = widget.notifier;
     try {
+      notifier.setSubmissionStage(DownloadSubmissionStage.planning);
       final preparedBatch = await notifier.prepareDownloads(
         startInput: _startController.text,
         endInput: _endController.text,
       );
-      if (!context.mounted) return;
+      if (!mounted) {
+        notifier.resetSubmissionStage();
+        return;
+      }
       if (preparedBatch.requiresUserReview) {
+        notifier.setSubmissionStage(DownloadSubmissionStage.reviewing);
         final confirmed = await NyaaPlanReviewDialog.confirm(
           context,
           batch: preparedBatch,
         );
-        if (!confirmed) return;
-      }
-      final result = await notifier.enqueuePreparedDownloads(preparedBatch);
-      if (!context.mounted) return;
-      final state = notifier.currentState;
-      AppToast.showInfo(
-        context,
-        title: result.queuedCount == 1
-            ? 'Download queued'
-            : '${result.queuedCount} downloads queued',
-        description:
-            'Episodes ${state.startEpisode}-${state.endEpisode} from ${state.selectedSource!.label}',
-      );
-      for (final notice in result.notices) {
-        switch (notice.level) {
-          case DownloadNoticeLevel.info:
-            AppToast.showInfo(
-              context,
-              title: notice.title,
-              description: notice.description,
-            );
-          case DownloadNoticeLevel.warning:
-            AppToast.showWarning(
-              context,
-              title: notice.title,
-              description: notice.description,
-            );
+        if (!confirmed) {
+          notifier.resetSubmissionStage();
+          return;
         }
       }
+      notifier.setSubmissionStage(DownloadSubmissionStage.queueing);
+      final result = await notifier.enqueuePreparedDownloads(preparedBatch);
+      notifier.resetSubmissionStage();
+      ref.read(AppPageNotifier.provider.notifier).showDownloads();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+      final rootContext = App.navigatorKey.currentContext;
+      if (rootContext != null) {
+        _showDownloadNotices(rootContext, result.notices);
+      }
     } on DownloadUserError catch (error) {
-      if (!context.mounted) return;
+      notifier.resetSubmissionStage();
+      if (!mounted) return;
       AppToast.showError(
         context,
         title: error.title,
@@ -433,13 +431,36 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
         copyPayload: error.copyPayload,
       );
     } catch (error, stackTrace) {
-      if (!context.mounted) return;
+      notifier.resetSubmissionStage();
+      if (!mounted) return;
       AppToast.showError(
         context,
         title: 'Failed to queue download',
         description: error.toString(),
         copyPayload: formatErrorForCopy(error, stackTrace),
       );
+    }
+  }
+
+  void _showDownloadNotices(
+    BuildContext context,
+    Iterable<DownloadNotice> notices,
+  ) {
+    for (final notice in notices) {
+      switch (notice.level) {
+        case DownloadNoticeLevel.info:
+          AppToast.showInfo(
+            context,
+            title: notice.title,
+            description: notice.description,
+          );
+        case DownloadNoticeLevel.warning:
+          AppToast.showWarning(
+            context,
+            title: notice.title,
+            description: notice.description,
+          );
+      }
     }
   }
 }

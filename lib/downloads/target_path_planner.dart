@@ -142,6 +142,7 @@ class DownloadTargetPlanner {
   PlannedEpisodeDownloadTarget planEpisodeFile({
     required String directory,
     required String jobTitle,
+    required int episodeNumber,
     required String sourceFileName,
     required String resolvedUrl,
     String? dedupeSuffix,
@@ -150,9 +151,10 @@ class DownloadTargetPlanner {
       sourceFileName: sourceFileName,
       resolvedUrl: resolvedUrl,
     );
+    final episodeLabel = 'Episode ${_formatEpisodeNumber(episodeNumber)}';
     final baseName = dedupeSuffix == null
-        ? jobTitle
-        : '$jobTitle $dedupeSuffix';
+        ? '$jobTitle $episodeLabel'
+        : '$jobTitle $episodeLabel $dedupeSuffix';
     final fileName = '${sanitizePathSegment(baseName)}$extension';
     return PlannedEpisodeDownloadTarget(
       directory: directory,
@@ -306,8 +308,11 @@ class DownloadTargetPlanner {
     if (resolvedExtension.isNotEmpty) {
       return resolvedExtension.toLowerCase();
     }
-    return '.bin';
+    return '';
   }
+
+  static String _formatEpisodeNumber(int episodeNumber) =>
+      episodeNumber.toString().padLeft(2, '0');
 
   static String _formatAnimeTypeFolderName(String type) {
     final sanitized = sanitizePathSegment(type);

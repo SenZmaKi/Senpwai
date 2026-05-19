@@ -9,6 +9,18 @@ import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/shared/platform_paths.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 
+enum DownloadSubmissionStage { idle, planning, reviewing, queueing }
+
+extension DownloadSubmissionStageExtension on DownloadSubmissionStage {
+  String label({required bool hasSource}) => switch (this) {
+    DownloadSubmissionStage.idle =>
+      hasSource ? 'Download' : 'No source available',
+    DownloadSubmissionStage.planning => 'Planning download...',
+    DownloadSubmissionStage.reviewing => 'Reviewing plan...',
+    DownloadSubmissionStage.queueing => 'Queueing download...',
+  };
+}
+
 @immutable
 class AnimeDownloadSessionState {
   final AnilistAnimeBase anime;
@@ -23,9 +35,10 @@ class AnimeDownloadSessionState {
   final String? downloadFolder;
   final String resolvedDownloadTitle;
   final bool trackingEnabled;
-  final bool isSubmittingDownload;
+  final DownloadSubmissionStage submissionStage;
   final bool sourceSelectedByUser;
   final bool downloadFolderSelectedByUser;
+  final bool endEpisodeUsesLatest;
 
   const AnimeDownloadSessionState({
     required this.anime,
@@ -40,9 +53,10 @@ class AnimeDownloadSessionState {
     this.downloadFolder,
     this.resolvedDownloadTitle = '',
     this.trackingEnabled = false,
-    this.isSubmittingDownload = false,
+    this.submissionStage = DownloadSubmissionStage.idle,
     this.sourceSelectedByUser = false,
     this.downloadFolderSelectedByUser = false,
+    this.endEpisodeUsesLatest = true,
   });
 
   int get totalEpisodes => anime.episodes ?? 1;
@@ -51,6 +65,12 @@ class AnimeDownloadSessionState {
       !animepaheMatch.isLoading &&
       !tokyoinsiderMatch.isLoading &&
       !nyaaMatch.isLoading;
+
+  bool get isSubmittingDownload =>
+      submissionStage != DownloadSubmissionStage.idle;
+
+  String get submitButtonLabel =>
+      submissionStage.label(hasSource: selectedSource != null);
 
   bool isSourceAvailable(AnimeSource source) => switch (source) {
     AnimeSource.animepahe => animepaheMatch.isMatched,
@@ -76,9 +96,10 @@ class AnimeDownloadSessionState {
     String? downloadFolder,
     String? resolvedDownloadTitle,
     bool? trackingEnabled,
-    bool? isSubmittingDownload,
+    DownloadSubmissionStage? submissionStage,
     bool? sourceSelectedByUser,
     bool? downloadFolderSelectedByUser,
+    bool? endEpisodeUsesLatest,
     bool clearSource = false,
   }) {
     return AnimeDownloadSessionState(
@@ -97,10 +118,11 @@ class AnimeDownloadSessionState {
       resolvedDownloadTitle:
           resolvedDownloadTitle ?? this.resolvedDownloadTitle,
       trackingEnabled: trackingEnabled ?? this.trackingEnabled,
-      isSubmittingDownload: isSubmittingDownload ?? this.isSubmittingDownload,
+      submissionStage: submissionStage ?? this.submissionStage,
       sourceSelectedByUser: sourceSelectedByUser ?? this.sourceSelectedByUser,
       downloadFolderSelectedByUser:
           downloadFolderSelectedByUser ?? this.downloadFolderSelectedByUser,
+      endEpisodeUsesLatest: endEpisodeUsesLatest ?? this.endEpisodeUsesLatest,
     );
   }
 }
@@ -134,6 +156,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       anime: _anime,
       startEpisode: 1,
       endEpisode: _anime.episodes ?? 1,
+      endEpisodeUsesLatest: true,
     );
   }
 
@@ -195,7 +218,14 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   }
 
   void setEndEpisode(int episode) {
-    state = state.copyWith(endEpisode: episode);
+    state = state.copyWith(endEpisode: episode, endEpisodeUsesLatest: false);
+  }
+
+  void useLatestEndEpisode() {
+    state = state.copyWith(
+      endEpisode: state.totalEpisodes,
+      endEpisodeUsesLatest: true,
+    );
   }
 
   void setDownloadFolder(String folder) {
@@ -207,6 +237,14 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
 
   void setTrackingEnabled(bool enabled) {
     state = state.copyWith(trackingEnabled: enabled);
+  }
+
+  void setSubmissionStage(DownloadSubmissionStage stage) {
+    state = state.copyWith(submissionStage: stage);
+  }
+
+  void resetSubmissionStage() {
+    state = state.copyWith(submissionStage: DownloadSubmissionStage.idle);
   }
 
   Future<PreparedDownloadBatch> prepareDownloads({
@@ -235,39 +273,30 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     state = state.copyWith(
       startEpisode: range.start,
       endEpisode: range.end,
-      isSubmittingDownload: true,
+      endEpisodeUsesLatest: endInput.trim().isEmpty,
     );
-    try {
-      return _coordinator.plan(
-        request: DownloadRequest(
-          anime: state.anime,
-          source: source,
-          startEpisode: range.start,
-          endEpisode: range.end,
-          downloadFolder: folder,
-          httpJobTitle: state.resolvedDownloadTitle,
-          resolution: state.selectedResolution,
-          language: state.selectedLanguage,
-        ),
-        animepaheMatch: state.animepaheMatch.result?.result,
-        tokyoinsiderMatch: state.tokyoinsiderMatch.result?.result,
-      );
-    } finally {
-      state = state.copyWith(isSubmittingDownload: false);
-    }
+    return _coordinator.plan(
+      request: DownloadRequest(
+        anime: state.anime,
+        source: source,
+        startEpisode: range.start,
+        endEpisode: range.end,
+        downloadFolder: folder,
+        httpJobTitle: state.resolvedDownloadTitle,
+        resolution: state.selectedResolution,
+        language: state.selectedLanguage,
+      ),
+      animepaheMatch: state.animepaheMatch.result?.result,
+      tokyoinsiderMatch: state.tokyoinsiderMatch.result?.result,
+    );
   }
 
   Future<EnqueuedDownloadsResult> enqueuePreparedDownloads(
     PreparedDownloadBatch batch,
   ) async {
-    state = state.copyWith(isSubmittingDownload: true);
-    try {
-      return ref
-          .read(DownloadManagerNotifier.provider.notifier)
-          .enqueueBatch(batch);
-    } finally {
-      state = state.copyWith(isSubmittingDownload: false);
-    }
+    return ref
+        .read(DownloadManagerNotifier.provider.notifier)
+        .enqueueBatch(batch);
   }
 
   ({int start, int end}) _parseEpisodeRange({

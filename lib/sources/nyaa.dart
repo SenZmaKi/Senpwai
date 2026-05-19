@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:html/dom.dart';
+import 'package:html/parser.dart' show parse;
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/shared.dart' as shared;
@@ -128,8 +129,7 @@ class Source {
 
   List<AnimeResult> _parseSearchResults(Document htmlPage) {
     log.infoWithMetadata("Parsing search results", metadata: {});
-    return htmlPage
-        .querySelectorAll("tr.default")
+    return _animeEnglishTranslatedRows(htmlPage)
         .where(
           (el) =>
               el.querySelector("td > a")?.attributes["title"] ==
@@ -249,3 +249,9 @@ class Source {
     return sizeBytes;
   }
 }
+
+Iterable<Element> _animeEnglishTranslatedRows(Document htmlPage) =>
+    htmlPage.querySelectorAll("table tbody tr");
+
+List<AnimeResult> parseSearchResultsHtml(String html) =>
+    Source.getInstance()._parseSearchResults(parse(html));

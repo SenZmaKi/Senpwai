@@ -19,6 +19,29 @@ import 'package:flutter/foundation.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
 
+enum AppPage { home, search, downloads, settings }
+
+class AppPageNotifier extends Notifier<AppPage> {
+  static final provider = NotifierProvider<AppPageNotifier, AppPage>(
+    AppPageNotifier.new,
+  );
+
+  @override
+  AppPage build() => AppPage.home;
+
+  void setPage(AppPage page) {
+    state = page;
+  }
+
+  void setIndex(int index) {
+    state = AppPage.values[index];
+  }
+
+  void showDownloads() {
+    state = AppPage.downloads;
+  }
+}
+
 Future<void> initApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   setupLogger();
@@ -111,8 +134,6 @@ class _AppRoot extends ConsumerStatefulWidget {
 }
 
 class _AppRootState extends ConsumerState<_AppRoot> {
-  int _currentPage = 0;
-
   @override
   void initState() {
     super.initState();
@@ -137,15 +158,17 @@ class _AppRootState extends ConsumerState<_AppRoot> {
   @override
   Widget build(BuildContext context) {
     final anilist = ref.watch(AnilistNotifier.provider);
+    final currentPage = ref.watch(AppPageNotifier.provider);
 
     return AppShell(
-      currentIndex: _currentPage,
-      onDestinationChanged: (i) => setState(() => _currentPage = i),
+      currentIndex: currentPage.index,
+      onDestinationChanged: (i) =>
+          ref.read(AppPageNotifier.provider.notifier).setIndex(i),
       viewer: anilist.viewer,
       isAuthLoading: anilist.isAuthLoading,
       onAvatarTap: _handleLogin,
       body: IndexedStack(
-        index: _currentPage,
+        index: currentPage.index,
         children: [
           HomePage(onLoginTap: _handleLogin),
           const SearchPage(),

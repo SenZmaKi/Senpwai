@@ -83,6 +83,7 @@ class TokyoInsiderDownloadPlanner {
       final plannedTarget = _targetPlanner.planEpisodeFile(
         directory: request.downloadFolder,
         jobTitle: request.httpJobTitle,
+        episodeNumber: selectedLink.episodeNumber,
         sourceFileName: selectedLink.filename,
         resolvedUrl: resolvedTarget.resolvedUrl,
         dedupeSuffix: index == 0 ? null : '(${index + 1})',

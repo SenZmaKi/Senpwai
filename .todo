@@ -2,6 +2,7 @@
 - Confirm whether clearAllDataOnInit is necessary for cf_bypass
 - Back button on anime preview should turn mouse to cursor
 - Back handler on anime preview page should go back
+- Use rss feed for nyaa
 
 - More in navbar in mobile to reduce clutter
 - \_postGraphQl should properly parse out errors from the GraphQL response and throw them as Anilist exceptions

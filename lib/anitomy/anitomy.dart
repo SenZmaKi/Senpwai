@@ -51,25 +51,79 @@ List<T> _parseCategories<T>({
   required T Function(String elementValue) parser,
 }) {
   return [
-    for (final element in elements.where((element) => element.category == category))
+    for (final element in elements.where(
+      (element) => element.category == category,
+    ))
       parser(element.value),
   ];
+}
+
+final _seasonSuffixPattern = RegExp(
+  r'^第?\s*(\d{1,3})\s*(?:期|cour|クール)$',
+  caseSensitive: false,
+);
+
+bool _looksLikeSeasonMarker(String elementValue) =>
+    _seasonSuffixPattern.hasMatch(elementValue.trim());
+
+int? _parseIntElement(
+  String? elementValue, {
+  required anitomy.ElementCategory category,
+  bool allowSeasonMarkers = false,
+}) {
+  if (elementValue == null) return null;
+  final trimmedValue = elementValue.trim();
+  final directValue = int.tryParse(trimmedValue);
+  if (directValue != null) return directValue;
+
+  if (allowSeasonMarkers) {
+    final seasonMatch = _seasonSuffixPattern.firstMatch(trimmedValue);
+    final seasonValue = seasonMatch?.group(1);
+    if (seasonValue != null) {
+      return int.tryParse(seasonValue);
+    }
+  }
+
+  log.warningWithMetadata(
+    "Could not parse numeric anitomy element",
+    metadata: {"category": category, "value": elementValue},
+  );
+  return null;
 }
 
 AnitomyParseResult parseFilename(String filename) {
   log.infoWithMetadata("Parsing filename", metadata: {"filename": filename});
   _ani.parse(filename);
   final elements = _ani.elements.items.toList();
-  final season = _parseCategory(
+  final rawSeason = _parseCategory(
     elements: elements,
     category: anitomy.ElementCategory.animeSeason,
-    parser: (elementValue) => int.parse(elementValue),
+    parser: (elementValue) => elementValue,
   );
-  final episode = _parseCategory(
+  final rawEpisode = _parseCategory(
     elements: elements,
     category: anitomy.ElementCategory.episodeNumber,
-    parser: (elementValue) => int.parse(elementValue),
+    parser: (elementValue) => elementValue,
   );
+  final season =
+      _parseIntElement(
+        rawSeason,
+        category: anitomy.ElementCategory.animeSeason,
+        allowSeasonMarkers: true,
+      ) ??
+      (_looksLikeSeasonMarker(rawEpisode ?? '')
+          ? _parseIntElement(
+              rawEpisode,
+              category: anitomy.ElementCategory.episodeNumber,
+              allowSeasonMarkers: true,
+            )
+          : null);
+  final episode = _looksLikeSeasonMarker(rawEpisode ?? '')
+      ? null
+      : _parseIntElement(
+          rawEpisode,
+          category: anitomy.ElementCategory.episodeNumber,
+        );
   final title = _parseCategory(
     elements: elements,
     category: anitomy.ElementCategory.animeTitle,
