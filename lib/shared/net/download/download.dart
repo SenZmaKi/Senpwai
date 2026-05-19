@@ -24,6 +24,54 @@ class Download {
 
   Download({required this.params});
 
+  static Future<ResolvedDownloadTarget> probeSingleFile({
+    required String url,
+    Map<String, dynamic>? headers,
+  }) async {
+    final dio = GlobalDio.getInstance();
+    final response = await dio.get<ResponseBody>(
+      url,
+      options: Options(
+        headers: {'Range': 'bytes=0-0', ...?headers},
+        responseType: ResponseType.stream,
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
+      ),
+    );
+    try {
+      final responseBody = response.data;
+      if (responseBody == null) {
+        throw const DownloadProbeException(
+          'The server did not return a readable response body.',
+        );
+      }
+      final contentRange = response.headers.value('content-range');
+      final contentLength = response.headers.value(Headers.contentLengthHeader);
+      final sizeBytes =
+          _parseContentRangeSize(contentRange) ??
+          int.tryParse(contentLength ?? '');
+      if (sizeBytes == null || sizeBytes <= 0) {
+        throw const DownloadProbeException(
+          'Could not determine the final content length for this file.',
+        );
+      }
+      return ResolvedDownloadTarget(
+        resolvedUrl: response.realUri.toString(),
+        sizeBytes: sizeBytes,
+      );
+    } finally {
+      await response.data?.stream.drain<void>();
+    }
+  }
+
+  static int? _parseContentRangeSize(String? contentRange) {
+    if (contentRange == null) return null;
+    final match = RegExp(r'/(\d+)$').firstMatch(contentRange);
+    final size = match?.group(1);
+    return size == null ? null : int.tryParse(size);
+  }
+
   static List<({int startOffsetBytes, int lengthBytes})> computePartRanges({
     required int sizeBytes,
     required int numberOfParts,
@@ -138,7 +186,7 @@ class Download {
     return _dio.get<ResponseBody>(
       params.url,
       options: Options(
-        headers: {"Range": "bytes=$offset-$end"},
+        headers: {"Range": "bytes=$offset-$end", ...params.headers},
         responseType: ResponseType.stream,
         extra: NetConfig.getInstance()
             .buildCacheOptions(policy: CachePolicy.noCache)

@@ -27,6 +27,7 @@ class DownloadParams {
   final Directory downloadDirectory;
   final int sizeBytes;
   final int numberOfParts;
+  final Map<String, dynamic> headers;
   final File targetFile;
 
   DownloadParams({
@@ -36,6 +37,7 @@ class DownloadParams {
     required this.downloadDirectory,
     required this.sizeBytes,
     required this.numberOfParts,
+    this.headers = const {},
   }) : targetFile = File(
          path.join(downloadDirectory.path, "$title.$fileExtension"),
        );
@@ -44,5 +46,28 @@ class DownloadParams {
   String toString() =>
       "DownloadParams(url: $url, title: $title, fileExtension: $fileExtension, "
       "downloadDirectory: $downloadDirectory, sizeBytes: $sizeBytes, "
-      "numberOfParts: $numberOfParts, targetFile: $targetFile)";
+      "numberOfParts: $numberOfParts, headers: $headers, targetFile: $targetFile)";
+}
+
+class ResolvedDownloadTarget {
+  final String resolvedUrl;
+  final int sizeBytes;
+
+  const ResolvedDownloadTarget({
+    required this.resolvedUrl,
+    required this.sizeBytes,
+  });
+
+  @override
+  String toString() =>
+      'ResolvedDownloadTarget(resolvedUrl: $resolvedUrl, sizeBytes: $sizeBytes)';
+}
+
+class DownloadProbeException implements Exception {
+  final String message;
+
+  const DownloadProbeException(this.message);
+
+  @override
+  String toString() => 'DownloadProbeException: $message';
 }

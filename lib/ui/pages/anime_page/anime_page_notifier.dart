@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/downloads/manager.dart';
+import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/request_coordinator.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/platform_paths.dart';
 import 'package:senpwai/sources/animepahe.dart' as animepahe;
 import 'package:senpwai/sources/nyaa.dart' as nyaa;
 import 'package:senpwai/sources/tokyoinsider.dart' as tokyoinsider;
@@ -82,6 +86,8 @@ class AnimePageState {
   final int endEpisode;
   final String? downloadFolder;
   final bool trackingEnabled;
+  final bool isSubmittingDownload;
+  final bool sourceSelectedByUser;
 
   const AnimePageState({
     required this.anime,
@@ -95,6 +101,8 @@ class AnimePageState {
     this.endEpisode = 1,
     this.downloadFolder,
     this.trackingEnabled = false,
+    this.isSubmittingDownload = false,
+    this.sourceSelectedByUser = false,
   });
 
   int get totalEpisodes => anime.episodes ?? 1;
@@ -127,6 +135,8 @@ class AnimePageState {
     int? endEpisode,
     String? downloadFolder,
     bool? trackingEnabled,
+    bool? isSubmittingDownload,
+    bool? sourceSelectedByUser,
     bool clearSource = false,
   }) {
     return AnimePageState(
@@ -142,6 +152,8 @@ class AnimePageState {
       endEpisode: endEpisode ?? this.endEpisode,
       downloadFolder: downloadFolder ?? this.downloadFolder,
       trackingEnabled: trackingEnabled ?? this.trackingEnabled,
+      isSubmittingDownload: isSubmittingDownload ?? this.isSubmittingDownload,
+      sourceSelectedByUser: sourceSelectedByUser ?? this.sourceSelectedByUser,
     );
   }
 }
@@ -165,6 +177,7 @@ class AnimePageNotifier extends Notifier<AnimePageState> {
       anime: _anime,
       startEpisode: 1,
       endEpisode: totalEps,
+      downloadFolder: defaultDownloadsDirectory().path,
     );
     // Fire-and-forget: launch all matchers in parallel.
     Future.microtask(_matchAllSources);
@@ -267,13 +280,17 @@ class AnimePageNotifier extends Notifier<AnimePageState> {
   /// Auto-selects the best available source if the user hasn't manually picked one.
   /// Priority: animepahe → tokyoinsider → nyaa.
   void _autoSelectSource() {
-    if (state.selectedSource != null &&
+    if (state.sourceSelectedByUser &&
+        state.selectedSource != null &&
         state.isSourceAvailable(state.selectedSource!)) {
       return;
     }
     for (final source in AnimeSource.values) {
       if (state.isSourceAvailable(source)) {
-        state = state.copyWith(selectedSource: source);
+        state = state.copyWith(
+          selectedSource: source,
+          sourceSelectedByUser: false,
+        );
         return;
       }
     }
@@ -285,7 +302,7 @@ class AnimePageNotifier extends Notifier<AnimePageState> {
 
   void selectSource(AnimeSource source) {
     if (!state.isSourceAvailable(source)) return;
-    state = state.copyWith(selectedSource: source);
+    state = state.copyWith(selectedSource: source, sourceSelectedByUser: true);
   }
 
   void setResolution(Resolution resolution) {
@@ -311,4 +328,60 @@ class AnimePageNotifier extends Notifier<AnimePageState> {
   void setTrackingEnabled(bool enabled) {
     state = state.copyWith(trackingEnabled: enabled);
   }
+
+  Future<EnqueuedDownloadsResult> queueDownloads() async {
+    final batch = await prepareDownloads();
+    return enqueuePreparedDownloads(batch);
+  }
+
+  Future<PreparedDownloadBatch> prepareDownloads() async {
+    final source = state.selectedSource;
+    final folder = state.downloadFolder;
+    if (source == null) {
+      throw const DownloadUserError(
+        title: 'No source selected',
+        description: 'Choose a source before starting a download.',
+      );
+    }
+    if (folder == null || folder.trim().isEmpty) {
+      throw const DownloadUserError(
+        title: 'No folder selected',
+        description: 'Choose a download folder before starting a download.',
+      );
+    }
+
+    state = state.copyWith(isSubmittingDownload: true);
+    try {
+      final coordinator = AnimeDownloadCoordinator();
+      return coordinator.plan(
+        request: DownloadRequest(
+          anime: state.anime,
+          source: _mapRequestedSource(source),
+          startEpisode: state.startEpisode,
+          endEpisode: state.endEpisode,
+          downloadFolder: folder,
+          resolution: state.selectedResolution,
+          language: state.selectedLanguage,
+        ),
+        animepaheMatch: state.animepaheMatch.result?.result,
+        tokyoinsiderMatch: state.tokyoinsiderMatch.result?.result,
+      );
+    } finally {
+      state = state.copyWith(isSubmittingDownload: false);
+    }
+  }
+
+  Future<EnqueuedDownloadsResult> enqueuePreparedDownloads(
+    PreparedDownloadBatch batch,
+  ) {
+    return ref.read(DownloadManagerNotifier.provider.notifier).enqueueBatch(batch);
+  }
+
+  RequestedDownloadSource _mapRequestedSource(AnimeSource source) => switch (
+    source
+  ) {
+    AnimeSource.animepahe => RequestedDownloadSource.animepahe,
+    AnimeSource.tokyoinsider => RequestedDownloadSource.tokyoinsider,
+    AnimeSource.nyaa => RequestedDownloadSource.nyaa,
+  };
 }

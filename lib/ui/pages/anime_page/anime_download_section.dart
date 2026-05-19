@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/anime_page/anime_page_notifier.dart';
+import 'package:senpwai/ui/pages/anime_page/nyaa_plan_review_dialog.dart';
 import 'package:senpwai/ui/pages/anime_page/download_widgets.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/sources/shared/shared.dart';
@@ -168,16 +172,26 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
     );
 
     final downloadButton = MouseRegion(
-      cursor: state.selectedSource != null
+      cursor: state.selectedSource != null && !state.isSubmittingDownload
           ? SystemMouseCursors.click
           : SystemMouseCursors.basic,
       child: ElevatedButton.icon(
-        onPressed: state.selectedSource != null
-            ? () => _handleDownload(context)
+        onPressed: state.selectedSource != null && !state.isSubmittingDownload
+            ? () => unawaited(_handleDownload(context))
             : null,
-        icon: const Icon(Icons.download_rounded, size: 20),
+        icon: state.isSubmittingDownload
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.download_rounded, size: 20),
         label: Text(
-          state.selectedSource != null ? 'Download' : 'No source available',
+          state.isSubmittingDownload
+              ? 'Preparing...'
+              : state.selectedSource != null
+              ? 'Download'
+              : 'No source available',
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         ),
         style: ElevatedButton.styleFrom(
@@ -362,7 +376,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
     }
   }
 
-  void _handleDownload(BuildContext context) {
+  Future<void> _handleDownload(BuildContext context) async {
     final state = widget.pageState;
     final notifier = widget.notifier;
     final totalEps = state.totalEpisodes;
@@ -425,13 +439,58 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
 
     notifier.setStartEpisode(start);
     notifier.setEndEpisode(end);
-
-    // TODO: Trigger actual download
-    AppToast.showInfo(
-      context,
-      title: 'Download queued',
-      description: 'Episodes $start–$end from ${state.selectedSource!.label}',
-    );
+    try {
+      final preparedBatch = await notifier.prepareDownloads();
+      if (!context.mounted) return;
+      if (state.selectedSource == AnimeSource.nyaa) {
+        final confirmed = await NyaaPlanReviewDialog.confirm(
+          context,
+          batch: preparedBatch,
+        );
+        if (!confirmed) return;
+      }
+      final result = await notifier.enqueuePreparedDownloads(preparedBatch);
+      if (!context.mounted) return;
+      AppToast.showInfo(
+        context,
+        title: result.queuedCount == 1
+            ? 'Download queued'
+            : '${result.queuedCount} downloads queued',
+        description: 'Episodes $start–$end from ${state.selectedSource!.label}',
+      );
+      for (final notice in result.notices) {
+        switch (notice.level) {
+          case DownloadNoticeLevel.info:
+            AppToast.showInfo(
+              context,
+              title: notice.title,
+              description: notice.description,
+            );
+          case DownloadNoticeLevel.warning:
+            AppToast.showWarning(
+              context,
+              title: notice.title,
+              description: notice.description,
+            );
+        }
+      }
+    } on DownloadUserError catch (error) {
+      if (!context.mounted) return;
+      AppToast.showError(
+        context,
+        title: error.title,
+        description: error.description,
+        copyPayload: error.copyPayload,
+      );
+    } catch (error, stackTrace) {
+      if (!context.mounted) return;
+      AppToast.showError(
+        context,
+        title: 'Failed to queue download',
+        description: error.toString(),
+        copyPayload: formatErrorForCopy(error, stackTrace),
+      );
+    }
   }
 }
 

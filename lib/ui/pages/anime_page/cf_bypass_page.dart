@@ -89,8 +89,9 @@ class _CfBypassPageState extends State<CfBypassPage> {
                       'Solved in ${result.duration?.inSeconds ?? "?"}s';
                 });
                 // Small delay so user sees success state.
+                final navigator = Navigator.of(context);
                 Future.delayed(const Duration(milliseconds: 600), () {
-                  if (mounted) Navigator.pop(context, result);
+                  if (mounted) navigator.pop(result);
                 });
               },
               onFailure: (result) {

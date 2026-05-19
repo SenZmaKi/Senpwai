@@ -160,16 +160,18 @@ class DirectDownloadLink {
   final int episodeNumber;
   final String filename;
   final String url;
+  final String refererUrl;
 
   DirectDownloadLink({
     required this.animeTitle,
     required this.episodeNumber,
     required this.filename,
     required this.url,
+    required this.refererUrl,
   });
   @override
   String toString() {
-    return "DirectDownloadLink(animeTitle: $animeTitle, episodeNumber: $episodeNumber, filename: $filename, url: $url)";
+    return "DirectDownloadLink(animeTitle: $animeTitle, episodeNumber: $episodeNumber, filename: $filename, url: $url, refererUrl: $refererUrl)";
   }
 }
 
@@ -643,6 +645,7 @@ class Source {
       episodeNumber: downloadLink.episodeNumber,
       filename: downloadLink.filename,
       url: directDownloadUrl,
+      refererUrl: kwikPageLink,
     );
 
     log.fineWithMetadata(

@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:collection/collection.dart';
 import 'package:senpwai/sources/shared/fuzzy.dart';
 import 'package:html/dom.dart';
 import 'package:logging/logging.dart';
+import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/log.dart';
@@ -114,34 +116,42 @@ class EpisodePage {
   final String animeTitle;
   final String title;
   final String url;
+  final int episodeNumber;
 
   EpisodePage({
     required this.animeTitle,
     required this.title,
     required this.url,
+    required this.episodeNumber,
   });
 
   @override
   String toString() =>
-      "EpisodePage(animeTitle: $animeTitle, title: $title, url: $url)";
+      "EpisodePage(animeTitle: $animeTitle, title: $title, url: $url, episodeNumber: $episodeNumber)";
 }
 
 class EpisodeDownloadLink {
   final String animeTitle;
   final String episodeTitle;
+  final int episodeNumber;
   final String filename;
   final String url;
+  final Resolution? resolution;
+  final Language? language;
 
   EpisodeDownloadLink({
     required this.animeTitle,
+    required this.episodeNumber,
     required this.filename,
     required this.url,
     required this.episodeTitle,
+    required this.resolution,
+    required this.language,
   });
 
   @override
   String toString() =>
-      "EpisodeDownloadLink(animeTitle: $animeTitle, episodeTitle: $episodeTitle, filename: $filename, url: $url)";
+      "EpisodeDownloadLink(animeTitle: $animeTitle, episodeTitle: $episodeTitle, episodeNumber: $episodeNumber, filename: $filename, url: $url, resolution: $resolution, language: $language)";
 }
 
 class Source {
@@ -173,7 +183,7 @@ class Source {
     final response = await _dio.get(animeUrl);
     final htmlPage = parseHtml(response.data);
     final targetElements = parsePageResults(htmlPage);
-    final episodePages = targetElements.map((el) {
+    final episodePages = targetElements.mapIndexed((index, el) {
       final path = el.attributes["href"];
       if (path == null) {
         throw SourceException(
@@ -183,7 +193,12 @@ class Source {
       }
       final url = "${Constants.baseUrl}$path";
       final title = el.text.trim();
-      return EpisodePage(animeTitle: animeTitle, title: title, url: url);
+      return EpisodePage(
+        animeTitle: animeTitle,
+        title: title,
+        url: url,
+        episodeNumber: _parseEpisodeNumber(title) ?? index + 1,
+      );
     }).toList();
     log.fineWithMetadata(
       "Fetched episode pages",
@@ -214,11 +229,15 @@ class Source {
       final url = "${Constants.baseUrl}$path";
       final animeTitle = episodePage.animeTitle;
       final episodeTitle = episodePage.title;
+      final parsed = anitomy_parser.parseFilename(filename);
       return EpisodeDownloadLink(
         filename: filename,
         url: url,
         animeTitle: animeTitle,
         episodeTitle: episodeTitle,
+        episodeNumber: parsed.episode ?? episodePage.episodeNumber,
+        resolution: parsed.resolution ?? parseResolution(filename),
+        language: parsed.language,
       );
     }).toList();
     log.fineWithMetadata(
@@ -230,4 +249,18 @@ class Source {
     );
     return episodeDownloadLinks;
   }
+}
+
+int? _parseEpisodeNumber(String text) {
+  final parsed = anitomy_parser.parseFilename(text);
+  if (parsed.episode != null) return parsed.episode;
+  final match = RegExp(r'(?:episode|ep\.?)\s*(\d+)', caseSensitive: false)
+      .firstMatch(text);
+  if (match != null) {
+    return int.tryParse(match.group(1)!);
+  }
+  final plainNumberMatch = RegExp(r'\b(\d{1,4})\b').firstMatch(text);
+  return plainNumberMatch == null
+      ? null
+      : int.tryParse(plainNumberMatch.group(1)!);
 }
