@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:senpwai/ui/pages/anime_page/anime_page_notifier.dart';
+import 'package:senpwai/downloads/anime_download_session.dart';
+import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/source_resolver.dart';
+import 'package:senpwai/ui/pages/anime_page/anime_source_ui.dart';
 
 // ── Source dropdown ───────────────────────────────────────────────────────────
 
 class SourceDropdown extends StatelessWidget {
-  final AnimePageState state;
-  final AnimePageNotifier notifier;
+  final AnimeDownloadSessionState state;
+  final AnimeDownloadSessionNotifier notifier;
 
   const SourceDropdown({
     super.key,
@@ -26,7 +29,9 @@ class SourceDropdown extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected != null
               ? accentColor.withValues(alpha: 0.08)
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.4,
+                ),
           border: Border.all(
             color: selected != null
                 ? accentColor.withValues(alpha: 0.4)

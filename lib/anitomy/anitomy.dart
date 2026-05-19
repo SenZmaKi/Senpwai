@@ -13,6 +13,7 @@ class AnitomyParseResult {
   String? title;
   Language? language;
   Resolution? resolution;
+  List<String> animeTypes;
 
   AnitomyParseResult({
     this.season,
@@ -20,11 +21,12 @@ class AnitomyParseResult {
     this.title,
     this.language,
     this.resolution,
+    this.animeTypes = const [],
   });
 
   @override
   String toString() =>
-      "AnitomyParseResult(season: $season, episode: $episode, title: $title, language: $language, resolution: $resolution)";
+      "AnitomyParseResult(season: $season, episode: $episode, title: $title, language: $language, resolution: $resolution, animeTypes: $animeTypes)";
 }
 
 T? _parseCategory<T>({
@@ -41,6 +43,17 @@ T? _parseCategory<T>({
   );
   if (element == null) return null;
   return parser(element.value);
+}
+
+List<T> _parseCategories<T>({
+  required List<anitomy.ElementPair> elements,
+  required anitomy.ElementCategory category,
+  required T Function(String elementValue) parser,
+}) {
+  return [
+    for (final element in elements.where((element) => element.category == category))
+      parser(element.value),
+  ];
 }
 
 AnitomyParseResult parseFilename(String filename) {
@@ -76,6 +89,11 @@ AnitomyParseResult parseFilename(String filename) {
     category: anitomy.ElementCategory.videoResolution,
     parser: parseResolution,
   );
+  final animeTypes = _parseCategories(
+    elements: elements,
+    category: anitomy.ElementCategory.animeType,
+    parser: (elementValue) => elementValue,
+  );
 
   final anitomyParseResult = AnitomyParseResult(
     season: season,
@@ -83,6 +101,7 @@ AnitomyParseResult parseFilename(String filename) {
     title: title,
     language: language,
     resolution: resolution,
+    animeTypes: animeTypes,
   );
   log.fineWithMetadata(
     "Parsed",

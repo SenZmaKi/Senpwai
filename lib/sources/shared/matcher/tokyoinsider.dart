@@ -10,7 +10,7 @@ class TokyoinsiderMatcher {
   final tokyoinsider.Source _source;
 
   TokyoinsiderMatcher({tokyoinsider.Source? source})
-    : _source = source ?? tokyoinsider.Source();
+    : _source = source ?? tokyoinsider.Source.getInstance();
 
   Future<List<SourceMatch<tokyoinsider.AnimeResult>>> match(
     AnilistAnimeBase<dynamic> anime,

@@ -3,7 +3,7 @@ import 'package:senpwai/sources/nyaa.dart' as nyaa;
 import 'package:senpwai/shared/log.dart';
 
 Future<void> testSearch() async {
-  final source = nyaa.Source();
+  final source = nyaa.Source.getInstance();
   final results = await source.search(
     params: nyaa.SearchParams(term: "My Hero Academia", page: 1),
   );
@@ -24,7 +24,7 @@ Future<void> testSearch() async {
 }
 
 Future<void> testSearchPagination() async {
-  final source = nyaa.Source();
+  final source = nyaa.Source.getInstance();
   final results = await source.search(
     params: nyaa.SearchParams(term: "My Hero Academia", page: 1),
   );
@@ -38,7 +38,7 @@ Future<void> testSearchPagination() async {
 }
 
 Future<void> testSearchNoResults() async {
-  final source = nyaa.Source();
+  final source = nyaa.Source.getInstance();
   final results = await source.search(
     params: nyaa.SearchParams(term: "xyznonexistentanimexyz12345", page: 1),
   );

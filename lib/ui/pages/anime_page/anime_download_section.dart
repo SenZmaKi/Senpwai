@@ -4,9 +4,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/ui/components/toast.dart';
-import 'package:senpwai/ui/pages/anime_page/anime_page_notifier.dart';
 import 'package:senpwai/ui/pages/anime_page/nyaa_plan_review_dialog.dart';
 import 'package:senpwai/ui/pages/anime_page/download_widgets.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
@@ -14,8 +14,8 @@ import 'package:senpwai/sources/shared/shared.dart';
 
 /// Source picker + episode inputs + resolution/audio/folder/tracking + download button.
 class AnimeDownloadSection extends ConsumerStatefulWidget {
-  final AnimePageNotifier notifier;
-  final AnimePageState pageState;
+  final AnimeDownloadSessionNotifier notifier;
+  final AnimeDownloadSessionState pageState;
 
   const AnimeDownloadSection({
     super.key,
@@ -68,7 +68,13 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
     final notifier = widget.notifier;
     final mobile = isMobile(context);
 
-    final downloadControls = _buildDownloadControls(context, theme, state, notifier, mobile);
+    final downloadControls = _buildDownloadControls(
+      context,
+      theme,
+      state,
+      notifier,
+      mobile,
+    );
 
     return SliverToBoxAdapter(
       child: Padding(
@@ -123,8 +129,8 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
   Widget _buildDownloadControls(
     BuildContext context,
     ThemeData theme,
-    AnimePageState state,
-    AnimePageNotifier notifier,
+    AnimeDownloadSessionState state,
+    AnimeDownloadSessionNotifier notifier,
     bool mobile,
   ) {
     final folderPicker = MouseRegion(
@@ -221,9 +227,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
           textAlign: TextAlign.center,
           decoration: InputDecoration(
             hintText: '1',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 8,
               vertical: 10,
@@ -254,9 +258,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
           textAlign: TextAlign.center,
           decoration: InputDecoration(
             hintText: state.totalEpisodes.toString(),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 8,
               vertical: 10,
@@ -285,8 +287,9 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.3),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.3,
+            ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: theme.colorScheme.outline.withValues(alpha: 0.1),
@@ -296,7 +299,10 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Episodes label ───────────────────────────────────────────────
-              DownloadSectionLabel(label: 'Episodes', icon: Icons.format_list_numbered_rounded),
+              DownloadSectionLabel(
+                label: 'Episodes',
+                icon: Icons.format_list_numbered_rounded,
+              ),
               SizedBox(height: 6),
               // Episode range fields
               Row(
@@ -377,72 +383,14 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
   }
 
   Future<void> _handleDownload(BuildContext context) async {
-    final state = widget.pageState;
     final notifier = widget.notifier;
-    final totalEps = state.totalEpisodes;
-    final startText = _startController.text.trim();
-    final endText = _endController.text.trim();
-
-    // Parse
-    final start = startText.isEmpty ? 1 : int.tryParse(startText);
-    final end = endText.isEmpty ? totalEps : int.tryParse(endText);
-
-    if (start == null || end == null) {
-      AppToast.showError(context, title: 'Enter valid episode numbers');
-      return;
-    }
-
-    if (start == 0 || end == 0) {
-      AppToast.showError(
-        context,
-        title: 'What am I supposed to do with a zero?',
-      );
-      return;
-    }
-
-    if (start < 0 || end < 0) {
-      AppToast.showError(context, title: 'Episode numbers must be positive');
-      return;
-    }
-
-    if (totalEps > 0 && start > totalEps) {
-      AppToast.showError(
-        context,
-        title:
-            'Start episode cannot be greater than the number of episodes the anime has',
-      );
-      _startController.text = '1';
-      notifier.setStartEpisode(1);
-      return;
-    }
-
-    if (end < start) {
-      AppToast.showError(
-        context,
-        title: 'Stop episode cannot be less than start episode, hontoni baka ga',
-      );
-      _endController.text = totalEps.toString();
-      notifier.setEndEpisode(totalEps);
-      return;
-    }
-
-    if (totalEps > 0 && end > totalEps) {
-      AppToast.showError(
-        context,
-        title:
-            'Stop episode cannot be greater than the number of episodes this anime has',
-      );
-      _endController.text = totalEps.toString();
-      notifier.setEndEpisode(totalEps);
-      return;
-    }
-
-    notifier.setStartEpisode(start);
-    notifier.setEndEpisode(end);
     try {
-      final preparedBatch = await notifier.prepareDownloads();
+      final preparedBatch = await notifier.prepareDownloads(
+        startInput: _startController.text,
+        endInput: _endController.text,
+      );
       if (!context.mounted) return;
-      if (state.selectedSource == AnimeSource.nyaa) {
+      if (preparedBatch.requiresUserReview) {
         final confirmed = await NyaaPlanReviewDialog.confirm(
           context,
           batch: preparedBatch,
@@ -451,12 +399,14 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       }
       final result = await notifier.enqueuePreparedDownloads(preparedBatch);
       if (!context.mounted) return;
+      final state = notifier.currentState;
       AppToast.showInfo(
         context,
         title: result.queuedCount == 1
             ? 'Download queued'
             : '${result.queuedCount} downloads queued',
-        description: 'Episodes $start–$end from ${state.selectedSource!.label}',
+        description:
+            'Episodes ${state.startEpisode}-${state.endEpisode} from ${state.selectedSource!.label}',
       );
       for (final notice in result.notices) {
         switch (notice.level) {

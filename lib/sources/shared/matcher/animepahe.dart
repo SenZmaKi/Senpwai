@@ -10,7 +10,7 @@ class AnimepaheMatcher {
   final animepahe.Source _source;
 
   AnimepaheMatcher({animepahe.Source? source})
-    : _source = source ?? animepahe.Source();
+    : _source = source ?? animepahe.Source.getInstance();
 
   Future<List<SourceMatch<animepahe.AnimeResult>>> match(
     AnilistAnimeBase<dynamic> anime,

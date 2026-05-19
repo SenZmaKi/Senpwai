@@ -24,9 +24,9 @@ class NyaaMatchParams {
 }
 
 class ScoredNyaaResult {
-  final nyaa.AnimeResult result;
   final double score;
   final Resolution resolution;
+  final nyaa.AnimeResult result;
   final bool isCompleteSeason;
 
   const ScoredNyaaResult({
@@ -220,7 +220,8 @@ List<ScoredNyaaResult> _scoreAndSort({
 class NyaaMatcher {
   final nyaa.Source _source;
 
-  NyaaMatcher({nyaa.Source? source}) : _source = source ?? nyaa.Source();
+  NyaaMatcher({nyaa.Source? source})
+    : _source = source ?? nyaa.Source.getInstance();
 
   Future<List<nyaa.AnimeResult>> _search(String term, int anilistId) async {
     _log.infoWithMetadata(

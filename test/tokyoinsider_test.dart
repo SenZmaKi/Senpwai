@@ -3,7 +3,7 @@ import 'package:senpwai/sources/tokyoinsider.dart' as tokyoinsider;
 import 'package:senpwai/shared/log.dart';
 
 Future<void> testSearch() async {
-  final source = tokyoinsider.Source();
+  final source = tokyoinsider.Source.getInstance();
   final results = await source.search(
     params: tokyoinsider.SearchParams(term: "My Hero Academia"),
   );
@@ -12,7 +12,7 @@ Future<void> testSearch() async {
 }
 
 Future<void> testFetchEpisodePages() async {
-  final source = tokyoinsider.Source();
+  final source = tokyoinsider.Source.getInstance();
   final episodePages = await source.fetchEpisodePages(
     animeUrl:
         "https://www.tokyoinsider.com/anime/B/Boku_no_Hero_Academia_2nd_Season_(TV)",
@@ -29,7 +29,7 @@ Future<void> testFetchEpisodeDownloadLinks() async {
         "https://www.tokyoinsider.com/anime/B/Boku_no_Hero_Academia_2nd_Season_(TV)/episode/25",
     episodeNumber: 25,
   );
-  final source = tokyoinsider.Source();
+  final source = tokyoinsider.Source.getInstance();
   final episodeDownloadLinks = await source.fetchEpisodeDownloadLinks(
     episodePage: episodePage,
   );

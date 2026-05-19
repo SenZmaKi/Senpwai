@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:libtorrent_dart/libtorrent_dart.dart';
-import 'package:path/path.dart' as path;
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/shared/net/download/download.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
@@ -142,14 +141,9 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
 
   Future<void> _enqueueHttp(PreparedHttpDownloadJob job) async {
     final id = _nextId();
-    final sanitizedName = _sanitizeFileName(job.fileName);
-    final extension = path.extension(sanitizedName).replaceFirst('.', '');
-    final title = path.basenameWithoutExtension(sanitizedName);
     final params = DownloadParams(
       url: job.resolvedUrl,
-      title: title,
-      fileExtension: extension,
-      downloadDirectory: Directory(job.destinationDirectory),
+      targetFile: File(job.targetFilePath),
       sizeBytes: job.totalBytes,
       numberOfParts: _recommendedPartCount(job.totalBytes),
       headers: job.headers,
@@ -197,6 +191,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
               status: DownloadQueueStatus.completed,
               downloadedBytes: item.totalBytes,
               bytesPerSecond: 0,
+              filePaths: [job.targetFilePath],
             ),
           );
         case DownloadStatus.cancelled:
@@ -234,13 +229,14 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
         id: id,
         source: job.source,
         animeTitle: job.animeTitle,
-        displayTitle: sanitizedName,
+        displayTitle: job.displayTitle,
         destinationDirectory: job.destinationDirectory,
         status: DownloadQueueStatus.queued,
         totalBytes: job.totalBytes,
         downloadedBytes: 0,
         bytesPerSecond: 0,
         createdAt: DateTime.now(),
+        filePaths: [job.targetFilePath],
       ),
     );
 
@@ -446,10 +442,6 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     if (sizeBytes <= 64 * 1024 * 1024) return 2;
     if (sizeBytes <= 256 * 1024 * 1024) return 4;
     return 8;
-  }
-
-  static String _sanitizeFileName(String name) {
-    return name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
   }
 }
 

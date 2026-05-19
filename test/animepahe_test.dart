@@ -18,7 +18,7 @@ void main() {
   });
 
   Future<List<animepahe.AnimeResult>> testSearch() async {
-    final source = animepahe.Source();
+    final source = animepahe.Source.getInstance();
     final results = await source.search(
       params: animepahe.SearchParams(term: "My Hero Academia"),
     );
@@ -32,7 +32,7 @@ void main() {
 
   Future<void> testFetchEpisodeListPageJson() async {
     final result = (await testSearch()).first;
-    final source = animepahe.Source();
+    final source = animepahe.Source.getInstance();
     final json = await source.fetchEpisodeListPageJson(
       animeSession: result.session,
       pageNum: 1,
@@ -43,7 +43,7 @@ void main() {
 
   Future<void> testComputeEpisodePageRange() async {
     final result = (await testSearch()).first;
-    final source = animepahe.Source();
+    final source = animepahe.Source.getInstance();
     final info = await source.computeEpisodePageRange(
       startEpisode: 1,
       endEpisode: 10,
@@ -55,7 +55,7 @@ void main() {
 
   Future<List<animepahe.EpisodeSession>> testFetchEpisodeSessions() async {
     final result = (await testSearch()).first;
-    final source = animepahe.Source();
+    final source = animepahe.Source.getInstance();
     final sessions = await source.fetchEpisodeSessions(
       animeSession: result.session,
       pageNum: 1,
@@ -68,7 +68,7 @@ void main() {
     final result = (await testSearch()).first;
     final sessions = await testFetchEpisodeSessions();
     const endEpisode = 10;
-    final source = animepahe.Source();
+    final source = animepahe.Source.getInstance();
     final pages = source.findEpisodeSessionsWithinRange(
       animeSession: result.session,
       firstEpisode: 1,
@@ -82,7 +82,7 @@ void main() {
   Future<List<animepahe.DownloadLink>> testFetchDownloadLinks() async {
     final result = (await testSearch()).first;
     final episodeSession = (await testFetchEpisodeSessions()).first;
-    final source = animepahe.Source();
+    final source = animepahe.Source.getInstance();
     final downloadLinks = await source.fetchDownloadLinks(
       animeTitle: result.title,
       animeSession: result.session,
@@ -99,7 +99,7 @@ void main() {
     final downloadLinks = (await testFetchDownloadLinks());
     final animeTitle = downloadLinks.first.animeTitle;
     final episodeNumber = downloadLinks.first.episodeNumber;
-    final source = animepahe.Source();
+    final source = animepahe.Source.getInstance();
     final bestMatch = source.findBestDownloadLinkMatch(
       animeTitle: animeTitle,
       episodeNumber: episodeNumber,
@@ -119,7 +119,7 @@ void main() {
     final bestDownloadLinkMatch = await testFindBestDownloadLinkMatch(
       resolution: resolution,
     );
-    final source = animepahe.Source();
+    final source = animepahe.Source.getInstance();
     final directDownloadLink = await source.fetchDirectDownloadLink(
       downloadLink: bestDownloadLinkMatch,
     );

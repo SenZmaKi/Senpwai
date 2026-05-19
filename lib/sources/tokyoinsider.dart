@@ -157,10 +157,13 @@ class EpisodeDownloadLink {
 class Source {
   final Dio _dio;
   late final AnimeListCache _animeListCache;
+  static final Source _instance = Source._internal();
 
-  Source() : _dio = GlobalDio.getInstance() {
+  Source._internal() : _dio = GlobalDio.getInstance() {
     _animeListCache = AnimeListCache(dio: _dio);
   }
+
+  static Source getInstance() => _instance;
 
   Future<List<AnimeResult>> search({required SearchParams params}) async {
     log.infoWithMetadata("Searching", metadata: {"params": params});

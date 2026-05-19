@@ -1,15 +1,16 @@
 import 'dart:typed_data';
 
+import 'package:path/path.dart' as path;
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 
-enum RequestedDownloadSource { animepahe, tokyoinsider, nyaa }
+enum AnimeSource { animepahe, tokyoinsider, nyaa }
 
-extension RequestedDownloadSourceExtension on RequestedDownloadSource {
+extension AnimeSourceExtension on AnimeSource {
   String get label => switch (this) {
-    RequestedDownloadSource.animepahe => 'AnimePahe',
-    RequestedDownloadSource.tokyoinsider => 'TokyoInsider',
-    RequestedDownloadSource.nyaa => 'Nyaa',
+    AnimeSource.animepahe => 'AnimePahe',
+    AnimeSource.tokyoinsider => 'TokyoInsider',
+    AnimeSource.nyaa => 'Nyaa',
   };
 }
 
@@ -88,7 +89,7 @@ class DownloadUserError implements Exception {
 }
 
 sealed class PreparedDownloadJob {
-  final RequestedDownloadSource source;
+  final AnimeSource source;
   final String animeTitle;
   final String displayTitle;
   final String destinationDirectory;
@@ -120,6 +121,8 @@ final class PreparedHttpDownloadJob extends PreparedDownloadJob {
     this.headers = const {},
     this.episodeNumber,
   });
+
+  String get targetFilePath => path.join(destinationDirectory, fileName);
 }
 
 final class PreparedTorrentDownloadJob extends PreparedDownloadJob {
@@ -144,8 +147,13 @@ final class PreparedTorrentDownloadJob extends PreparedDownloadJob {
 class PreparedDownloadBatch {
   final List<PreparedDownloadJob> jobs;
   final List<DownloadNotice> notices;
+  final bool requiresUserReview;
 
-  const PreparedDownloadBatch({required this.jobs, this.notices = const []});
+  const PreparedDownloadBatch({
+    required this.jobs,
+    this.notices = const [],
+    this.requiresUserReview = false,
+  });
 }
 
 class EnqueuedDownloadsResult {
@@ -160,7 +168,7 @@ class EnqueuedDownloadsResult {
 
 class DownloadQueueItem {
   final String id;
-  final RequestedDownloadSource source;
+  final AnimeSource source;
   final String animeTitle;
   final String displayTitle;
   final String destinationDirectory;
@@ -240,10 +248,11 @@ class DownloadManagerState {
 
 class DownloadRequest {
   final AnilistAnimeBase anime;
-  final RequestedDownloadSource source;
+  final AnimeSource source;
   final int startEpisode;
   final int endEpisode;
   final String downloadFolder;
+  final String httpJobTitle;
   final Resolution resolution;
   final Language language;
 
@@ -253,6 +262,7 @@ class DownloadRequest {
     required this.startEpisode,
     required this.endEpisode,
     required this.downloadFolder,
+    required this.httpJobTitle,
     required this.resolution,
     required this.language,
   });

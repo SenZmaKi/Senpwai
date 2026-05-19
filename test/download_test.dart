@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/download/download.dart';
 import 'package:senpwai/shared/net/download/download_config.dart';
@@ -22,9 +23,7 @@ DownloadState _newState() {
   return DownloadState(
     params: DownloadParams(
       url: 'http://example.com/file.bin',
-      title: 'test',
-      fileExtension: 'bin',
-      downloadDirectory: Directory.systemTemp,
+      targetFile: File(path.join(Directory.systemTemp.path, 'test.bin')),
       sizeBytes: 100,
       numberOfParts: 1,
     ),
@@ -41,9 +40,7 @@ Download _makeDownload(
   return Download(
     params: DownloadParams(
       url: url ?? _server.downloadUrl,
-      title: title,
-      fileExtension: 'bin',
-      downloadDirectory: downloadDirectory,
+      targetFile: File(path.join(downloadDirectory.path, '$title.bin')),
       sizeBytes: sizeBytes ?? _payload.length,
       numberOfParts: numberOfParts,
     ),

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:path/path.dart' as path;
 
 class DownloadCancelledException implements Exception {
   final String message;
@@ -22,29 +21,24 @@ class DownloadProgress {
 
 class DownloadParams {
   final String url;
-  final String title;
-  final String fileExtension;
-  final Directory downloadDirectory;
+  final File targetFile;
   final int sizeBytes;
   final int numberOfParts;
   final Map<String, dynamic> headers;
-  final File targetFile;
 
   DownloadParams({
     required this.url,
-    required this.title,
-    required this.fileExtension,
-    required this.downloadDirectory,
+    required this.targetFile,
     required this.sizeBytes,
     required this.numberOfParts,
     this.headers = const {},
-  }) : targetFile = File(
-         path.join(downloadDirectory.path, "$title.$fileExtension"),
-       );
+  });
+
+  Directory get downloadDirectory => targetFile.parent;
 
   @override
   String toString() =>
-      "DownloadParams(url: $url, title: $title, fileExtension: $fileExtension, "
+      "DownloadParams(url: $url, targetFile: $targetFile, "
       "downloadDirectory: $downloadDirectory, sizeBytes: $sizeBytes, "
       "numberOfParts: $numberOfParts, headers: $headers, targetFile: $targetFile)";
 }
