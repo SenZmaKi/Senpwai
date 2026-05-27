@@ -130,6 +130,7 @@ final class PreparedTorrentDownloadJob extends PreparedDownloadJob {
   final String torrentName;
   final List<int> selectedFileIndices;
   final List<String> selectedFilePaths;
+  final Map<int, String> renamedFilePaths;
 
   const PreparedTorrentDownloadJob({
     required super.source,
@@ -141,6 +142,7 @@ final class PreparedTorrentDownloadJob extends PreparedDownloadJob {
     required this.torrentName,
     required this.selectedFileIndices,
     required this.selectedFilePaths,
+    this.renamedFilePaths = const {},
   });
 }
 

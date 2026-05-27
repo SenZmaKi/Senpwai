@@ -60,4 +60,34 @@ void main() {
     expect(parsed.season, 4);
     expect(parsed.episode, isNull);
   });
+
+  test('Parse dub markers from subtitle metadata', () {
+    const filename = '[SomeGroup] Series - 01 [English Dub][1080p].mkv';
+    final parsed = parseFilename(filename);
+
+    expect(parsed.language, Language.english);
+    expect(parsed.subtitles, contains('Dub'));
+    expect(parsed.audioTerms, isEmpty);
+  });
+
+  test('Parse dual-audio markers from audio terms', () {
+    const filename =
+        '[Judas] Attack on Titan Final Season Part 2 [1080p][Dual Audio].mkv';
+    final parsed = parseFilename(filename);
+
+    expect(parsed.audioTerms, contains('Dual Audio'));
+    expect(parsed.subtitles, isEmpty);
+  });
+
+  test(
+    'Keep cour markers in title when anitomy does not expose them structurally',
+    () {
+      const filename = '[SomeGroup] Frieren Cour 2 - 01 [1080p].mkv';
+      final parsed = parseFilename(filename);
+
+      expect(parsed.title, 'Frieren Cour 2');
+      expect(parsed.season, isNull);
+      expect(parsed.episode, 1);
+    },
+  );
 }

@@ -1,12 +1,10 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:dio/dio.dart';
-import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
-import 'package:senpwai/shared/net/net_config.dart';
 import 'package:html/dom.dart' as html;
 import 'package:senpwai/shared/shared.dart' as shared;
 import 'package:senpwai/shared/log.dart';

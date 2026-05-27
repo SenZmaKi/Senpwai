@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:libtorrent_dart/libtorrent_dart.dart';
+import 'package:path/path.dart' as path;
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/shared/net/download/download.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
@@ -262,9 +263,16 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     final id = _nextId();
     final session = createSession();
     try {
+      await Directory(job.destinationDirectory).create(recursive: true);
+      for (final filePath in job.selectedFilePaths) {
+        await Directory(path.dirname(filePath)).create(recursive: true);
+      }
       final handle = session.addTorrentData(
         torrentData: job.torrentData,
         savePath: job.destinationDirectory,
+        renamedFiles: job.renamedFilePaths.isEmpty
+            ? null
+            : job.renamedFilePaths,
       );
       handle.unsetFlags(LibtorrentTorrentFlags.autoManaged);
       final priorities = List<int>.filled(handle.getFiles().length, 0);
@@ -274,52 +282,57 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
       handle.prioritizeFiles(priorities);
       handle.resume();
 
-      final subscription = handle.listenProgress(onData: (status) {
-        if (status.error.isNotEmpty) {
-          _disposeTorrentRuntime(id);
-          _failItem(
-            id,
-            title: 'Torrent failed',
-            description: status.error,
-            copyPayload: status.error,
-          );
-          _showGlobalError(title: 'Torrent failed', description: status.error);
-          return;
-        }
-
-        final fileProgress = handle.getFileProgress();
-        var downloadedBytes = 0;
-        for (final fileIndex in job.selectedFileIndices) {
-          if (fileIndex >= 0 && fileIndex < fileProgress.length) {
-            downloadedBytes += fileProgress[fileIndex];
+      final subscription = handle.listenProgress(
+        onData: (status) {
+          if (status.error.isNotEmpty) {
+            _disposeTorrentRuntime(id);
+            _failItem(
+              id,
+              title: 'Torrent failed',
+              description: status.error,
+              copyPayload: status.error,
+            );
+            _showGlobalError(
+              title: 'Torrent failed',
+              description: status.error,
+            );
+            return;
           }
-        }
 
-        if (downloadedBytes >= job.totalBytes && job.totalBytes > 0) {
-          _disposeTorrentRuntime(id);
+          final fileProgress = handle.getFileProgress();
+          var downloadedBytes = 0;
+          for (final fileIndex in job.selectedFileIndices) {
+            if (fileIndex >= 0 && fileIndex < fileProgress.length) {
+              downloadedBytes += fileProgress[fileIndex];
+            }
+          }
+
+          if (downloadedBytes >= job.totalBytes && job.totalBytes > 0) {
+            _disposeTorrentRuntime(id);
+            _updateItem(
+              id,
+              (item) => item.copyWith(
+                status: DownloadQueueStatus.completed,
+                downloadedBytes: job.totalBytes,
+                bytesPerSecond: 0,
+              ),
+            );
+            return;
+          }
+
           _updateItem(
             id,
             (item) => item.copyWith(
-              status: DownloadQueueStatus.completed,
-              downloadedBytes: job.totalBytes,
-              bytesPerSecond: 0,
+              status: status.paused
+                  ? DownloadQueueStatus.paused
+                  : DownloadQueueStatus.downloading,
+              downloadedBytes: downloadedBytes,
+              bytesPerSecond: status.downloadRate,
+              clearError: true,
             ),
           );
-          return;
-        }
-
-        _updateItem(
-          id,
-          (item) => item.copyWith(
-            status: status.paused
-                ? DownloadQueueStatus.paused
-                : DownloadQueueStatus.downloading,
-            downloadedBytes: downloadedBytes,
-            bytesPerSecond: status.downloadRate,
-            clearError: true,
-          ),
-        );
-      });
+        },
+      );
 
       _torrentDownloads[id] = _ActiveTorrentDownload(
         session: session,

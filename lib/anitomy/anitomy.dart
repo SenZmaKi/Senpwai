@@ -14,6 +14,9 @@ class AnitomyParseResult {
   Language? language;
   Resolution? resolution;
   List<String> animeTypes;
+  List<String> audioTerms;
+  List<String> subtitles;
+  List<String> releaseInformation;
 
   AnitomyParseResult({
     this.season,
@@ -22,11 +25,14 @@ class AnitomyParseResult {
     this.language,
     this.resolution,
     this.animeTypes = const [],
+    this.audioTerms = const [],
+    this.subtitles = const [],
+    this.releaseInformation = const [],
   });
 
   @override
   String toString() =>
-      "AnitomyParseResult(season: $season, episode: $episode, title: $title, language: $language, resolution: $resolution, animeTypes: $animeTypes)";
+      "AnitomyParseResult(season: $season, episode: $episode, title: $title, language: $language, resolution: $resolution, animeTypes: $animeTypes, audioTerms: $audioTerms, subtitles: $subtitles, releaseInformation: $releaseInformation)";
 }
 
 T? _parseCategory<T>({
@@ -148,6 +154,21 @@ AnitomyParseResult parseFilename(String filename) {
     category: anitomy.ElementCategory.animeType,
     parser: (elementValue) => elementValue,
   );
+  final audioTerms = _parseCategories(
+    elements: elements,
+    category: anitomy.ElementCategory.audioTerm,
+    parser: (elementValue) => elementValue,
+  );
+  final subtitles = _parseCategories(
+    elements: elements,
+    category: anitomy.ElementCategory.subtitles,
+    parser: (elementValue) => elementValue,
+  );
+  final releaseInformation = _parseCategories(
+    elements: elements,
+    category: anitomy.ElementCategory.releaseInformation,
+    parser: (elementValue) => elementValue,
+  );
 
   final anitomyParseResult = AnitomyParseResult(
     season: season,
@@ -156,6 +177,9 @@ AnitomyParseResult parseFilename(String filename) {
     language: language,
     resolution: resolution,
     animeTypes: animeTypes,
+    audioTerms: audioTerms,
+    subtitles: subtitles,
+    releaseInformation: releaseInformation,
   );
   log.fineWithMetadata(
     "Parsed",

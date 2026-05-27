@@ -67,6 +67,74 @@ class NyaaEpisodeMatch {
 
 String _pad(int n) => n.toString().padLeft(2, '0');
 
+final _segmentSuffixPattern = RegExp(
+  r'(?:\s*[-:]\s*|\s+)(?:(?:part|pt|cour)\s*(\d{1,3})|(\d{1,3})(?:st|nd|rd|th)\s*(?:part|cour))$',
+  caseSensitive: false,
+);
+
+String stripNyaaSegmentMarker(String title) {
+  final trimmed = title.trim();
+  return trimmed.replaceFirst(_segmentSuffixPattern, '').trim();
+}
+
+List<String> expandNyaaTitleCandidates(Iterable<String> titleCandidates) {
+  final variants = <String>[];
+
+  void add(String candidate) {
+    final trimmed = candidate.trim();
+    if (trimmed.isEmpty || variants.contains(trimmed)) return;
+    variants.add(trimmed);
+  }
+
+  for (final candidate in titleCandidates) {
+    add(candidate);
+    final parsed = _parseSeasonFromTitle(candidate);
+    add(parsed.baseTitle);
+    final stripped = stripNyaaSegmentMarker(candidate);
+    add(stripped);
+    add(_parseSeasonFromTitle(stripped).baseTitle);
+  }
+  return variants;
+}
+
+bool matchesPreferredNyaaLanguage(
+  anitomy_parser.AnitomyParseResult parsed,
+  Language preferredLanguage,
+) {
+  final signal = classifyNyaaLanguageSignal(parsed);
+  if (signal == NyaaLanguageSignal.dualAudio) {
+    return true;
+  }
+  return switch (preferredLanguage) {
+    Language.japanese => signal != NyaaLanguageSignal.dubbed,
+    Language.english => signal != NyaaLanguageSignal.subbed,
+  };
+}
+
+enum NyaaLanguageSignal { dubbed, subbed, dualAudio, unknown }
+
+String _normalizeNyaaMarker(String value) =>
+    value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+
+NyaaLanguageSignal classifyNyaaLanguageSignal(
+  anitomy_parser.AnitomyParseResult parsed,
+) {
+  final normalizedAudioTerms = parsed.audioTerms.map(_normalizeNyaaMarker);
+  if (normalizedAudioTerms.any((value) => value.contains('dualaudio'))) {
+    return NyaaLanguageSignal.dualAudio;
+  }
+
+  final normalizedSubtitles = parsed.subtitles.map(_normalizeNyaaMarker);
+  if (normalizedSubtitles.any((value) => value.contains('dub'))) {
+    return NyaaLanguageSignal.dubbed;
+  }
+  if (normalizedSubtitles.any((value) => value.contains('sub'))) {
+    return NyaaLanguageSignal.subbed;
+  }
+
+  return NyaaLanguageSignal.unknown;
+}
+
 /// Returns the nyaa search terms to use when looking for a complete season/batch pack.
 ///
 /// For each title candidate generates both `S02 complete` and `Season 2 complete`
@@ -123,17 +191,11 @@ typedef _Candidate = ({
 }) {
   if (parsed.resolution == null || parsed.title == null) return null;
 
-  // Only reject when language is explicitly wrong; null → assume acceptable.
-  if (parsed.language != null && parsed.language != preferredLanguage) {
+  if (!matchesPreferredNyaaLanguage(parsed, preferredLanguage)) {
     return null;
   }
 
-  // Include stripped base titles as candidates so "Jujutsu Kaisen" matches a
-  // result whose parsed title omits the season suffix.
-  final baseCandidates = titleCandidates
-      .map((c) => _parseSeasonFromTitle(c).baseTitle)
-      .toList();
-  final allCandidates = {...titleCandidates, ...baseCandidates}.toList();
+  final allCandidates = expandNyaaTitleCandidates(titleCandidates);
 
   final bestScore = allCandidates
       .map((c) => titleSimilarity(c, parsed.title!))
@@ -293,9 +355,10 @@ class NyaaMatcher {
   ) async {
     final titleCandidates = anime.title.toTitleCandidates();
     if (titleCandidates.isEmpty) return [];
+    final expandedTitleCandidates = expandNyaaTitleCandidates(titleCandidates);
 
     final scored = await _fetchAndScore(
-      searchTerms: titleCandidates.expand(_seasonSearchTerms).toList(),
+      searchTerms: expandedTitleCandidates.expand(_seasonSearchTerms).toList(),
       anilistId: anime.id,
       titleCandidates: titleCandidates,
       params: params,
@@ -321,9 +384,10 @@ class NyaaMatcher {
   ) async {
     final titleCandidates = anime.title.toTitleCandidates();
     if (titleCandidates.isEmpty) return [];
+    final expandedTitleCandidates = expandNyaaTitleCandidates(titleCandidates);
 
     final scored = await _fetchAndScore(
-      searchTerms: titleCandidates.expand(_movieSearchTerms).toList(),
+      searchTerms: expandedTitleCandidates.expand(_movieSearchTerms).toList(),
       anilistId: anime.id,
       titleCandidates: titleCandidates,
       params: params,
@@ -353,9 +417,10 @@ class NyaaMatcher {
     if (episodeNumbers.isEmpty) return [];
     final titleCandidates = anime.title.toTitleCandidates();
     if (titleCandidates.isEmpty) return [];
+    final expandedTitleCandidates = expandNyaaTitleCandidates(titleCandidates);
 
     Future<NyaaEpisodeMatch> fetchEpisode(int epNum) async {
-      final searchTerms = titleCandidates
+      final searchTerms = expandedTitleCandidates
           .expand((t) => _episodeSearchTerms(t, epNum))
           .toList();
 

@@ -20,7 +20,8 @@ class AnimeDownloadCoordinator {
        _tokyoinsiderPlanner =
            tokyoinsiderPlanner ??
            TokyoInsiderDownloadPlanner(targetPlanner: targetPlanner),
-       _nyaaPlanner = nyaaPlanner ?? NyaaDownloadPlanner(),
+       _nyaaPlanner =
+           nyaaPlanner ?? NyaaDownloadPlanner(targetPlanner: targetPlanner),
        assert(
          animepahePlanner == null || targetPlanner == null,
          'Provide targetPlanner through animepahePlanner when overriding it.',
@@ -28,6 +29,10 @@ class AnimeDownloadCoordinator {
        assert(
          tokyoinsiderPlanner == null || targetPlanner == null,
          'Provide targetPlanner through tokyoinsiderPlanner when overriding it.',
+       ),
+       assert(
+         nyaaPlanner == null || targetPlanner == null,
+         'Provide targetPlanner through nyaaPlanner when overriding it.',
        );
 
   Future<PreparedDownloadBatch> plan({

@@ -7,18 +7,63 @@ import 'package:path/path.dart' as path;
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/sources/shared/matcher/nyaa.dart';
 import 'package:senpwai/sources/shared/matcher/shared.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 
+bool looksLikeVideoFile(String filePath) {
+  const videoExtensions = {
+    '3g2',
+    '3gp',
+    'asf',
+    'avi',
+    'dv',
+    'flv',
+    'gxf',
+    'm2ts',
+    'm4a',
+    'm4b',
+    'm4p',
+    'm4r',
+    'm4v',
+    'mkv',
+    'mov',
+    'mp4',
+    'mpd',
+    'mpeg',
+    'mpg',
+    'mxf',
+    'nut',
+    'ogm',
+    'ogv',
+    'swf',
+    'ts',
+    'vob',
+    'webm',
+    'wmv',
+    'wtv',
+  };
+  final extension = path.extension(filePath).toLowerCase();
+  if (extension.isEmpty) return false;
+  return videoExtensions.contains(
+    extension.startsWith('.') ? extension.substring(1) : extension,
+  );
+}
+
 class NyaaDownloadPlanner {
   final NyaaMatcher _matcher;
   final Dio _dio;
+  final DownloadTargetPlanner _targetPlanner;
 
-  NyaaDownloadPlanner({NyaaMatcher? matcher, Dio? dio})
-    : _matcher = matcher ?? NyaaMatcher(),
-      _dio = dio ?? GlobalDio.getInstance();
+  NyaaDownloadPlanner({
+    NyaaMatcher? matcher,
+    Dio? dio,
+    DownloadTargetPlanner? targetPlanner,
+  }) : _matcher = matcher ?? NyaaMatcher(),
+       _dio = dio ?? GlobalDio.getInstance(),
+       _targetPlanner = targetPlanner ?? const DownloadTargetPlanner();
 
   Future<PreparedDownloadBatch> plan(DownloadRequest request) async {
     final params = NyaaMatchParams(
@@ -124,19 +169,26 @@ class NyaaDownloadPlanner {
               'Torrent metadata did not expose a file for episode ${episodeMatch.episodeNumber}.',
         );
       }
+      final plannedTarget = _targetPlanner.planEpisodeFile(
+        directory: request.downloadFolder,
+        jobTitle: request.httpJobTitle,
+        episodeNumber: episodeMatch.episodeNumber,
+        sourceFileName: mappedFile.entry.path,
+        resolvedUrl: mappedFile.entry.path,
+      );
+      final targetFilePath = plannedTarget.filePath;
       jobs.add(
         PreparedTorrentDownloadJob(
           source: AnimeSource.nyaa,
           animeTitle: anime.title.display,
-          displayTitle: path.basename(mappedFile.entry.path),
+          displayTitle: plannedTarget.fileName,
           destinationDirectory: request.downloadFolder,
           totalBytes: mappedFile.entry.size,
           torrentData: torrentData,
           torrentName: bestMatch.result.filename,
           selectedFileIndices: [mappedFile.entry.index],
-          selectedFilePaths: [
-            path.join(request.downloadFolder, mappedFile.entry.path),
-          ],
+          selectedFilePaths: [targetFilePath],
+          renamedFilePaths: {mappedFile.entry.index: targetFilePath},
         ),
       );
     }
@@ -174,6 +226,24 @@ class NyaaDownloadPlanner {
         preferredLanguage: request.language,
       );
       if (!inspected.coversAllEpisodes) continue;
+      final orderedEpisodes = inspected.selectedFiles.keys.toList()..sort();
+      final selectedFileIndices = <int>[];
+      final selectedFilePaths = <String>[];
+      final renamedFilePaths = <int, String>{};
+      for (final episodeNumber in orderedEpisodes) {
+        final match = inspected.selectedFiles[episodeNumber]!;
+        final plannedTarget = _targetPlanner.planEpisodeFile(
+          directory: request.downloadFolder,
+          jobTitle: request.httpJobTitle,
+          episodeNumber: episodeNumber,
+          sourceFileName: match.entry.path,
+          resolvedUrl: match.entry.path,
+        );
+        final targetFilePath = plannedTarget.filePath;
+        selectedFileIndices.add(match.entry.index);
+        selectedFilePaths.add(targetFilePath);
+        renamedFilePaths[match.entry.index] = targetFilePath;
+      }
       return PreparedTorrentDownloadJob(
         source: AnimeSource.nyaa,
         animeTitle: request.anime.title.display,
@@ -182,12 +252,9 @@ class NyaaDownloadPlanner {
         totalBytes: inspected.totalSelectedBytes,
         torrentData: torrentData,
         torrentName: candidate.result.filename,
-        selectedFileIndices: inspected.selectedFiles.values
-            .map((match) => match.entry.index)
-            .toList(),
-        selectedFilePaths: inspected.selectedFiles.values
-            .map((match) => path.join(request.downloadFolder, match.entry.path))
-            .toList(),
+        selectedFileIndices: selectedFileIndices,
+        selectedFilePaths: selectedFilePaths,
+        renamedFilePaths: renamedFilePaths,
       );
     }
     return null;
@@ -226,17 +293,21 @@ class NyaaDownloadPlanner {
       final desiredSeason = anitomy_parser
           .parseFilename(anime.title.display)
           .season;
-      final titleCandidates = anime.title.toTitleCandidates();
+      final titleCandidates = expandNyaaTitleCandidates(
+        anime.title.toTitleCandidates(),
+      );
       final selectedFiles = <int, _MatchedTorrentFile>{};
 
-      for (final file in files.where((entry) => _looksLikeVideo(entry.path))) {
+      for (final file in files.where(
+        (entry) => looksLikeVideoFile(entry.path),
+      )) {
         final parsed = anitomy_parser.parseFilename(path.basename(file.path));
         final episodeNumber = parsed.episode;
         if (episodeNumber == null ||
             !requestedEpisodes.contains(episodeNumber)) {
           continue;
         }
-        if (parsed.language != null && parsed.language != preferredLanguage) {
+        if (!matchesPreferredNyaaLanguage(parsed, preferredLanguage)) {
           continue;
         }
         if (desiredSeason != null &&
@@ -280,41 +351,6 @@ class NyaaDownloadPlanner {
       session.close();
       await tempRoot.delete(recursive: true);
     }
-  }
-
-  static bool _looksLikeVideo(String filePath) {
-    const videoExtensions = [
-      '3g2',
-      '3gp',
-      'asf',
-      'avi',
-      'dv',
-      'flv',
-      'gxf',
-      'm2ts',
-      'm4a',
-      'm4b',
-      'm4p',
-      'm4r',
-      'm4v',
-      'mkv',
-      'mov',
-      'mp4',
-      'mpd',
-      'mpeg',
-      'mpg',
-      'mxf',
-      'nut',
-      'ogm',
-      'ogv',
-      'swf',
-      'ts',
-      'vob',
-      'webm',
-      'wmv',
-      'wtv',
-    ];
-    return videoExtensions.contains(path.extension(filePath).toLowerCase());
   }
 
   static bool _isBetterFileCandidate(
