@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/net/net_config.dart';
 import 'package:html/dom.dart' as html;
 import 'package:senpwai/shared/shared.dart' as shared;
 import 'package:senpwai/shared/log.dart';
@@ -197,10 +199,10 @@ class Source {
     final existing = await cookieJar.loadForRequest(paheUri);
     final hasDdg = existing.any((c) => c.name.startsWith("__ddg"));
     if (!hasDdg) {
-      await cookieJar.saveFromResponse(
-        paheUri,
-        [Cookie("__ddg1_", ""), Cookie("__ddg2_", "")],
-      );
+      await cookieJar.saveFromResponse(paheUri, [
+        Cookie("__ddg1_", ""),
+        Cookie("__ddg2_", ""),
+      ]);
     }
   }
 
@@ -593,7 +595,10 @@ class Source {
       metadata: {"downloadLink": downloadLink, "kwikPageLink": kwikPageLink},
     );
 
-    final response = await _dio.get<String>(kwikPageLink);
+    final response = await _dio.get<String>(
+      kwikPageLink,
+      options: Options(headers: {'Referer': downloadLink.url}),
+    );
     final htmlPageText = response.data;
     if (htmlPageText == null) {
       throw SourceException(
@@ -631,7 +636,11 @@ class Source {
       options: Options(
         followRedirects: false,
         validateStatus: (status) => status != null && status < 400,
-        headers: {'Referer': kwikPageLink},
+        headers: {
+          'Origin':
+              '${Uri.parse(kwikPageLink).scheme}://${Uri.parse(kwikPageLink).host}',
+          'Referer': kwikPageLink,
+        },
       ),
     );
 

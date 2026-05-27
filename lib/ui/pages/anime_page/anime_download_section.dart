@@ -72,6 +72,10 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
     final state = widget.pageState;
     final notifier = widget.notifier;
     final mobile = isMobile(context);
+    final canStartDownload =
+        state.selectedSource != null &&
+        state.hasAvailableEpisodes &&
+        !state.isSubmittingDownload;
 
     final downloadControls = _buildDownloadControls(
       context,
@@ -79,6 +83,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       state,
       notifier,
       mobile,
+      canStartDownload,
     );
 
     return SliverToBoxAdapter(
@@ -137,6 +142,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
     AnimeDownloadSessionState state,
     AnimeDownloadSessionNotifier notifier,
     bool mobile,
+    bool canStartDownload,
   ) {
     final folderPicker = MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -183,11 +189,11 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
     );
 
     final downloadButton = MouseRegion(
-      cursor: state.selectedSource != null && !state.isSubmittingDownload
+      cursor: canStartDownload
           ? SystemMouseCursors.click
           : SystemMouseCursors.basic,
       child: ElevatedButton.icon(
-        onPressed: state.selectedSource != null && !state.isSubmittingDownload
+        onPressed: canStartDownload
             ? () => unawaited(_handleDownload(context))
             : null,
         icon: state.isSubmittingDownload
@@ -202,17 +208,17 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: state.selectedSource != null
+          backgroundColor: canStartDownload
               ? theme.colorScheme.primary
               : theme.colorScheme.surfaceContainerHighest,
-          foregroundColor: state.selectedSource != null
+          foregroundColor: canStartDownload
               ? theme.colorScheme.onPrimary
               : theme.colorScheme.onSurface.withValues(alpha: 0.3),
           minimumSize: const Size(double.infinity, 48),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          elevation: state.selectedSource != null ? 2 : 0,
+          elevation: canStartDownload ? 2 : 0,
         ),
       ),
     );
@@ -258,7 +264,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           textAlign: TextAlign.center,
           decoration: InputDecoration(
-            hintText: state.totalEpisodes.toString(),
+            hintText: state.availableEpisodes.toString(),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 8,
@@ -278,7 +284,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       ),
       const SizedBox(width: 8),
       Text(
-        'of ${state.totalEpisodes}',
+        'of ${state.availableEpisodes}',
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
         ),
@@ -389,13 +395,14 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
 
   Future<void> _handleDownload(BuildContext context) async {
     final notifier = widget.notifier;
+    final navigator = Navigator.of(context);
     try {
       notifier.setSubmissionStage(DownloadSubmissionStage.planning);
       final preparedBatch = await notifier.prepareDownloads(
         startInput: _startController.text,
         endInput: _endController.text,
       );
-      if (!mounted) {
+      if (!context.mounted) {
         notifier.resetSubmissionStage();
         return;
       }
@@ -405,6 +412,10 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
           context,
           batch: preparedBatch,
         );
+        if (!context.mounted) {
+          notifier.resetSubmissionStage();
+          return;
+        }
         if (!confirmed) {
           notifier.resetSubmissionStage();
           return;
@@ -414,16 +425,13 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       final result = await notifier.enqueuePreparedDownloads(preparedBatch);
       notifier.resetSubmissionStage();
       ref.read(AppPageNotifier.provider.notifier).showDownloads();
-      if (mounted) {
-        Navigator.of(context).pop();
+      if (navigator.mounted) {
+        navigator.pop();
       }
-      final rootContext = App.navigatorKey.currentContext;
-      if (rootContext != null) {
-        _showDownloadNotices(rootContext, result.notices);
-      }
+      _showDownloadNotices(result.notices);
     } on DownloadUserError catch (error) {
       notifier.resetSubmissionStage();
-      if (!mounted) return;
+      if (!context.mounted) return;
       AppToast.showError(
         context,
         title: error.title,
@@ -432,7 +440,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       );
     } catch (error, stackTrace) {
       notifier.resetSubmissionStage();
-      if (!mounted) return;
+      if (!context.mounted) return;
       AppToast.showError(
         context,
         title: 'Failed to queue download',
@@ -442,10 +450,11 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
     }
   }
 
-  void _showDownloadNotices(
-    BuildContext context,
-    Iterable<DownloadNotice> notices,
-  ) {
+  void _showDownloadNotices(Iterable<DownloadNotice> notices) {
+    final context = App.navigatorKey.currentContext;
+    if (context == null) {
+      return;
+    }
     for (final notice in notices) {
       switch (notice.level) {
         case DownloadNoticeLevel.info:

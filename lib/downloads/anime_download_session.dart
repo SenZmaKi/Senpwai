@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/downloads/models.dart';
@@ -10,6 +11,25 @@ import 'package:senpwai/shared/platform_paths.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 
 enum DownloadSubmissionStage { idle, planning, reviewing, queueing }
+
+int _availableEpisodesForAnime(AnilistAnimeBase anime) {
+  final nextEpisodeNumber = anime.episode;
+  if (nextEpisodeNumber != null) {
+    var airedEpisodes = nextEpisodeNumber - 1;
+    if (airedEpisodes < 0) {
+      airedEpisodes = 0;
+    }
+    final totalEpisodes = anime.episodes;
+    if (totalEpisodes != null && airedEpisodes > totalEpisodes) {
+      airedEpisodes = totalEpisodes;
+    }
+    return airedEpisodes;
+  }
+  if (anime.status == AnilistAiringStatus.notYetReleased) {
+    return 0;
+  }
+  return anime.episodes ?? 1;
+}
 
 extension DownloadSubmissionStageExtension on DownloadSubmissionStage {
   String label({required bool hasSource}) => switch (this) {
@@ -61,6 +81,10 @@ class AnimeDownloadSessionState {
 
   int get totalEpisodes => anime.episodes ?? 1;
 
+  int get availableEpisodes => _availableEpisodesForAnime(anime);
+
+  bool get hasAvailableEpisodes => availableEpisodes > 0;
+
   bool get allSourcesResolved =>
       !animepaheMatch.isLoading &&
       !tokyoinsiderMatch.isLoading &&
@@ -69,8 +93,13 @@ class AnimeDownloadSessionState {
   bool get isSubmittingDownload =>
       submissionStage != DownloadSubmissionStage.idle;
 
-  String get submitButtonLabel =>
-      submissionStage.label(hasSource: selectedSource != null);
+  String get submitButtonLabel => isSubmittingDownload
+      ? submissionStage.label(hasSource: selectedSource != null)
+      : selectedSource == null
+      ? 'No source available'
+      : hasAvailableEpisodes
+      ? 'Download'
+      : 'No aired episodes yet';
 
   bool isSourceAvailable(AnimeSource source) => switch (source) {
     AnimeSource.animepahe => animepaheMatch.isMatched,
@@ -155,12 +184,17 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     return AnimeDownloadSessionState(
       anime: _anime,
       startEpisode: 1,
-      endEpisode: _anime.episodes ?? 1,
+      endEpisode: _defaultAvailableEpisode,
       endEpisodeUsesLatest: true,
     );
   }
 
   AnimeDownloadSessionState get currentState => state;
+
+  int get _defaultAvailableEpisode {
+    final availableEpisodes = _availableEpisodesForAnime(_anime);
+    return availableEpisodes > 0 ? availableEpisodes : 1;
+  }
 
   Future<void> _initialize() async {
     await Future.wait([_resolveInitialLocation(), _resolveSources()]);
@@ -223,7 +257,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
 
   void useLatestEndEpisode() {
     state = state.copyWith(
-      endEpisode: state.totalEpisodes,
+      endEpisode: state.hasAvailableEpisodes ? state.availableEpisodes : 1,
       endEpisodeUsesLatest: true,
     );
   }
@@ -303,11 +337,18 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     required String startInput,
     required String endInput,
   }) {
-    final totalEpisodes = state.totalEpisodes;
+    final availableEpisodes = state.availableEpisodes;
+    if (availableEpisodes <= 0) {
+      throw const DownloadUserError(
+        title: 'No aired episodes yet',
+        description:
+            'This anime does not have any released episodes available to download yet.',
+      );
+    }
     final startText = startInput.trim();
     final endText = endInput.trim();
     final start = startText.isEmpty ? 1 : int.tryParse(startText);
-    final end = endText.isEmpty ? totalEpisodes : int.tryParse(endText);
+    final end = endText.isEmpty ? availableEpisodes : int.tryParse(endText);
 
     if (start == null || end == null) {
       throw const DownloadUserError(
@@ -327,12 +368,11 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         description: 'Negative episode numbers are not valid.',
       );
     }
-    if (totalEpisodes > 0 && start > totalEpisodes) {
+    if (start > availableEpisodes) {
       throw DownloadUserError(
-        title:
-            'Start episode cannot be greater than the number of episodes the anime has',
+        title: 'Start episode cannot be greater than the latest aired episode',
         description:
-            'Pick a start episode between 1 and $totalEpisodes for this anime.',
+            'Pick a start episode between 1 and $availableEpisodes for this anime.',
       );
     }
     if (end < start) {
@@ -342,12 +382,11 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         description: 'Choose an ending episode that is after the starting one.',
       );
     }
-    if (totalEpisodes > 0 && end > totalEpisodes) {
+    if (end > availableEpisodes) {
       throw DownloadUserError(
-        title:
-            'Stop episode cannot be greater than the number of episodes this anime has',
+        title: 'Stop episode cannot be greater than the latest aired episode',
         description:
-            'Pick an ending episode between $start and $totalEpisodes for this anime.',
+            'Pick an ending episode between $start and $availableEpisodes for this anime.',
       );
     }
     return (start: start, end: end);
