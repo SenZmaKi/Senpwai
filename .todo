@@ -1,4 +1,6 @@
 - Spinner in planning download and loading sources should be light grey
+- Debug why nyaa resolution fails for some episodes of "Hime Kishi wa Barbaroi no Yome"
+- Audit audio preference handling (extra emphasis on nyaa)
 - Memory usage
 - Confirm whether clearAllDataOnInit is necessary for cf_bypass
 - Make all interactive widgets turn cursor to pointing hand

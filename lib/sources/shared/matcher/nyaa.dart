@@ -184,7 +184,7 @@ String preferredNyaaEpisodeSearchTerm(
   return _episodeSearchTerms(expanded.first, episodeNumber).first;
 }
 
-List<String> buildNyaaFallbackEpisodeSearchTerms(String title) {
+List<String> buildNyaaBroadEpisodeSearchTerms(String title) {
   final (:baseTitle, :seasonNumber) = _parseSeasonFromTitle(title);
   final queries = <String>[];
 
@@ -522,7 +522,7 @@ class NyaaMatcher {
     if (titleCandidates.isEmpty) return [];
     final expandedTitleCandidates = expandNyaaTitleCandidates(titleCandidates);
     final searchTerms = expandedTitleCandidates
-        .expand(buildNyaaFallbackEpisodeSearchTerms)
+        .expand(buildNyaaBroadEpisodeSearchTerms)
         .toList();
     final seenUrls = <String>{};
     final candidates = <_Candidate>[];
