@@ -450,6 +450,26 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     );
   }
 
+  void reorder(int oldIndex, int newIndex) {
+    final items = [...state.items];
+    if (oldIndex < newIndex) newIndex -= 1;
+    final item = items.removeAt(oldIndex);
+    items.insert(newIndex, item);
+    state = state.copyWith(items: items);
+  }
+
+  void clearHistory() {
+    state = state.copyWith(
+      items: state.items.where((i) => !i.status.isTerminal).toList(),
+    );
+  }
+
+  void dismiss(String id) {
+    state = state.copyWith(
+      items: state.items.where((i) => i.id != id).toList(),
+    );
+  }
+
   static int _recommendedPartCount(int sizeBytes) {
     if (sizeBytes <= 8 * 1024 * 1024) return 1;
     if (sizeBytes <= 64 * 1024 * 1024) return 2;
