@@ -4,6 +4,7 @@ import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/downloads/request_coordinator.dart';
 import 'package:senpwai/downloads/source_resolver.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
@@ -95,6 +96,8 @@ class AnimeDownloadSessionState {
 
   String get submitButtonLabel => isSubmittingDownload
       ? submissionStage.label(hasSource: selectedSource != null)
+      : !allSourcesResolved
+      ? 'Loading sources...'
       : selectedSource == null
       ? 'No source available'
       : hasAvailableEpisodes
@@ -331,6 +334,50 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     return ref
         .read(DownloadManagerNotifier.provider.notifier)
         .enqueueBatch(batch);
+  }
+
+  Future<List<NyaaManualSearchCandidate>> searchNyaaManualCandidates({
+    required int episodeNumber,
+    required String query,
+    NyaaManualSearchFilters filters = const NyaaManualSearchFilters(),
+  }) async {
+    return _coordinator.searchNyaaManualCandidates(
+      request: _buildNyaaDownloadRequest(),
+      episodeNumber: episodeNumber,
+      query: query,
+      filters: filters,
+    );
+  }
+
+  Future<PreparedTorrentDownloadJob> planManualNyaaEpisode({
+    required int episodeNumber,
+    required NyaaManualSearchCandidate candidate,
+  }) async {
+    return _coordinator.planManualNyaaEpisode(
+      request: _buildNyaaDownloadRequest(),
+      episodeNumber: episodeNumber,
+      candidate: candidate,
+    );
+  }
+
+  DownloadRequest _buildNyaaDownloadRequest() {
+    final folder = state.downloadFolder;
+    if (folder == null || folder.trim().isEmpty) {
+      throw const DownloadUserError(
+        title: 'No folder selected',
+        description: 'Choose a download folder before continuing.',
+      );
+    }
+    return DownloadRequest(
+      anime: state.anime,
+      source: AnimeSource.nyaa,
+      startEpisode: state.startEpisode,
+      endEpisode: state.endEpisode,
+      downloadFolder: folder,
+      httpJobTitle: state.resolvedDownloadTitle,
+      resolution: state.selectedResolution,
+      language: state.selectedLanguage,
+    );
   }
 
   ({int start, int end}) _parseEpisodeRange({

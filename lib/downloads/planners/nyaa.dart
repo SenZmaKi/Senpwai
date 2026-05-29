@@ -5,10 +5,13 @@ import 'package:dio/dio.dart';
 import 'package:libtorrent_dart/libtorrent_dart.dart';
 import 'package:path/path.dart' as path;
 import 'package:senpwai/anilist/enums.dart';
+import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/sources/nyaa.dart' as nyaa;
 import 'package:senpwai/sources/shared/matcher/nyaa.dart';
 import 'package:senpwai/sources/shared/matcher/shared.dart';
 import 'package:senpwai/sources/shared/shared.dart';
@@ -55,14 +58,17 @@ bool looksLikeVideoFile(String filePath) {
 class NyaaDownloadPlanner {
   final NyaaMatcher _matcher;
   final Dio _dio;
+  final nyaa.Source _source;
   final DownloadTargetPlanner _targetPlanner;
 
   NyaaDownloadPlanner({
     NyaaMatcher? matcher,
     Dio? dio,
+    nyaa.Source? source,
     DownloadTargetPlanner? targetPlanner,
   }) : _matcher = matcher ?? NyaaMatcher(),
        _dio = dio ?? GlobalDio.getInstance(),
+       _source = source ?? nyaa.Source.getInstance(),
        _targetPlanner = targetPlanner ?? const DownloadTargetPlanner();
 
   Future<PreparedDownloadBatch> plan(DownloadRequest request) async {
@@ -126,74 +132,49 @@ class NyaaDownloadPlanner {
         notices.add(
           const DownloadNotice(
             level: DownloadNoticeLevel.warning,
-            title: 'Season pack fallback',
+            title: 'No matching season pack',
             description:
-                'No season torrent cleanly matched the requested episodes, so episode torrents will be used instead.',
+                'No season torrent cleanly covered the requested episodes; using individual episode torrents instead.',
           ),
         );
       }
     }
 
-    final episodeMatches = await _matcher.matchEpisodes(
-      anime,
-      params,
-      episodeNumbers: requestedEpisodes,
-    );
+    final (episodeMatches, broadCandidates) = await (
+      _matcher.matchEpisodes(anime, params, episodeNumbers: requestedEpisodes),
+      _matcher.matchBroadCandidates(anime, params),
+    ).wait;
+
+    final matchesByEpisode = {
+      for (final match in episodeMatches) match.episodeNumber: match,
+    };
     final jobs = <PreparedDownloadJob>[];
-    for (final episodeMatch in episodeMatches) {
-      final bestMatch = episodeMatch.matches.isEmpty
-          ? null
-          : episodeMatch.matches.first;
-      if (bestMatch == null) {
-        throw DownloadUserError(
-          title: 'Episode torrent missing',
-          description:
-              'Could not find a usable torrent for episode ${episodeMatch.episodeNumber}.',
-        );
-      }
-      final torrentData = await _fetchTorrentData(
-        bestMatch.result.torrentFileUrl,
-      );
-      final inspected = await _inspectTorrentData(
+    final unresolvedIssues = <NyaaEpisodeResolutionIssue>[];
+    for (final episodeNumber in requestedEpisodes) {
+      final episodeSpecificMatches =
+          matchesByEpisode[episodeNumber]?.matches ?? const [];
+      final job = await _planEpisodeFromCandidates(
         anime: anime,
-        torrentData: torrentData,
-        candidate: bestMatch,
-        requestedEpisodes: {episodeMatch.episodeNumber},
-        preferredLanguage: request.language,
+        request: request,
+        episodeNumber: episodeNumber,
+        candidates: _mergeCandidates(episodeSpecificMatches, broadCandidates),
       );
-      final mappedFile = inspected.selectedFiles[episodeMatch.episodeNumber];
-      if (mappedFile == null) {
-        throw DownloadUserError(
-          title: 'Episode file missing',
-          description:
-              'Torrent metadata did not expose a file for episode ${episodeMatch.episodeNumber}.',
-        );
+      if (job != null) {
+        jobs.add(job);
+        continue;
       }
-      final plannedTarget = _targetPlanner.planEpisodeFile(
-        directory: request.downloadFolder,
-        jobTitle: request.httpJobTitle,
-        episodeNumber: episodeMatch.episodeNumber,
-        sourceFileName: mappedFile.entry.path,
-        resolvedUrl: mappedFile.entry.path,
-      );
-      final targetFilePath = plannedTarget.filePath;
-      jobs.add(
-        PreparedTorrentDownloadJob(
-          source: AnimeSource.nyaa,
-          animeTitle: anime.title.display,
-          displayTitle: plannedTarget.fileName,
-          destinationDirectory: request.downloadFolder,
-          totalBytes: mappedFile.entry.size,
-          torrentData: torrentData,
-          torrentName: bestMatch.result.filename,
-          selectedFileIndices: [mappedFile.entry.index],
-          selectedFilePaths: [targetFilePath],
-          renamedFilePaths: {mappedFile.entry.index: targetFilePath},
+
+      unresolvedIssues.add(
+        _buildEpisodeResolutionIssue(
+          anime: anime,
+          episodeNumber: episodeNumber,
+          hadEpisodeSpecificMatches: episodeSpecificMatches.isNotEmpty,
+          hadBroadCandidates: broadCandidates.isNotEmpty,
         ),
       );
     }
 
-    if (jobs.isEmpty) {
+    if (jobs.isEmpty && unresolvedIssues.isEmpty) {
       throw const DownloadUserError(
         title: 'No usable torrent found',
         description:
@@ -205,7 +186,91 @@ class NyaaDownloadPlanner {
       jobs: jobs,
       notices: notices,
       requiresUserReview: true,
+      nyaaEpisodeIssues: unresolvedIssues,
     );
+  }
+
+  Future<List<NyaaManualSearchCandidate>> searchManualCandidates({
+    required DownloadRequest request,
+    required int episodeNumber,
+    required String query,
+    NyaaManualSearchFilters filters = const NyaaManualSearchFilters(),
+  }) async {
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty) return const [];
+
+    final results = await _source.search(
+      params: nyaa.SearchParams(term: normalizedQuery, page: 1),
+    );
+    final desiredSeason = anitomy_parser
+        .parseFilename(request.anime.title.display)
+        .season;
+    final titleCandidates = expandNyaaTitleCandidates(
+      request.anime.title.toTitleCandidates(),
+    );
+    final manualCandidates = results.items
+        .where((candidate) => candidate.seeders > 0)
+        .map(
+          (candidate) => _buildManualSearchCandidate(
+            request: request,
+            episodeNumber: episodeNumber,
+            candidate: candidate,
+            desiredSeason: desiredSeason,
+            titleCandidates: titleCandidates,
+          ),
+        )
+        .where(
+          (candidate) =>
+              (!filters.exactEpisodeOnly ||
+                  candidate.matchesRequestedEpisode) &&
+              (!filters.sameSeasonOnly || candidate.matchesRequestedSeason) &&
+              (!filters.preferredLanguageOnly ||
+                  candidate.matchesPreferredLanguage),
+        )
+        .toList();
+
+    final comparator = switch (filters.sort) {
+      NyaaManualSearchSort.smart =>
+        (NyaaManualSearchCandidate a, NyaaManualSearchCandidate b) =>
+            b.smartScore.compareTo(a.smartScore),
+      NyaaManualSearchSort.seeders =>
+        (NyaaManualSearchCandidate a, NyaaManualSearchCandidate b) =>
+            b.result.seeders.compareTo(a.result.seeders),
+      NyaaManualSearchSort.newest =>
+        (NyaaManualSearchCandidate a, NyaaManualSearchCandidate b) =>
+            b.result.dateAdded.compareTo(a.result.dateAdded),
+      NyaaManualSearchSort.size =>
+        (NyaaManualSearchCandidate a, NyaaManualSearchCandidate b) =>
+            b.result.sizeBytes.compareTo(a.result.sizeBytes),
+    };
+    manualCandidates.sort(comparator);
+    return manualCandidates;
+  }
+
+  Future<PreparedTorrentDownloadJob> planManualEpisode({
+    required DownloadRequest request,
+    required int episodeNumber,
+    required NyaaManualSearchCandidate candidate,
+  }) async {
+    final job = await _buildEpisodeJobFromCandidate(
+      anime: request.anime,
+      request: request,
+      episodeNumber: episodeNumber,
+      candidate: ScoredNyaaResult(
+        result: candidate.result,
+        score: candidate.smartScore,
+        resolution: candidate.resolution ?? request.resolution,
+        isCompleteSeason: candidate.isBatch,
+      ),
+    );
+    if (job == null) {
+      throw DownloadUserError(
+        title: 'Episode file missing',
+        description:
+            'The selected torrent did not expose a usable file for episode $episodeNumber.',
+      );
+    }
+    return job;
   }
 
   Future<PreparedTorrentDownloadJob?> _planBatchCandidate({
@@ -255,9 +320,92 @@ class NyaaDownloadPlanner {
         selectedFileIndices: selectedFileIndices,
         selectedFilePaths: selectedFilePaths,
         renamedFilePaths: renamedFilePaths,
+        reviewMetadata: _buildReviewMetadata(
+          candidate: candidate,
+          episodeNumber: null,
+        ),
       );
     }
     return null;
+  }
+
+  Future<PreparedTorrentDownloadJob?> _planEpisodeFromCandidates({
+    required AnilistAnimeBase<dynamic> anime,
+    required DownloadRequest request,
+    required int episodeNumber,
+    required List<ScoredNyaaResult> candidates,
+  }) async {
+    DownloadUserError? lastRecoverableError;
+    var candidateWithoutEpisodeFile = false;
+    for (final candidate in candidates.take(5)) {
+      try {
+        final job = await _buildEpisodeJobFromCandidate(
+          anime: anime,
+          request: request,
+          episodeNumber: episodeNumber,
+          candidate: candidate,
+        );
+        if (job != null) {
+          return job;
+        }
+        candidateWithoutEpisodeFile = true;
+      } on DownloadUserError catch (error) {
+        lastRecoverableError = error;
+      }
+    }
+    if (candidateWithoutEpisodeFile || candidates.isEmpty) {
+      return null;
+    }
+    if (lastRecoverableError != null) {
+      throw lastRecoverableError;
+    }
+    return null;
+  }
+
+  Future<PreparedTorrentDownloadJob?> _buildEpisodeJobFromCandidate({
+    required AnilistAnimeBase<dynamic> anime,
+    required DownloadRequest request,
+    required int episodeNumber,
+    required ScoredNyaaResult candidate,
+  }) async {
+    final torrentData = await _fetchTorrentData(
+      candidate.result.torrentFileUrl,
+    );
+    final inspected = await _inspectTorrentData(
+      anime: anime,
+      torrentData: torrentData,
+      candidate: candidate,
+      requestedEpisodes: {episodeNumber},
+      preferredLanguage: request.language,
+    );
+    final mappedFile = inspected.selectedFiles[episodeNumber];
+    if (mappedFile == null) {
+      return null;
+    }
+    final plannedTarget = _targetPlanner.planEpisodeFile(
+      directory: request.downloadFolder,
+      jobTitle: request.httpJobTitle,
+      episodeNumber: episodeNumber,
+      sourceFileName: mappedFile.entry.path,
+      resolvedUrl: mappedFile.entry.path,
+    );
+    final targetFilePath = plannedTarget.filePath;
+    return PreparedTorrentDownloadJob(
+      source: AnimeSource.nyaa,
+      animeTitle: anime.title.display,
+      displayTitle: plannedTarget.fileName,
+      destinationDirectory: request.downloadFolder,
+      totalBytes: mappedFile.entry.size,
+      torrentData: torrentData,
+      torrentName: candidate.result.filename,
+      selectedFileIndices: [mappedFile.entry.index],
+      selectedFilePaths: [targetFilePath],
+      renamedFilePaths: {mappedFile.entry.index: targetFilePath},
+      reviewMetadata: _buildReviewMetadata(
+        candidate: candidate,
+        episodeNumber: episodeNumber,
+      ),
+    );
   }
 
   Future<Uint8List> _fetchTorrentData(String url) async {
@@ -368,6 +516,114 @@ class NyaaDownloadPlanner {
       return nextDiff < currentDiff;
     }
     return next.entry.size > current.entry.size;
+  }
+
+  List<ScoredNyaaResult> _mergeCandidates(
+    List<ScoredNyaaResult> primary,
+    List<ScoredNyaaResult> secondary,
+  ) {
+    final merged = <ScoredNyaaResult>[];
+    final seenMagnetUrls = <String>{};
+    for (final candidate in [...primary, ...secondary]) {
+      if (!seenMagnetUrls.add(candidate.result.magnetUrl)) continue;
+      merged.add(candidate);
+    }
+    return merged;
+  }
+
+  TorrentReviewMetadata _buildReviewMetadata({
+    required ScoredNyaaResult candidate,
+    required int? episodeNumber,
+  }) {
+    final parsed = anitomy_parser.parseFilename(candidate.result.filename);
+    return TorrentReviewMetadata(
+      episodeNumber: episodeNumber,
+      resolution: candidate.resolution,
+      seeders: candidate.result.seeders,
+      languageLabel: classifyNyaaLanguageSignal(parsed).label,
+      isBatch: candidate.isCompleteSeason,
+    );
+  }
+
+  NyaaEpisodeResolutionIssue _buildEpisodeResolutionIssue({
+    required AnilistAnimeBase<dynamic> anime,
+    required int episodeNumber,
+    required bool hadEpisodeSpecificMatches,
+    required bool hadBroadCandidates,
+  }) {
+    final description = switch ((hadEpisodeSpecificMatches, hadBroadCandidates)) {
+      (false, false) =>
+        'Automatic matching could not find a confident Nyaa result for this episode, so your help is needed.',
+      (true, false) =>
+        'Episode-specific torrents were found, but none exposed a clean file mapping for this episode.',
+      (false, true) =>
+        'Broad series candidates were found, but none contained a usable file for this episode.',
+      (true, true) =>
+        'Both episode-specific and broad series candidates were tried, but this episode still needs manual selection.',
+    };
+    return NyaaEpisodeResolutionIssue(
+      episodeNumber: episodeNumber,
+      title: 'Episode $episodeNumber needs guidance',
+      description: description,
+      initialQuery: preferredNyaaEpisodeSearchTerm(
+        anime.title.toTitleCandidates(),
+        episodeNumber,
+      ),
+    );
+  }
+
+  NyaaManualSearchCandidate _buildManualSearchCandidate({
+    required DownloadRequest request,
+    required int episodeNumber,
+    required nyaa.AnimeResult candidate,
+    required int? desiredSeason,
+    required List<String> titleCandidates,
+  }) {
+    final parsed = anitomy_parser.parseFilename(candidate.filename);
+    final languageSignal = classifyNyaaLanguageSignal(parsed);
+    final parsedEpisodeNumber = parsed.episode;
+    final parsedSeasonNumber = parsed.season;
+    final parsedTitle = parsed.title;
+    final titleScore = parsedTitle == null
+        ? 0.0
+        : bestTitleScore(titleCandidates, parsedTitle).toDouble();
+    final matchesRequestedEpisode = parsedEpisodeNumber == episodeNumber;
+    final matchesRequestedSeason =
+        desiredSeason == null ||
+        parsedSeasonNumber == null ||
+        parsedSeasonNumber == desiredSeason;
+    final matchesLanguage = matchesPreferredNyaaLanguage(
+      parsed,
+      request.language,
+    );
+    final resolution = parsed.resolution;
+    final resolutionScore = resolution == null
+        ? 0.15
+        : 1 -
+              (((resolution.value - request.resolution.value).abs() /
+                      Resolution.res4320p.value)
+                  .clamp(0.0, 1.0));
+    final smartScore =
+        (matchesRequestedEpisode ? 2.2 : 0) +
+        (matchesRequestedSeason ? 0.5 : 0) +
+        (matchesLanguage ? 0.6 : 0) +
+        (titleScore / 100) +
+        resolutionScore +
+        (candidate.seeders / 100).clamp(0, 0.8) +
+        (parsedEpisodeNumber == null ? 0.15 : 0);
+    return NyaaManualSearchCandidate(
+      result: candidate,
+      parsedEpisodeNumber: parsedEpisodeNumber,
+      parsedSeasonNumber: parsedSeasonNumber,
+      resolution: resolution,
+      languageSignal: languageSignal,
+      titleScore: titleScore,
+      matchesRequestedEpisode: matchesRequestedEpisode,
+      matchesRequestedSeason: matchesRequestedSeason,
+      matchesPreferredLanguage: matchesLanguage,
+      isBatch: parsedEpisodeNumber == null,
+      smartScore: smartScore,
+    );
   }
 }
 

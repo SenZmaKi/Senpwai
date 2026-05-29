@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as path;
 import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 
 enum AnimeSource { animepahe, tokyoinsider, nyaa }
@@ -125,12 +126,29 @@ final class PreparedHttpDownloadJob extends PreparedDownloadJob {
   String get targetFilePath => path.join(destinationDirectory, fileName);
 }
 
+class TorrentReviewMetadata {
+  final int? episodeNumber;
+  final Resolution? resolution;
+  final int? seeders;
+  final String? languageLabel;
+  final bool isBatch;
+
+  const TorrentReviewMetadata({
+    this.episodeNumber,
+    this.resolution,
+    this.seeders,
+    this.languageLabel,
+    this.isBatch = false,
+  });
+}
+
 final class PreparedTorrentDownloadJob extends PreparedDownloadJob {
   final Uint8List torrentData;
   final String torrentName;
   final List<int> selectedFileIndices;
   final List<String> selectedFilePaths;
   final Map<int, String> renamedFilePaths;
+  final TorrentReviewMetadata? reviewMetadata;
 
   const PreparedTorrentDownloadJob({
     required super.source,
@@ -143,6 +161,7 @@ final class PreparedTorrentDownloadJob extends PreparedDownloadJob {
     required this.selectedFileIndices,
     required this.selectedFilePaths,
     this.renamedFilePaths = const {},
+    this.reviewMetadata,
   });
 }
 
@@ -150,12 +169,31 @@ class PreparedDownloadBatch {
   final List<PreparedDownloadJob> jobs;
   final List<DownloadNotice> notices;
   final bool requiresUserReview;
+  final List<NyaaEpisodeResolutionIssue> nyaaEpisodeIssues;
 
   const PreparedDownloadBatch({
     required this.jobs,
     this.notices = const [],
     this.requiresUserReview = false,
+    this.nyaaEpisodeIssues = const [],
   });
+
+  bool get requiresUserInteraction =>
+      requiresUserReview || nyaaEpisodeIssues.isNotEmpty;
+
+  PreparedDownloadBatch copyWith({
+    List<PreparedDownloadJob>? jobs,
+    List<DownloadNotice>? notices,
+    bool? requiresUserReview,
+    List<NyaaEpisodeResolutionIssue>? nyaaEpisodeIssues,
+  }) {
+    return PreparedDownloadBatch(
+      jobs: jobs ?? this.jobs,
+      notices: notices ?? this.notices,
+      requiresUserReview: requiresUserReview ?? this.requiresUserReview,
+      nyaaEpisodeIssues: nyaaEpisodeIssues ?? this.nyaaEpisodeIssues,
+    );
+  }
 }
 
 class EnqueuedDownloadsResult {

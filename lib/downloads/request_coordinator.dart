@@ -1,4 +1,5 @@
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/downloads/planners/planners.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/sources/animepahe.dart' as animepahe;
@@ -51,5 +52,31 @@ class AnimeDownloadCoordinator {
       ),
       AnimeSource.nyaa => _nyaaPlanner.plan(request),
     };
+  }
+
+  Future<List<NyaaManualSearchCandidate>> searchNyaaManualCandidates({
+    required DownloadRequest request,
+    required int episodeNumber,
+    required String query,
+    NyaaManualSearchFilters filters = const NyaaManualSearchFilters(),
+  }) {
+    return _nyaaPlanner.searchManualCandidates(
+      request: request,
+      episodeNumber: episodeNumber,
+      query: query,
+      filters: filters,
+    );
+  }
+
+  Future<PreparedTorrentDownloadJob> planManualNyaaEpisode({
+    required DownloadRequest request,
+    required int episodeNumber,
+    required NyaaManualSearchCandidate candidate,
+  }) {
+    return _nyaaPlanner.planManualEpisode(
+      request: request,
+      episodeNumber: episodeNumber,
+      candidate: candidate,
+    );
   }
 }

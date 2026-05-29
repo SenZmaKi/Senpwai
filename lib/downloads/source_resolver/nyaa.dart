@@ -3,6 +3,7 @@ import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/downloads/source_resolver/shared.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/sources/nyaa.dart' as nyaa;
+import 'package:senpwai/sources/shared/matcher/nyaa.dart';
 
 final _log = Logger('senpwai.downloads.source_resolver.nyaa');
 
@@ -14,14 +15,22 @@ class NyaaDownloadSourceResolver {
 
   Future<SourceMatchState<bool>> resolve(AnilistAnimeBase anime) async {
     try {
-      final titleCandidates = anime.title.toTitleCandidates();
-      if (titleCandidates.isEmpty) {
+      final expandedCandidates = expandNyaaTitleCandidates(
+        anime.title.toTitleCandidates(),
+      );
+      if (expandedCandidates.isEmpty) {
         return const SourceMatchState.failed('No title candidates');
       }
-      final results = await _source.search(
-        params: nyaa.SearchParams(term: titleCandidates.first, page: 1),
+      final resultPages = await Future.wait(
+        expandedCandidates
+            .take(4)
+            .map(
+              (term) => _source.search(
+                params: nyaa.SearchParams(term: term, page: 1),
+              ),
+            ),
       );
-      if (results.items.isEmpty) {
+      if (resultPages.every((page) => page.items.isEmpty)) {
         return const SourceMatchState.failed('No results found');
       }
       return const SourceMatchState.matched(true);

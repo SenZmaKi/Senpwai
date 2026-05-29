@@ -2,9 +2,9 @@
 
 - The app is designed for mobile, tablet and desktop so it should be responsive.
 - Validate your implementation with static analyzers don't run tests unless I explicitly ask you to.
-- Don't ignore preexisting errors or warnings.
+- Don't ignore prexisting errors or war
 - Before running tests run static analyzers
-- Anything that is clickable and technically a button should behave like a button for accessibility for instance on hover cursor should change to a hand.
+- Anything that is clickable and technically a button should behave like a button for accesibility for instance on hover cursor should change to a hand.
 - When refactoring code don't care about backwards compatibility, upstream enforces downstream so downstream should update to the new upstream architecture. Aggressive refactors.
 - If I'm suggesting and you feel like it goes against your better judgement then tell me why it is a bad idea.
 - Try to keep ui files as small as possible in terms of lines of code ~300 lines max. If it gets too big then break it down into smaller components and files.

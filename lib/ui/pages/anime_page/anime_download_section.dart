@@ -402,27 +402,30 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
         startInput: _startController.text,
         endInput: _endController.text,
       );
+      PreparedDownloadBatch reviewedBatch = preparedBatch;
       if (!context.mounted) {
         notifier.resetSubmissionStage();
         return;
       }
-      if (preparedBatch.requiresUserReview) {
+      if (preparedBatch.requiresUserInteraction) {
         notifier.setSubmissionStage(DownloadSubmissionStage.reviewing);
-        final confirmed = await NyaaPlanReviewDialog.confirm(
+        final resolvedBatch = await NyaaPlanReviewDialog.review(
           context,
           batch: preparedBatch,
+          notifier: notifier,
         );
         if (!context.mounted) {
           notifier.resetSubmissionStage();
           return;
         }
-        if (!confirmed) {
+        if (resolvedBatch == null) {
           notifier.resetSubmissionStage();
           return;
         }
+        reviewedBatch = resolvedBatch;
       }
       notifier.setSubmissionStage(DownloadSubmissionStage.queueing);
-      final result = await notifier.enqueuePreparedDownloads(preparedBatch);
+      final result = await notifier.enqueuePreparedDownloads(reviewedBatch);
       notifier.resetSubmissionStage();
       ref.read(AppPageNotifier.provider.notifier).showDownloads();
       if (navigator.mounted) {

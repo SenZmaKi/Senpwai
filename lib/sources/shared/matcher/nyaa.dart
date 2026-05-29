@@ -173,6 +173,43 @@ List<String> _episodeSearchTerms(String title, int episodeNumber) {
   ];
 }
 
+String preferredNyaaEpisodeSearchTerm(
+  Iterable<String> titleCandidates,
+  int episodeNumber,
+) {
+  final expanded = expandNyaaTitleCandidates(titleCandidates);
+  if (expanded.isEmpty) {
+    return episodeNumber.toString();
+  }
+  return _episodeSearchTerms(expanded.first, episodeNumber).first;
+}
+
+List<String> buildNyaaFallbackEpisodeSearchTerms(String title) {
+  final (:baseTitle, :seasonNumber) = _parseSeasonFromTitle(title);
+  final queries = <String>[];
+
+  void add(String query) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty || queries.contains(trimmed)) return;
+    queries.add(trimmed);
+  }
+
+  add(title);
+  add(baseTitle);
+  add('$title complete');
+  add('$baseTitle complete');
+
+  if (seasonNumber != null) {
+    final paddedSeason = _pad(seasonNumber);
+    add('$baseTitle S$paddedSeason');
+    add('$baseTitle Season $seasonNumber');
+    add('$baseTitle S$paddedSeason complete');
+    add('$baseTitle Season $seasonNumber complete');
+  }
+
+  return queries;
+}
+
 // ─── Validation ──────────────────────────────────────────────────────────────
 
 typedef _Candidate = ({
@@ -180,6 +217,11 @@ typedef _Candidate = ({
   Resolution resolution,
   bool isCompleteSeason,
 });
+
+int _bestTitleScore(List<String> titleCandidates, String parsedTitle) =>
+    expandNyaaTitleCandidates(titleCandidates)
+        .map((candidate) => titleSimilarity(candidate, parsedTitle))
+        .reduce((a, b) => a > b ? a : b);
 
 /// Returns [resolution] + [isCompleteSeason] when the parsed filename is a
 /// valid match, or `null` when it should be discarded.
@@ -195,11 +237,7 @@ typedef _Candidate = ({
     return null;
   }
 
-  final allCandidates = expandNyaaTitleCandidates(titleCandidates);
-
-  final bestScore = allCandidates
-      .map((c) => titleSimilarity(c, parsed.title!))
-      .reduce((a, b) => a > b ? a : b);
+  final bestScore = _bestTitleScore(titleCandidates, parsed.title!);
   if (bestScore < Constants.minMatchScore) return null;
 
   final isCompleteSeason = parsed.episode == null;
@@ -470,5 +508,57 @@ class NyaaMatcher {
       },
     );
     return matches;
+  }
+
+  /// Searches Nyaa for broad series-level candidates — batch packs, complete
+  /// seasons, and any related individual episodes — without targeting a specific
+  /// episode number. The caller is responsible for inspecting torrent contents
+  /// to determine which files map to which episodes.
+  Future<List<ScoredNyaaResult>> matchBroadCandidates(
+    AnilistAnimeBase<dynamic> anime,
+    NyaaMatchParams params,
+  ) async {
+    final titleCandidates = anime.title.toTitleCandidates();
+    if (titleCandidates.isEmpty) return [];
+    final expandedTitleCandidates = expandNyaaTitleCandidates(titleCandidates);
+    final searchTerms = expandedTitleCandidates
+        .expand(buildNyaaFallbackEpisodeSearchTerms)
+        .toList();
+    final seenUrls = <String>{};
+    final candidates = <_Candidate>[];
+
+    for (final results in await Future.wait(
+      searchTerms.map((term) => _search(term, anime.id)),
+    )) {
+      for (final result in results) {
+        if (!seenUrls.add(result.magnetUrl)) continue;
+        if (result.seeders == 0) continue;
+        final parsed = anitomy_parser.parseFilename(result.filename);
+        final parsedTitle = parsed.title;
+        final resolution = parsed.resolution;
+        if (parsedTitle == null || resolution == null) continue;
+        if (!matchesPreferredNyaaLanguage(parsed, params.preferredLanguage)) {
+          continue;
+        }
+        final titleScore = _bestTitleScore(titleCandidates, parsedTitle);
+        if (titleScore < Constants.minMatchScore) continue;
+        final parsedEpisode = parsed.episode;
+        candidates.add((
+          result: result,
+          resolution: resolution,
+          isCompleteSeason: parsedEpisode == null,
+        ));
+      }
+    }
+
+    final scored = _scoreAndSort(
+      candidates: candidates,
+      preferredResolution: params.preferredResolution,
+    );
+    _log.fineWithMetadata(
+      'Nyaa broad candidate search done',
+      metadata: {'anilistId': anime.id, 'matchCount': scored.length},
+    );
+    return scored;
   }
 }

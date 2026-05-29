@@ -21,6 +21,7 @@ class SourceDropdown extends StatelessWidget {
     final theme = Theme.of(context);
     final selected = state.selectedSource;
     final accentColor = selected?.color ?? theme.colorScheme.outline;
+    final isLoadingSources = !state.allSourcesResolved;
 
     return DropdownButtonHideUnderline(
       child: Container(
@@ -44,11 +45,26 @@ class SourceDropdown extends StatelessWidget {
           value: state.selectedSource,
           isExpanded: true,
           isDense: true,
-          hint: Text(
-            'No source available',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
+          hint: Row(
+            children: [
+              if (isLoadingSources) ...[
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.8,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                isLoadingSources ? 'Loading sources...' : 'No source available',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+              ),
+            ],
           ),
           // Custom selected-state rendering (icon + colored label)
           selectedItemBuilder: (_) => AnimeSource.values.map((source) {
