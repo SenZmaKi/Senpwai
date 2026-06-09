@@ -9,22 +9,26 @@ class SenpwaiTheme {
   final SenpwaiColors colors;
   final SenpwaiTypography typography;
   final SenpwaiShapeStyle shape;
+  final SenpwaiDownloadColorsByMode? downloads;
 
   const SenpwaiTheme({
     required this.colors,
     required this.typography,
     required this.shape,
+    this.downloads,
   });
 
   SenpwaiTheme copyWith({
     SenpwaiColors? colors,
     SenpwaiTypography? typography,
     SenpwaiShapeStyle? shape,
+    SenpwaiDownloadColorsByMode? downloads,
   }) {
     return SenpwaiTheme(
       colors: colors ?? this.colors,
       typography: typography ?? this.typography,
       shape: shape ?? this.shape,
+      downloads: downloads ?? this.downloads,
     );
   }
 
@@ -52,6 +56,8 @@ class SenpwaiTheme {
     final bodyFont = _googleFont(t.bodyFamily);
 
     final textTheme = _buildTextTheme(c.onSurface, brightness, t);
+    final downloadColors = (isDark ? downloads?.dark : downloads?.light) ??
+        SenpwaiDownloadColors.deriveFrom(c);
 
     return ThemeData(
       useMaterial3: true,
@@ -118,6 +124,13 @@ class SenpwaiTheme {
             borderRadius: BorderRadius.circular(s.buttonRadius),
           ),
           textStyle: bodyFont(fontWeight: FontWeight.w600),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(s.buttonRadius),
+          ),
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
@@ -258,6 +271,7 @@ class SenpwaiTheme {
           imageOverlay: c.imageOverlay,
           onImageOverlay: c.onImageOverlay,
           textShadow: c.textShadow,
+          downloadColors: downloadColors,
         ),
       ],
     );

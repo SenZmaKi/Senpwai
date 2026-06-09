@@ -19,6 +19,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
 
   final Map<String, _ActiveHttpDownload> _httpDownloads = {};
   final Map<String, _ActiveTorrentDownload> _torrentDownloads = {};
+  final Map<String, void Function()> _pendingStarters = {};
   int _idCounter = 0;
 
   @override
@@ -30,17 +31,35 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
   Future<EnqueuedDownloadsResult> enqueueBatch(
     PreparedDownloadBatch batch,
   ) async {
+    if (batch.jobs.isEmpty) {
+      return EnqueuedDownloadsResult(queuedCount: 0, notices: batch.notices);
+    }
+    final batchId = _nextBatchId();
+    final itemIds = <String>[];
     for (final job in batch.jobs) {
+      final String itemId;
       switch (job) {
         case PreparedHttpDownloadJob():
-          await _enqueueHttp(job);
+          itemId = await _enqueueHttp(job, batchId: batchId);
         case PreparedTorrentDownloadJob():
-          await _enqueueTorrent(job);
+          itemId = await _enqueueTorrent(job, batchId: batchId);
       }
+      itemIds.add(itemId);
     }
+    _appendBatch(
+      DownloadBatchQueue(
+        id: batchId,
+        title: _batchTitle(batch.jobs),
+        source: batch.jobs.first.source,
+        createdAt: DateTime.now(),
+        itemIds: itemIds,
+      ),
+    );
+    _maybePromote();
     return EnqueuedDownloadsResult(
       queuedCount: batch.jobs.length,
       notices: batch.notices,
+      batchId: batchId,
     );
   }
 
@@ -99,6 +118,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
   }
 
   Future<void> cancel(String id) async {
+    _pendingStarters.remove(id);
     final http = _httpDownloads.remove(id);
     if (http != null) {
       await http.download.state.cancel();
@@ -110,6 +130,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
           bytesPerSecond: 0,
         ),
       );
+      _maybePromote();
       return;
     }
 
@@ -125,7 +146,55 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
           bytesPerSecond: 0,
         ),
       );
+      _maybePromote();
     }
+  }
+
+  Future<void> pauseBatch(String batchId) async {
+    final itemIds = _itemIdsFor(batchId);
+    for (final id in itemIds) {
+      final item = _findItem(id);
+      if (item == null) continue;
+      if (item.status == DownloadQueueStatus.downloading) {
+        await pause(id);
+      }
+    }
+  }
+
+  Future<void> resumeBatch(String batchId) async {
+    final itemIds = _itemIdsFor(batchId);
+    for (final id in itemIds) {
+      final item = _findItem(id);
+      if (item == null) continue;
+      if (item.status == DownloadQueueStatus.paused) {
+        await resume(id);
+      }
+    }
+  }
+
+  List<String> _itemIdsFor(String batchId) {
+    for (final batch in state.batches) {
+      if (batch.id == batchId) return batch.itemIds;
+    }
+    return const [];
+  }
+
+  Future<void> cancelBatch(String batchId) async {
+    final itemIds = state.batches
+        .where((batch) => batch.id == batchId)
+        .expand((batch) => batch.itemIds)
+        .toList();
+    for (final id in itemIds) {
+      final item = _findItem(id);
+      if (item == null || item.status.isTerminal) continue;
+      await cancel(id);
+    }
+    final wasActive = state.activeBatchId == batchId;
+    state = state.copyWith(
+      batches: state.batches.where((batch) => batch.id != batchId).toList(),
+      clearActiveBatchId: wasActive,
+    );
+    if (wasActive) _maybePromote();
   }
 
   void _cleanup() {
@@ -140,7 +209,10 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     _torrentDownloads.clear();
   }
 
-  Future<void> _enqueueHttp(PreparedHttpDownloadJob job) async {
+  Future<String> _enqueueHttp(
+    PreparedHttpDownloadJob job, {
+    required String batchId,
+  }) async {
     final id = _nextId();
     final params = DownloadParams(
       url: job.resolvedUrl,
@@ -164,7 +236,12 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
       );
     });
     final rateSub = download.state.rateTracker.updateStream.listen((bps) {
-      _updateItem(id, (item) => item.copyWith(bytesPerSecond: bps));
+      _updateItem(id, (item) {
+        if (item.status != DownloadQueueStatus.downloading) {
+          return item.copyWith(bytesPerSecond: 0);
+        }
+        return item.copyWith(bytesPerSecond: bps);
+      });
     });
     final statusSub = download.state.statusStream.listen((status) async {
       switch (status) {
@@ -195,6 +272,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
               filePaths: [job.targetFilePath],
             ),
           );
+          _maybePromote();
         case DownloadStatus.cancelled:
           await _disposeHttpRuntime(id);
           _updateItem(
@@ -204,6 +282,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
               bytesPerSecond: 0,
             ),
           );
+          _maybePromote();
         case DownloadStatus.failed:
           await _disposeHttpRuntime(id);
           final message = 'Failed to download ${job.displayTitle}.';
@@ -214,6 +293,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
             copyPayload: null,
           );
           _showGlobalError(title: 'Download failed', description: message);
+          _maybePromote();
         case DownloadStatus.idle:
           break;
       }
@@ -225,9 +305,10 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
       rateSub: rateSub,
       statusSub: statusSub,
     );
-    _prependItem(
+    _appendItem(
       DownloadQueueItem(
         id: id,
+        batchId: batchId,
         source: job.source,
         animeTitle: job.animeTitle,
         displayTitle: job.displayTitle,
@@ -241,25 +322,32 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
       ),
     );
 
-    unawaited(
-      download.startAndWait().catchError((error, stackTrace) async {
-        await _disposeHttpRuntime(id);
-        _failItem(
-          id,
-          title: 'Download failed',
-          description: 'Failed to download ${job.displayTitle}.',
-          copyPayload: formatErrorForCopy(error, stackTrace),
-        );
-        _showGlobalError(
-          title: 'Download failed',
-          description: 'Failed to download ${job.displayTitle}.',
-          copyPayload: formatErrorForCopy(error, stackTrace),
-        );
-      }),
-    );
+    _pendingStarters[id] = () {
+      unawaited(
+        download.startAndWait().catchError((error, stackTrace) async {
+          await _disposeHttpRuntime(id);
+          _failItem(
+            id,
+            title: 'Download failed',
+            description: 'Failed to download ${job.displayTitle}.',
+            copyPayload: formatErrorForCopy(error, stackTrace),
+          );
+          _showGlobalError(
+            title: 'Download failed',
+            description: 'Failed to download ${job.displayTitle}.',
+            copyPayload: formatErrorForCopy(error, stackTrace),
+          );
+          _maybePromote();
+        }),
+      );
+    };
+    return id;
   }
 
-  Future<void> _enqueueTorrent(PreparedTorrentDownloadJob job) async {
+  Future<String> _enqueueTorrent(
+    PreparedTorrentDownloadJob job, {
+    required String batchId,
+  }) async {
     final id = _nextId();
     final session = createSession();
     try {
@@ -280,7 +368,6 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
         priorities[fileIndex] = 7;
       }
       handle.prioritizeFiles(priorities);
-      handle.resume();
 
       final subscription = handle.listenProgress(
         onData: (status) {
@@ -296,6 +383,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
               title: 'Torrent failed',
               description: status.error,
             );
+            _maybePromote();
             return;
           }
 
@@ -317,19 +405,34 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
                 bytesPerSecond: 0,
               ),
             );
+            _maybePromote();
             return;
           }
 
           _updateItem(
             id,
-            (item) => item.copyWith(
-              status: status.paused
-                  ? DownloadQueueStatus.paused
-                  : DownloadQueueStatus.downloading,
-              downloadedBytes: downloadedBytes,
-              bytesPerSecond: status.downloadRate,
-              clearError: true,
-            ),
+            (item) {
+              // Libtorrent emits paused-status events from the moment the
+              // torrent is added — before the queue's starter callback ever
+              // runs handle.resume(). Don't let those early events flip a
+              // never-started item from pending to paused.
+              if (item.status == DownloadQueueStatus.queued) {
+                return item.copyWith(
+                  downloadedBytes: downloadedBytes,
+                  clearError: true,
+                );
+              }
+              final paused = status.paused ||
+                  item.status == DownloadQueueStatus.paused;
+              return item.copyWith(
+                status: paused
+                    ? DownloadQueueStatus.paused
+                    : DownloadQueueStatus.downloading,
+                downloadedBytes: downloadedBytes,
+                bytesPerSecond: paused ? 0 : status.downloadRate,
+                clearError: true,
+              );
+            },
           );
         },
       );
@@ -340,14 +443,15 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
         subscription: subscription,
       );
 
-      _prependItem(
+      _appendItem(
         DownloadQueueItem(
           id: id,
+          batchId: batchId,
           source: job.source,
           animeTitle: job.animeTitle,
           displayTitle: job.displayTitle,
           destinationDirectory: job.destinationDirectory,
-          status: DownloadQueueStatus.downloading,
+          status: DownloadQueueStatus.queued,
           totalBytes: job.totalBytes,
           downloadedBytes: 0,
           bytesPerSecond: 0,
@@ -355,11 +459,24 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
           filePaths: job.selectedFilePaths,
         ),
       );
+
+      _pendingStarters[id] = () {
+        handle.resume();
+        // Flip pending → downloading so subsequent listener events stop
+        // treating this item as never-started.
+        _updateItem(
+          id,
+          (item) => item.status == DownloadQueueStatus.queued
+              ? item.copyWith(status: DownloadQueueStatus.downloading)
+              : item,
+        );
+      };
     } catch (error, stackTrace) {
       session.close();
-      _prependItem(
+      _appendItem(
         DownloadQueueItem(
           id: id,
+          batchId: batchId,
           source: job.source,
           animeTitle: job.animeTitle,
           displayTitle: job.displayTitle,
@@ -381,6 +498,12 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
         copyPayload: formatErrorForCopy(error, stackTrace),
       );
     }
+    return id;
+  }
+
+  String _nextBatchId() {
+    _idCounter += 1;
+    return 'batch-${DateTime.now().microsecondsSinceEpoch}-$_idCounter';
   }
 
   String _nextId() {
@@ -388,8 +511,44 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     return 'download-${DateTime.now().microsecondsSinceEpoch}-$_idCounter';
   }
 
-  void _prependItem(DownloadQueueItem item) {
-    state = state.copyWith(items: [item, ...state.items]);
+  void _appendItem(DownloadQueueItem item) {
+    state = state.copyWith(items: [...state.items, item]);
+  }
+
+  void _appendBatch(DownloadBatchQueue batch) {
+    state = state.copyWith(batches: [...state.batches, batch]);
+  }
+
+  /// If no active batch is running, find the next batch with pending starters
+  /// and kick it off. Also clears the active id if its batch is fully terminal.
+  void _maybePromote() {
+    final activeId = state.activeBatchId;
+    if (activeId != null) {
+      DownloadBatchQueue? active;
+      for (final b in state.batches) {
+        if (b.id == activeId) {
+          active = b;
+          break;
+        }
+      }
+      final allTerminal = active == null ||
+          active.itemIds.every((id) {
+            final item = _findItem(id);
+            return item == null || item.status.isTerminal;
+          });
+      if (!allTerminal) return;
+      state = state.copyWith(clearActiveBatchId: true);
+    }
+    for (final batch in state.batches) {
+      final hasPending =
+          batch.itemIds.any((id) => _pendingStarters.containsKey(id));
+      if (!hasPending) continue;
+      state = state.copyWith(activeBatchId: batch.id);
+      for (final id in batch.itemIds) {
+        _pendingStarters.remove(id)?.call();
+      }
+      return;
+    }
   }
 
   void _updateItem(
@@ -402,6 +561,13 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
           if (item.id == id) update(item) else item,
       ],
     );
+  }
+
+  DownloadQueueItem? _findItem(String id) {
+    for (final item in state.items) {
+      if (item.id == id) return item;
+    }
+    return null;
   }
 
   void _failItem(
@@ -458,15 +624,99 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     state = state.copyWith(items: items);
   }
 
+  void reorderBatch(int oldIndex, int newIndex) {
+    final batches = [...state.batches];
+    if (oldIndex < 0 || oldIndex >= batches.length) return;
+    if (oldIndex < newIndex) newIndex -= 1;
+    final clamped = newIndex.clamp(0, batches.length - 1);
+    final batch = batches.removeAt(oldIndex);
+    batches.insert(clamped, batch);
+    state = state.copyWith(batches: batches);
+    _reconcileActiveBatch();
+  }
+
+  /// Ensures the batch at position 0 is the active one. If a different batch
+  /// is currently active, pause its in-flight downloads (runtimes are
+  /// retained so we can resume later) and promote the new top batch.
+  void _reconcileActiveBatch() {
+    if (state.batches.isEmpty) return;
+    final top = state.batches.first;
+    final activeId = state.activeBatchId;
+    if (activeId == top.id) return;
+
+    if (activeId != null) {
+      for (final id in _itemIdsFor(activeId)) {
+        final item = _findItem(id);
+        if (item == null) continue;
+        if (item.status == DownloadQueueStatus.downloading) {
+          unawaited(pause(id));
+        }
+      }
+      state = state.copyWith(clearActiveBatchId: true);
+    }
+
+    final hasPending =
+        top.itemIds.any((id) => _pendingStarters.containsKey(id));
+    state = state.copyWith(activeBatchId: top.id);
+    if (hasPending) {
+      for (final id in top.itemIds) {
+        _pendingStarters.remove(id)?.call();
+      }
+    } else {
+      for (final id in top.itemIds) {
+        final item = _findItem(id);
+        if (item == null) continue;
+        if (item.status == DownloadQueueStatus.paused) {
+          unawaited(resume(id));
+        }
+      }
+    }
+  }
+
+  void reorderBatchItem(String batchId, int oldIndex, int newIndex) {
+    state = state.copyWith(
+      batches: [
+        for (final batch in state.batches)
+          if (batch.id == batchId)
+            batch.copyWith(
+              itemIds: _reorderedIds(batch.itemIds, oldIndex, newIndex),
+            )
+          else
+            batch,
+      ],
+    );
+  }
+
   void clearHistory() {
+    final activeIds = state.items
+        .where((i) => !i.status.isTerminal)
+        .map((item) => item.id)
+        .toSet();
     state = state.copyWith(
       items: state.items.where((i) => !i.status.isTerminal).toList(),
+      batches: [
+        for (final batch in state.batches)
+          if (batch.itemIds.any(activeIds.contains))
+            batch.copyWith(
+              itemIds: batch.itemIds.where(activeIds.contains).toList(),
+            ),
+      ],
     );
   }
 
   void dismiss(String id) {
+    final item = _findItem(id);
     state = state.copyWith(
       items: state.items.where((i) => i.id != id).toList(),
+      batches: [
+        for (final batch in state.batches)
+          if (item == null || batch.id != item.batchId)
+            batch
+          else
+            batch.copyWith(
+              itemIds: batch.itemIds.where((itemId) => itemId != id).toList(),
+            ),
+      ].where((batch) => batch.itemIds.isNotEmpty).toList(),
     );
   }
 
@@ -475,6 +725,26 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     if (sizeBytes <= 64 * 1024 * 1024) return 2;
     if (sizeBytes <= 256 * 1024 * 1024) return 4;
     return 8;
+  }
+
+  static String _batchTitle(List<PreparedDownloadJob> jobs) {
+    final first = jobs.first;
+    if (jobs.length == 1) return first.displayTitle;
+    return '${first.animeTitle} · ${jobs.length} downloads';
+  }
+
+  static List<String> _reorderedIds(
+    List<String> ids,
+    int oldIndex,
+    int newIndex,
+  ) {
+    final reordered = [...ids];
+    if (oldIndex < 0 || oldIndex >= reordered.length) return reordered;
+    if (oldIndex < newIndex) newIndex -= 1;
+    final clamped = newIndex.clamp(0, reordered.length - 1);
+    final id = reordered.removeAt(oldIndex);
+    reordered.insert(clamped, id);
+    return reordered;
   }
 }
 

@@ -5,6 +5,7 @@ import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/ui/pages/anime_page/nyaa_manual_resolution_panel.dart';
+import 'package:senpwai/ui/pages/anime_page/nyaa_plan_components.dart';
 
 class NyaaPlanReviewDialog extends StatefulWidget {
   final PreparedDownloadBatch batch;
@@ -203,12 +204,26 @@ class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
     final theme = Theme.of(context);
     final hasIssues = _issues.isNotEmpty;
     final selectedIssue = hasIssues ? _issues[_selectedIssueIndex] : null;
-    final selectedState = selectedIssue == null
-        ? null
-        : _stateFor(selectedIssue);
+    final selectedState =
+        selectedIssue == null ? null : _stateFor(selectedIssue);
+    final resolvedCount = _resolvedJobs.length;
 
     return AlertDialog(
-      title: Text(hasIssues ? 'Resolve Nyaa plan' : 'Review Nyaa plan'),
+      title: Row(
+        children: [
+          Icon(
+            hasIssues
+                ? Icons.rule_folder_rounded
+                : Icons.auto_awesome_rounded,
+            size: 22,
+            color: hasIssues
+                ? theme.colorScheme.error
+                : theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Text(hasIssues ? 'Resolve Nyaa Plan' : 'Review Nyaa Plan'),
+        ],
+      ),
       content: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: hasIssues ? 1040 : 520),
         child: SizedBox(
@@ -222,52 +237,41 @@ class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
                   hasIssues
                       ? 'Automatic planning completed what it could. Resolve the remaining episodes below, then queue the final batch.'
                       : 'This is the automatic torrent plan that will be queued.',
-                  style: theme.textTheme.bodyMedium,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _SummaryChip(
-                      label: '${widget.batch.jobs.length} auto-planned',
+                    PlanStatPill(
                       icon: Icons.auto_awesome_rounded,
+                      label: '${widget.batch.jobs.length} auto-planned',
                     ),
                     if (hasIssues)
-                      _SummaryChip(
-                        label:
-                            '${_resolvedJobs.length}/${_issues.length} resolved',
+                      PlanStatPill(
                         icon: Icons.rule_folder_rounded,
+                        label: '$resolvedCount / ${_issues.length} resolved',
+                        color: resolvedCount == _issues.length
+                            ? Colors.green
+                            : theme.colorScheme.error,
                       ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                for (final job in widget.batch.jobs) ...[
-                  _PlanJobTile(job: job),
-                  const SizedBox(height: 10),
-                ],
-                if (widget.batch.notices.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'Notes',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  for (final notice in widget.batch.notices)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text(
-                        '• ${notice.title}${notice.description == null ? '' : ': ${notice.description}'}',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                ],
+                // ── Issues FIRST ────────────────────────────────────────────
                 if (selectedIssue != null && selectedState != null) ...[
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 22),
+                  PlanSectionHeader(
+                    icon: Icons.error_outline_rounded,
+                    title: 'Unresolved Episodes',
+                    count: _issues.length - resolvedCount,
+                    color: theme.colorScheme.error,
+                  ),
+                  const SizedBox(height: 12),
                   SizedBox(
-                    height: 560,
+                    height: 520,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final isCompact = constraints.maxWidth < 760;
@@ -305,7 +309,7 @@ class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SizedBox(width: 260, child: issueList),
+                            SizedBox(width: 256, child: issueList),
                             const SizedBox(width: 16),
                             Expanded(child: panel),
                           ],
@@ -313,6 +317,33 @@ class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
                       },
                     ),
                   ),
+                ],
+                // ── Auto-planned jobs ────────────────────────────────────────
+                if (widget.batch.jobs.isNotEmpty) ...[
+                  const SizedBox(height: 22),
+                  PlanSectionHeader(
+                    icon: Icons.auto_awesome_rounded,
+                    title: 'Auto-Planned',
+                    count: widget.batch.jobs.length,
+                  ),
+                  const SizedBox(height: 12),
+                  for (final job in widget.batch.jobs) ...[
+                    PlanJobTile(job: job),
+                    const SizedBox(height: 8),
+                  ],
+                ],
+                // ── Notes ────────────────────────────────────────────────────
+                if (widget.batch.notices.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  PlanSectionHeader(
+                    icon: Icons.info_outline_rounded,
+                    title: 'Notes',
+                    count: widget.batch.notices.length,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                  ),
+                  const SizedBox(height: 10),
+                  for (final notice in widget.batch.notices)
+                    _NoticeTile(notice: notice),
                 ],
               ],
             ),
@@ -327,9 +358,9 @@ class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
         FilledButton(
           onPressed: widget.batch.jobs.isEmpty && _resolvedJobs.isEmpty
               ? null
-              : () => Navigator.of(
-                  context,
-                ).pop(_resolvedBatch(includeAllIssues: false)),
+              : () => Navigator.of(context).pop(
+                    _resolvedBatch(includeAllIssues: false),
+                  ),
           child: Text(
             hasIssues ? 'Queue resolved downloads' : 'Queue downloads',
           ),
@@ -372,54 +403,88 @@ class _IssueList extends StatelessWidget {
     final theme = Theme.of(context);
     return ListView.separated(
       itemCount: issues.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 6),
       itemBuilder: (context, index) {
         final issue = issues[index];
         final isSelected = index == selectedIssueIndex;
         final isResolved = resolvedEpisodes.contains(issue.episodeNumber);
+        final accentColor =
+            isResolved ? Colors.green : theme.colorScheme.error;
         return Material(
           color: isSelected
-              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.6)
+              ? theme.colorScheme.primaryContainer.withValues(alpha: 0.55)
               : theme.colorScheme.surfaceContainerHighest.withValues(
                   alpha: 0.2,
                 ),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             mouseCursor: SystemMouseCursors.click,
             onTap: () => onSelected(index),
             child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.all(10),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Episode ${issue.episodeNumber}',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: accentColor.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Ep\n${issue.episodeNumber}',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: accentColor,
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                          fontSize: 9,
                         ),
                       ),
-                      Icon(
-                        isResolved
-                            ? Icons.check_circle_rounded
-                            : Icons.error_outline_rounded,
-                        size: 18,
-                        color: isResolved
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.error,
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    issue.description,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          issue.title,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          issue.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.55,
+                            ),
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    isResolved
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    size: 18,
+                    color: accentColor.withValues(
+                      alpha: isResolved ? 1.0 : 0.55,
+                    ),
                   ),
                 ],
               ),
@@ -431,112 +496,66 @@ class _IssueList extends StatelessWidget {
   }
 }
 
-class _SummaryChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
+class _NoticeTile extends StatelessWidget {
+  final DownloadNotice notice;
 
-  const _SummaryChip({required this.label, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 16),
-      label: Text(label),
-      visualDensity: VisualDensity.compact,
-    );
-  }
-}
-
-class _PlanJobTile extends StatelessWidget {
-  final PreparedDownloadJob job;
-
-  const _PlanJobTile({required this.job});
+  const _NoticeTile({required this.notice});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final torrentJob = job is PreparedTorrentDownloadJob
-        ? job as PreparedTorrentDownloadJob
-        : null;
-    final reviewMetadata = torrentJob?.reviewMetadata;
-    final tags = <String>[
-      if (reviewMetadata?.episodeNumber case final episodeNumber?)
-        'Episode $episodeNumber',
-      if (reviewMetadata?.isBatch ?? false) 'Batch torrent',
-      if (reviewMetadata?.resolution case final resolution?)
-        resolution.toString(),
-      if (reviewMetadata?.languageLabel case final languageLabel?)
-        languageLabel,
-      if (reviewMetadata?.seeders case final seeders?) '$seeders seeders',
-      _formatBytes(job.totalBytes),
-    ];
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.15),
-        ),
+    final (icon, color) = switch (notice.level) {
+      DownloadNoticeLevel.warning => (
+        Icons.warning_amber_rounded,
+        const Color(0xFFD97706),
       ),
-      child: Column(
+      DownloadNoticeLevel.info => (
+        Icons.info_outline_rounded,
+        theme.colorScheme.primary,
+      ),
+    };
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            torrentJob?.torrentName ?? job.displayTitle,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(icon, size: 16, color: color),
           ),
-          const SizedBox(height: 4),
-          Text(
-            job.source.label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
-            ),
-          ),
-          if (tags.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final tag in tags)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
-                      color: theme.colorScheme.surfaceContainerLow,
-                    ),
-                    child: Text(
-                      tag,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                Text(
+                  notice.title,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+                if (notice.description != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    notice.description!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      height: 1.4,
                     ),
                   ),
+                ],
               ],
             ),
-          ],
+          ),
         ],
       ),
     );
   }
-}
-
-String _formatBytes(int bytes) {
-  if (bytes >= 1024 * 1024 * 1024) {
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-  }
-  if (bytes >= 1024 * 1024) {
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-  if (bytes >= 1024) {
-    return '${(bytes / 1024).toStringAsFixed(1)} KB';
-  }
-  return '$bytes B';
 }

@@ -96,6 +96,54 @@ class SenpwaiColors {
   }
 }
 
+/// Theme-coherent palette used exclusively by the downloads UI.
+/// Each value is a hue tuned to read meaningfully against the surrounding
+/// surface while staying within the same emotional register as the preset.
+@immutable
+class SenpwaiDownloadColors {
+  final Color downloading;
+  final Color paused;
+  final Color completed;
+  final Color failed;
+  final Color queued;
+  final Color cancelled;
+  final Color progressTrack;
+  final Color pulseHighlight;
+
+  const SenpwaiDownloadColors({
+    required this.downloading,
+    required this.paused,
+    required this.completed,
+    required this.failed,
+    required this.queued,
+    required this.cancelled,
+    required this.progressTrack,
+    required this.pulseHighlight,
+  });
+
+  /// Reasonable defaults derived from a [SenpwaiColorSet] — used when a
+  /// preset doesn't supply its own download palette.
+  factory SenpwaiDownloadColors.deriveFrom(SenpwaiColorSet c) {
+    return SenpwaiDownloadColors(
+      downloading: c.primary,
+      paused: c.tertiary,
+      completed: c.secondary,
+      failed: c.error,
+      queued: c.onSurface.withValues(alpha: 0.55),
+      cancelled: c.onSurface.withValues(alpha: 0.4),
+      progressTrack: c.surfaceVariant,
+      pulseHighlight: c.onSurface.withValues(alpha: 0.22),
+    );
+  }
+}
+
+@immutable
+class SenpwaiDownloadColorsByMode {
+  final SenpwaiDownloadColors? light;
+  final SenpwaiDownloadColors? dark;
+  const SenpwaiDownloadColorsByMode({this.light, this.dark});
+}
+
 @immutable
 class SenpwaiTypography {
   final String displayFamily;

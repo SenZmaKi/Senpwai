@@ -1,267 +1,118 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/manager.dart';
-import 'package:senpwai/downloads/models.dart';
-import 'package:senpwai/ui/pages/downloads_page/active_download_card.dart';
-import 'package:senpwai/ui/pages/downloads_page/history_download_card.dart';
+import 'package:senpwai/ui/pages/downloads_page/active_batch_panel.dart';
+import 'package:senpwai/ui/pages/downloads_page/batch_item_row.dart';
+import 'package:senpwai/ui/pages/downloads_page/batch_queue_page.dart';
+import 'package:senpwai/ui/pages/downloads_page/cancelled_row_animator.dart';
+import 'package:senpwai/ui/pages/downloads_page/download_batch_snapshot.dart';
+import 'package:senpwai/ui/pages/downloads_page/downloads_empty_state.dart';
+import 'package:senpwai/ui/shared/responsive.dart';
 
-class DownloadsPage extends ConsumerStatefulWidget {
+/// Batch-aware Downloads page.
+///
+/// Top: ActiveBatchPanel (overall progress + controls) + NextInQueueRail.
+/// Below: individual download rows for the active batch.
+/// A separate Batch Queue page (pushed) hosts the drag-to-reorder list.
+class DownloadsPage extends ConsumerWidget {
   const DownloadsPage({super.key});
 
   @override
-  ConsumerState<DownloadsPage> createState() => _DownloadsPageState();
-}
-
-class _DownloadsPageState extends ConsumerState<DownloadsPage> {
-  bool _historyExpanded = true;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(DownloadManagerNotifier.provider);
-    final notifier = ref.read(DownloadManagerNotifier.provider.notifier);
-    final theme = Theme.of(context);
+    final snapshots = buildBatchSnapshots(state);
 
-    final activeItems = state.items
-        .where((i) => !i.status.isTerminal)
-        .toList();
-    final historyItems = state.items
-        .where((i) => i.status.isTerminal)
-        .toList();
+    if (snapshots.isEmpty) return const DownloadsEmptyState();
 
-    // Auto-collapse history when active downloads exist and user hasn't toggled
-    if (activeItems.isNotEmpty && historyItems.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_historyExpanded) setState(() => _historyExpanded = true);
-      });
+    // The active batch is the one currently consuming bandwidth.
+    // Fall back to the first batch when nothing is active (e.g. all terminal).
+    final activeId = state.activeBatchId;
+    DownloadBatchSnapshot active = snapshots.first;
+    if (activeId != null) {
+      for (final s in snapshots) {
+        if (s.batch.id == activeId) {
+          active = s;
+          break;
+        }
+      }
     }
-
-    if (activeItems.isEmpty && historyItems.isEmpty) {
-      return _EmptyState();
-    }
+    final upcoming = <DownloadBatchSnapshot>[
+      for (final s in snapshots)
+        if (s.batch.id != active.batch.id) s,
+    ];
+    final queuedCount = upcoming.length;
+    final pad = horizontalPadding(context);
 
     return CustomScrollView(
       slivers: [
-        // ── Active section ────────────────────────────────────────────────────
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: _SectionHeader(
-              label: 'Active',
-              count: activeItems.length,
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(pad, 18, pad, 14),
+          sliver: SliverToBoxAdapter(
+            child: ActiveBatchPanel(
+              snapshot: active,
+              upcoming: upcoming,
+              queuedBatchCount: queuedCount,
+              onOpenQueue: () => BatchQueueSheet.open(context),
             ),
           ),
         ),
-        if (activeItems.isEmpty)
-          const SliverToBoxAdapter(child: _ActiveEmptyHint())
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final item = activeItems[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: ActiveDownloadCard(key: ValueKey(item.id), item: item),
-                );
-              }, childCount: activeItems.length),
-            ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(pad, 0, pad, 6),
+          sliver: SliverToBoxAdapter(
+            child: _ItemsHeader(itemCount: active.items.length),
           ),
-
-        // ── History section ───────────────────────────────────────────────────
-        if (historyItems.isNotEmpty) ...[
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-              child: _SectionHeader(
-                label: 'History',
-                count: historyItems.length,
-                trailing: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: TextButton.icon(
-                    onPressed: () => notifier.clearHistory(),
-                    icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-                    label: const Text('Clear all'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.55,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                    ),
-                  ),
-                ),
-                onToggle: () =>
-                    setState(() => _historyExpanded = !_historyExpanded),
-                expanded: _historyExpanded,
-              ),
-            ),
+        ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(pad, 0, pad, 28),
+          sliver: SliverList.separated(
+            itemCount: active.items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, i) {
+              final item = active.items[i];
+              return CancelledRowAnimator(
+                key: ValueKey('row-${item.id}'),
+                item: item,
+                child: BatchItemRow(item: item, position: i + 1),
+              );
+            },
           ),
-          if (_historyExpanded)
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final item = historyItems[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: HistoryDownloadCard(
-                      key: ValueKey(item.id),
-                      item: item,
-                    ),
-                  );
-                }, childCount: historyItems.length),
-              ),
-            )
-          else
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-        ] else
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        ),
       ],
     );
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String label;
-  final int count;
-  final Widget? trailing;
-  final VoidCallback? onToggle;
-  final bool expanded;
-
-  const _SectionHeader({
-    required this.label,
-    required this.count,
-    this.trailing,
-    this.onToggle,
-    this.expanded = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.4,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            '$count',
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-          ),
-        ),
-        const Spacer(),
-        if (trailing != null) trailing!,
-        if (onToggle != null) ...[
-          const SizedBox(width: 4),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: onToggle,
-              child: Icon(
-                expanded
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
-                size: 20,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _ActiveEmptyHint extends StatelessWidget {
-  const _ActiveEmptyHint();
+class _ItemsHeader extends StatelessWidget {
+  final int itemCount;
+  const _ItemsHeader({required this.itemCount});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.2,
-          ),
-          border: Border.all(
-            color: theme.colorScheme.outline.withValues(alpha: 0.08),
-            style: BorderStyle.solid,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.download_for_offline_outlined,
-              size: 20,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'No active downloads',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.only(top: 6, bottom: 10),
+      child: Row(
         children: [
           Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.07),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Icon(
-              Icons.download_for_offline_outlined,
-              size: 42,
-              color: theme.colorScheme.primary.withValues(alpha: 0.45),
+            width: 22,
+            height: 2,
+            color: theme.colorScheme.primary.withValues(alpha: 0.6),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            'INDIVIDUAL DOWNLOADS',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+              letterSpacing: 1.6,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 20),
-          Text('No Downloads Yet', style: theme.textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: 260,
-            child: Text(
-              'Downloads will appear here once you start them from an anime page.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                height: 1.5,
-              ),
+          const SizedBox(width: 8),
+          Text(
+            '·  $itemCount',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

@@ -17,6 +17,9 @@ extension AnimeSourceExtension on AnimeSource {
 
 enum DownloadQueueStatus {
   preparing,
+  // Enqueued and waiting its turn. Has never been the first batch in the
+  // queue — has not started downloading yet. Distinct from [paused], which
+  // implies the item was running and got stopped.
   queued,
   downloading,
   paused,
@@ -199,15 +202,18 @@ class PreparedDownloadBatch {
 class EnqueuedDownloadsResult {
   final int queuedCount;
   final List<DownloadNotice> notices;
+  final String? batchId;
 
   const EnqueuedDownloadsResult({
     required this.queuedCount,
     this.notices = const [],
+    this.batchId,
   });
 }
 
 class DownloadQueueItem {
   final String id;
+  final String batchId;
   final AnimeSource source;
   final String animeTitle;
   final String displayTitle;
@@ -224,6 +230,7 @@ class DownloadQueueItem {
 
   const DownloadQueueItem({
     required this.id,
+    required this.batchId,
     required this.source,
     required this.animeTitle,
     required this.displayTitle,
@@ -255,6 +262,7 @@ class DownloadQueueItem {
   }) {
     return DownloadQueueItem(
       id: id,
+      batchId: batchId,
       source: source,
       animeTitle: animeTitle,
       displayTitle: displayTitle,
@@ -276,13 +284,60 @@ class DownloadQueueItem {
   }
 }
 
+class DownloadBatchQueue {
+  final String id;
+  final String title;
+  final AnimeSource source;
+  final DateTime createdAt;
+  final List<String> itemIds;
+
+  const DownloadBatchQueue({
+    required this.id,
+    required this.title,
+    required this.source,
+    required this.createdAt,
+    required this.itemIds,
+  });
+
+  DownloadBatchQueue copyWith({
+    String? title,
+    AnimeSource? source,
+    List<String>? itemIds,
+  }) {
+    return DownloadBatchQueue(
+      id: id,
+      title: title ?? this.title,
+      source: source ?? this.source,
+      createdAt: createdAt,
+      itemIds: itemIds ?? this.itemIds,
+    );
+  }
+}
+
 class DownloadManagerState {
   final List<DownloadQueueItem> items;
+  final List<DownloadBatchQueue> batches;
+  final String? activeBatchId;
 
-  const DownloadManagerState({this.items = const []});
+  const DownloadManagerState({
+    this.items = const [],
+    this.batches = const [],
+    this.activeBatchId,
+  });
 
-  DownloadManagerState copyWith({List<DownloadQueueItem>? items}) {
-    return DownloadManagerState(items: items ?? this.items);
+  DownloadManagerState copyWith({
+    List<DownloadQueueItem>? items,
+    List<DownloadBatchQueue>? batches,
+    String? activeBatchId,
+    bool clearActiveBatchId = false,
+  }) {
+    return DownloadManagerState(
+      items: items ?? this.items,
+      batches: batches ?? this.batches,
+      activeBatchId: clearActiveBatchId
+          ? null
+          : (activeBatchId ?? this.activeBatchId),
+    );
   }
 }
 

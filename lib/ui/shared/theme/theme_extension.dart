@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:senpwai/ui/shared/theme/models.dart';
 
 @immutable
 class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
@@ -14,6 +15,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
   final Color imageOverlay;
   final Color onImageOverlay;
   final Color textShadow;
+  final SenpwaiDownloadColors downloadColors;
 
   Color randomColour(int seed) =>
       randomColourPalette[seed.abs() % randomColourPalette.length];
@@ -29,6 +31,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
     required this.imageOverlay,
     required this.onImageOverlay,
     required this.textShadow,
+    required this.downloadColors,
   });
 
   @override
@@ -43,6 +46,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
     Color? imageOverlay,
     Color? onImageOverlay,
     Color? textShadow,
+    SenpwaiDownloadColors? downloadColors,
   }) {
     return SenpwaiThemeExtension(
       cardRadius: cardRadius ?? this.cardRadius,
@@ -55,6 +59,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
       imageOverlay: imageOverlay ?? this.imageOverlay,
       onImageOverlay: onImageOverlay ?? this.onImageOverlay,
       textShadow: textShadow ?? this.textShadow,
+      downloadColors: downloadColors ?? this.downloadColors,
     );
   }
 
@@ -82,6 +87,7 @@ class SenpwaiThemeExtension extends ThemeExtension<SenpwaiThemeExtension> {
       onImageOverlay:
           Color.lerp(onImageOverlay, other.onImageOverlay, t) ?? onImageOverlay,
       textShadow: Color.lerp(textShadow, other.textShadow, t) ?? textShadow,
+      downloadColors: t < 0.5 ? downloadColors : other.downloadColors,
     );
   }
 }
