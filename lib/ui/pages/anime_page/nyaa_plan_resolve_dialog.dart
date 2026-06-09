@@ -7,17 +7,17 @@ import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/ui/pages/anime_page/nyaa_manual_resolution_panel.dart';
 import 'package:senpwai/ui/pages/anime_page/nyaa_plan_components.dart';
 
-class NyaaPlanReviewDialog extends StatefulWidget {
+class NyaaPlanResolveDialog extends StatefulWidget {
   final PreparedDownloadBatch batch;
   final AnimeDownloadSessionNotifier notifier;
 
-  const NyaaPlanReviewDialog({
+  const NyaaPlanResolveDialog({
     super.key,
     required this.batch,
     required this.notifier,
   });
 
-  static Future<PreparedDownloadBatch?> review(
+  static Future<PreparedDownloadBatch?> resolve(
     BuildContext context, {
     required PreparedDownloadBatch batch,
     required AnimeDownloadSessionNotifier notifier,
@@ -26,15 +26,15 @@ class NyaaPlanReviewDialog extends StatefulWidget {
       context: context,
       barrierDismissible: false,
       builder: (context) =>
-          NyaaPlanReviewDialog(batch: batch, notifier: notifier),
+          NyaaPlanResolveDialog(batch: batch, notifier: notifier),
     );
   }
 
   @override
-  State<NyaaPlanReviewDialog> createState() => _NyaaPlanReviewDialogState();
+  State<NyaaPlanResolveDialog> createState() => _NyaaPlanResolveDialogState();
 }
 
-class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
+class _NyaaPlanResolveDialogState extends State<NyaaPlanResolveDialog> {
   final _searchController = TextEditingController();
   final Map<int, _IssueSearchState> _issueStates = {};
   final Map<int, PreparedTorrentDownloadJob> _resolvedJobs = {};
@@ -55,11 +55,9 @@ class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
   @override
   void initState() {
     super.initState();
-    if (_issues.isNotEmpty) {
-      final initialIssue = _issues.first;
-      _searchController.text = _stateFor(initialIssue).query;
-      unawaited(_performSearch(initialIssue));
-    }
+    final initialIssue = _issues.first;
+    _searchController.text = _stateFor(initialIssue).query;
+    unawaited(_performSearch(initialIssue));
   }
 
   @override
@@ -202,30 +200,24 @@ class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasIssues = _issues.isNotEmpty;
-    final selectedIssue = hasIssues ? _issues[_selectedIssueIndex] : null;
-    final selectedState =
-        selectedIssue == null ? null : _stateFor(selectedIssue);
+    final selectedIssue = _issues[_selectedIssueIndex];
+    final selectedState = _stateFor(selectedIssue);
     final resolvedCount = _resolvedJobs.length;
 
     return AlertDialog(
       title: Row(
         children: [
           Icon(
-            hasIssues
-                ? Icons.rule_folder_rounded
-                : Icons.auto_awesome_rounded,
+            Icons.rule_folder_rounded,
             size: 22,
-            color: hasIssues
-                ? theme.colorScheme.error
-                : theme.colorScheme.primary,
+            color: theme.colorScheme.error,
           ),
           const SizedBox(width: 12),
-          Text(hasIssues ? 'Resolve Nyaa Plan' : 'Review Nyaa Plan'),
+          const Text('Resolve Nyaa Plan'),
         ],
       ),
       content: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: hasIssues ? 1040 : 520),
+        constraints: const BoxConstraints(maxWidth: 1040),
         child: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
@@ -234,9 +226,7 @@ class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hasIssues
-                      ? 'Automatic planning completed what it could. Resolve the remaining episodes below, then queue the final batch.'
-                      : 'This is the automatic torrent plan that will be queued.',
+                  'Automatic planning completed what it could. Resolve the remaining episodes below, then queue the final batch.',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
@@ -250,75 +240,70 @@ class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
                       icon: Icons.auto_awesome_rounded,
                       label: '${widget.batch.jobs.length} auto-planned',
                     ),
-                    if (hasIssues)
-                      PlanStatPill(
-                        icon: Icons.rule_folder_rounded,
-                        label: '$resolvedCount / ${_issues.length} resolved',
-                        color: resolvedCount == _issues.length
-                            ? Colors.green
-                            : theme.colorScheme.error,
-                      ),
+                    PlanStatPill(
+                      icon: Icons.rule_folder_rounded,
+                      label: '$resolvedCount / ${_issues.length} resolved',
+                      color: resolvedCount == _issues.length
+                          ? Colors.green
+                          : theme.colorScheme.error,
+                    ),
                   ],
                 ),
-                // ── Issues FIRST ────────────────────────────────────────────
-                if (selectedIssue != null && selectedState != null) ...[
-                  const SizedBox(height: 22),
-                  PlanSectionHeader(
-                    icon: Icons.error_outline_rounded,
-                    title: 'Unresolved Episodes',
-                    count: _issues.length - resolvedCount,
-                    color: theme.colorScheme.error,
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 520,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isCompact = constraints.maxWidth < 760;
-                        final issueList = _IssueList(
-                          issues: _issues,
-                          selectedIssueIndex: _selectedIssueIndex,
-                          resolvedEpisodes: _resolvedJobs.keys.toSet(),
-                          onSelected: _selectIssue,
-                        );
-                        final panel = NyaaManualResolutionPanel(
-                          issue: selectedIssue,
-                          searchController: _searchController,
-                          filters: selectedState.filters,
-                          results: selectedState.results,
-                          isLoading: selectedState.isLoading,
-                          errorText: selectedState.errorText,
-                          isResolving: _resolvingEpisodes.contains(
-                            selectedIssue.episodeNumber,
-                          ),
-                          resolvedJob:
-                              _resolvedJobs[selectedIssue.episodeNumber],
-                          onQueryChanged: _updateQuery,
-                          onFiltersChanged: _updateFilters,
-                          onCandidateSelected: _resolveIssue,
-                        );
-                        if (isCompact) {
-                          return Column(
-                            children: [
-                              SizedBox(height: 164, child: issueList),
-                              const SizedBox(height: 12),
-                              Expanded(child: panel),
-                            ],
-                          );
-                        }
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 22),
+                PlanSectionHeader(
+                  icon: Icons.error_outline_rounded,
+                  title: 'Unresolved Episodes',
+                  count: _issues.length - resolvedCount,
+                  color: theme.colorScheme.error,
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 520,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isCompact = constraints.maxWidth < 760;
+                      final issueList = _IssueList(
+                        issues: _issues,
+                        selectedIssueIndex: _selectedIssueIndex,
+                        resolvedEpisodes: _resolvedJobs.keys.toSet(),
+                        onSelected: _selectIssue,
+                      );
+                      final panel = NyaaManualResolutionPanel(
+                        issue: selectedIssue,
+                        searchController: _searchController,
+                        filters: selectedState.filters,
+                        results: selectedState.results,
+                        isLoading: selectedState.isLoading,
+                        errorText: selectedState.errorText,
+                        isResolving: _resolvingEpisodes.contains(
+                          selectedIssue.episodeNumber,
+                        ),
+                        resolvedJob:
+                            _resolvedJobs[selectedIssue.episodeNumber],
+                        onQueryChanged: _updateQuery,
+                        onFiltersChanged: _updateFilters,
+                        onCandidateSelected: _resolveIssue,
+                      );
+                      if (isCompact) {
+                        return Column(
                           children: [
-                            SizedBox(width: 256, child: issueList),
-                            const SizedBox(width: 16),
+                            SizedBox(height: 164, child: issueList),
+                            const SizedBox(height: 12),
                             Expanded(child: panel),
                           ],
                         );
-                      },
-                    ),
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(width: 256, child: issueList),
+                          const SizedBox(width: 16),
+                          Expanded(child: panel),
+                        ],
+                      );
+                    },
                   ),
-                ],
-                // ── Auto-planned jobs ────────────────────────────────────────
+                ),
                 if (widget.batch.jobs.isNotEmpty) ...[
                   const SizedBox(height: 22),
                   PlanSectionHeader(
@@ -332,7 +317,6 @@ class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
                     const SizedBox(height: 8),
                   ],
                 ],
-                // ── Notes ────────────────────────────────────────────────────
                 if (widget.batch.notices.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   PlanSectionHeader(
@@ -361,15 +345,12 @@ class _NyaaPlanReviewDialogState extends State<NyaaPlanReviewDialog> {
               : () => Navigator.of(context).pop(
                     _resolvedBatch(includeAllIssues: false),
                   ),
-          child: Text(
-            hasIssues ? 'Queue resolved downloads' : 'Queue downloads',
-          ),
+          child: const Text('Queue resolved downloads'),
         ),
-        if (hasIssues)
-          FilledButton(
-            onPressed: _allIssuesResolved ? _queueResolvedBatch : null,
-            child: const Text('Queue full batch'),
-          ),
+        FilledButton(
+          onPressed: _allIssuesResolved ? _queueResolvedBatch : null,
+          child: const Text('Queue full batch'),
+        ),
       ],
     );
   }

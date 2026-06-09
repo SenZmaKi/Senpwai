@@ -174,6 +174,11 @@ class _MetricsAndControls extends ConsumerWidget {
     final showLive = isDownloading && item.bytesPerSecond > 0;
     final speed = showLive ? formatDownloadSpeed(item.bytesPerSecond) : '—';
     final eta = showLive ? formatDownloadEta(item) : '—';
+    final torrent = item.torrentStats;
+    final showTorrentLive = torrent != null && !item.status.isTerminal;
+    final upSpeed = showTorrentLive && torrent.uploadBytesPerSecond > 0
+        ? formatDownloadSpeed(torrent.uploadBytesPerSecond)
+        : '—';
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -195,10 +200,34 @@ class _MetricsAndControls extends ConsumerWidget {
                     '${formatDownloadBytes(item.downloadedBytes)} / ${formatDownloadBytes(item.totalBytes)}',
               ),
               _Tile(
-                icon: Icons.speed_rounded,
+                icon: Icons.download_rounded,
                 value: speed,
                 tint: showLive ? theme.colorScheme.primary : null,
               ),
+              if (showTorrentLive)
+                _Tile(
+                  icon: Icons.upload_rounded,
+                  value: upSpeed,
+                  tint: torrent.uploadBytesPerSecond > 0
+                      ? theme.colorScheme.tertiary
+                      : null,
+                ),
+              if (showTorrentLive)
+                _Tile(
+                  icon: Icons.cloud_done_rounded,
+                  value: torrent.listSeeds > 0
+                      ? '${torrent.numSeeds}/${torrent.listSeeds}'
+                      : '${torrent.numSeeds}',
+                  tooltip: 'Connected seeds / swarm seeds',
+                ),
+              if (showTorrentLive)
+                _Tile(
+                  icon: Icons.people_alt_rounded,
+                  value: torrent.listPeers > 0
+                      ? '${torrent.numPeers}/${torrent.listPeers}'
+                      : '${torrent.numPeers}',
+                  tooltip: 'Connected peers / swarm peers',
+                ),
               _Tile(
                 icon: Icons.timer_outlined,
                 value: eta,
@@ -257,11 +286,13 @@ class _Tile extends StatelessWidget {
   final String value;
   final bool emphasize;
   final Color? tint;
+  final String? tooltip;
   const _Tile({
     required this.icon,
     required this.value,
     this.emphasize = false,
     this.tint,
+    this.tooltip,
   });
 
   @override
@@ -271,7 +302,7 @@ class _Tile extends StatelessWidget {
         (emphasize
             ? theme.colorScheme.onSurface
             : theme.colorScheme.onSurface.withValues(alpha: 0.65));
-    return Row(
+    final row = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
@@ -290,6 +321,8 @@ class _Tile extends StatelessWidget {
         ),
       ],
     );
+    if (tooltip == null) return row;
+    return Tooltip(message: tooltip!, child: row);
   }
 }
 

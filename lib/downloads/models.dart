@@ -171,29 +171,24 @@ final class PreparedTorrentDownloadJob extends PreparedDownloadJob {
 class PreparedDownloadBatch {
   final List<PreparedDownloadJob> jobs;
   final List<DownloadNotice> notices;
-  final bool requiresUserReview;
   final List<NyaaEpisodeResolutionIssue> nyaaEpisodeIssues;
 
   const PreparedDownloadBatch({
     required this.jobs,
     this.notices = const [],
-    this.requiresUserReview = false,
     this.nyaaEpisodeIssues = const [],
   });
 
-  bool get requiresUserInteraction =>
-      requiresUserReview || nyaaEpisodeIssues.isNotEmpty;
+  bool get requiresUserInteraction => nyaaEpisodeIssues.isNotEmpty;
 
   PreparedDownloadBatch copyWith({
     List<PreparedDownloadJob>? jobs,
     List<DownloadNotice>? notices,
-    bool? requiresUserReview,
     List<NyaaEpisodeResolutionIssue>? nyaaEpisodeIssues,
   }) {
     return PreparedDownloadBatch(
       jobs: jobs ?? this.jobs,
       notices: notices ?? this.notices,
-      requiresUserReview: requiresUserReview ?? this.requiresUserReview,
       nyaaEpisodeIssues: nyaaEpisodeIssues ?? this.nyaaEpisodeIssues,
     );
   }
@@ -209,6 +204,36 @@ class EnqueuedDownloadsResult {
     this.notices = const [],
     this.batchId,
   });
+}
+
+/// Live torrent-only swarm stats sourced from libtorrent. Present only for
+/// torrent downloads; HTTP downloads leave [DownloadQueueItem.torrentStats]
+/// null.
+class TorrentLiveStats {
+  final double uploadBytesPerSecond;
+  final int numSeeds;
+  final int numPeers;
+  final int listSeeds;
+  final int listPeers;
+  final int totalUploaded;
+
+  const TorrentLiveStats({
+    required this.uploadBytesPerSecond,
+    required this.numSeeds,
+    required this.numPeers,
+    required this.listSeeds,
+    required this.listPeers,
+    required this.totalUploaded,
+  });
+
+  static const zero = TorrentLiveStats(
+    uploadBytesPerSecond: 0,
+    numSeeds: 0,
+    numPeers: 0,
+    listSeeds: 0,
+    listPeers: 0,
+    totalUploaded: 0,
+  );
 }
 
 class DownloadQueueItem {
@@ -227,6 +252,7 @@ class DownloadQueueItem {
   final String? errorCopyPayload;
   final DateTime createdAt;
   final List<String> filePaths;
+  final TorrentLiveStats? torrentStats;
 
   const DownloadQueueItem({
     required this.id,
@@ -244,7 +270,10 @@ class DownloadQueueItem {
     this.errorTitle,
     this.errorDescription,
     this.errorCopyPayload,
+    this.torrentStats,
   });
+
+  bool get isTorrent => source == AnimeSource.nyaa;
 
   double get progress =>
       totalBytes <= 0 ? 0 : downloadedBytes.clamp(0, totalBytes) / totalBytes;
@@ -259,6 +288,7 @@ class DownloadQueueItem {
     String? errorCopyPayload,
     bool clearError = false,
     List<String>? filePaths,
+    TorrentLiveStats? torrentStats,
   }) {
     return DownloadQueueItem(
       id: id,
@@ -280,6 +310,7 @@ class DownloadQueueItem {
       errorCopyPayload: clearError
           ? null
           : (errorCopyPayload ?? this.errorCopyPayload),
+      torrentStats: torrentStats ?? this.torrentStats,
     );
   }
 }

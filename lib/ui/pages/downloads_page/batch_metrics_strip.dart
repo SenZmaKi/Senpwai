@@ -22,16 +22,41 @@ class BatchMetricsStrip extends StatelessWidget {
     final eta = snapshot.etaSeconds != null
         ? formatEtaSeconds(snapshot.etaSeconds!)
         : '—';
+    final showTorrent = snapshot.hasTorrentStats;
+    final upSpeed = showTorrent && snapshot.uploadBytesPerSecond > 0
+        ? formatDownloadSpeed(snapshot.uploadBytesPerSecond)
+        : '—';
     return Wrap(
       spacing: 18,
       runSpacing: 6,
       children: [
         _Metric(
-          icon: Icons.speed_rounded,
-          label: 'Speed',
+          icon: Icons.download_rounded,
+          label: showTorrent ? 'Down' : 'Speed',
           value: speed,
           color: style.color,
         ),
+        if (showTorrent)
+          _Metric(
+            icon: Icons.upload_rounded,
+            label: 'Up',
+            value: upSpeed,
+            color: theme.colorScheme.tertiary,
+          ),
+        if (showTorrent)
+          _Metric(
+            icon: Icons.cloud_done_rounded,
+            label: 'Seeds',
+            value: '${snapshot.numSeeds}',
+            color: theme.colorScheme.primary,
+          ),
+        if (showTorrent)
+          _Metric(
+            icon: Icons.people_alt_rounded,
+            label: 'Peers',
+            value: '${snapshot.numPeers}',
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
         _Metric(
           icon: Icons.timer_outlined,
           label: 'ETA',

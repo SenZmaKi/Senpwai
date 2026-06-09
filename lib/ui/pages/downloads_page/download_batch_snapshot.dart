@@ -26,6 +26,19 @@ class DownloadBatchSnapshot {
   double get bytesPerSecond =>
       items.fold(0.0, (s, i) => s + i.bytesPerSecond);
 
+  bool get hasTorrentStats => items.any((i) => i.torrentStats != null);
+
+  double get uploadBytesPerSecond => items.fold(
+        0.0,
+        (s, i) => s + (i.torrentStats?.uploadBytesPerSecond ?? 0),
+      );
+
+  int get numSeeds =>
+      items.fold(0, (s, i) => s + (i.torrentStats?.numSeeds ?? 0));
+
+  int get numPeers =>
+      items.fold(0, (s, i) => s + (i.torrentStats?.numPeers ?? 0));
+
   double get progress {
     if (totalBytes <= 0) return 0;
     return downloadedBytes.clamp(0, totalBytes) / totalBytes;

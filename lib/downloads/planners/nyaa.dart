@@ -105,7 +105,6 @@ class NyaaDownloadPlanner {
       return PreparedDownloadBatch(
         jobs: [moviePlan],
         notices: notices,
-        requiresUserReview: true,
       );
     }
 
@@ -125,7 +124,6 @@ class NyaaDownloadPlanner {
         return PreparedDownloadBatch(
           jobs: [seasonPlan],
           notices: notices,
-          requiresUserReview: true,
         );
       }
       if (seasonCandidates.isNotEmpty) {
@@ -185,7 +183,6 @@ class NyaaDownloadPlanner {
     return PreparedDownloadBatch(
       jobs: jobs,
       notices: notices,
-      requiresUserReview: true,
       nyaaEpisodeIssues: unresolvedIssues,
     );
   }

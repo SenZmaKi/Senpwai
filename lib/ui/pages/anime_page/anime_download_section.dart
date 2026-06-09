@@ -8,7 +8,7 @@ import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/ui/components/app.dart';
 import 'package:senpwai/ui/components/toast.dart';
-import 'package:senpwai/ui/pages/anime_page/nyaa_plan_review_dialog.dart';
+import 'package:senpwai/ui/pages/anime_page/nyaa_plan_resolve_dialog.dart';
 import 'package:senpwai/ui/pages/anime_page/download_widgets.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/sources/shared/shared.dart';
@@ -409,7 +409,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       }
       if (preparedBatch.requiresUserInteraction) {
         notifier.setSubmissionStage(DownloadSubmissionStage.reviewing);
-        final resolvedBatch = await NyaaPlanReviewDialog.review(
+        final resolvedBatch = await NyaaPlanResolveDialog.resolve(
           context,
           batch: preparedBatch,
           notifier: notifier,

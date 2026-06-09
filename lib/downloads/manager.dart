@@ -409,6 +409,14 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
             return;
           }
 
+          final liveStats = TorrentLiveStats(
+            uploadBytesPerSecond: status.uploadRate,
+            numSeeds: status.numSeeds,
+            numPeers: status.numPeers,
+            listSeeds: status.listSeeds,
+            listPeers: status.listPeers,
+            totalUploaded: status.totalUpload,
+          );
           _updateItem(
             id,
             (item) {
@@ -419,6 +427,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
               if (item.status == DownloadQueueStatus.queued) {
                 return item.copyWith(
                   downloadedBytes: downloadedBytes,
+                  torrentStats: liveStats,
                   clearError: true,
                 );
               }
@@ -430,6 +439,16 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
                     : DownloadQueueStatus.downloading,
                 downloadedBytes: downloadedBytes,
                 bytesPerSecond: paused ? 0 : status.downloadRate,
+                torrentStats: paused
+                    ? TorrentLiveStats(
+                        uploadBytesPerSecond: 0,
+                        numSeeds: liveStats.numSeeds,
+                        numPeers: liveStats.numPeers,
+                        listSeeds: liveStats.listSeeds,
+                        listPeers: liveStats.listPeers,
+                        totalUploaded: liveStats.totalUploaded,
+                      )
+                    : liveStats,
                 clearError: true,
               );
             },

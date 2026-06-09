@@ -1,3 +1,5 @@
+- Nyaa review dialog page (optional)
+- Nyaa resolve page
 - Spinner in planning download and loading sources should be light grey
 - Debug why nyaa resolution fails for some episodes of "Hime Kishi wa Barbaroi no Yome"
 - Audit audio preference handling (extra emphasis on nyaa)

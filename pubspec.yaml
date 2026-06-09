@@ -51,6 +51,7 @@ dependencies:
     libtorrent_dart:
         git:
             url: https://github.com/SenZmaKi/libtorrent_dart
+            ref: v0.2.1
     path: ^1.9.1
     toastification: ^3.0.3
     riverpod: ^3.2.1
