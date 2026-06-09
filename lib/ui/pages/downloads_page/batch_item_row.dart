@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/ui/components/confirm_dialog.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_formatters.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_status_style.dart';
@@ -144,7 +145,8 @@ class _ProgressLine extends StatelessWidget {
     final theme = Theme.of(context);
     final senpwai = theme.extension<SenpwaiThemeExtension>()!;
     final palette = senpwai.downloadColors;
-    final isIndeterminate = item.status == DownloadQueueStatus.queued ||
+    final isIndeterminate =
+        item.status == DownloadQueueStatus.queued ||
         item.status == DownloadQueueStatus.preparing;
     final barRadius = (senpwai.cardRadius * 0.5).clamp(0, 6).toDouble();
     return PulsingProgressBar(
@@ -153,8 +155,8 @@ class _ProgressLine extends StatelessWidget {
       color: style.color,
       trackColor: palette.progressTrack,
       pulseColor: palette.pulseHighlight,
-      pulsing: item.status == DownloadQueueStatus.downloading ||
-          isIndeterminate,
+      pulsing:
+          item.status == DownloadQueueStatus.downloading || isIndeterminate,
       borderRadius: BorderRadius.circular(barRadius),
     );
   }
@@ -189,11 +191,7 @@ class _MetricsAndControls extends ConsumerWidget {
             runSpacing: 6,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _Tile(
-                icon: Icons.percent_rounded,
-                value: pct,
-                emphasize: true,
-              ),
+              _Tile(icon: Icons.percent_rounded, value: pct, emphasize: true),
               _Tile(
                 icon: Icons.sd_storage_outlined,
                 value:
@@ -228,10 +226,7 @@ class _MetricsAndControls extends ConsumerWidget {
                       : '${torrent.numPeers}',
                   tooltip: 'Connected peers / swarm peers',
                 ),
-              _Tile(
-                icon: Icons.timer_outlined,
-                value: eta,
-              ),
+              _Tile(icon: Icons.timer_outlined, value: eta),
             ],
           ),
         ),
@@ -253,7 +248,19 @@ class _MetricsAndControls extends ConsumerWidget {
             icon: Icons.close_rounded,
             tooltip: 'Cancel',
             color: theme.colorScheme.error.withValues(alpha: 0.75),
-            onTap: () => notifier.cancel(item.id),
+            onTap: () async {
+              final confirmed = await showConfirmDialog(
+                context,
+                title: 'Cancel this download?',
+                message:
+                    'This will stop "${item.displayTitle}" and discard its '
+                    'remaining download progress.',
+                confirmLabel: 'Cancel download',
+                cancelLabel: 'Keep downloading',
+                destructive: true,
+              );
+              if (confirmed) notifier.cancel(item.id);
+            },
           ),
         if (item.errorCopyPayload != null)
           _IconAction(
@@ -268,7 +275,6 @@ class _MetricsAndControls extends ConsumerWidget {
             ),
           ),
         if (item.status.isTerminal &&
-            item.errorCopyPayload == null &&
             item.status != DownloadQueueStatus.completed)
           _IconAction(
             icon: Icons.close_rounded,
@@ -298,7 +304,8 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = tint ??
+    final color =
+        tint ??
         (emphasize
             ? theme.colorScheme.onSurface
             : theme.colorScheme.onSurface.withValues(alpha: 0.65));

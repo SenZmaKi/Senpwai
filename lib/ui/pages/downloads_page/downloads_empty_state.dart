@@ -1,11 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
-class DownloadsEmptyState extends StatelessWidget {
+class DownloadsEmptyState extends ConsumerWidget {
   const DownloadsEmptyState({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final senpwai = theme.extension<SenpwaiThemeExtension>();
     return Center(
@@ -49,6 +52,19 @@ class DownloadsEmptyState extends StatelessWidget {
                   height: 1.45,
                 ),
               ),
+              if (kDebugMode) ...[
+                const SizedBox(height: 18),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: FilledButton.icon(
+                    onPressed: () => ref
+                        .read(DownloadManagerNotifier.provider.notifier)
+                        .seedMockDownloads(),
+                    icon: const Icon(Icons.science_rounded),
+                    label: const Text('Seed mock downloads'),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

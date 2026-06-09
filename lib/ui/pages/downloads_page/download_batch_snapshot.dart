@@ -23,15 +23,14 @@ class DownloadBatchSnapshot {
 
   int get totalBytes => items.fold(0, (s, i) => s + i.totalBytes);
   int get downloadedBytes => items.fold(0, (s, i) => s + i.downloadedBytes);
-  double get bytesPerSecond =>
-      items.fold(0.0, (s, i) => s + i.bytesPerSecond);
+  double get bytesPerSecond => items.fold(0.0, (s, i) => s + i.bytesPerSecond);
 
   bool get hasTorrentStats => items.any((i) => i.torrentStats != null);
 
   double get uploadBytesPerSecond => items.fold(
-        0.0,
-        (s, i) => s + (i.torrentStats?.uploadBytesPerSecond ?? 0),
-      );
+    0.0,
+    (s, i) => s + (i.torrentStats?.uploadBytesPerSecond ?? 0),
+  );
 
   int get numSeeds =>
       items.fold(0, (s, i) => s + (i.torrentStats?.numSeeds ?? 0));
@@ -70,9 +69,7 @@ class DownloadBatchSnapshot {
     if (downloadingCount > 0) return DownloadQueueStatus.downloading;
     if (pausedCount > 0) return DownloadQueueStatus.paused;
     if (queuedCount > 0) return DownloadQueueStatus.queued;
-    if (failedCount > 0 && completedCount == 0) {
-      return DownloadQueueStatus.failed;
-    }
+    if (failedCount > 0) return DownloadQueueStatus.failed;
     if (items.every((i) => i.status == DownloadQueueStatus.completed)) {
       return DownloadQueueStatus.completed;
     }

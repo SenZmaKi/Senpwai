@@ -1,5 +1,5 @@
 # Misc
-
+- The app was originally made using PyQt and now we're making v3 which is a Flutter app.
 - The app is designed for mobile, tablet and desktop so it should be responsive.
 - Validate your implementation with static analyzers don't run tests unless I explicitly ask you to.
 - Don't ignore prexisting errors or war

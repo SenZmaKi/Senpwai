@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:libtorrent_dart/libtorrent_dart.dart';
 import 'package:path/path.dart' as path;
@@ -19,6 +20,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
 
   final Map<String, _ActiveHttpDownload> _httpDownloads = {};
   final Map<String, _ActiveTorrentDownload> _torrentDownloads = {};
+  final Map<String, _ActiveMockDownload> _mockDownloads = {};
   final Map<String, void Function()> _pendingStarters = {};
   int _idCounter = 0;
 
@@ -64,6 +66,18 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
   }
 
   Future<void> pause(String id) async {
+    final mock = _mockDownloads[id];
+    if (mock != null) {
+      _updateItem(
+        id,
+        (item) => item.copyWith(
+          status: DownloadQueueStatus.paused,
+          bytesPerSecond: 0,
+        ),
+      );
+      return;
+    }
+
     final http = _httpDownloads[id];
     if (http != null) {
       http.download.state.pause();
@@ -91,6 +105,18 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
   }
 
   Future<void> resume(String id) async {
+    final mock = _mockDownloads[id];
+    if (mock != null) {
+      _updateItem(
+        id,
+        (item) => item.copyWith(
+          status: DownloadQueueStatus.downloading,
+          clearError: true,
+        ),
+      );
+      return;
+    }
+
     final http = _httpDownloads[id];
     if (http != null) {
       http.download.state.resume();
@@ -119,6 +145,21 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
 
   Future<void> cancel(String id) async {
     _pendingStarters.remove(id);
+    final mock = _mockDownloads.remove(id);
+    if (mock != null) {
+      mock.timer.cancel();
+      _updateItem(
+        id,
+        (item) => item.copyWith(
+          status: DownloadQueueStatus.cancelled,
+          bytesPerSecond: 0,
+        ),
+      );
+      _removeItemFromBatch(id);
+      _maybePromote();
+      return;
+    }
+
     final http = _httpDownloads.remove(id);
     if (http != null) {
       await http.download.state.cancel();
@@ -130,6 +171,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
           bytesPerSecond: 0,
         ),
       );
+      _removeItemFromBatch(id);
       _maybePromote();
       return;
     }
@@ -146,6 +188,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
           bytesPerSecond: 0,
         ),
       );
+      _removeItemFromBatch(id);
       _maybePromote();
     }
   }
@@ -205,8 +248,92 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
       unawaited(runtime.subscription.cancel());
       runtime.session.close();
     }
+    for (final runtime in _mockDownloads.values) {
+      runtime.timer.cancel();
+    }
     _httpDownloads.clear();
     _torrentDownloads.clear();
+    _mockDownloads.clear();
+  }
+
+  void seedMockDownloads() {
+    if (!kDebugMode) return;
+    _cleanup();
+    _pendingStarters.clear();
+    state = const DownloadManagerState();
+
+    final createdAt = DateTime.now();
+    final specs = [
+      _MockBatchSpec(
+        title: 'Mock batch A · failing item',
+        source: AnimeSource.animepahe,
+        items: [
+          _MockItemSpec('A-01 · clean progress', 160 * 1024 * 1024),
+          _MockItemSpec(
+            'A-02 · fails at 40%',
+            180 * 1024 * 1024,
+            shouldFail: true,
+          ),
+          _MockItemSpec('A-03 · completes later', 220 * 1024 * 1024),
+          _MockItemSpec('A-04 · short episode', 96 * 1024 * 1024),
+          _MockItemSpec('A-05 · final item', 140 * 1024 * 1024),
+        ],
+      ),
+      _MockBatchSpec(
+        title: 'Mock batch B · queued behind failure',
+        source: AnimeSource.nyaa,
+        items: [
+          _MockItemSpec('B-01 · torrent sample', 260 * 1024 * 1024),
+          _MockItemSpec('B-02 · torrent sample', 210 * 1024 * 1024),
+        ],
+      ),
+      _MockBatchSpec(
+        title: 'Mock batch C · final queued batch',
+        source: AnimeSource.tokyoinsider,
+        items: [
+          _MockItemSpec('C-01 · final queue check', 120 * 1024 * 1024),
+          _MockItemSpec('C-02 · final queue check', 150 * 1024 * 1024),
+          _MockItemSpec('C-03 · final queue check', 190 * 1024 * 1024),
+        ],
+      ),
+    ];
+
+    for (final batchSpec in specs) {
+      final batchId = _nextBatchId();
+      final itemIds = <String>[];
+      for (final itemSpec in batchSpec.items) {
+        final id = _nextId();
+        itemIds.add(id);
+        _appendItem(
+          DownloadQueueItem(
+            id: id,
+            batchId: batchId,
+            source: batchSpec.source,
+            animeTitle: batchSpec.title,
+            displayTitle: itemSpec.title,
+            destinationDirectory: '/mock/downloads/${batchSpec.title}',
+            status: DownloadQueueStatus.queued,
+            totalBytes: itemSpec.totalBytes,
+            downloadedBytes: 0,
+            bytesPerSecond: 0,
+            createdAt: createdAt,
+            filePaths: ['/mock/downloads/${itemSpec.title}.mkv'],
+          ),
+        );
+        _pendingStarters[id] = () =>
+            _startMockDownload(id, shouldFail: itemSpec.shouldFail);
+      }
+      _appendBatch(
+        DownloadBatchQueue(
+          id: batchId,
+          title: batchSpec.title,
+          source: batchSpec.source,
+          createdAt: createdAt,
+          itemIds: itemIds,
+        ),
+      );
+    }
+    _maybePromote();
   }
 
   Future<String> _enqueueHttp(
@@ -417,42 +544,39 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
             listPeers: status.listPeers,
             totalUploaded: status.totalUpload,
           );
-          _updateItem(
-            id,
-            (item) {
-              // Libtorrent emits paused-status events from the moment the
-              // torrent is added — before the queue's starter callback ever
-              // runs handle.resume(). Don't let those early events flip a
-              // never-started item from pending to paused.
-              if (item.status == DownloadQueueStatus.queued) {
-                return item.copyWith(
-                  downloadedBytes: downloadedBytes,
-                  torrentStats: liveStats,
-                  clearError: true,
-                );
-              }
-              final paused = status.paused ||
-                  item.status == DownloadQueueStatus.paused;
+          _updateItem(id, (item) {
+            // Libtorrent emits paused-status events from the moment the
+            // torrent is added — before the queue's starter callback ever
+            // runs handle.resume(). Don't let those early events flip a
+            // never-started item from pending to paused.
+            if (item.status == DownloadQueueStatus.queued) {
               return item.copyWith(
-                status: paused
-                    ? DownloadQueueStatus.paused
-                    : DownloadQueueStatus.downloading,
                 downloadedBytes: downloadedBytes,
-                bytesPerSecond: paused ? 0 : status.downloadRate,
-                torrentStats: paused
-                    ? TorrentLiveStats(
-                        uploadBytesPerSecond: 0,
-                        numSeeds: liveStats.numSeeds,
-                        numPeers: liveStats.numPeers,
-                        listSeeds: liveStats.listSeeds,
-                        listPeers: liveStats.listPeers,
-                        totalUploaded: liveStats.totalUploaded,
-                      )
-                    : liveStats,
+                torrentStats: liveStats,
                 clearError: true,
               );
-            },
-          );
+            }
+            final paused =
+                status.paused || item.status == DownloadQueueStatus.paused;
+            return item.copyWith(
+              status: paused
+                  ? DownloadQueueStatus.paused
+                  : DownloadQueueStatus.downloading,
+              downloadedBytes: downloadedBytes,
+              bytesPerSecond: paused ? 0 : status.downloadRate,
+              torrentStats: paused
+                  ? TorrentLiveStats(
+                      uploadBytesPerSecond: 0,
+                      numSeeds: liveStats.numSeeds,
+                      numPeers: liveStats.numPeers,
+                      listSeeds: liveStats.listSeeds,
+                      listPeers: liveStats.listPeers,
+                      totalUploaded: liveStats.totalUploaded,
+                    )
+                  : liveStats,
+              clearError: true,
+            );
+          });
         },
       );
 
@@ -520,6 +644,86 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     return id;
   }
 
+  void _startMockDownload(String id, {required bool shouldFail}) {
+    _updateItem(
+      id,
+      (item) => item.status == DownloadQueueStatus.queued
+          ? item.copyWith(status: DownloadQueueStatus.downloading)
+          : item,
+    );
+    final item = _findItem(id);
+    if (item == null) return;
+    final stepBytes = (item.totalBytes / 12).ceil();
+    final failAtBytes = (item.totalBytes * 0.4).ceil();
+    final timer = Timer.periodic(const Duration(milliseconds: 700), (timer) {
+      final current = _findItem(id);
+      if (current == null || current.status.isTerminal) {
+        timer.cancel();
+        _mockDownloads.remove(id);
+        return;
+      }
+      if (current.status == DownloadQueueStatus.paused) return;
+
+      var nextBytes = current.downloadedBytes + stepBytes;
+      if (nextBytes > current.totalBytes) nextBytes = current.totalBytes;
+
+      if (shouldFail && nextBytes >= failAtBytes) {
+        timer.cancel();
+        _mockDownloads.remove(id);
+        _failItem(
+          id,
+          title: 'Mock download failed',
+          description: '${current.displayTitle} failed during simulation.',
+          copyPayload:
+              'Mock failure for ${current.displayTitle}\n'
+              'This is generated by SENPWAI_MOCK_DOWNLOADS.',
+        );
+        _showGlobalError(
+          title: 'Mock download failed',
+          description: '${current.displayTitle} failed during simulation.',
+        );
+        return;
+      }
+
+      if (nextBytes >= current.totalBytes) {
+        timer.cancel();
+        _mockDownloads.remove(id);
+        _updateItem(
+          id,
+          (item) => item.copyWith(
+            status: DownloadQueueStatus.completed,
+            downloadedBytes: item.totalBytes,
+            bytesPerSecond: 0,
+          ),
+        );
+        _maybePromote();
+        return;
+      }
+
+      _updateItem(
+        id,
+        (item) => item.copyWith(
+          status: DownloadQueueStatus.downloading,
+          downloadedBytes: nextBytes,
+          bytesPerSecond: stepBytes / 0.7,
+          torrentStats: item.isTorrent
+              ? TorrentLiveStats(
+                  uploadBytesPerSecond: stepBytes / 4.2,
+                  numSeeds: 12,
+                  numPeers: 4,
+                  listSeeds: 42,
+                  listPeers: 16,
+                  totalUploaded:
+                      (item.torrentStats?.totalUploaded ?? 0) +
+                      (stepBytes ~/ 6),
+                )
+              : item.torrentStats,
+        ),
+      );
+    });
+    _mockDownloads[id] = _ActiveMockDownload(timer: timer);
+  }
+
   String _nextBatchId() {
     _idCounter += 1;
     return 'batch-${DateTime.now().microsecondsSinceEpoch}-$_idCounter';
@@ -541,6 +745,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
   /// If no active batch is running, find the next batch with pending starters
   /// and kick it off. Also clears the active id if its batch is fully terminal.
   void _maybePromote() {
+    _dropTerminalBatches();
     final activeId = state.activeBatchId;
     if (activeId != null) {
       DownloadBatchQueue? active;
@@ -550,23 +755,43 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
           break;
         }
       }
-      final allTerminal = active == null ||
+      final allTerminal =
+          active == null ||
           active.itemIds.every((id) {
             final item = _findItem(id);
             return item == null || item.status.isTerminal;
           });
       if (!allTerminal) return;
       state = state.copyWith(clearActiveBatchId: true);
+      _dropTerminalBatches();
     }
     for (final batch in state.batches) {
-      final hasPending =
-          batch.itemIds.any((id) => _pendingStarters.containsKey(id));
-      if (!hasPending) continue;
+      final hasRunnable = batch.itemIds.any((id) {
+        final item = _findItem(id);
+        return item != null && !item.status.isTerminal;
+      });
+      if (!hasRunnable) continue;
       state = state.copyWith(activeBatchId: batch.id);
+      var startedPending = false;
       for (final id in batch.itemIds) {
-        _pendingStarters.remove(id)?.call();
+        final starter = _pendingStarters.remove(id);
+        if (starter == null) continue;
+        startedPending = true;
+        starter();
+      }
+      if (!startedPending) {
+        for (final id in batch.itemIds) {
+          final item = _findItem(id);
+          if (item == null) continue;
+          if (item.status == DownloadQueueStatus.paused) {
+            unawaited(resume(id));
+          }
+        }
       }
       return;
+    }
+    if (state.activeBatchId != null) {
+      state = state.copyWith(clearActiveBatchId: true);
     }
   }
 
@@ -605,6 +830,48 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
         errorCopyPayload: copyPayload,
       ),
     );
+    _maybePromote();
+  }
+
+  void _dropTerminalBatches() {
+    final activeId = state.activeBatchId;
+    final retained = <DownloadBatchQueue>[];
+    var droppedActive = false;
+    for (final batch in state.batches) {
+      final hasRunnable = batch.itemIds.any((id) {
+        final item = _findItem(id);
+        return item != null && !item.status.isTerminal;
+      });
+      if (hasRunnable) {
+        retained.add(batch);
+      } else if (batch.id == activeId) {
+        droppedActive = true;
+      }
+    }
+    if (retained.length == state.batches.length && !droppedActive) return;
+    state = state.copyWith(
+      batches: retained,
+      clearActiveBatchId: droppedActive,
+    );
+  }
+
+  void _removeItemFromBatch(String id) {
+    var removedActive = false;
+    final activeId = state.activeBatchId;
+    final batches = <DownloadBatchQueue>[];
+    for (final batch in state.batches) {
+      if (!batch.itemIds.contains(id)) {
+        batches.add(batch);
+        continue;
+      }
+      final itemIds = batch.itemIds.where((itemId) => itemId != id).toList();
+      if (itemIds.isEmpty) {
+        removedActive = removedActive || batch.id == activeId;
+        continue;
+      }
+      batches.add(batch.copyWith(itemIds: itemIds));
+    }
+    state = state.copyWith(batches: batches, clearActiveBatchId: removedActive);
   }
 
   Future<void> _disposeHttpRuntime(String id) async {
@@ -658,6 +925,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
   /// is currently active, pause its in-flight downloads (runtimes are
   /// retained so we can resume later) and promote the new top batch.
   void _reconcileActiveBatch() {
+    _dropTerminalBatches();
     if (state.batches.isEmpty) return;
     final top = state.batches.first;
     final activeId = state.activeBatchId;
@@ -674,8 +942,9 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
       state = state.copyWith(clearActiveBatchId: true);
     }
 
-    final hasPending =
-        top.itemIds.any((id) => _pendingStarters.containsKey(id));
+    final hasPending = top.itemIds.any(
+      (id) => _pendingStarters.containsKey(id),
+    );
     state = state.copyWith(activeBatchId: top.id);
     if (hasPending) {
       for (final id in top.itemIds) {
@@ -797,4 +1066,30 @@ class _ActiveTorrentDownload {
     required this.handle,
     required this.subscription,
   });
+}
+
+class _ActiveMockDownload {
+  final Timer timer;
+
+  const _ActiveMockDownload({required this.timer});
+}
+
+class _MockBatchSpec {
+  final String title;
+  final AnimeSource source;
+  final List<_MockItemSpec> items;
+
+  const _MockBatchSpec({
+    required this.title,
+    required this.source,
+    required this.items,
+  });
+}
+
+class _MockItemSpec {
+  final String title;
+  final int totalBytes;
+  final bool shouldFail;
+
+  const _MockItemSpec(this.title, this.totalBytes, {this.shouldFail = false});
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cf_bypass/cf_bypass.dart' hide LoggerExtensions;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/shared/dev_config.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/ui/pages/anime_page/cf_bypass_page.dart';
@@ -134,10 +135,23 @@ class _AppRoot extends ConsumerStatefulWidget {
 }
 
 class _AppRootState extends ConsumerState<_AppRoot> {
+  static const _seedMockDownloads = bool.fromEnvironment(
+    'SENPWAI_MOCK_DOWNLOADS',
+  );
+
   @override
   void initState() {
     super.initState();
     unawaited(ref.read(AnilistNotifier.provider.notifier).initialize());
+    if (kDebugMode) {
+      debugPrint('SENPWAI_MOCK_DOWNLOADS=$_seedMockDownloads');
+    }
+    if (kDebugMode && _seedMockDownloads) {
+      Future.microtask(() {
+        ref.read(DownloadManagerNotifier.provider.notifier).seedMockDownloads();
+        ref.read(AppPageNotifier.provider.notifier).showDownloads();
+      });
+    }
   }
 
   Future<void> _handleLogin() async {
