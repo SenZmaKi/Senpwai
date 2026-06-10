@@ -121,19 +121,6 @@ class TokyoInsiderDownloadPlanner {
         ? exactLanguage
         : (unknownLanguage.isNotEmpty ? unknownLanguage : links);
 
-    if (exactLanguage.isEmpty) {
-      final description = unknownLanguage.isNotEmpty
-          ? 'TokyoInsider episode $episodeNumber does not label audio language; using the closest quality match.'
-          : 'TokyoInsider episode $episodeNumber is not available in ${request.language}; using ${languagePool.first.language ?? 'an unlabeled track'}.';
-      notices.add(
-        DownloadNotice(
-          level: DownloadNoticeLevel.warning,
-          title: 'Audio fallback',
-          description: description,
-        ),
-      );
-    }
-
     final exactResolution = languagePool
         .where((link) => link.resolution == request.resolution)
         .toList();

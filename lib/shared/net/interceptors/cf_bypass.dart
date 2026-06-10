@@ -21,6 +21,7 @@ class CfBypassInterceptor extends Interceptor {
   final CookieJar cookieJar;
   CfBypassSolver? _solver;
   final Map<String, String> _userAgentsByHost = {};
+  final Map<String, Future<CfBypassResult>> _bypassByHost = {};
 
   CfBypassInterceptor({required this.dio, required this.cookieJar});
 
@@ -111,10 +112,8 @@ class CfBypassInterceptor extends Interceptor {
       return;
     }
 
-    _log.info("Initiating CF bypass solve for $url");
-
     try {
-      final result = await _solver!(url);
+      final result = await _solveBypass(err.requestOptions.uri.host, url);
 
       if (!result.success) {
         _log.warningWithMetadata(
@@ -157,6 +156,33 @@ class CfBypassInterceptor extends Interceptor {
       );
       handler.next(err);
     }
+  }
+
+  Future<CfBypassResult> _solveBypass(String host, String url) {
+    final existingBypass = _bypassByHost[host];
+    if (existingBypass != null) {
+      _log.infoWithMetadata(
+        "Waiting for in-flight CF bypass",
+        metadata: {"host": host, "url": url},
+      );
+      return existingBypass;
+    }
+
+    final solver = _solver;
+    if (solver == null) {
+      throw StateError("CF bypass solver is not set");
+    }
+
+    _log.infoWithMetadata(
+      "Initiating CF bypass solve",
+      metadata: {"host": host, "url": url},
+    );
+
+    final bypass = solver(url).whenComplete(() {
+      _bypassByHost.remove(host);
+    });
+    _bypassByHost[host] = bypass;
+    return bypass;
   }
 
   Future<void> _applyCookies(CfBypassResult result, Uri requestUri) async {
