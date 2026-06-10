@@ -63,6 +63,7 @@ dependencies:
     cf_bypass:
         git:
             url: https://github.com/SenZmaKi/cf_bypass
+            ref: f0851b8e6ad49de3ce4d60c232677f04ebe616a7
     file_picker: ^9.2.1
     dotenv: ^4.2.0
 

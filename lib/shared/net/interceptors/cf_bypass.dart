@@ -20,6 +20,7 @@ class CfBypassInterceptor extends Interceptor {
   final Dio dio;
   final CookieJar cookieJar;
   CfBypassSolver? _solver;
+  final Map<String, String> _userAgentsByHost = {};
 
   CfBypassInterceptor({required this.dio, required this.cookieJar});
 
@@ -28,6 +29,15 @@ class CfBypassInterceptor extends Interceptor {
   void setSolver(CfBypassSolver? solver) {
     _solver = solver;
     _log.info("CF bypass solver ${solver != null ? 'set' : 'cleared'}");
+  }
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    final userAgent = _userAgentsByHost[options.uri.host];
+    if (userAgent != null) {
+      options.headers["User-Agent"] = userAgent;
+    }
+    handler.next(options);
   }
 
   @override
@@ -125,13 +135,14 @@ class CfBypassInterceptor extends Interceptor {
         },
       );
 
-      _applyCookies(result, err.requestOptions.uri);
+      await _applyCookies(result, err.requestOptions.uri);
 
       if (result.userAgent != null) {
-        dio.options.headers["User-Agent"] = result.userAgent;
+        _userAgentsByHost[err.requestOptions.uri.host] = result.userAgent!;
       }
 
       final retryOptions = err.requestOptions.copyWith(
+        headers: _buildRetryHeaders(err.requestOptions, result),
         extra: {...err.requestOptions.extra, "cfBypassRetried": true},
       );
 
@@ -148,7 +159,7 @@ class CfBypassInterceptor extends Interceptor {
     }
   }
 
-  void _applyCookies(CfBypassResult result, Uri requestUri) {
+  Future<void> _applyCookies(CfBypassResult result, Uri requestUri) async {
     final host = requestUri.host;
     final cookies = result.cookies
         .map(
@@ -162,7 +173,7 @@ class CfBypassInterceptor extends Interceptor {
         .toList();
 
     if (cookies.isNotEmpty) {
-      cookieJar.saveFromResponse(requestUri, cookies);
+      await cookieJar.saveFromResponse(requestUri, cookies);
       _log.fineWithMetadata(
         "Saved CF bypass cookies to jar",
         metadata: {
@@ -171,5 +182,28 @@ class CfBypassInterceptor extends Interceptor {
         },
       );
     }
+  }
+
+  Map<String, dynamic> _buildRetryHeaders(
+    RequestOptions requestOptions,
+    CfBypassResult result,
+  ) {
+    final headers = Map<String, dynamic>.of(requestOptions.headers);
+
+    if (result.userAgent != null) {
+      headers["User-Agent"] = result.userAgent;
+    }
+
+    headers.putIfAbsent(
+      "Accept",
+      () => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    );
+    headers.putIfAbsent("Accept-Language", () => "en-US,en;q=0.9");
+    headers.putIfAbsent(
+      "Referer",
+      () => "${requestOptions.uri.scheme}://${requestOptions.uri.host}/",
+    );
+
+    return headers;
   }
 }

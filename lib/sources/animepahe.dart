@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
@@ -187,21 +186,7 @@ class Source {
   static Future<void> ensureInitialized() async {
     if (_isDioConfigured) return;
     GlobalDio.getInstance();
-    await _seedDdgCookiesIfMissing();
     _isDioConfigured = true;
-  }
-
-  static Future<void> _seedDdgCookiesIfMissing() async {
-    final cookieJar = GlobalDio.cookieJar;
-    final paheUri = Uri.parse(Constants.paheHome);
-    final existing = await cookieJar.loadForRequest(paheUri);
-    final hasDdg = existing.any((c) => c.name.startsWith("__ddg"));
-    if (!hasDdg) {
-      await cookieJar.saveFromResponse(paheUri, [
-        Cookie("__ddg1_", ""),
-        Cookie("__ddg2_", ""),
-      ]);
-    }
   }
 
   Future<Pagination<List<AnimeResult>>> search({
@@ -595,7 +580,15 @@ class Source {
 
     final response = await _dio.get<String>(
       kwikPageLink,
-      options: Options(headers: {'Referer': downloadLink.url}),
+      options: Options(
+        responseType: ResponseType.plain,
+        headers: {
+          'Accept':
+              'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': downloadLink.url,
+        },
+      ),
     );
     final htmlPageText = response.data;
     if (htmlPageText == null) {
