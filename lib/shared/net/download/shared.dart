@@ -65,3 +65,15 @@ class DownloadProbeException implements Exception {
   @override
   String toString() => 'DownloadProbeException: $message';
 }
+
+/// Thrown when the server's response indicates the resource changed
+/// or no longer supports the requested range mid-download (e.g. a
+/// validator mismatch caused a 200 response, or 416 from a shrunk file).
+class DownloadResourceChangedException implements Exception {
+  final String message;
+
+  const DownloadResourceChangedException(this.message);
+
+  @override
+  String toString() => 'DownloadResourceChangedException: $message';
+}

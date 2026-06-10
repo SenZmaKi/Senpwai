@@ -20,9 +20,12 @@ extension DownloadStatusExtension on DownloadStatus {
 
 class DownloadState {
   final DownloadParams params;
-  final CancelToken _cancelToken = CancelToken();
   final _subscriptions = <int, StreamSubscription<List<int>>>{};
   final _partCompleters = <int, Completer<void>>{};
+  final _iterationTokens = <int, CancelToken>{};
+
+  static const String pauseCancelReason = '__senpwai_pause__';
+  static const String cancelReason = '__senpwai_cancel__';
   final _progressController = StreamController<DownloadProgress>.broadcast();
   final _statusController = StreamController<DownloadStatus>.broadcast();
   static final _globalStatusController =
@@ -41,7 +44,6 @@ class DownloadState {
   DownloadState({required this.params});
 
   Stream<DownloadProgress> get progressStream => _progressController.stream;
-  CancelToken get cancelToken => _cancelToken;
   bool get isStarted => status != DownloadStatus.idle;
   bool get isPaused => status == DownloadStatus.paused;
   bool get isCancelled => status == DownloadStatus.cancelled;
@@ -70,14 +72,26 @@ class DownloadState {
   ) {
     _subscriptions[partNumber] = sub;
     _partCompleters[partNumber] = completer;
-    if (isPaused) {
-      sub.pause();
-    }
   }
 
   void unregisterPart(int partNumber) {
     _subscriptions.remove(partNumber);
     _partCompleters.remove(partNumber);
+  }
+
+  CancelToken registerIterationToken(int partNumber) {
+    final token = CancelToken();
+    _iterationTokens[partNumber] = token;
+    if (isPaused) {
+      token.cancel(pauseCancelReason);
+    } else if (isCancelled) {
+      token.cancel(cancelReason);
+    }
+    return token;
+  }
+
+  void unregisterIterationToken(int partNumber) {
+    _iterationTokens.remove(partNumber);
   }
 
   void finalize(DownloadStatus status) {
@@ -103,10 +117,12 @@ class DownloadState {
     }
     log.infoWithMetadata("Pausing download", metadata: {"params": params});
     rateTracker.pause();
-    for (final sub in _subscriptions.values) {
-      sub.pause();
-    }
+    // Update status BEFORE cancelling so the iteration loop sees `isPaused`
+    // when it catches the DioException and waits for resume instead of failing.
     _updateStatus(DownloadStatus.paused);
+    for (final token in _iterationTokens.values) {
+      if (!token.isCancelled) token.cancel(pauseCancelReason);
+    }
   }
 
   void resume() {
@@ -116,9 +132,6 @@ class DownloadState {
     }
     log.infoWithMetadata("Resuming download", metadata: {"params": params});
     rateTracker.resume();
-    for (final sub in _subscriptions.values) {
-      sub.resume();
-    }
     _updateStatus(DownloadStatus.downloading);
   }
 
@@ -135,7 +148,10 @@ class DownloadState {
       return;
     }
     log.infoWithMetadata("Cancelling download", metadata: {"params": params});
-    _cancelToken.cancel("Cancelled by user");
+    for (final token in _iterationTokens.values) {
+      if (!token.isCancelled) token.cancel(cancelReason);
+    }
+    _iterationTokens.clear();
 
     // Cancel all subscriptions
     final subs = List<StreamSubscription<List<int>>>.from(

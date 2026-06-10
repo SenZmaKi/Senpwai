@@ -22,6 +22,11 @@ class Download {
   late final DownloadState state = DownloadState(params: params);
   Future<void>? _downloadFuture;
 
+  /// `If-Range` validator (ETag preferred, falling back to Last-Modified)
+  /// captured from the first 206 response. Subsequent reconnects send this
+  /// so the server returns 200 (and we abort) if the file has changed.
+  String? _ifRangeValidator;
+
   Download({required this.params});
 
   static Future<ResolvedDownloadTarget> probeSingleFile({
@@ -115,6 +120,10 @@ class Download {
 
         currentOffset += processedCount;
         remainingBytes -= processedCount;
+
+        if (state.isPaused && remainingBytes > 0) {
+          await _waitForResume(partNumber);
+        }
       } on DioException catch (e) {
         if (e.type == DioExceptionType.receiveTimeout) {
           await _handleTimeoutAndPause(partNumber);
@@ -122,6 +131,19 @@ class Download {
         }
         rethrow;
       }
+    }
+  }
+
+  Future<void> _waitForResume(int partNumber) async {
+    log.fine("Part $partNumber: Paused, waiting for resume signal.");
+    final status = await state.waitTillStatus(
+      statuses: [
+        DownloadStatus.downloading,
+        ...DownloadStatusExtension.terminalStatuses,
+      ],
+    );
+    if (status != DownloadStatus.downloading) {
+      throw DownloadCancelledException("Resume aborted. Status: $status");
     }
   }
 
@@ -134,22 +156,33 @@ class Download {
     RandomAccessFile? raf;
     StreamSubscription<Uint8List>? subscription;
     int bytes = 0;
+    final iterToken = state.registerIterationToken(partNumber);
 
     try {
       raf = await params.targetFile.open(mode: FileMode.writeOnly);
       await raf.setPosition(offset);
 
-      final response = await _establishConnection(offset, length);
+      final response = await _establishConnection(offset, length, iterToken);
+
+      if (response.statusCode != 206) {
+        await response.data?.stream.drain<void>();
+        throw DownloadResourceChangedException(
+          "Expected 206 Partial Content, got ${response.statusCode}. "
+          "The file may have changed on the server during the download.",
+        );
+      }
+
+      _ifRangeValidator ??=
+          response.headers.value('etag') ??
+          response.headers.value('last-modified');
+
       final throttledStream = DownloadThrottler.getInstance()
           .getThrottledStream(response);
 
       final completer = Completer<void>();
       subscription = throttledStream.listen(
         (data) async {
-          while (state.isPaused && !state.isTerminal) {
-            await Future<void>.delayed(const Duration(milliseconds: 50));
-          }
-          if (state.isTerminal) return;
+          if (iterToken.isCancelled || state.isTerminal) return;
 
           subscription?.pause();
           await raf?.writeFrom(data);
@@ -165,7 +198,9 @@ class Download {
           subscription?.resume();
         },
         onDone: completer.complete,
-        onError: completer.completeError,
+        onError: (Object e, StackTrace st) {
+          if (!completer.isCompleted) completer.completeError(e, st);
+        },
         cancelOnError: true,
       );
 
@@ -173,26 +208,47 @@ class Download {
       await completer.future;
 
       return bytes;
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        return bytes;
+      }
+      rethrow;
     } finally {
       await subscription?.cancel();
       await raf?.close();
       state.unregisterPart(partNumber);
+      state.unregisterIterationToken(partNumber);
     }
   }
 
   /// Helper to configure the Dio request for a specific range.
-  Future<Response<ResponseBody>> _establishConnection(int offset, int length) {
+  Future<Response<ResponseBody>> _establishConnection(
+    int offset,
+    int length,
+    CancelToken cancelToken,
+  ) {
     final end = offset + length - 1;
+    final headers = <String, dynamic>{
+      "Range": "bytes=$offset-$end",
+      ...params.headers,
+    };
+    if (_ifRangeValidator != null) {
+      headers["If-Range"] = _ifRangeValidator!;
+    }
     return _dio.get<ResponseBody>(
       params.url,
       options: Options(
-        headers: {"Range": "bytes=$offset-$end", ...params.headers},
+        headers: headers,
         responseType: ResponseType.stream,
+        // Accept 200/206/416 so we can handle non-206 ourselves rather than
+        // letting Dio throw a generic badResponse.
+        validateStatus: (status) =>
+            status == 200 || status == 206 || status == 416,
         extra: NetConfig.getInstance()
             .buildCacheOptions(policy: CachePolicy.noCache)
             .toExtra(),
       ),
-      cancelToken: state.cancelToken,
+      cancelToken: cancelToken,
     );
   }
 
