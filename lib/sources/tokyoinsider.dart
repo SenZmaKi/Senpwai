@@ -17,6 +17,9 @@ class Constants {
   static const baseUrl = "https://www.tokyoinsider.com";
 }
 
+String _resolveUrl(String href) =>
+    Uri.parse(Constants.baseUrl).resolve(href).toString();
+
 class AnimeResult {
   final String title;
   final String url;
@@ -74,7 +77,7 @@ class AnimeListCache {
         .map(
           (e) => AnimeResult(
             title: e.text.trim(),
-            url: "${Constants.baseUrl}${e.attributes['href']}",
+            url: _resolveUrl(e.attributes['href']!),
           ),
         )
         .toSet();
@@ -194,7 +197,7 @@ class Source {
           metadata: {"animeUrl": animeUrl},
         );
       }
-      final url = "${Constants.baseUrl}$path";
+      final url = _resolveUrl(path);
       final title = el.text.trim();
       return EpisodePage(
         animeTitle: animeTitle,
@@ -229,7 +232,7 @@ class Source {
         );
       }
       final filename = el.text.trim();
-      final url = "${Constants.baseUrl}$path";
+      final url = _resolveUrl(path);
       final animeTitle = episodePage.animeTitle;
       final episodeTitle = episodePage.title;
       final parsed = anitomy_parser.parseFilename(filename);
@@ -257,8 +260,10 @@ class Source {
 int? _parseEpisodeNumber(String text) {
   final parsed = anitomy_parser.parseFilename(text);
   if (parsed.episode != null) return parsed.episode;
-  final match = RegExp(r'(?:episode|ep\.?)\s*(\d+)', caseSensitive: false)
-      .firstMatch(text);
+  final match = RegExp(
+    r'(?:episode|ep\.?)\s*(\d+)',
+    caseSensitive: false,
+  ).firstMatch(text);
   if (match != null) {
     return int.tryParse(match.group(1)!);
   }

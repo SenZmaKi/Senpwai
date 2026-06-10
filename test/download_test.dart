@@ -188,6 +188,7 @@ void main() {
       );
 
       state.updateToDownloading();
+      final token = state.registerIterationToken(0);
       state.pause();
       expect(await pausedFuture, DownloadStatus.paused);
 
@@ -197,7 +198,7 @@ void main() {
       await state.cancel();
       expect(state.status, DownloadStatus.cancelled);
       expect(state.isTerminal, true);
-      expect(state.cancelToken.isCancelled, true);
+      expect(token.isCancelled, true);
     });
   });
 
