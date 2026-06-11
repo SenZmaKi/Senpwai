@@ -8,7 +8,7 @@ import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/ui/components/app.dart';
 import 'package:senpwai/ui/components/toast.dart';
-import 'package:senpwai/ui/pages/anime_page/nyaa_plan_resolve_dialog.dart';
+import 'package:senpwai/ui/pages/anime_page/nyaa_review/nyaa_review_sheet.dart';
 import 'package:senpwai/ui/pages/anime_page/download_widgets.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/sources/shared/shared.dart';
@@ -407,9 +407,13 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
         notifier.resetSubmissionStage();
         return;
       }
-      if (preparedBatch.requiresUserInteraction) {
+      final isNyaa = preparedBatch.jobs.any(
+            (j) => j.source == AnimeSource.nyaa,
+          ) ||
+          preparedBatch.nyaaEpisodeIssues.isNotEmpty;
+      if (isNyaa) {
         notifier.setSubmissionStage(DownloadSubmissionStage.reviewing);
-        final resolvedBatch = await NyaaPlanResolveDialog.resolve(
+        final resolvedBatch = await NyaaReviewSheet.show(
           context,
           batch: preparedBatch,
           notifier: notifier,

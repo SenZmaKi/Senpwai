@@ -102,10 +102,7 @@ class NyaaDownloadPlanner {
               'Could not find a movie torrent whose files matched this title.',
         );
       }
-      return PreparedDownloadBatch(
-        jobs: [moviePlan],
-        notices: notices,
-      );
+      return PreparedDownloadBatch(jobs: [moviePlan], notices: notices);
     }
 
     final shouldPreferEpisodes =
@@ -121,10 +118,7 @@ class NyaaDownloadPlanner {
         candidates: seasonCandidates,
       );
       if (seasonPlan != null) {
-        return PreparedDownloadBatch(
-          jobs: [seasonPlan],
-          notices: notices,
-        );
+        return PreparedDownloadBatch(jobs: [seasonPlan], notices: notices);
       }
       if (seasonCandidates.isNotEmpty) {
         notices.add(
@@ -214,6 +208,7 @@ class NyaaDownloadPlanner {
             candidate: candidate,
             desiredSeason: desiredSeason,
             titleCandidates: titleCandidates,
+            searchQuery: normalizedQuery,
           ),
         )
         .where(
@@ -258,6 +253,8 @@ class NyaaDownloadPlanner {
         score: candidate.smartScore,
         resolution: candidate.resolution ?? request.resolution,
         isCompleteSeason: candidate.isBatch,
+        searchQuery: candidate.searchQuery,
+        isBroadSearch: candidate.isBatch,
       ),
     );
     if (job == null) {
@@ -292,6 +289,7 @@ class NyaaDownloadPlanner {
       final selectedFileIndices = <int>[];
       final selectedFilePaths = <String>[];
       final renamedFilePaths = <int, String>{};
+      final episodeFileSizes = <int, int>{};
       for (final episodeNumber in orderedEpisodes) {
         final match = inspected.selectedFiles[episodeNumber]!;
         final plannedTarget = _targetPlanner.planEpisodeFile(
@@ -305,6 +303,7 @@ class NyaaDownloadPlanner {
         selectedFileIndices.add(match.entry.index);
         selectedFilePaths.add(targetFilePath);
         renamedFilePaths[match.entry.index] = targetFilePath;
+        episodeFileSizes[episodeNumber] = match.entry.size;
       }
       return PreparedTorrentDownloadJob(
         source: AnimeSource.nyaa,
@@ -320,6 +319,8 @@ class NyaaDownloadPlanner {
         reviewMetadata: _buildReviewMetadata(
           candidate: candidate,
           episodeNumber: null,
+          batchEpisodeNumbers: orderedEpisodes,
+          batchEpisodeFileSizes: episodeFileSizes,
         ),
       );
     }
@@ -531,6 +532,8 @@ class NyaaDownloadPlanner {
   TorrentReviewMetadata _buildReviewMetadata({
     required ScoredNyaaResult candidate,
     required int? episodeNumber,
+    List<int> batchEpisodeNumbers = const [],
+    Map<int, int> batchEpisodeFileSizes = const {},
   }) {
     final parsed = anitomy_parser.parseFilename(candidate.result.filename);
     return TorrentReviewMetadata(
@@ -539,6 +542,16 @@ class NyaaDownloadPlanner {
       seeders: candidate.result.seeders,
       languageLabel: classifyNyaaLanguageSignal(parsed).label,
       isBatch: candidate.isCompleteSeason,
+      searchConfiguration: NyaaSearchConfiguration(
+        query: candidate.searchQuery,
+        filters: NyaaManualSearchFilters(
+          exactEpisodeOnly: !candidate.isBroadSearch,
+          sameSeasonOnly: true,
+          preferredLanguageOnly: true,
+        ),
+      ),
+      batchEpisodeNumbers: batchEpisodeNumbers,
+      batchEpisodeFileSizes: batchEpisodeFileSizes,
     );
   }
 
@@ -548,7 +561,10 @@ class NyaaDownloadPlanner {
     required bool hadEpisodeSpecificMatches,
     required bool hadBroadCandidates,
   }) {
-    final description = switch ((hadEpisodeSpecificMatches, hadBroadCandidates)) {
+    final description = switch ((
+      hadEpisodeSpecificMatches,
+      hadBroadCandidates,
+    )) {
       (false, false) =>
         'Automatic matching could not find a confident Nyaa result for this episode, so your help is needed.',
       (true, false) =>
@@ -562,9 +578,11 @@ class NyaaDownloadPlanner {
       episodeNumber: episodeNumber,
       title: 'Episode $episodeNumber needs guidance',
       description: description,
-      initialQuery: preferredNyaaEpisodeSearchTerm(
-        anime.title.toTitleCandidates(),
-        episodeNumber,
+      searchConfiguration: NyaaSearchConfiguration(
+        query: preferredNyaaEpisodeSearchTerm(
+          anime.title.toTitleCandidates(),
+          episodeNumber,
+        ),
       ),
     );
   }
@@ -575,6 +593,7 @@ class NyaaDownloadPlanner {
     required nyaa.AnimeResult candidate,
     required int? desiredSeason,
     required List<String> titleCandidates,
+    required String searchQuery,
   }) {
     final parsed = anitomy_parser.parseFilename(candidate.filename);
     final languageSignal = classifyNyaaLanguageSignal(parsed);
@@ -620,6 +639,7 @@ class NyaaDownloadPlanner {
       matchesPreferredLanguage: matchesLanguage,
       isBatch: parsedEpisodeNumber == null,
       smartScore: smartScore,
+      searchQuery: searchQuery,
     );
   }
 }

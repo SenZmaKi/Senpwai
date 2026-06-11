@@ -28,18 +28,23 @@ class ScoredNyaaResult {
   final Resolution resolution;
   final nyaa.AnimeResult result;
   final bool isCompleteSeason;
+  final String searchQuery;
+  final bool isBroadSearch;
 
   const ScoredNyaaResult({
     required this.result,
     required this.score,
     required this.resolution,
     required this.isCompleteSeason,
+    required this.searchQuery,
+    this.isBroadSearch = false,
   });
 
   @override
   String toString() =>
       'ScoredNyaaResult(filename: ${result.filename}, score: $score, '
-      'resolution: $resolution, isCompleteSeason: $isCompleteSeason)';
+      'resolution: $resolution, isCompleteSeason: $isCompleteSeason, '
+      'searchQuery: $searchQuery)';
 }
 
 class NyaaEpisodeMatch {
@@ -216,6 +221,8 @@ typedef _Candidate = ({
   nyaa.AnimeResult result,
   Resolution resolution,
   bool isCompleteSeason,
+  String searchQuery,
+  bool isBroadSearch,
 });
 
 int _bestTitleScore(List<String> titleCandidates, String parsedTitle) =>
@@ -311,6 +318,8 @@ List<ScoredNyaaResult> _scoreAndSort({
       score: score,
       resolution: c.resolution,
       isCompleteSeason: c.isCompleteSeason,
+      searchQuery: c.searchQuery,
+      isBroadSearch: c.isBroadSearch,
     );
   }).toList()..sort((a, b) => b.score.compareTo(a.score));
 }
@@ -355,10 +364,13 @@ class NyaaMatcher {
     final seenUrls = <String>{};
     final candidates = <_Candidate>[];
 
-    for (final results in await Future.wait(
-      searchTerms.map((term) => _search(term, anilistId)),
-    )) {
-      for (final result in results) {
+    final searchedResults = await Future.wait(
+      searchTerms.map(
+        (term) async => (term: term, results: await _search(term, anilistId)),
+      ),
+    );
+    for (final searched in searchedResults) {
+      for (final result in searched.results) {
         if (!seenUrls.add(result.magnetUrl)) continue;
         if (result.seeders == 0) continue;
         final parsed = anitomy_parser.parseFilename(result.filename);
@@ -373,6 +385,8 @@ class NyaaMatcher {
           result: result,
           resolution: validated.resolution,
           isCompleteSeason: validated.isCompleteSeason,
+          searchQuery: searched.term,
+          isBroadSearch: false,
         ));
       }
     }
@@ -465,10 +479,13 @@ class NyaaMatcher {
       final seenUrls = <String>{};
       final candidates = <_Candidate>[];
 
-      for (final results in await Future.wait(
-        searchTerms.map((term) => _search(term, anime.id)),
-      )) {
-        for (final result in results) {
+      final searchedResults = await Future.wait(
+        searchTerms.map(
+          (term) async => (term: term, results: await _search(term, anime.id)),
+        ),
+      );
+      for (final searched in searchedResults) {
+        for (final result in searched.results) {
           if (!seenUrls.add(result.magnetUrl)) continue;
           if (result.seeders == 0) continue;
           final parsed = anitomy_parser.parseFilename(result.filename);
@@ -484,6 +501,8 @@ class NyaaMatcher {
             result: result,
             resolution: validated.resolution,
             isCompleteSeason: validated.isCompleteSeason,
+            searchQuery: searched.term,
+            isBroadSearch: false,
           ));
         }
       }
@@ -527,10 +546,13 @@ class NyaaMatcher {
     final seenUrls = <String>{};
     final candidates = <_Candidate>[];
 
-    for (final results in await Future.wait(
-      searchTerms.map((term) => _search(term, anime.id)),
-    )) {
-      for (final result in results) {
+    final searchedResults = await Future.wait(
+      searchTerms.map(
+        (term) async => (term: term, results: await _search(term, anime.id)),
+      ),
+    );
+    for (final searched in searchedResults) {
+      for (final result in searched.results) {
         if (!seenUrls.add(result.magnetUrl)) continue;
         if (result.seeders == 0) continue;
         final parsed = anitomy_parser.parseFilename(result.filename);
@@ -547,6 +569,8 @@ class NyaaMatcher {
           result: result,
           resolution: resolution,
           isCompleteSeason: parsedEpisode == null,
+          searchQuery: searched.term,
+          isBroadSearch: true,
         ));
       }
     }

@@ -135,6 +135,9 @@ class TorrentReviewMetadata {
   final int? seeders;
   final String? languageLabel;
   final bool isBatch;
+  final NyaaSearchConfiguration? searchConfiguration;
+  final List<int> batchEpisodeNumbers;
+  final Map<int, int> batchEpisodeFileSizes;
 
   const TorrentReviewMetadata({
     this.episodeNumber,
@@ -142,6 +145,9 @@ class TorrentReviewMetadata {
     this.seeders,
     this.languageLabel,
     this.isBatch = false,
+    this.searchConfiguration,
+    this.batchEpisodeNumbers = const [],
+    this.batchEpisodeFileSizes = const {},
   });
 }
 
