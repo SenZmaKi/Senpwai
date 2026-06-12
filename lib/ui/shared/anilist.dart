@@ -37,6 +37,11 @@ class AnilistNotifier extends Notifier<AnilistStateData> {
   @override
   AnilistStateData build() => const AnilistStateData();
 
+  void updateContentSettings(AnilistContentSettings settings) {
+    authClient.contentSettings = settings;
+    unauthClient.contentSettings = settings;
+  }
+
   Future<void> initialize() async {
     if (authClient.auth.token == null) return;
     state = state.copyWith(isAuthenticated: true);

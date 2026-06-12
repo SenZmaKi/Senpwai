@@ -1,17 +1,14 @@
+# Features
 - Dialog to disable animepahe source if cf bypass fails 3 times
-- Option to disable sources
-- Spinner in planning download and loading sources should be light grey
-- Debug why nyaa resolution fails for some episodes of "Hime Kishi wa Barbaroi no Yome"
-- Audit audio preference handling (extra emphasis on nyaa)
-- Memory usage
-- Confirm whether clearAllDataOnInit is necessary for cf_bypass
-- Make all interactive widgets turn cursor to pointing hand
-- Back handler on anime preview page should go back
-- Make cf_bypass network issue tolerant
-- Disable nsfw in anilist queries by default (make it configurable)
-
-- More in navbar in mobile to reduce clutter
-- \_postGraphQl should properly parse out errors from the GraphQL response and throw them as Anilist exceptions
+- _postGraphQl should properly parse out errors from the GraphQL response and throw them as Anilist exceptions
 - Properly handle servers that don't support Range requests
+- Option to disable sources
+- Make cf_bypass network issue tolerant
+- More in navbar in mobile to reduce clutter
+
+# Bugs
+- Memory usage
+
+# Maybe
 - Add watchcartoonsonline
 - Option to name episode files with resolution and sub or dub

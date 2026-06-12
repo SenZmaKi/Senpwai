@@ -98,6 +98,7 @@ abstract class AnilistAnimeBase<T extends ToJson> with ToJson {
   final DateTime? startDate;
   final DateTime? endDate;
   final bool? isFavourite;
+  final bool? isAdult;
 
   const AnilistAnimeBase({
     required this.id,
@@ -117,6 +118,7 @@ abstract class AnilistAnimeBase<T extends ToJson> with ToJson {
     this.startDate,
     this.endDate,
     this.isFavourite,
+    this.isAdult,
   });
 
   String get seasonLabel => [
@@ -143,6 +145,7 @@ abstract class AnilistAnimeBase<T extends ToJson> with ToJson {
     "startDate": startDate?.toIso8601String(),
     "endDate": endDate?.toIso8601String(),
     "isFavourite": isFavourite,
+    "isAdult": isAdult,
   };
 }
 
@@ -165,6 +168,7 @@ class AnilistAnime extends AnilistAnimeBase<AnilistAnime> {
     super.startDate,
     super.endDate,
     super.isFavourite,
+    super.isAdult,
   });
 
   factory AnilistAnime.fromJson(Map<String, dynamic> json) {
@@ -190,6 +194,7 @@ class AnilistAnime extends AnilistAnimeBase<AnilistAnime> {
       startDate: parsed.startDate,
       endDate: parsed.endDate,
       isFavourite: parsed.isFavourite,
+      isAdult: parsed.isAdult,
     );
   }
 }
@@ -246,6 +251,7 @@ class AnilistAnimeWithListEntry
     super.startDate,
     super.endDate,
     super.isFavourite,
+    super.isAdult,
     this.listEntry,
   });
 
@@ -272,6 +278,7 @@ class AnilistAnimeWithListEntry
       startDate: parsed.startDate,
       endDate: parsed.endDate,
       isFavourite: parsed.isFavourite,
+      isAdult: parsed.isAdult,
       listEntry: json["mediaListEntry"] == null
           ? null
           : AnilistMediaListEntry.fromJson(json["mediaListEntry"]),
@@ -303,6 +310,7 @@ class _ParsedAnimeFields<T extends ToJson> {
   final DateTime? startDate;
   final DateTime? endDate;
   final bool? isFavourite;
+  final bool? isAdult;
 
   const _ParsedAnimeFields({
     required this.id,
@@ -322,6 +330,7 @@ class _ParsedAnimeFields<T extends ToJson> {
     this.startDate,
     this.endDate,
     this.isFavourite,
+    this.isAdult,
   });
 }
 
@@ -363,6 +372,7 @@ _ParsedAnimeFields<T> _parseAnimeFields<T extends ToJson>(
     startDate: _parseFuzzyDate(json["startDate"] as Map<String, dynamic>?),
     endDate: _parseFuzzyDate(json["endDate"] as Map<String, dynamic>?),
     isFavourite: json["isFavourite"] as bool?,
+    isAdult: json["isAdult"] as bool?,
   );
 }
 

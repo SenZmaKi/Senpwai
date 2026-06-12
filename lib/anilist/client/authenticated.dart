@@ -43,9 +43,12 @@ class AuthenticatedAnimeSearchParams extends AnimeSearchParams {
 class AnilistAuthenticatedClient extends AnilistClientBase {
   final auth = AnilistAuthenticatorClient();
   final _graphql = AnilistGraphqlClient();
+  AnilistContentSettings contentSettings;
   int? viewerId;
 
-  AnilistAuthenticatedClient();
+  AnilistAuthenticatedClient({
+    this.contentSettings = const AnilistContentSettings(),
+  });
 
   Future<int> _getViewerId() async {
     final resolvedViewerId = viewerId ?? (await auth.fetchViewer()).id;
@@ -86,7 +89,7 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
       accessToken: token,
     );
     final pageData = data["data"]?["Page"] as Map<String, dynamic>?;
-    final items = mapMediaListItems(pageData);
+    final items = mapMediaListItems(pageData, contentSettings: contentSettings);
     final currentPage = (pageData?["pageInfo"]?["currentPage"] as int?) ?? page;
     _log.fineWithMetadata(
       "User media list response parsed",
@@ -116,7 +119,10 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
     }
 
     final query = mediaSearchQuery(includeListEntry: true);
-    final variables = buildSearchVariables(params);
+    final variables = buildSearchVariables(
+      params,
+      contentSettings: contentSettings,
+    );
     _log.fineWithMetadata(
       "AniList search request prepared",
       metadata: {
@@ -132,7 +138,10 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
       accessToken: token,
     );
     final pageData = data["data"]?["Page"] as Map<String, dynamic>?;
-    final items = mapMediaItemsWithListEntry(pageData);
+    final items = mapMediaItemsWithListEntry(
+      pageData,
+      contentSettings: contentSettings,
+    );
     final currentPage =
         (pageData?["pageInfo"]?["currentPage"] as int?) ?? params.page;
     final hasNextPage = pageData?["pageInfo"]?["hasNextPage"] as bool?;
@@ -170,7 +179,8 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
 
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: true),
-      variables: {"id": anilistId},
+      variables: {"id": anilistId, "isAdult": contentSettings.isAdultQueryValue}
+        ..removeWhere((_, value) => value == null),
       accessToken: token,
     );
     final media = data["data"]?["Media"] as Map<String, dynamic>?;
@@ -197,7 +207,8 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
     );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: true),
-      variables: {"id": anilistId},
+      variables: {"id": anilistId, "isAdult": contentSettings.isAdultQueryValue}
+        ..removeWhere((_, value) => value == null),
       accessToken: auth.token,
     );
     final media = data["data"]?["Media"] as Map<String, dynamic>?;
@@ -208,10 +219,17 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
       );
       return [];
     }
-    final relations = parseRelations(
-      media,
-      (json) => AnilistAnimeWithListEntry.fromJson(json),
-    );
+    final relations =
+        parseRelations(
+              media,
+              (json) => AnilistAnimeWithListEntry.fromJson(json),
+            )
+            .where(
+              (relation) =>
+                  contentSettings.showAdultContent ||
+                  relation.anime.isAdult != true,
+            )
+            .toList();
     _log.fineWithMetadata(
       "AniList relations fetched",
       metadata: {"anilistId": anilistId, "count": relations.length},
@@ -227,7 +245,8 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
     );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: true),
-      variables: {"id": anilistId},
+      variables: {"id": anilistId, "isAdult": contentSettings.isAdultQueryValue}
+        ..removeWhere((_, value) => value == null),
       accessToken: auth.token,
     );
     final media = data["data"]?["Media"] as Map<String, dynamic>?;
@@ -238,10 +257,17 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
       );
       return [];
     }
-    final recommendations = parseRecommendations(
-      media,
-      (json) => AnilistAnimeWithListEntry.fromJson(json),
-    );
+    final recommendations =
+        parseRecommendations(
+              media,
+              (json) => AnilistAnimeWithListEntry.fromJson(json),
+            )
+            .where(
+              (recommendation) =>
+                  contentSettings.showAdultContent ||
+                  recommendation.anime.isAdult != true,
+            )
+            .toList();
     _log.fineWithMetadata(
       "AniList recommendations fetched",
       metadata: {"anilistId": anilistId, "count": recommendations.length},
@@ -269,13 +295,17 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
       variables: {
         "season": season.toGraphql(),
         "seasonYear": seasonYear,
+        "isAdult": contentSettings.isAdultQueryValue,
         "page": 1,
         "perPage": params.perPage,
-      },
+      }..removeWhere((_, value) => value == null),
       accessToken: token,
     );
     final pageData = data["data"]?["Page"] as Map<String, dynamic>?;
-    final items = mapMediaItemsWithListEntry(pageData);
+    final items = mapMediaItemsWithListEntry(
+      pageData,
+      contentSettings: contentSettings,
+    );
     final totalResults = pageData?["pageInfo"]?["total"] as int?;
     final hasNextPage = pageData?["pageInfo"]?["hasNextPage"] as bool?;
     _log.fineWithMetadata(

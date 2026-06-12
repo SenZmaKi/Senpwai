@@ -16,6 +16,7 @@ final _log = Logger("senpwai.anilist.client");
 
 const _mediaCoreFields = r'''
   id
+  isAdult
   title { romaji english native }
   format
   season
@@ -74,6 +75,17 @@ class AnilistGraphqlClient {
     }
     return data;
   }
+}
+
+class AnilistContentSettings {
+  final bool showAdultContent;
+
+  const AnilistContentSettings({this.showAdultContent = false});
+
+  bool? get isAdultQueryValue => showAdultContent ? null : false;
+
+  bool allowsMediaJson(Map<String, dynamic> media) =>
+      showAdultContent || media["isAdult"] != true;
 }
 
 class AnilistTitleMatch {
@@ -163,6 +175,7 @@ String mediaSearchQuery({required bool includeListEntry}) {
         \$seasonYear: Int,
         \$formatIn: [MediaFormat],
         \$statusIn: [MediaStatus],
+        \$isAdult: Boolean,
         \$sort: [MediaSort],
         \$page: Int,
         \$perPage: Int
@@ -176,6 +189,7 @@ String mediaSearchQuery({required bool includeListEntry}) {
             seasonYear: \$seasonYear,
             format_in: \$formatIn,
             status_in: \$statusIn,
+            isAdult: \$isAdult,
             type: ANIME,
             sort: \$sort
           ) {
@@ -188,8 +202,8 @@ String mediaSearchQuery({required bool includeListEntry}) {
 
 String mediaByIdQuery({required bool includeListEntry}) {
   return '''
-      query (\$id: Int) {
-        Media(id: \$id, type: ANIME) {
+      query (\$id: Int, \$isAdult: Boolean) {
+        Media(id: \$id, type: ANIME, isAdult: \$isAdult) {
           ${_mediaFields(includeListEntry: includeListEntry)}
           ${_relationFields(includeListEntry: includeListEntry)}
           ${_recommendationFields(includeListEntry: includeListEntry)}
@@ -200,12 +214,19 @@ String mediaByIdQuery({required bool includeListEntry}) {
 
 String trendingQuery({required bool includeListEntry}) {
   return '''
-      query (\$season: MediaSeason, \$seasonYear: Int, \$page: Int, \$perPage: Int) {
+      query (
+        \$season: MediaSeason,
+        \$seasonYear: Int,
+        \$isAdult: Boolean,
+        \$page: Int,
+        \$perPage: Int
+      ) {
         Page(page: \$page, perPage: \$perPage) {
           pageInfo { currentPage lastPage perPage total }
           media(
             season: \$season,
             seasonYear: \$seasonYear,
+            isAdult: \$isAdult,
             type: ANIME,
             sort: [TRENDING_DESC, POPULARITY_DESC]
           ) {
@@ -240,7 +261,10 @@ String mediaListSearchQuery() {
     ''';
 }
 
-Map<String, dynamic> buildSearchVariables(AnimeSearchParams params) {
+Map<String, dynamic> buildSearchVariables(
+  AnimeSearchParams params, {
+  AnilistContentSettings contentSettings = const AnilistContentSettings(),
+}) {
   // Build sort list: use explicit sort if provided, otherwise default
   List<String>? sortList;
   if (params.sort != null) {
@@ -266,6 +290,7 @@ Map<String, dynamic> buildSearchVariables(AnimeSearchParams params) {
         "statusIn": params.airingStatuses
             ?.map((status) => status.toGraphql())
             .toList(),
+        "isAdult": contentSettings.isAdultQueryValue,
         "sort": sortList,
         "page": params.page,
         "perPage": params.perPage,
@@ -315,33 +340,47 @@ Pagination<List<T>> buildPagination<T>({
   );
 }
 
-List<AnilistAnime> mapMediaItems(Map<String, dynamic>? pageData) {
+List<AnilistAnime> mapMediaItems(
+  Map<String, dynamic>? pageData, {
+  AnilistContentSettings contentSettings = const AnilistContentSettings(),
+}) {
   final media = (pageData?["media"] as List<dynamic>? ?? []);
   return media
       .whereType<Map<String, dynamic>>()
+      .where(contentSettings.allowsMediaJson)
       .map((json) => AnilistAnime.fromJson(json))
       .toList();
 }
 
 List<AnilistAnimeWithListEntry> mapMediaItemsWithListEntry(
-  Map<String, dynamic>? pageData,
-) {
+  Map<String, dynamic>? pageData, {
+  AnilistContentSettings contentSettings = const AnilistContentSettings(),
+}) {
   final media = (pageData?["media"] as List<dynamic>? ?? []);
   return media
       .whereType<Map<String, dynamic>>()
+      .where(contentSettings.allowsMediaJson)
       .map((json) => AnilistAnimeWithListEntry.fromJson(json))
       .toList();
 }
 
 List<AnilistAnimeWithListEntry> mapMediaListItems(
-  Map<String, dynamic>? pageData,
-) {
+  Map<String, dynamic>? pageData, {
+  AnilistContentSettings contentSettings = const AnilistContentSettings(),
+}) {
   final listItems = (pageData?["mediaList"] as List<dynamic>? ?? []);
-  return listItems.whereType<Map<String, dynamic>>().map((json) {
-    final media = json["media"] as Map<String, dynamic>;
-    return AnilistAnimeWithListEntry.fromJson({
-      ...media,
-      "mediaListEntry": json,
-    });
-  }).toList();
+  return listItems
+      .whereType<Map<String, dynamic>>()
+      .where((json) {
+        final media = json["media"] as Map<String, dynamic>?;
+        return media != null && contentSettings.allowsMediaJson(media);
+      })
+      .map((json) {
+        final media = json["media"] as Map<String, dynamic>;
+        return AnilistAnimeWithListEntry.fromJson({
+          ...media,
+          "mediaListEntry": json,
+        });
+      })
+      .toList();
 }

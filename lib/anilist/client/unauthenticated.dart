@@ -10,6 +10,11 @@ final _log = Logger("senpwai.anilist.client.unauthenticated");
 
 class AnilistUnauthenticatedClient extends AnilistClientBase {
   final _graphql = AnilistGraphqlClient();
+  AnilistContentSettings contentSettings;
+
+  AnilistUnauthenticatedClient({
+    this.contentSettings = const AnilistContentSettings(),
+  });
 
   Future<Pagination<List<AnilistAnime>>> searchAnime({
     AnimeSearchParams params = const AnimeSearchParams(),
@@ -19,7 +24,10 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
       throw const AnilistAuthRequiredException();
     }
     final query = mediaSearchQuery(includeListEntry: false);
-    final variables = buildSearchVariables(params);
+    final variables = buildSearchVariables(
+      params,
+      contentSettings: contentSettings,
+    );
     _log.fineWithMetadata(
       "AniList search request prepared",
       metadata: {
@@ -31,7 +39,7 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
 
     final data = await _graphql.postGraphQL(query: query, variables: variables);
     final pageData = data["data"]?["Page"] as Map<String, dynamic>?;
-    final items = mapMediaItems(pageData);
+    final items = mapMediaItems(pageData, contentSettings: contentSettings);
     final currentPage =
         (pageData?["pageInfo"]?["currentPage"] as int?) ?? params.page;
     final hasNextPage = pageData?["pageInfo"]?["hasNextPage"] as bool?;
@@ -62,7 +70,8 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
     );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: false),
-      variables: {"id": anilistId},
+      variables: {"id": anilistId, "isAdult": contentSettings.isAdultQueryValue}
+        ..removeWhere((_, value) => value == null),
     );
     final media = data["data"]?["Media"] as Map<String, dynamic>?;
     if (media == null) {
@@ -88,7 +97,8 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
     );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: false),
-      variables: {"id": anilistId},
+      variables: {"id": anilistId, "isAdult": contentSettings.isAdultQueryValue}
+        ..removeWhere((_, value) => value == null),
     );
     final media = data["data"]?["Media"] as Map<String, dynamic>?;
     if (media == null) {
@@ -98,10 +108,14 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
       );
       return [];
     }
-    final relations = parseRelations(
-      media,
-      (json) => AnilistAnime.fromJson(json),
-    );
+    final relations =
+        parseRelations(media, (json) => AnilistAnime.fromJson(json))
+            .where(
+              (relation) =>
+                  contentSettings.showAdultContent ||
+                  relation.anime.isAdult != true,
+            )
+            .toList();
     _log.fineWithMetadata(
       "AniList relations fetched",
       metadata: {"anilistId": anilistId, "count": relations.length},
@@ -118,7 +132,8 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
     );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: false),
-      variables: {"id": anilistId},
+      variables: {"id": anilistId, "isAdult": contentSettings.isAdultQueryValue}
+        ..removeWhere((_, value) => value == null),
     );
     final media = data["data"]?["Media"] as Map<String, dynamic>?;
     if (media == null) {
@@ -128,10 +143,14 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
       );
       return [];
     }
-    final recommendations = parseRecommendations(
-      media,
-      (json) => AnilistAnime.fromJson(json),
-    );
+    final recommendations =
+        parseRecommendations(media, (json) => AnilistAnime.fromJson(json))
+            .where(
+              (recommendation) =>
+                  contentSettings.showAdultContent ||
+                  recommendation.anime.isAdult != true,
+            )
+            .toList();
     _log.fineWithMetadata(
       "AniList recommendations fetched",
       metadata: {"anilistId": anilistId, "count": recommendations.length},
@@ -155,12 +174,13 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
       variables: {
         "season": season.toGraphql(),
         "seasonYear": seasonYear,
+        "isAdult": contentSettings.isAdultQueryValue,
         "page": 1,
         "perPage": params.perPage,
-      },
+      }..removeWhere((_, value) => value == null),
     );
     final pageData = data["data"]?["Page"] as Map<String, dynamic>?;
-    final items = mapMediaItems(pageData);
+    final items = mapMediaItems(pageData, contentSettings: contentSettings);
     final totalResults = pageData?["pageInfo"]?["total"] as int?;
     final hasNextPage = pageData?["pageInfo"]?["hasNextPage"] as bool?;
     _log.fineWithMetadata(
