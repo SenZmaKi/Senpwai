@@ -56,7 +56,8 @@ class SenpwaiTheme {
     final bodyFont = _googleFont(t.bodyFamily);
 
     final textTheme = _buildTextTheme(c.onSurface, brightness, t);
-    final downloadColors = (isDark ? downloads?.dark : downloads?.light) ??
+    final downloadColors =
+        (isDark ? downloads?.dark : downloads?.light) ??
         SenpwaiDownloadColors.deriveFrom(c);
 
     return ThemeData(
@@ -84,6 +85,25 @@ class SenpwaiTheme {
           side: BorderSide(color: c.primary.withValues(alpha: 0.3)),
         ),
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: c.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        titleTextStyle: textTheme.titleLarge?.copyWith(
+          color: c.onSurface,
+          fontWeight: t.headlineWeight,
+        ),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: c.onSurface.withValues(alpha: 0.84),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(s.cardRadius),
+          side: BorderSide(
+            color: c.primary.withValues(alpha: 0.3),
+            width: s.cardBorderWidth,
+          ),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: c.surfaceVariant,
@@ -106,32 +126,68 @@ class SenpwaiTheme {
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: c.primary,
-          foregroundColor: c.onPrimary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(s.buttonRadius),
-          ),
-          textStyle: bodyFont(fontWeight: FontWeight.w600),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        ),
+        style:
+            ElevatedButton.styleFrom(
+              backgroundColor: c.primary,
+              foregroundColor: c.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(s.buttonRadius),
+              ),
+              textStyle: bodyFont(fontWeight: FontWeight.w600),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ).copyWith(
+              mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+            ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: c.primary,
-          side: BorderSide(color: c.primary),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(s.buttonRadius),
-          ),
-          textStyle: bodyFont(fontWeight: FontWeight.w600),
-        ),
+        style:
+            OutlinedButton.styleFrom(
+              foregroundColor: c.primary,
+              side: BorderSide(color: c.primary),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(s.buttonRadius),
+              ),
+              textStyle: bodyFont(fontWeight: FontWeight.w600),
+            ).copyWith(
+              mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+            ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style:
+            TextButton.styleFrom(
+              foregroundColor: c.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(s.buttonRadius),
+              ),
+              textStyle: bodyFont(fontWeight: FontWeight.w600),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ).copyWith(
+              mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+            ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style:
+            FilledButton.styleFrom(
+              backgroundColor: c.primary,
+              foregroundColor: c.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(s.buttonRadius),
+              ),
+              textStyle: bodyFont(fontWeight: FontWeight.w700),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ).copyWith(
+              mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+            ),
       ),
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(s.buttonRadius),
-          ),
-        ),
+        style:
+            IconButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(s.buttonRadius),
+              ),
+            ).copyWith(
+              mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+            ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
@@ -209,6 +265,27 @@ class SenpwaiTheme {
           side: BorderSide(color: c.primary.withValues(alpha: 0.3)),
         ),
         side: BorderSide(color: c.primary.withValues(alpha: 0.3)),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        checkColor: WidgetStateProperty.all(c.onPrimary),
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return c.primary;
+          return c.surfaceVariant;
+        }),
+        side: BorderSide(color: c.primary.withValues(alpha: 0.45)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(s.inputRadius / 2),
+        ),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: c.onSurface.withValues(alpha: 0.72),
+        textColor: c.onSurface,
+        selectedColor: c.primary,
+        selectedTileColor: c.primary.withValues(alpha: 0.12),
+        tileColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(s.inputRadius),
+        ),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
