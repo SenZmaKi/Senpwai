@@ -1,6 +1,5 @@
 # Features
 - Dialog to disable animepahe source if cf bypass fails 3 times
-- _postGraphQl should properly parse out errors from the GraphQL response and throw them as Anilist exceptions
 - Properly handle servers that don't support Range requests
 - Option to disable sources
 - Make cf_bypass network issue tolerant
@@ -8,6 +7,7 @@
 
 # Bugs
 - Memory usage
+- 5000 results limit?
 
 # Maybe
 - Add watchcartoonsonline

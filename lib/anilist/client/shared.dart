@@ -57,23 +57,45 @@ class AnilistGraphqlClient {
       "Posting GraphQL request",
       metadata: {"variables": variables},
     );
-    final response = await _dio.post<Map<String, dynamic>>(
-      constants.Constants.apiEntryPoint,
-      data: {"query": query, "variables": variables},
-      options: Options(
-        headers: accessToken == null
-            ? null
-            : {"Authorization": "Bearer $accessToken"},
-        extra: NetConfig.getInstance()
-            .buildCacheOptions(allowPostMethod: true)
-            .toExtra(),
-      ),
-    );
+    final Response<Map<String, dynamic>> response;
+    try {
+      response = await _dio.post<Map<String, dynamic>>(
+        constants.Constants.apiEntryPoint,
+        data: {"query": query, "variables": variables},
+        options: Options(
+          headers: accessToken == null
+              ? null
+              : {"Authorization": "Bearer $accessToken"},
+          extra: NetConfig.getInstance()
+              .buildCacheOptions(allowPostMethod: true)
+              .toExtra(),
+        ),
+      );
+    } on DioException catch (error) {
+      final data = error.response?.data;
+      if (data is Map<String, dynamic>) {
+        _throwIfGraphqlErrors(data, error: error);
+      }
+      rethrow;
+    }
     final data = response.data;
     if (data == null) {
       throw const AnilistEmptyResponseException();
     }
+    _throwIfGraphqlErrors(data);
     return data;
+  }
+
+  void _throwIfGraphqlErrors(Map<String, dynamic> data, {Object? error}) {
+    final errorsJson = data["errors"];
+    if (errorsJson is! List || errorsJson.isEmpty) {
+      return;
+    }
+    final errors = errorsJson
+        .whereType<Map<String, dynamic>>()
+        .map(AnilistGraphqlError.fromJson)
+        .toList();
+    throw AnilistGraphqlException(errors, error: error);
   }
 }
 
