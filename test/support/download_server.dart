@@ -4,9 +4,10 @@ import 'dart:math';
 
 class DownloadServer {
   final List<int> payload;
+  final bool supportsRangeRequests;
   HttpServer? _server;
 
-  DownloadServer({required this.payload});
+  DownloadServer({required this.payload, this.supportsRangeRequests = true});
 
   Future<void> start() async {
     _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -38,7 +39,9 @@ class DownloadServer {
     var isRangeRequest = false;
 
     final rangeHeader = request.headers.value(HttpHeaders.rangeHeader);
-    if (rangeHeader != null && rangeHeader.startsWith('bytes=')) {
+    if (supportsRangeRequests &&
+        rangeHeader != null &&
+        rangeHeader.startsWith('bytes=')) {
       isRangeRequest = true;
       final rangeValue = rangeHeader.substring('bytes='.length);
       final parts = rangeValue.split('-');
@@ -57,7 +60,9 @@ class DownloadServer {
     response.statusCode = isRangeRequest
         ? HttpStatus.partialContent
         : HttpStatus.ok;
-    response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
+    if (supportsRangeRequests) {
+      response.headers.set(HttpHeaders.acceptRangesHeader, 'bytes');
+    }
     response.headers.set(HttpHeaders.contentLengthHeader, slice.length);
     if (isRangeRequest) {
       response.headers.set(

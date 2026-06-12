@@ -46,15 +46,18 @@ class DownloadParams {
 class ResolvedDownloadTarget {
   final String resolvedUrl;
   final int sizeBytes;
+  final bool supportsRangeRequests;
 
   const ResolvedDownloadTarget({
     required this.resolvedUrl,
     required this.sizeBytes,
+    required this.supportsRangeRequests,
   });
 
   @override
   String toString() =>
-      'ResolvedDownloadTarget(resolvedUrl: $resolvedUrl, sizeBytes: $sizeBytes)';
+      'ResolvedDownloadTarget(resolvedUrl: $resolvedUrl, '
+      'sizeBytes: $sizeBytes, supportsRangeRequests: $supportsRangeRequests)';
 }
 
 class DownloadProbeException implements Exception {

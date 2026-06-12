@@ -222,6 +222,61 @@ void main() {
     );
 
     test(
+      'falls back to a single stream when server ignores range requests',
+      timeout: Timeout(Duration(minutes: 2)),
+      () async {
+        final server = DownloadServer(
+          payload: _payload,
+          supportsRangeRequests: false,
+        );
+        await server.start();
+        try {
+          await _withTempDirectory('senpwai-dl-no-range-', (tempDir) async {
+            final download = _makeDownload(
+              tempDir,
+              numberOfParts: 8,
+              url: server.downloadUrl,
+            );
+
+            await download.startAndWait();
+
+            expect(download.state.status, DownloadStatus.completed);
+            await _expectPayloadMatchesFixture(download);
+          });
+        } finally {
+          await server.close();
+        }
+      },
+    );
+
+    test(
+      'detects range support while probing a single file',
+      timeout: Timeout(Duration(minutes: 2)),
+      () async {
+        final noRangeServer = DownloadServer(
+          payload: _payload,
+          supportsRangeRequests: false,
+        );
+        await noRangeServer.start();
+        try {
+          final rangeTarget = await Download.probeSingleFile(
+            url: _server.downloadUrl,
+          );
+          final noRangeTarget = await Download.probeSingleFile(
+            url: noRangeServer.downloadUrl,
+          );
+
+          expect(rangeTarget.sizeBytes, _payload.length);
+          expect(rangeTarget.supportsRangeRequests, true);
+          expect(noRangeTarget.sizeBytes, _payload.length);
+          expect(noRangeTarget.supportsRangeRequests, false);
+        } finally {
+          await noRangeServer.close();
+        }
+      },
+    );
+
+    test(
       'progress sums to total bytes and renders MBps rate',
       timeout: Timeout(Duration(minutes: 2)),
       () async {

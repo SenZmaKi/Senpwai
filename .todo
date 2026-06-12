@@ -1,13 +1,11 @@
 # Features
 - Dialog to disable animepahe source if cf bypass fails 3 times
-- Properly handle servers that don't support Range requests
 - Option to disable sources
 - Make cf_bypass network issue tolerant
 - More in navbar in mobile to reduce clutter
 
 # Bugs
 - Memory usage
-- 5000 results limit?
 
 # Maybe
 - Add watchcartoonsonline

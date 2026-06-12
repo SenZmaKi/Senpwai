@@ -15,6 +15,8 @@ import 'package:senpwai/shared/net/net_config.dart';
 
 final log = Logger("senpwai.shared.net.download.download");
 
+enum _RangeRequestSupport { supported, unsupported }
+
 class Download {
   final DownloadParams params;
   final config = DownloadConfig.getInstance();
@@ -39,6 +41,7 @@ class Download {
       options: Options(
         headers: {'Range': 'bytes=0-0', ...?headers},
         responseType: ResponseType.stream,
+        validateStatus: (status) => status == 200 || status == 206,
         extra: NetConfig.getInstance()
             .buildCacheOptions(policy: CachePolicy.noCache)
             .toExtra(),
@@ -53,9 +56,10 @@ class Download {
       }
       final contentRange = response.headers.value('content-range');
       final contentLength = response.headers.value(Headers.contentLengthHeader);
-      final sizeBytes =
-          _parseContentRangeSize(contentRange) ??
-          int.tryParse(contentLength ?? '');
+      final supportsRangeRequests = response.statusCode == 206;
+      final sizeBytes = supportsRangeRequests
+          ? _parseContentRangeSize(contentRange)
+          : int.tryParse(contentLength ?? '');
       if (sizeBytes == null || sizeBytes <= 0) {
         throw const DownloadProbeException(
           'Could not determine the final content length for this file.',
@@ -64,10 +68,17 @@ class Download {
       return ResolvedDownloadTarget(
         resolvedUrl: response.realUri.toString(),
         sizeBytes: sizeBytes,
+        supportsRangeRequests: supportsRangeRequests,
       );
     } finally {
-      await response.data?.stream.drain<void>();
+      await _discardResponseBody(response);
     }
+  }
+
+  static Future<void> _discardResponseBody(
+    Response<ResponseBody> response,
+  ) async {
+    await response.data?.stream.listen(null).cancel();
   }
 
   static int? _parseContentRangeSize(String? contentRange) {
@@ -104,6 +115,7 @@ class Download {
     required int partNumber,
     required int startOffsetBytes,
     required int lengthBytes,
+    required _RangeRequestSupport rangeRequestSupport,
   }) async {
     var currentOffset = startOffsetBytes;
     var remainingBytes = lengthBytes;
@@ -116,6 +128,7 @@ class Download {
           partNumber: partNumber,
           offset: currentOffset,
           length: remainingBytes,
+          rangeRequestSupport: rangeRequestSupport,
         );
 
         currentOffset += processedCount;
@@ -152,29 +165,42 @@ class Download {
     required int partNumber,
     required int offset,
     required int length,
+    required _RangeRequestSupport rangeRequestSupport,
   }) async {
     RandomAccessFile? raf;
     StreamSubscription<Uint8List>? subscription;
     int bytes = 0;
-    final iterToken = state.registerIterationToken(partNumber);
+    final iterToken = state.registerIterationToken(
+      partNumber,
+      cancelOnPause: rangeRequestSupport == _RangeRequestSupport.supported,
+    );
 
     try {
       raf = await params.targetFile.open(mode: FileMode.writeOnly);
       await raf.setPosition(offset);
 
-      final response = await _establishConnection(offset, length, iterToken);
+      final response = await _establishConnection(
+        offset,
+        length,
+        iterToken,
+        rangeRequestSupport,
+      );
 
-      if (response.statusCode != 206) {
-        await response.data?.stream.drain<void>();
+      final expectedStatus =
+          rangeRequestSupport == _RangeRequestSupport.supported ? 206 : 200;
+      if (response.statusCode != expectedStatus) {
+        await _discardResponseBody(response);
         throw DownloadResourceChangedException(
-          "Expected 206 Partial Content, got ${response.statusCode}. "
+          "Expected $expectedStatus, got ${response.statusCode}. "
           "The file may have changed on the server during the download.",
         );
       }
 
-      _ifRangeValidator ??=
-          response.headers.value('etag') ??
-          response.headers.value('last-modified');
+      if (rangeRequestSupport == _RangeRequestSupport.supported) {
+        _ifRangeValidator ??=
+            response.headers.value('etag') ??
+            response.headers.value('last-modified');
+      }
 
       final throttledStream = DownloadThrottler.getInstance()
           .getThrottledStream(response);
@@ -185,6 +211,12 @@ class Download {
           if (iterToken.isCancelled || state.isTerminal) return;
 
           subscription?.pause();
+          if (state.isPaused &&
+              rangeRequestSupport == _RangeRequestSupport.unsupported) {
+            await _waitForResume(partNumber);
+          }
+          if (iterToken.isCancelled || state.isTerminal) return;
+
           await raf?.writeFrom(data);
 
           state.addProgress(
@@ -226,13 +258,15 @@ class Download {
     int offset,
     int length,
     CancelToken cancelToken,
+    _RangeRequestSupport rangeRequestSupport,
   ) {
-    final end = offset + length - 1;
-    final headers = <String, dynamic>{
-      "Range": "bytes=$offset-$end",
-      ...params.headers,
-    };
-    if (_ifRangeValidator != null) {
+    final headers = <String, dynamic>{...params.headers};
+    if (rangeRequestSupport == _RangeRequestSupport.supported) {
+      final end = offset + length - 1;
+      headers["Range"] = "bytes=$offset-$end";
+    }
+    if (rangeRequestSupport == _RangeRequestSupport.supported &&
+        _ifRangeValidator != null) {
       headers["If-Range"] = _ifRangeValidator!;
     }
     return _dio.get<ResponseBody>(
@@ -284,9 +318,14 @@ class Download {
     try {
       await _prepareTargetFile();
 
+      final rangeRequestSupport = await _probeRangeRequestSupport();
+      final numberOfParts =
+          rangeRequestSupport == _RangeRequestSupport.supported
+          ? params.numberOfParts
+          : 1;
       final partRanges = computePartRanges(
         sizeBytes: params.sizeBytes,
-        numberOfParts: params.numberOfParts,
+        numberOfParts: numberOfParts,
       );
       state.startRateTracking();
 
@@ -295,6 +334,7 @@ class Download {
           partNumber: idx + 1,
           startOffsetBytes: range.startOffsetBytes,
           lengthBytes: range.lengthBytes,
+          rangeRequestSupport: rangeRequestSupport,
         ),
       );
 
@@ -326,6 +366,26 @@ class Download {
     final raf = await params.targetFile.open(mode: FileMode.write);
     await raf.truncate(params.sizeBytes);
     await raf.close();
+  }
+
+  Future<_RangeRequestSupport> _probeRangeRequestSupport() async {
+    final response = await _dio.get<ResponseBody>(
+      params.url,
+      options: Options(
+        headers: {"Range": "bytes=0-0", ...params.headers},
+        responseType: ResponseType.stream,
+        validateStatus: (status) => status == 200 || status == 206,
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
+      ),
+    );
+    try {
+      if (response.statusCode == 206) return _RangeRequestSupport.supported;
+      return _RangeRequestSupport.unsupported;
+    } finally {
+      await _discardResponseBody(response);
+    }
   }
 
   Future<void> _cleanup() async {

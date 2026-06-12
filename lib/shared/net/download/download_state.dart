@@ -23,6 +23,7 @@ class DownloadState {
   final _subscriptions = <int, StreamSubscription<List<int>>>{};
   final _partCompleters = <int, Completer<void>>{};
   final _iterationTokens = <int, CancelToken>{};
+  final _pauseCancellableIterationTokens = <int>{};
 
   static const String pauseCancelReason = '__senpwai_pause__';
   static const String cancelReason = '__senpwai_cancel__';
@@ -79,10 +80,16 @@ class DownloadState {
     _partCompleters.remove(partNumber);
   }
 
-  CancelToken registerIterationToken(int partNumber) {
+  CancelToken registerIterationToken(
+    int partNumber, {
+    bool cancelOnPause = true,
+  }) {
     final token = CancelToken();
     _iterationTokens[partNumber] = token;
-    if (isPaused) {
+    if (cancelOnPause) {
+      _pauseCancellableIterationTokens.add(partNumber);
+    }
+    if (isPaused && cancelOnPause) {
       token.cancel(pauseCancelReason);
     } else if (isCancelled) {
       token.cancel(cancelReason);
@@ -92,6 +99,7 @@ class DownloadState {
 
   void unregisterIterationToken(int partNumber) {
     _iterationTokens.remove(partNumber);
+    _pauseCancellableIterationTokens.remove(partNumber);
   }
 
   void finalize(DownloadStatus status) {
@@ -120,7 +128,9 @@ class DownloadState {
     // Update status BEFORE cancelling so the iteration loop sees `isPaused`
     // when it catches the DioException and waits for resume instead of failing.
     _updateStatus(DownloadStatus.paused);
-    for (final token in _iterationTokens.values) {
+    for (final partNumber in _pauseCancellableIterationTokens) {
+      final token = _iterationTokens[partNumber];
+      if (token == null) continue;
       if (!token.isCancelled) token.cancel(pauseCancelReason);
     }
   }
@@ -152,6 +162,7 @@ class DownloadState {
       if (!token.isCancelled) token.cancel(cancelReason);
     }
     _iterationTokens.clear();
+    _pauseCancellableIterationTokens.clear();
 
     // Cancel all subscriptions
     final subs = List<StreamSubscription<List<int>>>.from(
