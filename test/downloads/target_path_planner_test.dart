@@ -28,4 +28,16 @@ void main() {
 
     expect(target.fileName, 'Frieren Episode 12');
   });
+
+  test('planMovieFile does not add an episode label', () {
+    final target = planner.planMovieFile(
+      directory: '/downloads',
+      jobTitle: 'Your Name',
+      sourceFileName: 'movie.mkv',
+      resolvedUrl: 'https://cdn.example.com/movie.mkv',
+    );
+
+    expect(target.directory, '/downloads');
+    expect(target.fileName, 'Your Name.mkv');
+  });
 }

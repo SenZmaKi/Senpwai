@@ -162,6 +162,27 @@ class DownloadTargetPlanner {
     );
   }
 
+  PlannedEpisodeDownloadTarget planMovieFile({
+    required String directory,
+    required String jobTitle,
+    required String sourceFileName,
+    required String resolvedUrl,
+    String? dedupeSuffix,
+  }) {
+    final extension = _resolveFileExtension(
+      sourceFileName: sourceFileName,
+      resolvedUrl: resolvedUrl,
+    );
+    final baseName = dedupeSuffix == null
+        ? jobTitle
+        : '$jobTitle $dedupeSuffix';
+    final fileName = '${sanitizePathSegment(baseName)}$extension';
+    return PlannedEpisodeDownloadTarget(
+      directory: directory,
+      fileName: fileName,
+    );
+  }
+
   static String sanitizePathSegment(String value) {
     final withReadableColon = value.replaceAll(':', ' -');
     final withoutIllegalCharacters = withReadableColon

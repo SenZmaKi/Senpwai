@@ -56,7 +56,8 @@ void main() {
       expect(
         best.result.seeders,
         greaterThan(0),
-        reason: "$label: matched result should have seeders (zero-seeder results are filtered)",
+        reason:
+            "$label: matched result should have seeders (zero-seeder results are filtered)",
       );
     }
 
@@ -107,13 +108,15 @@ void main() {
       expect(
         best.result.seeders,
         greaterThan(0),
-        reason: "$label: matched result should have seeders (zero-seeder results are filtered)",
+        reason:
+            "$label: matched result should have seeders (zero-seeder results are filtered)",
       );
     }
 
+    test("matches Your Name movie", () => expectMovieMatch(21519, "Your Name"));
     test(
-      "matches Your Name movie",
-      () => expectMovieMatch(21519, "Your Name"),
+      "matches A Silent Voice movie",
+      () => expectMovieMatch(20954, "A Silent Voice"),
     );
   });
 
@@ -137,7 +140,8 @@ void main() {
       expect(
         episodeMatches.length,
         equals(episodeNumbers.length),
-        reason: "$label: should return a match group for every requested episode",
+        reason:
+            "$label: should return a match group for every requested episode",
       );
 
       for (final epMatch in episodeMatches) {
@@ -146,12 +150,12 @@ void main() {
           metadata: {
             "anilistTitle": anime.title.display,
             "matchCount": epMatch.matches.length,
-            "topFilename":
-                epMatch.matches.isNotEmpty
-                    ? epMatch.matches.first.result.filename
-                    : null,
-            "topScore":
-                epMatch.matches.isNotEmpty ? epMatch.matches.first.score : null,
+            "topFilename": epMatch.matches.isNotEmpty
+                ? epMatch.matches.first.result.filename
+                : null,
+            "topScore": epMatch.matches.isNotEmpty
+                ? epMatch.matches.first.score
+                : null,
           },
         );
         expect(
