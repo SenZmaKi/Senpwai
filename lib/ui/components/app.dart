@@ -48,6 +48,7 @@ Future<void> initApp() async {
   setupLogger();
   applyDevConfig();
   _initCfBypassSolver();
+  _initNetworkErrorHandling();
 
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
@@ -102,6 +103,19 @@ void _initCfBypassSolver() {
           error: 'User cancelled CF bypass',
           cookies: [],
         );
+  });
+}
+
+void _initNetworkErrorHandling() {
+  GlobalDio.getInstance();
+  GlobalDio.connectivityInterceptor?.setOfflineNetworkErrorCallback((error) {
+    final ctx = App.navigatorKey.currentContext;
+    if (ctx == null) return;
+    AppToast.showError(
+      ctx,
+      title: 'No internet access',
+      description: 'Network requests will retry when you reconnect.',
+    );
   });
 }
 

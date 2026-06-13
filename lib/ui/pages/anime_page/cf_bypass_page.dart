@@ -171,6 +171,7 @@ class _CfBypassPageState extends State<CfBypassPage> {
                 Future.delayed(const Duration(milliseconds: 600), () {
                   if (mounted) navigator.pop(result);
                 });
+                return true;
               },
               onFailure: (result) {
                 if (_status == _SolveStatus.offline) {

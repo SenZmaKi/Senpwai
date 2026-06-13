@@ -10,12 +10,21 @@ import 'package:senpwai/shared/net/download/download_config.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
 import 'package:senpwai/shared/net/download/download_throttler.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
+import 'package:senpwai/shared/net/interceptors/connectivity.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 
 final log = Logger("senpwai.shared.net.download.download");
 
 enum _RangeRequestSupport { supported, unsupported }
+
+Map<String, dynamic> _downloadRequestExtra() =>
+    NetConfig.getInstance()
+        .buildCacheOptions(policy: CachePolicy.noCache)
+        .toExtra()
+      ..[skipConnectivityErrorTypesExtraKey] = [
+        DioExceptionType.receiveTimeout,
+      ];
 
 class Download {
   final DownloadParams params;
@@ -42,9 +51,7 @@ class Download {
         headers: {'Range': 'bytes=0-0', ...?headers},
         responseType: ResponseType.stream,
         validateStatus: (status) => status == 200 || status == 206,
-        extra: NetConfig.getInstance()
-            .buildCacheOptions(policy: CachePolicy.noCache)
-            .toExtra(),
+        extra: _downloadRequestExtra(),
       ),
     );
     try {
@@ -278,9 +285,7 @@ class Download {
         // letting Dio throw a generic badResponse.
         validateStatus: (status) =>
             status == 200 || status == 206 || status == 416,
-        extra: NetConfig.getInstance()
-            .buildCacheOptions(policy: CachePolicy.noCache)
-            .toExtra(),
+        extra: _downloadRequestExtra(),
       ),
       cancelToken: cancelToken,
     );
@@ -375,9 +380,7 @@ class Download {
         headers: {"Range": "bytes=0-0", ...params.headers},
         responseType: ResponseType.stream,
         validateStatus: (status) => status == 200 || status == 206,
-        extra: NetConfig.getInstance()
-            .buildCacheOptions(policy: CachePolicy.noCache)
-            .toExtra(),
+        extra: _downloadRequestExtra(),
       ),
     );
     try {

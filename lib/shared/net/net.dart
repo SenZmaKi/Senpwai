@@ -4,6 +4,7 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:senpwai/shared/net/interceptors/cf_bypass.dart';
+import 'package:senpwai/shared/net/interceptors/connectivity.dart';
 import 'package:senpwai/shared/net/interceptors/concurrency.dart';
 import 'package:senpwai/shared/net/interceptors/rate_limit.dart';
 import 'package:senpwai/shared/net/net_config.dart';
@@ -14,9 +15,12 @@ class GlobalDio {
   static Dio? _instance;
   static final CookieJar _cookieJar = CookieJar();
   static CfBypassInterceptor? _cfBypassInterceptor;
+  static ConnectivityInterceptor? _connectivityInterceptor;
 
   static CookieJar get cookieJar => _cookieJar;
   static CfBypassInterceptor? get cfBypassInterceptor => _cfBypassInterceptor;
+  static ConnectivityInterceptor? get connectivityInterceptor =>
+      _connectivityInterceptor;
 
   static Dio getInstance() {
     if (_instance != null) {
@@ -28,11 +32,13 @@ class GlobalDio {
       dio: _instance!,
       cookieJar: _cookieJar,
     );
+    _connectivityInterceptor = ConnectivityInterceptor(_instance!);
     _instance!.interceptors.add(RateLimitInterceptor(_instance!));
     // Empirically: nyaa.si returns HTTP 429 at ~7 concurrent requests.
     // Cap at 5 to leave comfortable headroom.
     _instance!.interceptors.add(ConcurrencyInterceptor({'nyaa.si': 5}));
     _instance!.interceptors.add(_cfBypassInterceptor!);
+    _instance!.interceptors.add(_connectivityInterceptor!);
     _instance!.interceptors.add(CookieManager(_cookieJar));
     _instance!.interceptors.add(
       PrettyDioLogger(

@@ -116,13 +116,6 @@ class _SearchPageState extends State<SearchPage>
       } else if (statusCode != null && statusCode >= 500) {
         title = 'AniList server error';
         description = 'AniList returned $statusCode. Try again later.';
-      } else if (error.type == DioExceptionType.connectionTimeout ||
-          error.type == DioExceptionType.receiveTimeout) {
-        title = 'Connection timeout';
-        description = 'Request timed out. Check your connection.';
-      } else if (error.type == DioExceptionType.connectionError) {
-        title = 'No connection';
-        description = 'Could not reach AniList. Check your internet.';
       } else {
         title = 'Search error';
         description = error.message ?? error.toString();
