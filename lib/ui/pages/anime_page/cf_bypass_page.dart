@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:cf_bypass/cf_bypass.dart' hide LoggerExtensions;
 import 'package:flutter/material.dart';
+import 'package:senpwai/shared/net/connectivity.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/ui/components/toast.dart';
 
 final _log = Logger("senpwai.ui.pages.anime_page.cf_bypass");
 
@@ -19,13 +21,19 @@ class CfBypassPage extends StatefulWidget {
 }
 
 class _CfBypassPageState extends State<CfBypassPage> {
+  static const _connectivityRetryInterval = Duration(seconds: 3);
+
   final _controller = CfBypassController();
   _SolveStatus _status = _SolveStatus.solving;
   String? _statusMessage;
   final _events = <String>[];
+  Timer? _connectivityRetryTimer;
+  bool _internetCheckInProgress = false;
+  bool _offlineToastShown = false;
 
   @override
   void dispose() {
+    _connectivityRetryTimer?.cancel();
     _controller.cancel();
     super.dispose();
   }
@@ -33,6 +41,75 @@ class _CfBypassPageState extends State<CfBypassPage> {
   void _addEvent(String event) {
     if (!mounted) return;
     setState(() => _events.add(event));
+  }
+
+  Future<bool> _onWebViewError(Object error) async {
+    _addEvent('✗ Error: $error');
+
+    if (_internetCheckInProgress) return false;
+    _internetCheckInProgress = true;
+    final hasInternet = await hasValidInternetConnection().whenComplete(
+      () => _internetCheckInProgress = false,
+    );
+    if (!mounted) return false;
+
+    if (hasInternet) {
+      _log.warningWithMetadata(
+        "CF WebView error; retrying",
+        metadata: {"url": widget.url, "error": error.toString()},
+      );
+      return true;
+    }
+
+    _log.warningWithMetadata(
+      "CF WebView is offline; waiting to retry",
+      metadata: {"url": widget.url, "error": error.toString()},
+    );
+    _showOfflineState();
+    _startConnectivityRetry();
+    return false;
+  }
+
+  void _showOfflineState() {
+    setState(() {
+      _status = _SolveStatus.offline;
+      _statusMessage = 'No internet access. Waiting to reconnect...';
+    });
+    _addEvent('! No internet access; waiting to reconnect...');
+
+    if (_offlineToastShown) return;
+    _offlineToastShown = true;
+    AppToast.showWarning(
+      context,
+      title: 'No internet access',
+      description: 'CloudFlare verification will retry when you reconnect.',
+    );
+  }
+
+  void _startConnectivityRetry() {
+    _connectivityRetryTimer ??= Timer.periodic(
+      _connectivityRetryInterval,
+      (_) => unawaited(_retryWhenInternetReturns()),
+    );
+  }
+
+  Future<void> _retryWhenInternetReturns() async {
+    if (_internetCheckInProgress) return;
+    _internetCheckInProgress = true;
+    final hasInternet = await hasValidInternetConnection().whenComplete(
+      () => _internetCheckInProgress = false,
+    );
+    if (!mounted || !hasInternet) return;
+
+    _connectivityRetryTimer?.cancel();
+    _connectivityRetryTimer = null;
+    _offlineToastShown = false;
+    setState(() {
+      _status = _SolveStatus.solving;
+      _statusMessage = 'Internet restored. Retrying verification...';
+    });
+    _addEvent('✓ Internet restored; retrying...');
+    await _controller.retry();
   }
 
   @override
@@ -67,9 +144,7 @@ class _CfBypassPageState extends State<CfBypassPage> {
       ),
       body: Column(
         children: [
-          // Status bar
           _StatusBanner(status: _status, message: _statusMessage),
-          // WebView
           Expanded(
             child: CfWebView(
               url: widget.url,
@@ -78,10 +153,13 @@ class _CfBypassPageState extends State<CfBypassPage> {
               stallThreshold: 3,
               clearCfCookiesOnInit: true,
               onSuccess: (result) {
-                _log.infoWithMetadata("CF bypass succeeded", metadata: {
-                  "url": widget.url,
-                  "cookieCount": result.cookies.length,
-                });
+                _log.infoWithMetadata(
+                  "CF bypass succeeded",
+                  metadata: {
+                    "url": widget.url,
+                    "cookieCount": result.cookies.length,
+                  },
+                );
                 _addEvent('✓ Bypass succeeded');
                 setState(() {
                   _status = _SolveStatus.success;
@@ -95,10 +173,17 @@ class _CfBypassPageState extends State<CfBypassPage> {
                 });
               },
               onFailure: (result) {
-                _log.warningWithMetadata("CF bypass failed", metadata: {
-                  "url": widget.url,
-                  "error": result.error,
-                });
+                if (_status == _SolveStatus.offline) {
+                  _log.warningWithMetadata(
+                    "CF bypass timed out while offline; still waiting",
+                    metadata: {"url": widget.url, "error": result.error},
+                  );
+                  return;
+                }
+                _log.warningWithMetadata(
+                  "CF bypass failed",
+                  metadata: {"url": widget.url, "error": result.error},
+                );
                 _addEvent('✗ ${result.error ?? "Bypass failed"}');
                 setState(() {
                   _status = _SolveStatus.failed;
@@ -117,10 +202,9 @@ class _CfBypassPageState extends State<CfBypassPage> {
                 _addEvent('⟳ Loop detected, retrying…');
                 _controller.retry();
               },
-              onError: (error) => _addEvent('✗ Error: $error'),
+              onError: _onWebViewError,
             ),
           ),
-          // Event log
           if (_events.isNotEmpty)
             Container(
               height: 120,
@@ -159,7 +243,7 @@ String _shortenUrl(String? url) {
   return uri.host + uri.path;
 }
 
-enum _SolveStatus { solving, success, failed }
+enum _SolveStatus { solving, offline, success, failed }
 
 class _StatusBanner extends StatelessWidget {
   final _SolveStatus status;
@@ -175,16 +259,17 @@ class _StatusBanner extends StatelessWidget {
         Icons.hourglass_top,
         message ?? 'Solving challenge…',
       ),
+      _SolveStatus.offline => (
+        Colors.orange,
+        Icons.wifi_off_rounded,
+        message ?? 'No internet access',
+      ),
       _SolveStatus.success => (
         Colors.green,
         Icons.check_circle,
         message ?? 'Solved!',
       ),
-      _SolveStatus.failed => (
-        Colors.red,
-        Icons.error,
-        message ?? 'Failed',
-      ),
+      _SolveStatus.failed => (Colors.red, Icons.error, message ?? 'Failed'),
     };
 
     return Container(
