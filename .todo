@@ -1,7 +1,6 @@
 # Features
 - Dialog to disable animepahe source if cf bypass fails 3 times
 - Option to disable sources
-- Make cf_bypass network issue tolerant
 - More in navbar in mobile to reduce clutter
 
 # Bugs

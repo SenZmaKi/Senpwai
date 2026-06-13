@@ -5,16 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:senpwai/shared/net/connectivity.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/ui/components/toast.dart';
+import 'package:senpwai/ui/pages/anime_page/cf_bypass_coordinator.dart';
+import 'package:senpwai/ui/pages/anime_page/cf_bypass_flow_widgets.dart';
 
 final _log = Logger("senpwai.ui.pages.anime_page.cf_bypass");
 
-/// Full-screen page that renders a [CfWebView] to solve a CloudFlare challenge.
-///
-/// Returns a [CfBypassResult] via `Navigator.pop` on success or failure.
+/// Full-screen flow that renders one [CfWebView] at a time while queued
+/// CloudFlare challenges are solved.
 class CfBypassPage extends StatefulWidget {
-  final String url;
+  final CfBypassCoordinator coordinator;
 
-  const CfBypassPage({super.key, required this.url});
+  const CfBypassPage({super.key, required this.coordinator});
 
   @override
   State<CfBypassPage> createState() => _CfBypassPageState();
@@ -23,19 +24,58 @@ class CfBypassPage extends StatefulWidget {
 class _CfBypassPageState extends State<CfBypassPage> {
   static const _connectivityRetryInterval = Duration(seconds: 3);
 
-  final _controller = CfBypassController();
-  _SolveStatus _status = _SolveStatus.solving;
+  late CfBypassController _controller;
+  CfBypassSolveStatus _status = CfBypassSolveStatus.solving;
   String? _statusMessage;
   final _events = <String>[];
   Timer? _connectivityRetryTimer;
   bool _internetCheckInProgress = false;
   bool _offlineToastShown = false;
+  int? _activeItemId;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = CfBypassController();
+    _syncActiveItem();
+    widget.coordinator.addListener(_onCoordinatorChanged);
+  }
 
   @override
   void dispose() {
+    widget.coordinator.removeListener(_onCoordinatorChanged);
     _connectivityRetryTimer?.cancel();
     _controller.cancel();
     super.dispose();
+  }
+
+  void _onCoordinatorChanged() {
+    if (!mounted) return;
+    if (widget.coordinator.active == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final activeChanged = _syncActiveItem();
+    if (!activeChanged) setState(() {});
+  }
+
+  bool _syncActiveItem() {
+    final active = widget.coordinator.active;
+    if (active == null || active.id == _activeItemId) return false;
+    _connectivityRetryTimer?.cancel();
+    _connectivityRetryTimer = null;
+    _controller = CfBypassController();
+    _activeItemId = active.id;
+    _internetCheckInProgress = false;
+    _offlineToastShown = false;
+    setState(() {
+      _status = CfBypassSolveStatus.solving;
+      _statusMessage = 'Opening ${shortenCfBypassUrl(active.challenge.url)}...';
+      _events
+        ..clear()
+        ..add('-> Queued ${shortenCfBypassUrl(active.challenge.url)}');
+    });
+    return true;
   }
 
   void _addEvent(String event) {
@@ -44,7 +84,7 @@ class _CfBypassPageState extends State<CfBypassPage> {
   }
 
   Future<bool> _onWebViewError(Object error) async {
-    _addEvent('✗ Error: $error');
+    _addEvent('Error: $error');
 
     if (_internetCheckInProgress) return false;
     _internetCheckInProgress = true;
@@ -56,23 +96,25 @@ class _CfBypassPageState extends State<CfBypassPage> {
     if (hasInternet) {
       _log.warningWithMetadata(
         "CF WebView error; retrying",
-        metadata: {"url": widget.url, "error": error.toString()},
+        metadata: {"url": _activeUrl, "error": error.toString()},
       );
       return true;
     }
 
     _log.warningWithMetadata(
       "CF WebView is offline; waiting to retry",
-      metadata: {"url": widget.url, "error": error.toString()},
+      metadata: {"url": _activeUrl, "error": error.toString()},
     );
     _showOfflineState();
     _startConnectivityRetry();
     return false;
   }
 
+  String get _activeUrl => widget.coordinator.active?.challenge.url ?? '';
+
   void _showOfflineState() {
     setState(() {
-      _status = _SolveStatus.offline;
+      _status = CfBypassSolveStatus.offline;
       _statusMessage = 'No internet access. Waiting to reconnect...';
     });
     _addEvent('! No internet access; waiting to reconnect...');
@@ -105,36 +147,49 @@ class _CfBypassPageState extends State<CfBypassPage> {
     _connectivityRetryTimer = null;
     _offlineToastShown = false;
     setState(() {
-      _status = _SolveStatus.solving;
+      _status = CfBypassSolveStatus.solving;
       _statusMessage = 'Internet restored. Retrying verification...';
     });
-    _addEvent('✓ Internet restored; retrying...');
+    _addEvent('Internet restored; retrying...');
     await _controller.retry();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final active = widget.coordinator.active;
+    if (active == null) return const SizedBox.shrink();
+
+    final activeUrl = active.challenge.url;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CloudFlare Verification'),
+        title: CfBypassHeaderTitle(
+          current: widget.coordinator.activePosition,
+          total: widget.coordinator.totalCount,
+          currentUrl: activeUrl,
+        ),
         leading: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: IconButton(
             icon: const Icon(Icons.close),
-            onPressed: () => Navigator.pop(context),
+            onPressed: widget.coordinator.cancelAll,
           ),
         ),
         actions: [
-          if (_status == _SolveStatus.solving)
+          if (_status == CfBypassSolveStatus.solving ||
+              _status == CfBypassSolveStatus.failed)
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: MouseRegion(
                 cursor: SystemMouseCursors.click,
                 child: TextButton.icon(
-                  onPressed: () => _controller.retry(),
+                  onPressed: () {
+                    setState(() {
+                      _status = CfBypassSolveStatus.solving;
+                      _statusMessage = 'Retrying verification...';
+                    });
+                    _controller.retry();
+                  },
                   icon: const Icon(Icons.refresh, size: 18),
                   label: const Text('Retry'),
                 ),
@@ -144,154 +199,114 @@ class _CfBypassPageState extends State<CfBypassPage> {
       ),
       body: Column(
         children: [
-          _StatusBanner(status: _status, message: _statusMessage),
+          CfBypassStatusBanner(status: _status, message: _statusMessage),
           Expanded(
             child: CfWebView(
-              url: widget.url,
+              key: ValueKey(active.id),
+              url: activeUrl,
               controller: _controller,
               timeout: const Duration(minutes: 2),
               stallThreshold: 3,
               clearCfCookiesOnInit: true,
-              onSuccess: (result) {
+              onSuccess: (result) async {
                 _log.infoWithMetadata(
-                  "CF bypass succeeded",
+                  "CF bypass candidate captured",
                   metadata: {
-                    "url": widget.url,
+                    "url": activeUrl,
                     "cookieCount": result.cookies.length,
                   },
                 );
-                _addEvent('✓ Bypass succeeded');
                 setState(() {
-                  _status = _SolveStatus.success;
+                  _status = CfBypassSolveStatus.verifying;
+                  _statusMessage = 'Verifying captured clearance...';
+                });
+                _addEvent('... Verifying captured clearance');
+
+                final verified = await active.challenge.validate(result);
+                if (!mounted) return verified;
+                if (!verified) {
+                  _log.warningWithMetadata(
+                    "CF bypass candidate rejected",
+                    metadata: {"url": activeUrl},
+                  );
+                  setState(() {
+                    _status = CfBypassSolveStatus.solving;
+                    _statusMessage =
+                        'Clearance did not pass. Retrying verification...';
+                  });
+                  _addEvent('Retrying rejected clearance...');
+                  return false;
+                }
+
+                _log.infoWithMetadata(
+                  "CF bypass verified",
+                  metadata: {
+                    "url": activeUrl,
+                    "cookieCount": result.cookies.length,
+                  },
+                );
+                _addEvent('Bypass verified');
+                setState(() {
+                  _status = CfBypassSolveStatus.success;
                   _statusMessage =
-                      'Solved in ${result.duration?.inSeconds ?? "?"}s';
+                      'Verified in ${result.duration?.inSeconds ?? "?"}s';
                 });
                 // Small delay so user sees success state.
-                final navigator = Navigator.of(context);
                 Future.delayed(const Duration(milliseconds: 600), () {
-                  if (mounted) navigator.pop(result);
+                  if (!mounted || widget.coordinator.active?.id != active.id) {
+                    return;
+                  }
+                  widget.coordinator.completeActive(result);
                 });
                 return true;
               },
               onFailure: (result) {
-                if (_status == _SolveStatus.offline) {
+                if (_status == CfBypassSolveStatus.offline) {
                   _log.warningWithMetadata(
                     "CF bypass timed out while offline; still waiting",
-                    metadata: {"url": widget.url, "error": result.error},
+                    metadata: {"url": activeUrl, "error": result.error},
                   );
                   return;
                 }
                 _log.warningWithMetadata(
                   "CF bypass failed",
-                  metadata: {"url": widget.url, "error": result.error},
+                  metadata: {"url": activeUrl, "error": result.error},
                 );
-                _addEvent('✗ ${result.error ?? "Bypass failed"}');
+                _addEvent(result.error ?? 'Bypass failed');
                 setState(() {
-                  _status = _SolveStatus.failed;
+                  _status = CfBypassSolveStatus.failed;
                   _statusMessage = result.error ?? 'Bypass failed';
                 });
               },
               onCancelled: () {
-                _addEvent('— Cancelled');
-                if (mounted) Navigator.pop(context);
+                _addEvent('Cancelled');
+                widget.coordinator.cancelAll();
               },
-              onPageStartedLoading: (url) =>
-                  _addEvent('→ Loading ${_shortenUrl(url)}'),
-              onPageFinishedLoading: (url) =>
-                  _addEvent('✓ Loaded ${_shortenUrl(url)}'),
+              onPageStartedLoading: (url) {
+                final shortUrl = shortenCfBypassUrl(url);
+                if (_status == CfBypassSolveStatus.solving) {
+                  setState(() => _statusMessage = 'Loading $shortUrl...');
+                }
+                _addEvent('-> Loading $shortUrl');
+              },
+              onPageFinishedLoading: (url) {
+                final shortUrl = shortenCfBypassUrl(url);
+                if (_status == CfBypassSolveStatus.solving) {
+                  setState(
+                    () => _statusMessage =
+                        'Loaded $shortUrl. Waiting for clearance...',
+                  );
+                }
+                _addEvent('Loaded $shortUrl');
+              },
               onLoopDetected: () {
-                _addEvent('⟳ Loop detected, retrying…');
+                _addEvent('Loop detected, retrying...');
                 _controller.retry();
               },
               onError: _onWebViewError,
             ),
           ),
-          if (_events.isNotEmpty)
-            Container(
-              height: 120,
-              width: double.infinity,
-              color: colorScheme.surfaceContainerHighest,
-              padding: const EdgeInsets.all(8),
-              child: ListView.builder(
-                reverse: true,
-                itemCount: _events.length,
-                itemBuilder: (_, i) {
-                  final event = _events[_events.length - 1 - i];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Text(
-                      event,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurface.withValues(alpha: 0.7),
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-String _shortenUrl(String? url) {
-  if (url == null) return '?';
-  final uri = Uri.tryParse(url);
-  if (uri == null) return url;
-  return uri.host + uri.path;
-}
-
-enum _SolveStatus { solving, offline, success, failed }
-
-class _StatusBanner extends StatelessWidget {
-  final _SolveStatus status;
-  final String? message;
-
-  const _StatusBanner({required this.status, this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final (color, icon, text) = switch (status) {
-      _SolveStatus.solving => (
-        Colors.amber,
-        Icons.hourglass_top,
-        message ?? 'Solving challenge…',
-      ),
-      _SolveStatus.offline => (
-        Colors.orange,
-        Icons.wifi_off_rounded,
-        message ?? 'No internet access',
-      ),
-      _SolveStatus.success => (
-        Colors.green,
-        Icons.check_circle,
-        message ?? 'Solved!',
-      ),
-      _SolveStatus.failed => (Colors.red, Icons.error, message ?? 'Failed'),
-    };
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: color.withValues(alpha: 0.15),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          CfBypassEventLog(events: _events),
         ],
       ),
     );

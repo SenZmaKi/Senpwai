@@ -1,15 +1,30 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cf_bypass/cf_bypass.dart' hide LoggerExtensions;
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/net/interceptors/cookie_manager.dart';
+import 'package:senpwai/shared/net/net_config.dart';
 
 final _log = Logger("senpwai.net.interceptors.cf_bypass");
 
+const _cfBypassRetriedExtraKey = 'cfBypassRetried';
+const _cfBypassValidationExtraKey = 'cfBypassValidation';
+
 /// Callback the UI layer provides to solve a CF challenge.
-/// Takes the challenged URL, returns the bypass result from the WebView.
-typedef CfBypassSolver = Future<CfBypassResult> Function(String url);
+/// Takes the challenge context, returns the bypass result from the WebView.
+typedef CfBypassSolver =
+    Future<CfBypassResult> Function(CfBypassChallenge challenge);
+
+class CfBypassChallenge {
+  final String url;
+  final Future<bool> Function(CfBypassResult result) validate;
+
+  const CfBypassChallenge({required this.url, required this.validate});
+}
 
 /// Dio interceptor that detects CloudFlare protection on error responses
 /// and delegates challenge solving to a [CfBypassSolver] callback.
@@ -34,8 +49,10 @@ class CfBypassInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final userAgent = _userAgentsByHost[options.uri.host];
-    if (userAgent != null) {
+    final userAgent = _isValidationRequest(options)
+        ? null
+        : _userAgentsByHost[options.uri.host];
+    if (userAgent != null && !options.headers.containsKey("User-Agent")) {
       options.headers["User-Agent"] = userAgent;
     }
     handler.next(options);
@@ -52,7 +69,13 @@ class CfBypassInterceptor extends Interceptor {
       return;
     }
 
-    final alreadyRetried = err.requestOptions.extra["cfBypassRetried"] == true;
+    if (_isValidationRequest(err.requestOptions)) {
+      handler.next(err);
+      return;
+    }
+
+    final alreadyRetried =
+        err.requestOptions.extra[_cfBypassRetriedExtraKey] == true;
     if (alreadyRetried) {
       _log.warningWithMetadata(
         "CF bypass already retried, passing through",
@@ -113,7 +136,11 @@ class CfBypassInterceptor extends Interceptor {
     }
 
     try {
-      final result = await _solveBypass(err.requestOptions.uri.host, url);
+      final result = await _solveBypass(
+        err.requestOptions.uri.host,
+        url,
+        err.requestOptions,
+      );
 
       if (!result.success) {
         _log.warningWithMetadata(
@@ -142,7 +169,7 @@ class CfBypassInterceptor extends Interceptor {
 
       final retryOptions = err.requestOptions.copyWith(
         headers: _buildRetryHeaders(err.requestOptions, result),
-        extra: {...err.requestOptions.extra, "cfBypassRetried": true},
+        extra: {...err.requestOptions.extra, _cfBypassRetriedExtraKey: true},
       );
 
       final retryResponse = await dio.fetch<dynamic>(retryOptions);
@@ -158,7 +185,11 @@ class CfBypassInterceptor extends Interceptor {
     }
   }
 
-  Future<CfBypassResult> _solveBypass(String host, String url) {
+  Future<CfBypassResult> _solveBypass(
+    String host,
+    String url,
+    RequestOptions requestOptions,
+  ) {
     final existingBypass = _bypassByHost[host];
     if (existingBypass != null) {
       _log.infoWithMetadata(
@@ -178,11 +209,97 @@ class CfBypassInterceptor extends Interceptor {
       metadata: {"host": host, "url": url},
     );
 
-    final bypass = solver(url).whenComplete(() {
-      _bypassByHost.remove(host);
-    });
+    final bypass =
+        solver(
+          CfBypassChallenge(
+            url: url,
+            validate: (result) => validateBypassResult(requestOptions, result),
+          ),
+        ).whenComplete(() {
+          _bypassByHost.remove(host);
+        });
     _bypassByHost[host] = bypass;
     return bypass;
+  }
+
+  Future<bool> validateBypassResult(
+    RequestOptions requestOptions,
+    CfBypassResult result,
+  ) async {
+    if (!result.success) return false;
+
+    final headers = _buildRetryHeaders(requestOptions, result);
+    if (result.cookies.isNotEmpty) {
+      headers[HttpHeaders.cookieHeader] = CfCookieHelper.cookiesToHeader(
+        result.cookies,
+      );
+    }
+    final validationOptions = requestOptions.copyWith(
+      headers: headers,
+      extra: _buildValidationExtra(requestOptions.extra),
+      responseType: ResponseType.plain,
+      receiveDataWhenStatusError: true,
+      validateStatus: (_) => true,
+    );
+
+    try {
+      final response = await dio.fetch<dynamic>(validationOptions);
+
+      final body = response.data is String ? response.data as String : null;
+      final flatHeaders = <String, String>{};
+      response.headers.forEach(
+        (name, values) => flatHeaders[name.toLowerCase()] = values.join(', '),
+      );
+      final detection = CfDetector.detect(
+        CfDetectionRequest(
+          url: response.realUri.toString(),
+          statusCode: response.statusCode ?? 0,
+          body: body,
+          headers: flatHeaders,
+          source: "dio-validation",
+        ),
+      );
+      final verified =
+          (response.statusCode ?? 0) > 0 &&
+          detection.kind == CfProtectionKind.none;
+
+      _log.infoWithMetadata(
+        verified
+            ? "CF bypass validation passed"
+            : "CF bypass validation failed",
+        metadata: {
+          "url": requestOptions.uri.toString(),
+          "statusCode": response.statusCode,
+          "kind": detection.kind.name,
+          "indicators": detection.matchedIndicators,
+        },
+      );
+      return verified;
+    } catch (e, stack) {
+      _log.warningWithMetadata(
+        "CF bypass validation request failed",
+        metadata: {
+          "url": requestOptions.uri.toString(),
+          "error": e.toString(),
+          "stackTrace": stack.toString(),
+        },
+      );
+      return false;
+    }
+  }
+
+  bool _isValidationRequest(RequestOptions options) =>
+      options.extra[_cfBypassValidationExtraKey] == true;
+
+  Map<String, dynamic> _buildValidationExtra(Map<String, dynamic> extra) {
+    return {
+      ...extra,
+      _cfBypassValidationExtraKey: true,
+      skipCookieManagerExtraKey: true,
+      ...NetConfig.getInstance()
+          .buildCacheOptions(policy: CachePolicy.noCache)
+          .toExtra(),
+    };
   }
 
   Future<void> _applyCookies(CfBypassResult result, Uri requestUri) async {

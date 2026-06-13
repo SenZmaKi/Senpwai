@@ -12,7 +12,7 @@ class WindowManager {
   Future<void> init() async {
     if (Platform.isAndroid || Platform.isIOS) return;
     await windowManager.ensureInitialized();
-    WindowOptions windowOptions = WindowOptions();
+    WindowOptions windowOptions = WindowOptions(fullScreen: true);
     windowManager.waitUntilReadyToShow(windowOptions, () async {
       await focus();
     });
