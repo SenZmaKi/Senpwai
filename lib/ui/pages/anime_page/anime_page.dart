@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/downloads/anime_download_session.dart';
+import 'package:senpwai/ui/components/app.dart';
 import 'package:senpwai/ui/pages/anime_page/anime_download_section.dart';
 import 'package:senpwai/ui/pages/anime_page/anime_info_header.dart';
 import 'package:senpwai/ui/pages/anime_page/anime_synopsis_section.dart';
@@ -12,9 +13,9 @@ class AnimeViewPage extends ConsumerWidget {
   const AnimeViewPage({super.key, required this.anime});
 
   static void open(BuildContext context, AnilistAnimeBase anime) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => AnimeViewPage(anime: anime)));
+    App.navigatorKey.currentState?.push(
+      MaterialPageRoute(builder: (_) => AnimeViewPage(anime: anime)),
+    );
   }
 
   @override

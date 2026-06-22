@@ -54,7 +54,7 @@ class _CfBypassPageState extends State<CfBypassPage> {
   void _onCoordinatorChanged() {
     if (!mounted) return;
     if (widget.coordinator.active == null) {
-      Navigator.of(context).pop();
+      widget.coordinator.closeRoute();
       return;
     }
     final activeChanged = _syncActiveItem();

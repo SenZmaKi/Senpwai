@@ -84,16 +84,16 @@ void _initCfBypassSolver() {
   // Ensure Dio (and its interceptor) is initialized.
   GlobalDio.getInstance();
   GlobalDio.cfBypassInterceptor?.setSolver((challenge) async {
-    final ctx = App.navigatorKey.currentContext;
-    if (ctx == null) {
+    final navigator = App.navigatorKey.currentState;
+    if (navigator == null) {
       return CfBypassResult(
         success: false,
         url: challenge.url,
-        error: 'No navigation context available',
+        error: 'No app navigator available',
         cookies: [],
       );
     }
-    return CfBypassCoordinator.instance.enqueue(ctx, challenge);
+    return CfBypassCoordinator.instance.enqueue(navigator, challenge);
   });
 }
 

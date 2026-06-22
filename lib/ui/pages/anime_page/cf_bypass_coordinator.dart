@@ -14,6 +14,7 @@ class CfBypassCoordinator extends ChangeNotifier {
   final Queue<CfBypassQueueItem> _queue = Queue();
   CfBypassQueueItem? _active;
   bool _routeOpen = false;
+  NavigatorState? _routeNavigator;
   int _completed = 0;
   int _nextId = 0;
 
@@ -22,7 +23,7 @@ class CfBypassCoordinator extends ChangeNotifier {
   int get totalCount => _completed + (_active == null ? 0 : 1) + _queue.length;
 
   Future<CfBypassResult> enqueue(
-    BuildContext context,
+    NavigatorState navigator,
     CfBypassChallenge challenge,
   ) {
     final item = CfBypassQueueItem(
@@ -32,7 +33,7 @@ class CfBypassCoordinator extends ChangeNotifier {
     );
     _queue.add(item);
     _activateNextIfNeeded();
-    _openRouteIfNeeded(context);
+    _openRouteIfNeeded(navigator);
     notifyListeners();
     return item.completer.future;
   }
@@ -69,24 +70,32 @@ class CfBypassCoordinator extends ChangeNotifier {
     notifyListeners();
   }
 
+  void closeRoute() {
+    final navigator = _routeNavigator;
+    if (!_routeOpen || navigator == null || !navigator.canPop()) return;
+    navigator.pop();
+  }
+
   void _activateNextIfNeeded() {
     if (_active != null || _queue.isEmpty) return;
     _active = _queue.removeFirst();
   }
 
-  void _openRouteIfNeeded(BuildContext context) {
+  void _openRouteIfNeeded(NavigatorState navigator) {
     if (_routeOpen) return;
     _routeOpen = true;
-    unawaited(_pushRoute(context));
+    _routeNavigator = navigator;
+    unawaited(_pushRoute(navigator));
   }
 
-  Future<void> _pushRoute(BuildContext context) async {
+  Future<void> _pushRoute(NavigatorState navigator) async {
     try {
-      await Navigator.of(context).push<void>(
+      await navigator.push<void>(
         MaterialPageRoute(builder: (_) => CfBypassPage(coordinator: this)),
       );
     } finally {
       _routeOpen = false;
+      _routeNavigator = null;
       if (_active != null || _queue.isNotEmpty) cancelAll();
       _completed = 0;
       notifyListeners();
