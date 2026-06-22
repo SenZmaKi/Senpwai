@@ -23,11 +23,13 @@ class CfBypassPage extends StatefulWidget {
 
 class _CfBypassPageState extends State<CfBypassPage> {
   static const _connectivityRetryInterval = Duration(seconds: 3);
+  static const _maxRejectedCandidateAttempts = 3;
 
   late CfBypassController _controller;
   CfBypassSolveStatus _status = CfBypassSolveStatus.solving;
   String? _statusMessage;
   final _events = <String>[];
+  final _rejectedCandidateCounts = <String, int>{};
   Timer? _connectivityRetryTimer;
   bool _internetCheckInProgress = false;
   bool _offlineToastShown = false;
@@ -68,6 +70,7 @@ class _CfBypassPageState extends State<CfBypassPage> {
     _activeItemId = active.id;
     _internetCheckInProgress = false;
     _offlineToastShown = false;
+    _rejectedCandidateCounts.clear();
     setState(() {
       _status = CfBypassSolveStatus.solving;
       _statusMessage = 'Opening ${shortenCfBypassUrl(active.challenge.url)}...';
@@ -154,6 +157,18 @@ class _CfBypassPageState extends State<CfBypassPage> {
     await _controller.retry();
   }
 
+  int _recordRejectedCandidate(CfBypassResult result) {
+    final fingerprint =
+        CfCookieHelper.getBypassFingerprint(result.cookies) ?? 'unknown';
+    final count = (_rejectedCandidateCounts[fingerprint] ?? 0) + 1;
+    _rejectedCandidateCounts[fingerprint] = count;
+    return count;
+  }
+
+  void _resetRejectedCandidates() {
+    _rejectedCandidateCounts.clear();
+  }
+
   @override
   Widget build(BuildContext context) {
     final active = widget.coordinator.active;
@@ -184,6 +199,7 @@ class _CfBypassPageState extends State<CfBypassPage> {
                 cursor: SystemMouseCursors.click,
                 child: TextButton.icon(
                   onPressed: () {
+                    _resetRejectedCandidates();
                     setState(() {
                       _status = CfBypassSolveStatus.solving;
                       _statusMessage = 'Retrying verification...';
@@ -207,6 +223,7 @@ class _CfBypassPageState extends State<CfBypassPage> {
               controller: _controller,
               timeout: const Duration(minutes: 2),
               stallThreshold: 3,
+              clearAllDataOnInit: true,
               clearCfCookiesOnInit: true,
               onSuccess: (result) async {
                 _log.infoWithMetadata(
@@ -225,10 +242,22 @@ class _CfBypassPageState extends State<CfBypassPage> {
                 final verified = await active.challenge.validate(result);
                 if (!mounted) return verified;
                 if (!verified) {
+                  final rejectionCount = _recordRejectedCandidate(result);
                   _log.warningWithMetadata(
                     "CF bypass candidate rejected",
-                    metadata: {"url": activeUrl},
+                    metadata: {
+                      "url": activeUrl,
+                      "rejectionCount": rejectionCount,
+                      "maxRejections": _maxRejectedCandidateAttempts,
+                      "cookieCount": result.cookies.length,
+                    },
                   );
+                  if (rejectionCount >= _maxRejectedCandidateAttempts) {
+                    throw StateError(
+                      'CloudFlare clearance was rejected '
+                      '$rejectionCount times by validation replay.',
+                    );
+                  }
                   setState(() {
                     _status = CfBypassSolveStatus.solving;
                     _statusMessage =
@@ -301,6 +330,7 @@ class _CfBypassPageState extends State<CfBypassPage> {
               },
               onLoopDetected: () {
                 _addEvent('Loop detected, retrying...');
+                _resetRejectedCandidates();
                 _controller.retry();
               },
               onError: _onWebViewError,

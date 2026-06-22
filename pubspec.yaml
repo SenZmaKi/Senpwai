@@ -61,9 +61,7 @@ dependencies:
     flutter_native_splash: ^2.4.7
     async: ^2.13.0
     cf_bypass:
-        git:
-            url: https://github.com/SenZmaKi/cf_bypass
-            ref: ddaba8eca5091c85b581b8ace729960182da2c47
+        path: ../cf_bypass
     file_picker: ^9.2.1
     dotenv: ^4.2.0
 

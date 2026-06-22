@@ -6,13 +6,13 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:senpwai/shared/log.dart';
-import 'package:senpwai/shared/net/interceptors/cookie_manager.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 
 final _log = Logger("senpwai.net.interceptors.cf_bypass");
 
 const _cfBypassRetriedExtraKey = 'cfBypassRetried';
 const _cfBypassValidationExtraKey = 'cfBypassValidation';
+int _nextInterceptorId = 0;
 
 /// Callback the UI layer provides to solve a CF challenge.
 /// Takes the challenge context, returns the bypass result from the WebView.
@@ -34,26 +34,56 @@ class CfBypassChallenge {
 class CfBypassInterceptor extends Interceptor {
   final Dio dio;
   final CookieJar cookieJar;
+  late final int _interceptorId = ++_nextInterceptorId;
   CfBypassSolver? _solver;
   final Map<String, String> _userAgentsByHost = {};
   final Map<String, Future<CfBypassResult>> _bypassByHost = {};
+  final Set<String> _bypassedHosts = {};
 
-  CfBypassInterceptor({required this.dio, required this.cookieJar});
+  CfBypassInterceptor({required this.dio, required this.cookieJar}) {
+    _log.infoWithMetadata(
+      "Created CF bypass interceptor",
+      metadata: {"interceptorId": _interceptorId},
+    );
+  }
 
   /// Sets the solver callback. Typically called by the UI layer once
   /// it has a navigation context to show the [CfWebView].
   void setSolver(CfBypassSolver? solver) {
     _solver = solver;
-    _log.info("CF bypass solver ${solver != null ? 'set' : 'cleared'}");
+    _log.infoWithMetadata(
+      "CF bypass solver ${solver != null ? 'set' : 'cleared'}",
+      metadata: {"interceptorId": _interceptorId},
+    );
   }
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final userAgent = _isValidationRequest(options)
+    final isValidationRequest = _isValidationRequest(options);
+    final userAgent = isValidationRequest
         ? null
         : _userAgentsByHost[options.uri.host];
-    if (userAgent != null && !options.headers.containsKey("User-Agent")) {
-      options.headers["User-Agent"] = userAgent;
+    if (!isValidationRequest &&
+        (userAgent != null || _hasBypassSession(options.uri.host))) {
+      _applyBypassReplayHeaders(
+        options.headers,
+        options.uri,
+        userAgent: userAgent,
+      );
+    }
+    if (isValidationRequest) {
+      _log.infoWithMetadata(
+        "CF request session state before cookie manager",
+        metadata: {
+          "url": options.uri.toString(),
+          "interceptorId": _interceptorId,
+          "host": options.uri.host,
+          "isValidation": isValidationRequest,
+          "hasBypassSession": _hasBypassSession(options.uri.host),
+          "hasRememberedUserAgent": userAgent != null,
+          "cookieNames": _cookieNamesFromHeaders(options.headers),
+        },
+      );
     }
     handler.next(options);
   }
@@ -79,7 +109,10 @@ class CfBypassInterceptor extends Interceptor {
     if (alreadyRetried) {
       _log.warningWithMetadata(
         "CF bypass already retried, passing through",
-        metadata: {"url": err.requestOptions.uri.toString()},
+        metadata: {
+          "url": err.requestOptions.uri.toString(),
+          "interceptorId": _interceptorId,
+        },
       );
       handler.next(err);
       return;
@@ -107,15 +140,23 @@ class CfBypassInterceptor extends Interceptor {
       "CloudFlare protection detected",
       metadata: {
         "url": url,
+        "interceptorId": _interceptorId,
         "kind": detection.kind.name,
         "indicators": detection.matchedIndicators,
+        "hasBypassSession": _hasBypassSession(err.requestOptions.uri.host),
+        "requestCookieNames": _cookieNamesFromHeaders(
+          err.requestOptions.headers,
+        ),
+        "requestHasUserAgent": err.requestOptions.headers.containsKey(
+          "User-Agent",
+        ),
       },
     );
 
     if (detection.kind == CfProtectionKind.blocked) {
       _log.warningWithMetadata(
         "CloudFlare hard block — cannot bypass",
-        metadata: {"url": url},
+        metadata: {"url": url, "interceptorId": _interceptorId},
       );
       handler.next(
         DioException(
@@ -145,7 +186,11 @@ class CfBypassInterceptor extends Interceptor {
       if (!result.success) {
         _log.warningWithMetadata(
           "CF bypass failed",
-          metadata: {"url": url, "error": result.error},
+          metadata: {
+            "url": url,
+            "interceptorId": _interceptorId,
+            "error": result.error,
+          },
         );
         handler.next(err);
         return;
@@ -155,6 +200,7 @@ class CfBypassInterceptor extends Interceptor {
         "CF bypass succeeded",
         metadata: {
           "url": url,
+          "interceptorId": _interceptorId,
           "userAgent": result.userAgent,
           "cookieCount": result.cookies.length,
           "duration": result.duration?.inMilliseconds,
@@ -162,14 +208,32 @@ class CfBypassInterceptor extends Interceptor {
       );
 
       await _applyCookies(result, err.requestOptions.uri);
+      _bypassedHosts.add(err.requestOptions.uri.host);
 
       if (result.userAgent != null) {
         _userAgentsByHost[err.requestOptions.uri.host] = result.userAgent!;
       }
+      _log.infoWithMetadata(
+        "Remembered CF bypass session",
+        metadata: {
+          "host": err.requestOptions.uri.host,
+          "interceptorId": _interceptorId,
+          "hasUserAgent": _userAgentsByHost.containsKey(
+            err.requestOptions.uri.host,
+          ),
+          "cookieNames": result.cookies.map((cookie) => cookie.name).toList(),
+          "cookieDomains": result.cookies
+              .map((cookie) => cookie.domain.isEmpty ? null : cookie.domain)
+              .toList(),
+          "cookiePaths": result.cookies.map((cookie) => cookie.path).toList(),
+        },
+      );
 
-      final retryOptions = err.requestOptions.copyWith(
-        headers: _buildRetryHeaders(err.requestOptions, result),
-        extra: {...err.requestOptions.extra, _cfBypassRetriedExtraKey: true},
+      final retryOptions = _buildBypassReplayOptions(
+        err.requestOptions,
+        userAgent: result.userAgent,
+        validation: false,
+        extra: {_cfBypassRetriedExtraKey: true},
       );
 
       final retryResponse = await dio.fetch<dynamic>(retryOptions);
@@ -179,7 +243,7 @@ class CfBypassInterceptor extends Interceptor {
         "CF bypass solver threw",
         error: e,
         stackTrace: stack,
-        metadata: {"url": url},
+        metadata: {"url": url, "interceptorId": _interceptorId},
       );
       handler.next(err);
     }
@@ -194,7 +258,7 @@ class CfBypassInterceptor extends Interceptor {
     if (existingBypass != null) {
       _log.infoWithMetadata(
         "Waiting for in-flight CF bypass",
-        metadata: {"host": host, "url": url},
+        metadata: {"host": host, "url": url, "interceptorId": _interceptorId},
       );
       return existingBypass;
     }
@@ -206,7 +270,7 @@ class CfBypassInterceptor extends Interceptor {
 
     _log.infoWithMetadata(
       "Initiating CF bypass solve",
-      metadata: {"host": host, "url": url},
+      metadata: {"host": host, "url": url, "interceptorId": _interceptorId},
     );
 
     final bypass =
@@ -228,18 +292,12 @@ class CfBypassInterceptor extends Interceptor {
   ) async {
     if (!result.success) return false;
 
-    final headers = _buildRetryHeaders(requestOptions, result);
-    if (result.cookies.isNotEmpty) {
-      headers[HttpHeaders.cookieHeader] = CfCookieHelper.cookiesToHeader(
-        result.cookies,
-      );
-    }
-    final validationOptions = requestOptions.copyWith(
-      headers: headers,
-      extra: _buildValidationExtra(requestOptions.extra),
-      responseType: ResponseType.plain,
-      receiveDataWhenStatusError: true,
-      validateStatus: (_) => true,
+    await _applyCookies(result, requestOptions.uri);
+
+    final validationOptions = _buildBypassReplayOptions(
+      requestOptions,
+      userAgent: result.userAgent,
+      validation: true,
     );
 
     try {
@@ -259,8 +317,10 @@ class CfBypassInterceptor extends Interceptor {
           source: "dio-validation",
         ),
       );
+      final statusCode = response.statusCode ?? 0;
       final verified =
-          (response.statusCode ?? 0) > 0 &&
+          statusCode >= 200 &&
+          statusCode < 400 &&
           detection.kind == CfProtectionKind.none;
 
       _log.infoWithMetadata(
@@ -269,9 +329,11 @@ class CfBypassInterceptor extends Interceptor {
             : "CF bypass validation failed",
         metadata: {
           "url": requestOptions.uri.toString(),
-          "statusCode": response.statusCode,
+          "interceptorId": _interceptorId,
+          "statusCode": statusCode,
           "kind": detection.kind.name,
           "indicators": detection.matchedIndicators,
+          "cookieNames": _cookieNamesFromHeaders(validationOptions.headers),
         },
       );
       return verified;
@@ -280,6 +342,7 @@ class CfBypassInterceptor extends Interceptor {
         "CF bypass validation request failed",
         metadata: {
           "url": requestOptions.uri.toString(),
+          "interceptorId": _interceptorId,
           "error": e.toString(),
           "stackTrace": stack.toString(),
         },
@@ -291,62 +354,148 @@ class CfBypassInterceptor extends Interceptor {
   bool _isValidationRequest(RequestOptions options) =>
       options.extra[_cfBypassValidationExtraKey] == true;
 
+  bool _hasBypassSession(String host) => _bypassedHosts.contains(host);
+
+  List<String> _cookieNamesFromHeaders(Map<String, dynamic> headers) {
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == HttpHeaders.cookieHeader) {
+        return _cookieNamesFromHeaderValue(entry.value);
+      }
+    }
+    return const [];
+  }
+
+  List<String> _cookieNamesFromHeaderValue(Object? headerValue) {
+    if (headerValue == null) return const [];
+    final text = headerValue is Iterable
+        ? headerValue.map((value) => value.toString()).join('; ')
+        : headerValue.toString();
+    return _cookiePairsFromHeaderText(text).keys.toList()..sort();
+  }
+
+  Map<String, String> _cookiePairsFromHeaderText(String text) {
+    final pairs = <String, String>{};
+    for (final part in text.split(';')) {
+      final trimmed = part.trim();
+      final eqIdx = trimmed.indexOf('=');
+      if (eqIdx <= 0) continue;
+      final name = trimmed.substring(0, eqIdx).trim();
+      final value = trimmed.substring(eqIdx + 1).trim();
+      if (name.isEmpty) continue;
+      pairs[name] = value;
+    }
+    return pairs;
+  }
+
   Map<String, dynamic> _buildValidationExtra(Map<String, dynamic> extra) {
+    return {..._buildNoCacheExtra(extra), _cfBypassValidationExtraKey: true};
+  }
+
+  Map<String, dynamic> _buildNoCacheExtra(Map<String, dynamic> extra) {
     return {
       ...extra,
-      _cfBypassValidationExtraKey: true,
-      skipCookieManagerExtraKey: true,
       ...NetConfig.getInstance()
           .buildCacheOptions(policy: CachePolicy.noCache)
           .toExtra(),
     };
   }
 
+  RequestOptions _buildBypassReplayOptions(
+    RequestOptions requestOptions, {
+    required String? userAgent,
+    required bool validation,
+    Map<String, dynamic> extra = const {},
+  }) {
+    final headers = Map<String, dynamic>.of(requestOptions.headers);
+    _removeHeader(headers, HttpHeaders.cookieHeader);
+    _applyBypassReplayHeaders(
+      headers,
+      requestOptions.uri,
+      userAgent: userAgent,
+    );
+
+    final replayExtra = validation
+        ? _buildValidationExtra(requestOptions.extra)
+        : Map<String, dynamic>.of(requestOptions.extra);
+    replayExtra.addAll(extra);
+
+    return requestOptions.copyWith(
+      headers: headers,
+      extra: replayExtra,
+      responseType: validation
+          ? ResponseType.plain
+          : requestOptions.responseType,
+      receiveDataWhenStatusError: validation
+          ? true
+          : requestOptions.receiveDataWhenStatusError,
+      validateStatus: validation ? (_) => true : requestOptions.validateStatus,
+    );
+  }
+
   Future<void> _applyCookies(CfBypassResult result, Uri requestUri) async {
     final host = requestUri.host;
-    final cookies = result.cookies
-        .map(
-          (c) => Cookie(c.name, c.value)
-            ..domain = c.domain.isNotEmpty ? c.domain : host
-            ..path = c.path
-            ..secure = c.isSecure ?? false
-            ..httpOnly = c.isHttpOnly ?? false
-            ..expires = c.expires,
-        )
-        .toList();
+    final cookies = <Cookie>[
+      for (final cookie in result.cookies) ...[
+        _toCookie(cookie, fallbackDomain: host),
+        if (CfCookieHelper.isBypassProofCookie(cookie.name))
+          _toHostRootCookie(cookie),
+      ],
+    ];
 
     if (cookies.isNotEmpty) {
       await cookieJar.saveFromResponse(requestUri, cookies);
+      final savedCookies = await cookieJar.loadForRequest(requestUri);
       _log.fineWithMetadata(
         "Saved CF bypass cookies to jar",
         metadata: {
           "host": host,
-          "cookies": cookies.map((c) => c.name).toList(),
+          "interceptorId": _interceptorId,
+          "cookies": cookies.map(_cookieScope).toList(),
+          "loadableCookies": savedCookies.map(_cookieScope).toList(),
         },
       );
     }
   }
 
-  Map<String, dynamic> _buildRetryHeaders(
-    RequestOptions requestOptions,
-    CfBypassResult result,
-  ) {
-    final headers = Map<String, dynamic>.of(requestOptions.headers);
+  Cookie _toCookie(CfBrowserCookie cookie, {required String fallbackDomain}) {
+    return Cookie(cookie.name, cookie.value)
+      ..domain = cookie.domain.isNotEmpty ? cookie.domain : fallbackDomain
+      ..path = cookie.path
+      ..secure = cookie.isSecure ?? false
+      ..httpOnly = cookie.isHttpOnly ?? false
+      ..expires = cookie.expires;
+  }
 
-    if (result.userAgent != null) {
-      headers["User-Agent"] = result.userAgent;
+  Cookie _toHostRootCookie(CfBrowserCookie cookie) {
+    return Cookie(cookie.name, cookie.value)
+      ..path = '/'
+      ..secure = cookie.isSecure ?? false
+      ..httpOnly = cookie.isHttpOnly ?? false
+      ..expires = cookie.expires;
+  }
+
+  Map<String, String?> _cookieScope(Cookie cookie) {
+    return {"name": cookie.name, "domain": cookie.domain, "path": cookie.path};
+  }
+
+  void _removeHeader(Map<String, dynamic> headers, String name) {
+    final lowerName = name.toLowerCase();
+    headers.removeWhere((key, _) => key.toLowerCase() == lowerName);
+  }
+
+  void _applyBypassReplayHeaders(
+    Map<String, dynamic> headers,
+    Uri uri, {
+    required String? userAgent,
+  }) {
+    if (userAgent != null) {
+      headers["User-Agent"] = userAgent;
     }
-
     headers.putIfAbsent(
       "Accept",
       () => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     );
     headers.putIfAbsent("Accept-Language", () => "en-US,en;q=0.9");
-    headers.putIfAbsent(
-      "Referer",
-      () => "${requestOptions.uri.scheme}://${requestOptions.uri.host}/",
-    );
-
-    return headers;
+    headers.putIfAbsent("Referer", () => "${uri.scheme}://${uri.host}/");
   }
 }

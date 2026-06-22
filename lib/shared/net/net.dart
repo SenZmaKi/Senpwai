@@ -43,7 +43,7 @@ class GlobalDio {
     _instance!.interceptors.add(
       PrettyDioLogger(
         enabled: kDebugMode,
-        requestHeader: true,
+        requestHeader: false,
         responseBody: false,
       ),
     );
