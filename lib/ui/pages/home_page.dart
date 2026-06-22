@@ -231,6 +231,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   List<Widget> _buildSection({
+    required String id,
     required String title,
     required IconData icon,
     required List<AnilistAnimeBase> items,
@@ -246,29 +247,26 @@ class _HomePageState extends ConsumerState<HomePage> {
   }) {
     final pad = horizontalPadding(context);
     return [
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: pad),
-          child: SectionHeader(title: title, icon: icon),
-        ),
+      Padding(
+        padding: EdgeInsets.symmetric(horizontal: pad),
+        child: SectionHeader(title: title, icon: icon),
       ),
-      SliverToBoxAdapter(
-        child: AnimePosterHorizontal(
-          anime: items,
-          isLoading: isLoading,
-          isLoadingMore: isLoadingMore,
-          onLoadMore: fetchNext != null
-              ? () => _loadMore(
-                  current: items,
-                  fetchNext: fetchNext,
-                  isLoading: isLoadingMore,
-                  onResult: onResult,
-                  setLoading: setLoading,
-                )
-              : null,
-        ),
+      AnimePosterHorizontal(
+        key: ValueKey('home-section-$id'),
+        anime: items,
+        isLoading: isLoading,
+        isLoadingMore: isLoadingMore,
+        onLoadMore: fetchNext != null
+            ? () => _loadMore(
+                current: items,
+                fetchNext: fetchNext,
+                isLoading: isLoadingMore,
+                onResult: onResult,
+                setLoading: setLoading,
+              )
+            : null,
       ),
-      const SliverToBoxAdapter(child: SizedBox(height: 20)),
+      const SizedBox(height: 20),
     ];
   }
 
@@ -280,81 +278,79 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     });
     final anilist = ref.watch(AnilistNotifier.provider);
+    final children = [
+      AnimeBannerCarousel(anime: _trending, isLoading: _trendingLoading),
+      const SizedBox(height: 16),
+
+      if (anilist.isAuthenticated)
+        ..._buildSection(
+          id: 'watching',
+          title: 'Currently Watching',
+          icon: Icons.play_circle_outline,
+          items: _watching,
+          isLoading: _watchingLoading,
+          isLoadingMore: _watchingLoadingMore,
+          fetchNext: _watchingFetchNext,
+          onResult: (items, next) {
+            _watching = items;
+            _watchingFetchNext = next;
+          },
+          setLoading: (v) => setState(() => _watchingLoadingMore = v),
+        ),
+
+      ..._buildSection(
+        id: 'trending',
+        title: 'Trending This Season',
+        icon: Icons.local_fire_department,
+        items: _trending,
+        isLoading: _trendingLoading,
+        isLoadingMore: _trendingLoadingMore,
+        fetchNext: _trendingFetchNext,
+        onResult: (items, next) {
+          _trending = items;
+          _trendingFetchNext = next;
+        },
+        setLoading: (v) => setState(() => _trendingLoadingMore = v),
+      ),
+
+      ..._buildSection(
+        id: 'popular',
+        title: 'Popular Anime',
+        icon: Icons.trending_up,
+        items: _topRated,
+        isLoading: _topRatedLoading,
+        isLoadingMore: _topRatedLoadingMore,
+        fetchNext: _topRatedFetchNext,
+        onResult: (items, next) {
+          _topRated = items;
+          _topRatedFetchNext = next;
+        },
+        setLoading: (v) => setState(() => _topRatedLoadingMore = v),
+      ),
+
+      for (final (index, section) in _genreSections.indexed)
+        ..._buildSection(
+          id: 'genre-$index',
+          title: section.name.isEmpty ? 'Discover' : 'Explore: ${section.name}',
+          icon: Icons.explore_outlined,
+          items: section.items,
+          isLoading: section.loading,
+          isLoadingMore: section.loadingMore,
+          fetchNext: section.fetchNext,
+          onResult: (items, next) {
+            section.items = items;
+            section.fetchNext = next;
+          },
+          setLoading: (v) => setState(() => section.loadingMore = v),
+        ),
+
+      const SizedBox(height: 32),
+    ];
 
     return RefreshIndicator(
       onRefresh: _load,
       child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: AnimeBannerCarousel(
-              anime: _trending,
-              isLoading: _trendingLoading,
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-          if (anilist.isAuthenticated)
-            ..._buildSection(
-              title: 'Currently Watching',
-              icon: Icons.play_circle_outline,
-              items: _watching,
-              isLoading: _watchingLoading,
-              isLoadingMore: _watchingLoadingMore,
-              fetchNext: _watchingFetchNext,
-              onResult: (items, next) {
-                _watching = items;
-                _watchingFetchNext = next;
-              },
-              setLoading: (v) => setState(() => _watchingLoadingMore = v),
-            ),
-
-          ..._buildSection(
-            title: 'Trending This Season',
-            icon: Icons.local_fire_department,
-            items: _trending,
-            isLoading: _trendingLoading,
-            isLoadingMore: _trendingLoadingMore,
-            fetchNext: _trendingFetchNext,
-            onResult: (items, next) {
-              _trending = items;
-              _trendingFetchNext = next;
-            },
-            setLoading: (v) => setState(() => _trendingLoadingMore = v),
-          ),
-
-          ..._buildSection(
-            title: 'Popular Anime',
-            icon: Icons.trending_up,
-            items: _topRated,
-            isLoading: _topRatedLoading,
-            isLoadingMore: _topRatedLoadingMore,
-            fetchNext: _topRatedFetchNext,
-            onResult: (items, next) {
-              _topRated = items;
-              _topRatedFetchNext = next;
-            },
-            setLoading: (v) => setState(() => _topRatedLoadingMore = v),
-          ),
-
-          for (final section in _genreSections)
-            ..._buildSection(
-              title: section.name.isEmpty
-                  ? 'Discover'
-                  : 'Explore: ${section.name}',
-              icon: Icons.explore_outlined,
-              items: section.items,
-              isLoading: section.loading,
-              isLoadingMore: section.loadingMore,
-              fetchNext: section.fetchNext,
-              onResult: (items, next) {
-                section.items = items;
-                section.fetchNext = next;
-              },
-              setLoading: (v) => setState(() => section.loadingMore = v),
-            ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 32)),
-        ],
+        slivers: [SliverList(delegate: SliverChildListDelegate(children))],
       ),
     );
   }

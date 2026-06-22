@@ -206,7 +206,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   Future<void> _resolveInitialLocation() async {
     final plannedLocation = await _targetPlanner.resolveAnimeLocation(
       anime: _anime,
-      downloadRoot: defaultAnimeDownloadsRootDirectory().path,
+      downloadRoot: (await defaultAnimeDownloadsRootDirectory()).path,
     );
     state = state.copyWith(
       downloadFolder: state.downloadFolderSelectedByUser

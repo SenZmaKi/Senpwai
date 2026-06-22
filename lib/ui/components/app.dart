@@ -8,6 +8,7 @@ import 'package:senpwai/shared/dev_config.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/ui/pages/anime_page/cf_bypass_coordinator.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
+import 'package:senpwai/ui/shared/render_diagnostics.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page.dart';
@@ -19,6 +20,8 @@ import 'package:toastification/toastification.dart';
 import 'package:flutter/foundation.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
+
+final _log = Logger('senpwai.ui.components.app');
 
 enum AppPage { home, search, downloads, settings }
 
@@ -51,6 +54,10 @@ Future<void> initApp() async {
   _initNetworkErrorHandling();
 
   FlutterError.onError = (details) {
+    final diagnostics = buildRenderViewportDiagnostics();
+    _log.severe(
+      formatErrorForCopy(details.exception, details.stack, diagnostics),
+    );
     FlutterError.presentError(details);
     final ctx = App.navigatorKey.currentContext;
     if (ctx != null) {
@@ -58,19 +65,25 @@ Future<void> initApp() async {
         ctx,
         title: 'Unexpected error',
         description: details.exceptionAsString(),
-        copyPayload: formatErrorForCopy(details.exception, details.stack),
+        copyPayload: formatErrorForCopy(
+          details.exception,
+          details.stack,
+          diagnostics,
+        ),
       );
     }
   };
 
   PlatformDispatcher.instance.onError = (error, stack) {
+    final diagnostics = buildRenderViewportDiagnostics();
+    _log.severe(formatErrorForCopy(error, stack, diagnostics));
     final ctx = App.navigatorKey.currentContext;
     if (ctx != null) {
       AppToast.showError(
         ctx,
         title: 'Unhandled error',
         description: error.toString(),
-        copyPayload: formatErrorForCopy(error, stack),
+        copyPayload: formatErrorForCopy(error, stack, diagnostics),
       );
     }
 
@@ -178,6 +191,7 @@ class _AppRootState extends ConsumerState<_AppRoot> {
   Widget build(BuildContext context) {
     final anilist = ref.watch(AnilistNotifier.provider);
     final currentPage = ref.watch(AppPageNotifier.provider);
+    AppRenderDiagnostics.currentPage = currentPage.name;
 
     return AppShell(
       currentIndex: currentPage.index,

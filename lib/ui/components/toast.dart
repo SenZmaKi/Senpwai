@@ -152,7 +152,11 @@ class _CopyButton extends StatelessWidget {
   }
 }
 
-String formatErrorForCopy(Object error, [StackTrace? stackTrace]) {
+String formatErrorForCopy(
+  Object error, [
+  StackTrace? stackTrace,
+  String? diagnostics,
+]) {
   final buf = StringBuffer()
     ..writeln('Error: $error')
     ..writeln('Type: ${error.runtimeType}');
@@ -161,6 +165,12 @@ String formatErrorForCopy(Object error, [StackTrace? stackTrace]) {
       ..writeln()
       ..writeln('Stack trace:')
       ..write(stackTrace);
+  }
+  if (diagnostics != null && diagnostics.isNotEmpty) {
+    buf
+      ..writeln()
+      ..writeln()
+      ..write(diagnostics);
   }
   return buf.toString();
 }

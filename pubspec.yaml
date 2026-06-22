@@ -64,6 +64,7 @@ dependencies:
         path: ../cf_bypass
     file_picker: ^9.2.1
     dotenv: ^4.2.0
+    external_path: ^2.2.0
 
 dev_dependencies:
     flutter_test:

@@ -43,7 +43,7 @@ class PlannedEpisodeDownloadTarget {
 class DownloadTargetPlanner {
   const DownloadTargetPlanner();
 
-  static Directory defaultDownloadRootDirectory() =>
+  static Future<Directory> defaultDownloadRootDirectory() =>
       defaultAnimeDownloadsRootDirectory();
 
   Future<ResolvedAnimeDownloadLocation> resolveAnimeLocation({

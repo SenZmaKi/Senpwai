@@ -331,13 +331,11 @@ class _SearchPageState extends State<SearchPage>
         ),
         SliverPadding(
           padding: EdgeInsets.fromLTRB(horizontalPad, 8, horizontalPad, 0),
-          sliver: SliverToBoxAdapter(
-            child: SearchResultsSection(
-              results: _results,
-              loading: _loading,
-              loadingMore: _loadingMore,
-              viewMode: _viewMode,
-            ),
+          sliver: SearchResultsSection(
+            results: _results,
+            loading: _loading,
+            loadingMore: _loadingMore,
+            viewMode: _viewMode,
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 32)),
