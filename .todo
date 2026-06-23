@@ -1,7 +1,7 @@
 # Features
 - Dialog to disable animepahe source if cf bypass fails 3 times
 - Option to disable sources
-- Consider finding a solution to cf bypass tokens being bound to a network
+- Consider finding a solution to cf bypass tokens being bound to an IP Address/Network??
 - More in navbar in mobile to reduce clutter
 
 # Bugs
