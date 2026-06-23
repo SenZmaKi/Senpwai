@@ -7,6 +7,7 @@ import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_formatters.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_status_style.dart';
 import 'package:senpwai/ui/pages/downloads_page/pulsing_progress_bar.dart';
+import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
 /// A single download row inside the active batch view.
@@ -27,9 +28,11 @@ class BatchItemRow extends ConsumerWidget {
     final style = DownloadStatusStyle.of(theme, item.status);
     final radius = (senpwai?.cardRadius ?? 8) * 0.75;
 
-    final isPaused = item.status == DownloadQueueStatus.paused;
+    final mobile = isMobile(context);
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      padding: mobile
+          ? const EdgeInsets.fromLTRB(12, 10, 6, 10)
+          : const EdgeInsets.fromLTRB(14, 12, 8, 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(radius),
@@ -43,11 +46,9 @@ class BatchItemRow extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _Heading(item: item, position: position, style: style),
-          SizedBox(height: isPaused ? 6 : 10),
-          if (!isPaused) ...[
-            _ProgressLine(item: item, style: style),
-            const SizedBox(height: 8),
-          ],
+          SizedBox(height: mobile ? 8 : 10),
+          _ProgressLine(item: item, style: style),
+          SizedBox(height: mobile ? 6 : 8),
           _MetricsAndControls(item: item),
         ],
       ),
@@ -69,11 +70,12 @@ class _Heading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final mobile = isMobile(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         _OrdinalBadge(position: position, color: style.color),
-        const SizedBox(width: 10),
+        SizedBox(width: mobile ? 8 : 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,10 +84,10 @@ class _Heading extends StatelessWidget {
                 item.displayTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  height: 1.25,
-                ),
+                style: (mobile
+                        ? theme.textTheme.bodySmall
+                        : theme.textTheme.bodyMedium)
+                    ?.copyWith(fontWeight: FontWeight.w700, height: 1.25),
               ),
               const SizedBox(height: 2),
               Text(
@@ -115,9 +117,10 @@ class _OrdinalBadge extends StatelessWidget {
     final theme = Theme.of(context);
     final senpwai = theme.extension<SenpwaiThemeExtension>();
     final radius = (senpwai?.cardRadius ?? 4).clamp(0, 8).toDouble();
+    final size = isMobile(context) ? 22.0 : 26.0;
     return Container(
-      width: 26,
-      height: 26,
+      width: size,
+      height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
@@ -182,13 +185,14 @@ class _MetricsAndControls extends ConsumerWidget {
         ? formatDownloadSpeed(torrent.uploadBytesPerSecond)
         : '—';
 
+    final mobile = isMobile(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: Wrap(
-            spacing: 14,
-            runSpacing: 6,
+            spacing: mobile ? 10 : 14,
+            runSpacing: mobile ? 4 : 6,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _Tile(icon: Icons.percent_rounded, value: pct, emphasize: true),
@@ -304,6 +308,7 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final mobile = isMobile(context);
     final color =
         tint ??
         (emphasize
@@ -314,13 +319,16 @@ class _Tile extends StatelessWidget {
       children: [
         Icon(
           icon,
-          size: 13,
+          size: mobile ? 11 : 13,
           color: theme.colorScheme.onSurface.withValues(alpha: 0.42),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: mobile ? 3 : 4),
         Text(
           emphasize ? '$value%' : value,
-          style: theme.textTheme.labelMedium?.copyWith(
+          style: (mobile
+                  ? theme.textTheme.labelSmall
+                  : theme.textTheme.labelMedium)
+              ?.copyWith(
             color: color,
             fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
             fontFeatures: const [FontFeature.tabularFigures()],

@@ -30,12 +30,14 @@ class ActiveBatchPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final wide = !isMobile(context);
+    final mobile = isMobile(context);
+    final wide = !mobile;
     final panel = _Panel(snapshot: snapshot);
     final rail = NextInQueueRail(
       upcoming: upcoming,
       totalQueued: queuedBatchCount,
       onOpenQueue: onOpenQueue,
+      compact: mobile,
     );
     if (wide) {
       return IntrinsicHeight(
@@ -49,7 +51,7 @@ class ActiveBatchPanel extends ConsumerWidget {
         ),
       );
     }
-    return Column(children: [panel, const SizedBox(height: 12), rail]);
+    return Column(children: [panel, const SizedBox(height: 10), rail]);
   }
 }
 
@@ -64,6 +66,7 @@ class _Panel extends ConsumerWidget {
     final notifier = ref.read(DownloadManagerNotifier.provider.notifier);
     final style = DownloadStatusStyle.of(theme, snapshot.status);
     final radius = senpwai?.cardRadius ?? 8;
+    final mobile = isMobile(context);
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -85,14 +88,16 @@ class _Panel extends ConsumerWidget {
             Container(width: 4, color: style.color),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
+                padding: mobile
+                    ? const EdgeInsets.fromLTRB(14, 12, 10, 12)
+                    : const EdgeInsets.fromLTRB(18, 16, 12, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _PanelHeader(snapshot: snapshot, notifier: notifier),
-                    const SizedBox(height: 14),
+                    SizedBox(height: mobile ? 10 : 14),
                     BatchBigProgressBar(snapshot: snapshot, style: style),
-                    const SizedBox(height: 12),
+                    SizedBox(height: mobile ? 8 : 12),
                     BatchMetricsStrip(snapshot: snapshot, style: style),
                   ],
                 ),
@@ -113,6 +118,7 @@ class _PanelHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final mobile = isMobile(context);
     final style = DownloadStatusStyle.of(theme, snapshot.status);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,10 +140,10 @@ class _PanelHeader extends StatelessWidget {
                 snapshot.batch.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                ),
+                style: (mobile
+                        ? theme.textTheme.titleMedium
+                        : theme.textTheme.titleLarge)
+                    ?.copyWith(fontWeight: FontWeight.w800, height: 1.15),
               ),
               const SizedBox(height: 4),
               Text(

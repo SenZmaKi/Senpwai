@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_batch_snapshot.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_formatters.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_status_style.dart';
+import 'package:senpwai/ui/shared/responsive.dart';
 
 /// Compact horizontal strip of labelled metrics under the batch progress bar.
 class BatchMetricsStrip extends StatelessWidget {
@@ -26,9 +27,10 @@ class BatchMetricsStrip extends StatelessWidget {
     final upSpeed = showTorrent && snapshot.uploadBytesPerSecond > 0
         ? formatDownloadSpeed(snapshot.uploadBytesPerSecond)
         : '—';
+    final mobile = isMobile(context);
     return Wrap(
-      spacing: 18,
-      runSpacing: 6,
+      spacing: mobile ? 12 : 18,
+      runSpacing: mobile ? 4 : 6,
       children: [
         _Metric(
           icon: Icons.download_rounded,

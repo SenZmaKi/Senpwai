@@ -8,22 +8,31 @@ import 'package:senpwai/ui/shared/theme/theme.dart';
 /// Vertical rail that sits beside the active batch panel.
 /// Shows up to 3 queued batches with rich metadata (status, items, size,
 /// resolution counts) and links to the full Batch Queue sheet.
+///
+/// When [compact] is true (mobile), an empty queue collapses to just the
+/// button, and a non-empty queue shows at most 1 preview with tighter padding.
 class NextInQueueRail extends StatelessWidget {
   final List<DownloadBatchSnapshot> upcoming;
   final int totalQueued;
   final VoidCallback onOpenQueue;
+  final bool compact;
 
   static const int maxPreview = 3;
+  static const int maxPreviewCompact = 1;
 
   const NextInQueueRail({
     super.key,
     required this.upcoming,
     required this.totalQueued,
     required this.onOpenQueue,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Mobile: single compact bar — no card overhead.
+    if (compact) return _CompactBar(upcoming: upcoming, totalQueued: totalQueued, onTap: onOpenQueue);
+
     final theme = Theme.of(context);
     final senpwai = theme.extension<SenpwaiThemeExtension>();
     final radius = senpwai?.cardRadius ?? 8;
@@ -64,6 +73,89 @@ class NextInQueueRail extends StatelessWidget {
             onTap: onOpenQueue,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Single-row compact queue summary for mobile.
+/// Shows: [icon] UP NEXT · <title or "Nothing queued">  (+N more)  [→]
+class _CompactBar extends StatelessWidget {
+  final List<DownloadBatchSnapshot> upcoming;
+  final int totalQueued;
+  final VoidCallback onTap;
+  const _CompactBar({required this.upcoming, required this.totalQueued, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final senpwai = theme.extension<SenpwaiThemeExtension>();
+    final radius = senpwai?.cardRadius ?? 8;
+    final muted = theme.colorScheme.onSurface.withValues(alpha: 0.5);
+    final primary = theme.colorScheme.primary;
+    final first = upcoming.isNotEmpty ? upcoming.first : null;
+    final overflow = totalQueued - 1;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(radius),
+            border: Border.all(
+              color: senpwai?.cardBorderColor ??
+                  theme.colorScheme.outline.withValues(alpha: 0.18),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.queue_music_rounded, size: 13, color: muted),
+              const SizedBox(width: 6),
+              Text(
+                'UP NEXT',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: muted,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(width: 1, height: 12, color: theme.colorScheme.outline.withValues(alpha: 0.25)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: first == null
+                    ? Text(
+                        'Nothing queued',
+                        style: theme.textTheme.labelSmall?.copyWith(color: muted),
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : Text(
+                        first.batch.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              ),
+              if (first != null && overflow > 0) ...[
+                const SizedBox(width: 6),
+                Text(
+                  '+$overflow',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right_rounded, size: 16, color: primary),
+            ],
+          ),
+        ),
       ),
     );
   }
