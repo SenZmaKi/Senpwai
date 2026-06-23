@@ -6,7 +6,13 @@ import 'package:senpwai/sources/nyaa.dart' as nyaa;
 import 'package:senpwai/sources/shared/matcher/nyaa.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 
+import '../support/support.dart';
+
 void main() {
+  setUpAll(() async {
+    await setupTestApp();
+  });
+
   group('NyaaDownloadSourceResolver', () {
     test('resolves movies through parsed Nyaa movie matches', () async {
       final resolver = NyaaDownloadSourceResolver(

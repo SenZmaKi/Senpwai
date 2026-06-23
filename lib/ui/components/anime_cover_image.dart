@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:senpwai/shared/persistence/app_image_cache.dart';
 
 String? normalizeImageUrl(String? imageUrl) {
   final trimmed = imageUrl?.trim();
@@ -29,6 +30,7 @@ class AnimeCoverImage extends StatelessWidget {
     final resolvedImageUrl = normalizeImageUrl(imageUrl);
     if (resolvedImageUrl != null) {
       return CachedNetworkImage(
+        cacheManager: AppImageCache.manager,
         imageUrl: resolvedImageUrl,
         fit: fit,
         placeholder: (_, __) =>

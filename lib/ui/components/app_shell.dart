@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/anilist.dart';
+import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
@@ -16,7 +17,10 @@ Widget _buildAvatarIcon(AnilistViewer? viewer, bool isAuthLoading) {
   if (avatarUrl != null) {
     return CircleAvatar(
       radius: 12,
-      backgroundImage: CachedNetworkImageProvider(avatarUrl),
+      backgroundImage: CachedNetworkImageProvider(
+        avatarUrl,
+        cacheManager: AppImageCache.manager,
+      ),
     );
   }
   return const Icon(Icons.login);

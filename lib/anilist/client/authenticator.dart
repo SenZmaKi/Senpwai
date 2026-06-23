@@ -8,6 +8,7 @@ import 'package:senpwai/anilist/exceptions.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 final _log = Logger("senpwai.anilist.auth");
@@ -15,6 +16,16 @@ final _log = Logger("senpwai.anilist.auth");
 class AnilistAuthenticatorClient {
   final _dio = GlobalDio.getInstance();
   String? token;
+
+  Future<String?> restoreToken() async {
+    token = await AppPersistence.secureTokenStore.readAnilistToken();
+    return token;
+  }
+
+  Future<void> clearToken() async {
+    token = null;
+    await AppPersistence.secureTokenStore.deleteAnilistToken();
+  }
 
   Future<bool> isAuthenticated() async {
     final resolvedToken = token;
@@ -59,11 +70,24 @@ class AnilistAuthenticatorClient {
     if (data == null) {
       throw const AnilistEmptyResponseException();
     }
+    _throwIfGraphqlErrors(data);
     final viewerJson = data['data']?['Viewer'] as Map<String, dynamic>?;
     if (viewerJson == null) {
       throw const AnilistEmptyResponseException();
     }
     return AnilistViewer.fromJson(viewerJson);
+  }
+
+  void _throwIfGraphqlErrors(Map<String, dynamic> data) {
+    final errorsJson = data["errors"];
+    if (errorsJson is! List || errorsJson.isEmpty) {
+      return;
+    }
+    final errors = errorsJson
+        .whereType<Map<String, dynamic>>()
+        .map(AnilistGraphqlError.fromJson)
+        .toList();
+    throw AnilistGraphqlException(errors);
   }
 
   Future<void> setToken(String newToken) async {
@@ -72,6 +96,7 @@ class AnilistAuthenticatorClient {
       throw const AnilistInvalidTokenException();
     }
     token = newToken;
+    await AppPersistence.secureTokenStore.writeAnilistToken(newToken);
   }
 
   Uri _buildAuthorizationUrl() {
@@ -147,6 +172,7 @@ class AnilistAuthenticatorClient {
 
       // Update the internal state
       token = newToken;
+      await AppPersistence.secureTokenStore.writeAnilistToken(newToken);
       return newToken;
     } finally {
       await subscription.cancel();

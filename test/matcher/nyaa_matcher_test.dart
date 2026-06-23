@@ -1,10 +1,11 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/sources/shared/matcher/nyaa.dart';
 import 'package:senpwai/sources/shared/shared.dart';
+
+import '../support/support.dart';
 
 final _log = Logger("senpwai.sources.nyaa.matcher.test");
 
@@ -17,8 +18,7 @@ void main() {
   );
 
   setUpAll(() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    setupLogger();
+    await setupTestApp();
     anilistClient = AnilistUnauthenticatedClient();
     matcher = NyaaMatcher();
   });

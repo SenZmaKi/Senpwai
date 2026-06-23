@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 
@@ -13,8 +12,8 @@ import 'support/support.dart';
 const testUrl = "https://example.com";
 
 void main() {
-  setUpAll(() {
-    setupLogger();
+  setUpAll(() async {
+    await setupTestApp();
   });
 
   group("cache", () {

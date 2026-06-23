@@ -65,6 +65,11 @@ dependencies:
     file_picker: ^9.2.1
     dotenv: ^4.2.0
     external_path: ^2.2.0
+    path_provider: ^2.1.6
+    flutter_secure_storage: ^10.3.1
+    flutter_cache_manager: ^3.4.1
+    http_cache_file_store: ^2.0.1
+    file: ^7.0.1
 
 dev_dependencies:
     flutter_test:

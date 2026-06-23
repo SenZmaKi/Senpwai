@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
-import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/download/download.dart';
 import 'package:senpwai/shared/net/download/download_config.dart';
 import 'package:senpwai/shared/net/download/download_rate_tracker.dart';
@@ -14,6 +13,7 @@ import 'package:senpwai/shared/shared.dart' as shared;
 
 import 'support/download_server.dart';
 import 'support/progress_bar.dart';
+import 'support/support.dart';
 
 late DownloadServer _server;
 late List<int> _payload;
@@ -86,7 +86,7 @@ Future<void> _deleteDirectoryWithRetry(Directory directory) async {
 
 void main() {
   setUpAll(() async {
-    setupLogger();
+    await setupTestApp();
     _payload = List<int>.generate(
       10 * shared.Constants.megaByte,
       (index) => index % 251,

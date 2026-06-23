@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
@@ -17,11 +18,12 @@ class AnilistStateData {
     bool? isAuthenticated,
     bool? isAuthLoading,
     AnilistViewer? viewer,
+    bool clearViewer = false,
   }) {
     return AnilistStateData(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       isAuthLoading: isAuthLoading ?? this.isAuthLoading,
-      viewer: viewer ?? this.viewer,
+      viewer: clearViewer ? null : viewer ?? this.viewer,
     );
   }
 }
@@ -43,9 +45,20 @@ class AnilistNotifier extends Notifier<AnilistStateData> {
   }
 
   Future<void> initialize() async {
+    await authClient.auth.restoreToken();
     if (authClient.auth.token == null) return;
     state = state.copyWith(isAuthenticated: true);
-    await refreshViewer();
+    try {
+      await refreshViewer();
+    } on DioException catch (error) {
+      if (!_isInvalidAuthDioException(error)) rethrow;
+      await _clearRestoredAuth();
+    } on AnilistGraphqlException catch (error) {
+      if (!_isInvalidAuthGraphqlException(error)) rethrow;
+      await _clearRestoredAuth();
+    } on AnilistInvalidTokenException {
+      await _clearRestoredAuth();
+    }
   }
 
   Future<void> login() async {
@@ -66,5 +79,30 @@ class AnilistNotifier extends Notifier<AnilistStateData> {
     final viewer = await authClient.auth.fetchViewer();
     authClient.viewerId = viewer.id;
     state = state.copyWith(viewer: viewer);
+  }
+
+  Future<void> _clearRestoredAuth() async {
+    await authClient.auth.clearToken();
+    authClient.viewerId = null;
+    state = state.copyWith(isAuthenticated: false, clearViewer: true);
+  }
+
+  bool _isInvalidAuthDioException(DioException error) {
+    final statusCode = error.response?.statusCode;
+    return statusCode == 401 || statusCode == 403;
+  }
+
+  bool _isInvalidAuthGraphqlException(AnilistGraphqlException error) {
+    return error.errors.any((graphqlError) {
+      final status = graphqlError.status;
+      final message = graphqlError.message.toLowerCase();
+      final code = graphqlError.extensions['code']?.toString().toLowerCase();
+      return status == '401' ||
+          status == '403' ||
+          code == 'unauthenticated' ||
+          message.contains('invalid token') ||
+          message.contains('unauthenticated') ||
+          message.contains('unauthorized');
+    });
   }
 }

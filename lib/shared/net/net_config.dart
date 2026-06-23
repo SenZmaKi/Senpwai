@@ -4,9 +4,11 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
+import 'package:http_cache_file_store/http_cache_file_store.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/user_agents.dart';
+import 'package:senpwai/shared/persistence/app_paths.dart';
 
 final _log = Logger("senpwai.shared.net.net_config");
 
@@ -29,9 +31,16 @@ class NetConfig {
   final idleTimeout = Duration(minutes: 3);
   final cacheMaxStale = Duration(hours: 1);
   final userAgent = getRandomUserAgent();
-  MemCacheStore? cacheStore;
+  final AppPaths? paths;
+  CacheStore? cacheStore;
+
+  NetConfig({this.paths});
 
   static NetConfig? _instance;
+
+  static void initialize({required AppPaths paths}) {
+    _instance = NetConfig(paths: paths);
+  }
 
   static NetConfig getInstance() {
     return _instance ??= NetConfig();
@@ -41,7 +50,9 @@ class NetConfig {
     bool allowPostMethod = false,
     CachePolicy policy = CachePolicy.forceCache,
   }) {
-    cacheStore ??= MemCacheStore();
+    cacheStore ??= paths == null
+        ? MemCacheStore()
+        : FileCacheStore(paths!.networkDioCacheDirectory.path);
     return CacheOptions(
       store: cacheStore,
       policy: policy,

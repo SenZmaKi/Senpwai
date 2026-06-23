@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:senpwai/sources/tokyoinsider.dart' as tokyoinsider;
-import 'package:senpwai/shared/log.dart';
+
+import 'support/support.dart';
 
 Future<void> testSearch() async {
   final source = tokyoinsider.Source.getInstance();
@@ -37,7 +38,9 @@ Future<void> testFetchEpisodeDownloadLinks() async {
 }
 
 void main() {
-  setUpAll(setupLogger);
+  setUpAll(() async {
+    await setupTestApp();
+  });
 
   test("tokyoinsider.search", testSearch);
   test("tokyoinsider.fetchEpisodePages", testFetchEpisodePages);

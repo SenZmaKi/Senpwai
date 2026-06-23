@@ -1,35 +1,36 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dotenv/dotenv.dart' as dotenv;
 import 'package:senpwai/anilist/anilist.dart';
-import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 import 'support/support.dart';
 
 void main() {
+  late AnilistUnauthenticatedClient unauthClient;
+  late AnilistAuthenticatedClient authClient;
+
   setUpAll(() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    setupLogger();
+    await setupTestApp();
+    unauthClient = AnilistUnauthenticatedClient();
+    authClient = AnilistAuthenticatedClient();
   });
+
   final env = dotenv.DotEnv(includePlatformEnvironment: true, quiet: true)
     ..load();
   final authToken = env["ANILIST_AUTH_TOKEN"];
 
   group("AnilistUnauthenticatedClient", () {
-    final client = AnilistUnauthenticatedClient();
-
     group("cache", () {
       test("cache fetches faster", () async {
         final uncached = await timeIt(
           label: "Searching anime (uncached)",
-          fn: () => client.searchAnime(
+          fn: () => unauthClient.searchAnime(
             params: const AnimeSearchParams(term: "One Piece"),
           ),
         );
 
         final cached = await timeIt(
           label: "Searching anime (cached)",
-          fn: () => client.searchAnime(
+          fn: () => unauthClient.searchAnime(
             params: const AnimeSearchParams(term: "One Piece"),
           ),
         );
@@ -40,7 +41,7 @@ void main() {
     });
 
     test("searchAnime returns results", () async {
-      final results = await client.searchAnime(
+      final results = await unauthClient.searchAnime(
         params: const AnimeSearchParams(term: "Fullmetal"),
       );
       expect(results.items, isNotEmpty);
@@ -48,13 +49,13 @@ void main() {
 
     test("getAnimeById returns media", () async {
       const anilistId = 5114;
-      final anime = await client.getAnimeById(anilistId);
+      final anime = await unauthClient.getAnimeById(anilistId);
       expect(anime, isNotNull);
       expect(anime?.id, anilistId);
     }, tags: ["unauthenticated"]);
 
     test("trendingThisSeason returns results", () async {
-      final results = await client.trendingThisSeason();
+      final results = await unauthClient.trendingThisSeason();
       expect(results.items, isNotEmpty);
     }, tags: ["unauthenticated"]);
 
@@ -81,7 +82,6 @@ void main() {
   });
 
   group("AnilistAuthenticatedClient", () {
-    final client = AnilistAuthenticatedClient();
     final shouldSkip = authToken == null || authToken.isEmpty;
     String requireAuthToken() {
       final token = authToken;
@@ -93,14 +93,14 @@ void main() {
 
     setUpAll(() async {
       if (!shouldSkip) {
-        await client.auth.setToken(requireAuthToken());
+        await authClient.auth.setToken(requireAuthToken());
       }
     });
 
     test(
       "searchAnime returns results",
       () async {
-        final results = await client.searchAnime(
+        final results = await authClient.searchAnime(
           params: const AuthenticatedAnimeSearchParams(term: "Naruto"),
         );
         expect(results.items, isNotEmpty);
@@ -113,7 +113,7 @@ void main() {
       "getAnimeById returns media with list entry",
       () async {
         const anilistId = 5114;
-        final anime = await client.getAnimeById(anilistId: anilistId);
+        final anime = await authClient.getAnimeById(anilistId: anilistId);
         expect(anime, isNotNull);
         expect(anime?.id, anilistId);
       },
@@ -124,7 +124,7 @@ void main() {
     test(
       "listUserMediaList returns results",
       () async {
-        final results = await client.listUserMediaList(
+        final results = await authClient.listUserMediaList(
           listStatus: AnilistMediaListStatus.current,
           perPage: 25,
         );
@@ -137,7 +137,7 @@ void main() {
     test(
       "trendingThisSeason returns results",
       () async {
-        final results = await client.trendingThisSeason();
+        final results = await authClient.trendingThisSeason();
         expect(results.items, isNotEmpty);
       },
       tags: ["authenticated"],
@@ -147,7 +147,7 @@ void main() {
     test(
       "authenticator validates token",
       () async {
-        final isValid = await client.auth.isValidToken(
+        final isValid = await authClient.auth.isValidToken(
           token: requireAuthToken(),
         );
         expect(isValid, isTrue);
@@ -159,7 +159,7 @@ void main() {
     test(
       "authenticator fetches viewer",
       () async {
-        final viewer = await client.auth.fetchViewer();
+        final viewer = await authClient.auth.fetchViewer();
         expect(viewer, isNotNull);
         expect(viewer.id, isNotNull);
       },

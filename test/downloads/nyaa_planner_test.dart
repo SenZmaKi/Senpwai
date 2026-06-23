@@ -10,7 +10,13 @@ import 'package:senpwai/sources/nyaa.dart' as nyaa;
 import 'package:senpwai/sources/shared/matcher/nyaa.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 
+import '../support/support.dart';
+
 void main() {
+  setUpAll(() async {
+    await setupTestApp();
+  });
+
   group('looksLikeVideoFile', () {
     test('accepts common video extensions returned by path.extension', () {
       expect(looksLikeVideoFile('Episode 01.mkv'), isTrue);

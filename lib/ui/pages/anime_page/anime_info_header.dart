@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
@@ -38,6 +39,7 @@ class AnimeInfoHeader extends StatelessWidget {
                   Positioned.fill(
                     bottom: coverOverlap,
                     child: CachedNetworkImage(
+                      cacheManager: AppImageCache.manager,
                       imageUrl: bannerUrl,
                       fit: BoxFit.cover,
                       placeholder: (_, __) => Container(

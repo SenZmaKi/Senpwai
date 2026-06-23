@@ -8,29 +8,48 @@ import 'package:senpwai/shared/net/interceptors/concurrency.dart';
 import 'package:senpwai/shared/net/interceptors/cookie_manager.dart';
 import 'package:senpwai/shared/net/interceptors/rate_limit.dart';
 import 'package:senpwai/shared/net/net_config.dart';
+import 'package:senpwai/shared/persistence/app_paths.dart';
+import 'package:senpwai/shared/persistence/cf_bypass_session_store.dart';
 
 class GlobalDio {
   GlobalDio._();
 
   static Dio? _instance;
-  static final CookieJar _cookieJar = CookieJar();
+  static CookieJar? _cookieJar;
   static CfBypassInterceptor? _cfBypassInterceptor;
   static ConnectivityInterceptor? _connectivityInterceptor;
 
-  static CookieJar get cookieJar => _cookieJar;
+  static CookieJar get cookieJar {
+    final resolved = _cookieJar;
+    if (resolved == null) {
+      throw StateError('GlobalDio.initialize must be called first.');
+    }
+    return resolved;
+  }
+
   static CfBypassInterceptor? get cfBypassInterceptor => _cfBypassInterceptor;
   static ConnectivityInterceptor? get connectivityInterceptor =>
       _connectivityInterceptor;
 
-  static Dio getInstance() {
+  static Future<void> initialize({
+    required AppPaths paths,
+    required CfBypassSessionStore cfBypassSessionStore,
+  }) async {
     if (_instance != null) {
-      return _instance!;
+      return;
     }
 
+    final cookieJar = PersistCookieJar(
+      storage: FileStorage(paths.networkCookiesDirectory.path),
+    );
+    final cfSessions = await cfBypassSessionStore.load();
+    _cookieJar = cookieJar;
     _instance = Dio();
     _cfBypassInterceptor = CfBypassInterceptor(
       dio: _instance!,
-      cookieJar: _cookieJar,
+      cookieJar: cookieJar,
+      sessionStore: cfBypassSessionStore,
+      initialSessions: cfSessions,
     );
     _connectivityInterceptor = ConnectivityInterceptor(_instance!);
     _instance!.interceptors.add(RateLimitInterceptor(_instance!));
@@ -39,7 +58,7 @@ class GlobalDio {
     _instance!.interceptors.add(ConcurrencyInterceptor({'nyaa.si': 5}));
     _instance!.interceptors.add(_cfBypassInterceptor!);
     _instance!.interceptors.add(_connectivityInterceptor!);
-    _instance!.interceptors.add(AppCookieManager(_cookieJar));
+    _instance!.interceptors.add(AppCookieManager(cookieJar));
     _instance!.interceptors.add(
       PrettyDioLogger(
         enabled: kDebugMode,
@@ -48,6 +67,13 @@ class GlobalDio {
       ),
     );
     NetConfig.getInstance().attachToDio(_instance!);
-    return _instance!;
+  }
+
+  static Dio getInstance() {
+    final resolved = _instance;
+    if (resolved == null) {
+      throw StateError('GlobalDio.initialize must be called first.');
+    }
+    return resolved;
   }
 }

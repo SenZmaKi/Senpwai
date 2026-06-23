@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/shared/dev_config.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/ui/pages/anime_page/cf_bypass_coordinator.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
 import 'package:senpwai/ui/shared/app_error_diagnostics.dart';
@@ -47,6 +48,7 @@ class AppPageNotifier extends Notifier<AppPage> {
 Future<void> initApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   setupLogger();
+  await AppPersistence.initialize();
   applyDevConfig();
   _initCfBypassSolver();
   _initNetworkErrorHandling();

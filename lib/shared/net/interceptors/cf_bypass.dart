@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net_config.dart';
+import 'package:senpwai/shared/persistence/cf_bypass_session_store.dart';
 
 final _log = Logger("senpwai.net.interceptors.cf_bypass");
 
@@ -34,16 +35,32 @@ class CfBypassChallenge {
 class CfBypassInterceptor extends Interceptor {
   final Dio dio;
   final CookieJar cookieJar;
+  final CfBypassSessionStore sessionStore;
   late final int _interceptorId = ++_nextInterceptorId;
   CfBypassSolver? _solver;
   final Map<String, String> _userAgentsByHost = {};
   final Map<String, Future<CfBypassResult>> _bypassByHost = {};
   final Set<String> _bypassedHosts = {};
 
-  CfBypassInterceptor({required this.dio, required this.cookieJar}) {
+  CfBypassInterceptor({
+    required this.dio,
+    required this.cookieJar,
+    required this.sessionStore,
+    required Map<String, CfBypassHostSession> initialSessions,
+  }) {
+    for (final entry in initialSessions.entries) {
+      _bypassedHosts.add(entry.key);
+      final userAgent = entry.value.userAgent;
+      if (userAgent != null && userAgent.isNotEmpty) {
+        _userAgentsByHost[entry.key] = userAgent;
+      }
+    }
     _log.infoWithMetadata(
       "Created CF bypass interceptor",
-      metadata: {"interceptorId": _interceptorId},
+      metadata: {
+        "interceptorId": _interceptorId,
+        "persistedHosts": initialSessions.keys.toList(),
+      },
     );
   }
 
@@ -55,6 +72,11 @@ class CfBypassInterceptor extends Interceptor {
       "CF bypass solver ${solver != null ? 'set' : 'cleared'}",
       metadata: {"interceptorId": _interceptorId},
     );
+  }
+
+  void clearRememberedSessions() {
+    _userAgentsByHost.clear();
+    _bypassedHosts.clear();
   }
 
   @override
@@ -213,6 +235,12 @@ class CfBypassInterceptor extends Interceptor {
       if (result.userAgent != null) {
         _userAgentsByHost[err.requestOptions.uri.host] = result.userAgent!;
       }
+      unawaited(
+        sessionStore.rememberHost(
+          err.requestOptions.uri.host,
+          userAgent: _userAgentsByHost[err.requestOptions.uri.host],
+        ),
+      );
       _log.infoWithMetadata(
         "Remembered CF bypass session",
         metadata: {

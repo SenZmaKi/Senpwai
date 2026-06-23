@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:senpwai/sources/nyaa.dart' as nyaa;
-import 'package:senpwai/shared/log.dart';
+
+import 'support/support.dart';
 
 void testParseSearchIncludesTrustedAndRemakeRows() {
   const html = '''
@@ -89,7 +90,9 @@ Future<void> testSearchNoResults() async {
 }
 
 void main() {
-  setUpAll(setupLogger);
+  setUpAll(() async {
+    await setupTestApp();
+  });
 
   test(
     "nyaa.parseSearchIncludesTrustedAndRemakeRows",
