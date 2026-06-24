@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:senpwai/settings/settings.dart';
+import 'package:senpwai/shared/net/download/download_config.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/persistence/app_image_cache.dart';
@@ -9,6 +11,8 @@ import 'package:senpwai/shared/persistence/secure_token_store.dart';
 
 class AppPersistence {
   static AppPaths? _paths;
+  static AppSettingsRepository? _settingsRepository;
+  static AppSettings? _settings;
   static CfBypassSessionStore? _cfBypassSessionStore;
   static SecureTokenStore? _secureTokenStore;
 
@@ -30,6 +34,29 @@ class AppPersistence {
     return resolved;
   }
 
+  static AppSettingsRepository get settingsRepository {
+    final resolved = _settingsRepository;
+    if (resolved == null) {
+      throw StateError('AppPersistence.initialize must be called first.');
+    }
+    return resolved;
+  }
+
+  static AppSettings get settings {
+    final resolved = _settings;
+    if (resolved == null) {
+      throw StateError('AppPersistence.initialize must be called first.');
+    }
+    return resolved;
+  }
+
+  static set settings(AppSettings value) {
+    if (_settings == null) {
+      throw StateError('AppPersistence.initialize must be called first.');
+    }
+    _settings = value;
+  }
+
   static CfBypassSessionStore get cfBypassSessionStore {
     final resolved = _cfBypassSessionStore;
     if (resolved == null) {
@@ -44,15 +71,30 @@ class AppPersistence {
     final initializedPaths = rootDirectory == null
         ? await AppPaths.initialize()
         : await AppPaths.fromRootDirectory(rootDirectory);
+    final settingsRepository = AppSettingsRepository(
+      file: initializedPaths.settingsFile,
+    );
+    final loadedSettings = await settingsRepository.load();
     final cfStore = CfBypassSessionStore(file: initializedPaths.cfSessionsFile);
     const tokenStore = SecureTokenStore();
 
     _paths = initializedPaths;
+    _settingsRepository = settingsRepository;
+    _settings = loadedSettings;
     _cfBypassSessionStore = cfStore;
     _secureTokenStore = tokenStore;
 
+    DownloadConfig.getInstance().updateMaxBytesPerSecond(
+      loadedSettings.downloads.maxDownloadBytesPerSecond.toDouble(),
+    );
     NetConfig.initialize(paths: initializedPaths);
-    AppImageCache.initialize(initializedPaths);
+    NetConfig.getInstance().updateCacheMaxStale(
+      loadedSettings.storage.httpCacheMaxAge,
+    );
+    AppImageCache.initialize(
+      initializedPaths,
+      maxSizeBytes: loadedSettings.storage.imageCacheMaxBytes,
+    );
     await GlobalDio.initialize(
       paths: initializedPaths,
       cfBypassSessionStore: cfStore,
@@ -73,5 +115,13 @@ class AppPersistence {
 
   static Future<void> clearImageCache() async {
     await AppImageCache.manager.emptyCache();
+  }
+
+  static Future<void> clearAppCacheAndSessions() async {
+    await Future.wait([
+      clearImageCache(),
+      clearHttpCache(),
+      clearNetworkSession(),
+    ]);
   }
 }

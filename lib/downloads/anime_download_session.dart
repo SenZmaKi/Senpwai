@@ -8,6 +8,7 @@ import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/downloads/request_coordinator.dart';
 import 'package:senpwai/downloads/source_resolver.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/platform_paths.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 
@@ -168,7 +169,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       >((anime) => AnimeDownloadSessionNotifier._(anime));
 
   final AnilistAnimeBase _anime;
-  final DownloadSourceResolver _sourceResolver;
+  final DownloadSourceResolver? _sourceResolverOverride;
   final AnimeDownloadCoordinator _coordinator;
   final DownloadTargetPlanner _targetPlanner;
 
@@ -177,15 +178,18 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     DownloadSourceResolver? sourceResolver,
     AnimeDownloadCoordinator? coordinator,
     DownloadTargetPlanner? targetPlanner,
-  }) : _sourceResolver = sourceResolver ?? DownloadSourceResolver(),
+  }) : _sourceResolverOverride = sourceResolver,
        _coordinator = coordinator ?? AnimeDownloadCoordinator(),
        _targetPlanner = targetPlanner ?? const DownloadTargetPlanner();
 
   @override
   AnimeDownloadSessionState build() {
+    final settings = ref.read(AppSettingsNotifier.provider);
     Future.microtask(_initialize);
     return AnimeDownloadSessionState(
       anime: _anime,
+      selectedResolution: settings.content.defaultResolution,
+      selectedLanguage: settings.content.defaultAudioLanguage,
       startEpisode: 1,
       endEpisode: _defaultAvailableEpisode,
       endEpisodeUsesLatest: true,
@@ -204,9 +208,13 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   }
 
   Future<void> _resolveInitialLocation() async {
+    final settings = ref.read(AppSettingsNotifier.provider);
+    final defaultRoot =
+        settings.downloads.defaultRootDirectory ??
+        (await defaultAnimeDownloadsRootDirectory()).path;
     final plannedLocation = await _targetPlanner.resolveAnimeLocation(
       anime: _anime,
-      downloadRoot: (await defaultAnimeDownloadsRootDirectory()).path,
+      downloadRoot: defaultRoot,
     );
     state = state.copyWith(
       downloadFolder: state.downloadFolderSelectedByUser
@@ -217,8 +225,13 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   }
 
   Future<void> _resolveSources() async {
-    final matches = await _sourceResolver.resolveAll(_anime);
-    final preferredSource = _sourceResolver.selectPreferredSource(
+    final sourceResolver =
+        _sourceResolverOverride ??
+        DownloadSourceResolver(
+          settings: ref.read(AppSettingsNotifier.provider).sources,
+        );
+    final matches = await sourceResolver.resolveAll(_anime);
+    final preferredSource = sourceResolver.selectPreferredSource(
       matches: matches,
       sourceSelectedByUser: state.sourceSelectedByUser,
       selectedSource: state.selectedSource,
@@ -226,7 +239,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     final shouldPreserveUserSelection =
         state.sourceSelectedByUser &&
         state.selectedSource != null &&
-        _sourceResolver.isSourceAvailable(matches, state.selectedSource!);
+        sourceResolver.isSourceAvailable(matches, state.selectedSource!);
     state = state.copyWith(
       animepaheMatch: matches.animepaheMatch,
       tokyoinsiderMatch: matches.tokyoinsiderMatch,

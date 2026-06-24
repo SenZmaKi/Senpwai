@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 class AppPaths {
   final Directory rootDirectory;
   final Directory settingsDirectory;
+  final File settingsFile;
   final Directory networkDirectory;
   final Directory networkCookiesDirectory;
   final Directory networkDioCacheDirectory;
@@ -19,6 +20,7 @@ class AppPaths {
   const AppPaths._({
     required this.rootDirectory,
     required this.settingsDirectory,
+    required this.settingsFile,
     required this.networkDirectory,
     required this.networkCookiesDirectory,
     required this.networkDioCacheDirectory,
@@ -63,6 +65,9 @@ class AppPaths {
     final paths = AppPaths._(
       rootDirectory: rootDirectory,
       settingsDirectory: settingsDirectory,
+      settingsFile: File(
+        path.join(settingsDirectory.path, 'app_settings.json'),
+      ),
       networkDirectory: networkDirectory,
       networkCookiesDirectory: networkCookiesDirectory,
       networkDioCacheDirectory: networkDioCacheDirectory,

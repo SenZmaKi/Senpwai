@@ -8,6 +8,7 @@ import 'package:senpwai/downloads/source_resolver/animepahe.dart';
 import 'package:senpwai/downloads/source_resolver/nyaa.dart';
 import 'package:senpwai/downloads/source_resolver/shared.dart';
 import 'package:senpwai/downloads/source_resolver/tokyoinsider.dart';
+import 'package:senpwai/settings/settings.dart';
 
 class ResolvedSourceMatches {
   final SourceMatchState<AnimepaheSourceMatch> animepaheMatch;
@@ -22,17 +23,13 @@ class ResolvedSourceMatches {
 }
 
 class DownloadSourceResolver {
-  static const List<AnimeSource> sourcePriority = [
-    AnimeSource.animepahe,
-    AnimeSource.tokyoinsider,
-    AnimeSource.nyaa,
-  ];
-
+  final SourcePreferences settings;
   final AnimepaheDownloadSourceResolver _animepaheResolver;
   final TokyoinsiderDownloadSourceResolver _tokyoinsiderResolver;
   final NyaaDownloadSourceResolver _nyaaResolver;
 
   DownloadSourceResolver({
+    this.settings = const SourcePreferences(),
     AnimepaheDownloadSourceResolver? animepaheResolver,
     TokyoinsiderDownloadSourceResolver? tokyoinsiderResolver,
     NyaaDownloadSourceResolver? nyaaResolver,
@@ -44,9 +41,25 @@ class DownloadSourceResolver {
 
   Future<ResolvedSourceMatches> resolveAll(AnilistAnimeBase anime) async {
     final results = await Future.wait<dynamic>([
-      _animepaheResolver.resolve(anime),
-      _tokyoinsiderResolver.resolve(anime),
-      _nyaaResolver.resolve(anime),
+      settings.enabledSources.contains(AnimeSource.animepahe)
+          ? _animepaheResolver.resolve(anime)
+          : Future.value(
+              const SourceMatchState<AnimepaheSourceMatch>.failed(
+                'Source disabled',
+              ),
+            ),
+      settings.enabledSources.contains(AnimeSource.tokyoinsider)
+          ? _tokyoinsiderResolver.resolve(anime)
+          : Future.value(
+              const SourceMatchState<TokyoinsiderSourceMatch>.failed(
+                'Source disabled',
+              ),
+            ),
+      settings.enabledSources.contains(AnimeSource.nyaa)
+          ? _nyaaResolver.resolve(anime)
+          : Future.value(
+              const SourceMatchState<bool>.failed('Source disabled'),
+            ),
     ]);
     return ResolvedSourceMatches(
       animepaheMatch: results[0] as SourceMatchState<AnimepaheSourceMatch>,
@@ -66,8 +79,9 @@ class DownloadSourceResolver {
         isSourceAvailable(matches, selectedSource)) {
       return selectedSource;
     }
-    for (final source in sourcePriority) {
-      if (isSourceAvailable(matches, source)) {
+    for (final source in settings.priority) {
+      if (settings.enabledSources.contains(source) &&
+          isSourceAvailable(matches, source)) {
         return source;
       }
     }

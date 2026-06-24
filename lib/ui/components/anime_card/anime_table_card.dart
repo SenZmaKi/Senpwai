@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/anime_card/card_hover_mixin.dart';
 import 'package:senpwai/ui/components/anime_card/media_list_status_dot.dart';
@@ -9,17 +11,18 @@ import 'package:senpwai/ui/components/genre_tag.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
-class AnimeTableCard extends StatefulWidget {
+class AnimeTableCard extends ConsumerStatefulWidget {
   final AnilistAnimeBase anime;
   final VoidCallback? onTap;
 
   const AnimeTableCard({super.key, required this.anime, this.onTap});
 
   @override
-  State<AnimeTableCard> createState() => _AnimeTableCardState();
+  ConsumerState<AnimeTableCard> createState() => _AnimeTableCardState();
 }
 
-class _AnimeTableCardState extends State<AnimeTableCard> with CardHoverMixin {
+class _AnimeTableCardState extends ConsumerState<AnimeTableCard>
+    with CardHoverMixin {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -33,7 +36,9 @@ class _AnimeTableCardState extends State<AnimeTableCard> with CardHoverMixin {
     final coverWidth = screenWidth < Breakpoints.tablet ? 78.0 : 92.0;
     final chipFontSize = mobile ? 9.5 : 10.5;
     final imageUrl = anime.coverImage?.best;
-    final title = anime.title.display;
+    final title = ref
+        .watch(AppSettingsNotifier.provider)
+        .displayTitle(anime.title);
     final score = anime.averageScore;
 
     final placeholderColor = ext.randomColour(anime.id);

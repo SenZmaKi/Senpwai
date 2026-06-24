@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
@@ -222,14 +224,14 @@ class _BannerCarouselItem {
   const _BannerCarouselItem({required this.anime, required this.bannerUrl});
 }
 
-class _BannerSlide extends StatelessWidget {
+class _BannerSlide extends ConsumerWidget {
   final AnilistAnimeBase anime;
   final String bannerUrl;
 
   const _BannerSlide({required this.anime, required this.bannerUrl});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final ext = theme.extension<SenpwaiThemeExtension>()!;
     final mobile = isMobile(context);
@@ -239,7 +241,9 @@ class _BannerSlide extends StatelessWidget {
     final textColor = ext.onImageOverlay;
     final shadowColor = ext.textShadow;
 
-    final title = anime.title.display;
+    final title = ref
+        .watch(AppSettingsNotifier.provider)
+        .displayTitle(anime.title);
     final score = anime.averageScore;
     final genres = anime.genres.take(3).map((g) => g.toGraphql()).toList();
 

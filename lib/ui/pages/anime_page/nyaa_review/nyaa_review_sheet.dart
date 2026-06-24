@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/pages/anime_page/nyaa_plan_components.dart';
 import 'package:senpwai/ui/pages/anime_page/nyaa_review/countdown_start_button.dart';
 import 'package:senpwai/ui/pages/anime_page/nyaa_review/episode_review_row.dart';
@@ -10,7 +12,7 @@ import 'package:senpwai/ui/pages/anime_page/nyaa_review/torrent_picker_view.dart
 
 const _autoStartDuration = Duration(seconds: 4);
 
-class NyaaReviewSheet extends StatefulWidget {
+class NyaaReviewSheet extends ConsumerStatefulWidget {
   final PreparedDownloadBatch batch;
   final AnimeDownloadSessionNotifier notifier;
 
@@ -37,17 +39,17 @@ class NyaaReviewSheet extends StatefulWidget {
   }
 
   @override
-  State<NyaaReviewSheet> createState() => _NyaaReviewSheetState();
+  ConsumerState<NyaaReviewSheet> createState() => _NyaaReviewSheetState();
 }
 
-class _NyaaReviewSheetState extends State<NyaaReviewSheet>
+class _NyaaReviewSheetState extends ConsumerState<NyaaReviewSheet>
     with SingleTickerProviderStateMixin {
   /// Episode overrides applied by the user via the picker. Wins over the
   /// auto-planned job for that episode number.
   final Map<int, PreparedTorrentDownloadJob> _episodeOverrides = {};
 
   /// Shared filter state across all picker invocations within this sheet.
-  NyaaManualSearchFilters _filters = const NyaaManualSearchFilters();
+  late NyaaManualSearchFilters _filters;
 
   late final AnimationController _countdown;
   bool _countdownActive = false;
@@ -60,6 +62,10 @@ class _NyaaReviewSheetState extends State<NyaaReviewSheet>
   @override
   void initState() {
     super.initState();
+    _filters = ref
+        .read(AppSettingsNotifier.provider)
+        .sources
+        .nyaaDefaultFilters;
     _countdown = AnimationController(vsync: this, duration: _autoStartDuration)
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed && _countdownActive) {

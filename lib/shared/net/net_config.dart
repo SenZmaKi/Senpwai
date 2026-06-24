@@ -29,7 +29,7 @@ String _cacheKeyBuilder({
 class NetConfig {
   final maxConnectionsPerHost = 25;
   final idleTimeout = Duration(minutes: 3);
-  final cacheMaxStale = Duration(hours: 1);
+  Duration cacheMaxStale = Duration(hours: 1);
   final userAgent = getRandomUserAgent();
   final AppPaths? paths;
   CacheStore? cacheStore;
@@ -69,6 +69,10 @@ class NetConfig {
           ..idleTimeout = idleTimeout;
     dio.interceptors.add(DioCacheInterceptor(options: buildCacheOptions()));
     dio.options.headers["User-Agent"] = userAgent;
+  }
+
+  void updateCacheMaxStale(Duration maxStale) {
+    cacheMaxStale = maxStale;
   }
 
   void logCache() async {

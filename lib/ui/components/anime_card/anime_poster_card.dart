@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/anime_card/card_hover_mixin.dart';
 import 'package:senpwai/ui/components/anime_card/media_list_status_dot.dart';
@@ -10,24 +12,27 @@ import 'package:senpwai/ui/pages/anime_page/anime_page.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
-class AnimePosterCard extends StatefulWidget {
+class AnimePosterCard extends ConsumerStatefulWidget {
   final AnilistAnimeBase anime;
   final VoidCallback? onTap;
 
   const AnimePosterCard({super.key, required this.anime, this.onTap});
 
   @override
-  State<AnimePosterCard> createState() => _AnimePosterCardState();
+  ConsumerState<AnimePosterCard> createState() => _AnimePosterCardState();
 }
 
-class _AnimePosterCardState extends State<AnimePosterCard> with CardHoverMixin {
+class _AnimePosterCardState extends ConsumerState<AnimePosterCard>
+    with CardHoverMixin {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ext = theme.extension<SenpwaiThemeExtension>()!;
     final anime = widget.anime;
     final imageUrl = anime.coverImage?.best;
-    final title = anime.title.display;
+    final title = ref
+        .watch(AppSettingsNotifier.provider)
+        .displayTitle(anime.title);
     final score = anime.averageScore;
 
     final w = MediaQuery.sizeOf(context).width;

@@ -8,7 +8,8 @@ import 'package:senpwai/shared/persistence/app_paths.dart';
 
 class AppImageCache {
   static const _cacheKey = 'senpwaiImageCache';
-  static const maxCacheSizeBytes = 50 * 1024 * 1024;
+  static const defaultMaxCacheSizeBytes = 50 * 1024 * 1024;
+  static int _maxCacheSizeBytes = defaultMaxCacheSizeBytes;
   static CacheManager? _manager;
 
   AppImageCache._();
@@ -21,7 +22,11 @@ class AppImageCache {
     return resolved;
   }
 
-  static void initialize(AppPaths paths) {
+  static void initialize(
+    AppPaths paths, {
+    int maxSizeBytes = defaultMaxCacheSizeBytes,
+  }) {
+    _maxCacheSizeBytes = maxSizeBytes;
     _manager ??= CacheManager(
       Config(
         _cacheKey,
@@ -33,11 +38,15 @@ class AppImageCache {
           ),
           cacheDirectoryPath: paths.imageCacheDirectory.path,
           metadataFilePath: paths.imageCacheMetadataFile.path,
-          maxSizeBytes: maxCacheSizeBytes,
+          maxSizeBytes: () => _maxCacheSizeBytes,
         ),
         fileSystem: _AbsoluteCacheFileSystem(paths.imageCacheDirectory.path),
       ),
     );
+  }
+
+  static void applyMaxSizeBytes(int bytes) {
+    _maxCacheSizeBytes = bytes < 0 ? defaultMaxCacheSizeBytes : bytes;
   }
 }
 
@@ -47,7 +56,7 @@ class _SizeLimitedCacheInfoRepository implements CacheInfoRepository {
   final CacheInfoRepository delegate;
   final String cacheDirectoryPath;
   final String metadataFilePath;
-  final int maxSizeBytes;
+  final int Function() maxSizeBytes;
 
   const _SizeLimitedCacheInfoRepository({
     required this.delegate,
@@ -124,7 +133,9 @@ class _SizeLimitedCacheInfoRepository implements CacheInfoRepository {
       totalBytes += length;
     }
 
-    if (totalBytes <= maxSizeBytes) {
+    final maxBytes = maxSizeBytes();
+    if (maxBytes == 0) return const [];
+    if (totalBytes <= maxBytes) {
       return const [];
     }
 
@@ -132,7 +143,7 @@ class _SizeLimitedCacheInfoRepository implements CacheInfoRepository {
     for (final object in objects) {
       toRemove.add(object);
       totalBytes -= lengths[object] ?? 0;
-      if (totalBytes <= maxSizeBytes) break;
+      if (totalBytes <= maxBytes) break;
     }
     return toRemove;
   }

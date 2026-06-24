@@ -1,14 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/pages/settings_page/font_autocomplete.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
 class AppearanceSettings extends StatelessWidget {
-  final ThemeConfig config;
-  final ThemeConfigNotifier notifier;
+  final AppSettings settings;
+  final AppSettingsNotifier notifier;
 
   const AppearanceSettings({
     super.key,
-    required this.config,
+    required this.settings,
     required this.notifier,
   });
 
@@ -17,21 +20,21 @@ class AppearanceSettings extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _BrightnessSelector(config: config, notifier: notifier),
+        _BrightnessSelector(settings: settings, notifier: notifier),
         const SizedBox(height: 16),
-        _PaletteSelector(config: config, notifier: notifier),
+        _PaletteSelector(settings: settings, notifier: notifier),
         const SizedBox(height: 16),
-        _FontPicker(config: config, notifier: notifier),
+        _FontPicker(settings: settings, notifier: notifier),
       ],
     );
   }
 }
 
 class _BrightnessSelector extends StatelessWidget {
-  final ThemeConfig config;
-  final ThemeConfigNotifier notifier;
+  final AppSettings settings;
+  final AppSettingsNotifier notifier;
 
-  const _BrightnessSelector({required this.config, required this.notifier});
+  const _BrightnessSelector({required this.settings, required this.notifier});
 
   @override
   Widget build(BuildContext context) {
@@ -53,15 +56,16 @@ class _BrightnessSelector extends StatelessWidget {
           child: SegmentedButton<BrightnessMode>(
             segments: BrightnessMode.values
                 .map(
-                  (m) => ButtonSegment(
-                    value: m,
-                    label: Text(m.label, softWrap: false),
-                    icon: Icon(m.icon),
+                  (mode) => ButtonSegment(
+                    value: mode,
+                    label: Text(mode.label, softWrap: false),
+                    icon: Icon(mode.icon),
                   ),
                 )
                 .toList(),
-            selected: {config.brightnessMode},
-            onSelectionChanged: (s) => notifier.setBrightnessMode(s.first),
+            selected: {settings.appearance.brightnessMode},
+            onSelectionChanged: (selected) =>
+                unawaited(notifier.setBrightnessMode(selected.first)),
             style: ButtonStyle(
               shape: WidgetStateProperty.all(
                 RoundedRectangleBorder(
@@ -77,10 +81,10 @@ class _BrightnessSelector extends StatelessWidget {
 }
 
 class _PaletteSelector extends StatelessWidget {
-  final ThemeConfig config;
-  final ThemeConfigNotifier notifier;
+  final AppSettings settings;
+  final AppSettingsNotifier notifier;
 
-  const _PaletteSelector({required this.config, required this.notifier});
+  const _PaletteSelector({required this.settings, required this.notifier});
 
   @override
   Widget build(BuildContext context) {
@@ -101,11 +105,11 @@ class _PaletteSelector extends StatelessWidget {
           spacing: 10,
           runSpacing: 10,
           children: SenpwaiThemePreset.values.map((preset) {
-            final selected = preset == config.activePreset;
+            final selected = preset == settings.appearance.themePreset;
             return MouseRegion(
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
-                onTap: () => notifier.applyPreset(preset),
+                onTap: () => unawaited(notifier.setThemePreset(preset)),
                 child: Tooltip(
                   message: preset.label,
                   child: AnimatedContainer(
@@ -121,14 +125,6 @@ class _PaletteSelector extends StatelessWidget {
                             : preset.swatch.withValues(alpha: 0.3),
                         width: selected ? 3 : 1,
                       ),
-                      boxShadow: selected
-                          ? [
-                              BoxShadow(
-                                color: preset.swatch.withValues(alpha: 0.4),
-                                blurRadius: 12,
-                              ),
-                            ]
-                          : null,
                     ),
                     child: selected
                         ? Icon(
@@ -151,10 +147,10 @@ class _PaletteSelector extends StatelessWidget {
 }
 
 class _FontPicker extends StatelessWidget {
-  final ThemeConfig config;
-  final ThemeConfigNotifier notifier;
+  final AppSettings settings;
+  final AppSettingsNotifier notifier;
 
-  const _FontPicker({required this.config, required this.notifier});
+  const _FontPicker({required this.settings, required this.notifier});
 
   @override
   Widget build(BuildContext context) {
@@ -176,29 +172,25 @@ class _FontPicker extends StatelessWidget {
           children: [
             Expanded(
               child: FontAutocomplete(
-                key: ValueKey('display_${config.typography.displayFamily}'),
+                key: ValueKey(
+                  'display_${settings.appearance.displayFontFamily}',
+                ),
                 label: 'Display',
-                currentValue: config.typography.displayFamily,
+                currentValue: settings.appearance.displayFontFamily,
                 allFonts: allFonts,
-                onSelected: (v) {
-                  notifier.setTypography(
-                    config.typography.copyWith(displayFamily: v),
-                  );
-                },
+                onSelected: (value) =>
+                    unawaited(notifier.setDisplayFontFamily(value)),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: FontAutocomplete(
-                key: ValueKey('body_${config.typography.bodyFamily}'),
+                key: ValueKey('body_${settings.appearance.bodyFontFamily}'),
                 label: 'Body',
-                currentValue: config.typography.bodyFamily,
+                currentValue: settings.appearance.bodyFontFamily,
                 allFonts: allFonts,
-                onSelected: (v) {
-                  notifier.setTypography(
-                    config.typography.copyWith(bodyFamily: v),
-                  );
-                },
+                onSelected: (value) =>
+                    unawaited(notifier.setBodyFontFamily(value)),
               ),
             ),
           ],

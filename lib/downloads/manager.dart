@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:libtorrent_dart/libtorrent_dart.dart';
 import 'package:path/path.dart' as path;
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/net/download/download.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
@@ -26,6 +27,12 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
 
   @override
   DownloadManagerState build() {
+    ref.listen(AppSettingsNotifier.provider.select((s) => s.torrent), (
+      _,
+      next,
+    ) {
+      _applyTorrentSettingsToActiveSessions(next);
+    });
     ref.onDispose(_cleanup);
     return const DownloadManagerState();
   }
@@ -478,6 +485,10 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     final id = _nextId();
     final session = createSession();
     try {
+      _applyTorrentSettings(
+        session,
+        ref.read(AppSettingsNotifier.provider).torrent,
+      );
       await Directory(job.destinationDirectory).create(recursive: true);
       for (final filePath in job.selectedFilePaths) {
         await Directory(path.dirname(filePath)).create(recursive: true);
@@ -722,6 +733,21 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
       );
     });
     _mockDownloads[id] = _ActiveMockDownload(timer: timer);
+  }
+
+  void _applyTorrentSettingsToActiveSessions(TorrentPreferences settings) {
+    for (final runtime in _torrentDownloads.values) {
+      _applyTorrentSettings(runtime.session, settings);
+    }
+  }
+
+  void _applyTorrentSettings(Session session, TorrentPreferences settings) {
+    session.setDownloadRateLimit(settings.maxDownloadBytesPerSecond);
+    session.setUploadRateLimit(settings.maxUploadBytesPerSecond);
+    session.setDhtEnabled(settings.enableDht);
+    session.setLsdEnabled(settings.enableLsd);
+    session.setUpnpEnabled(settings.enableUpnp);
+    session.setNatPmpEnabled(settings.enableNatPmp);
   }
 
   String _nextBatchId() {

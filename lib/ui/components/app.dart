@@ -3,14 +3,15 @@ import 'dart:async';
 import 'package:cf_bypass/cf_bypass.dart' hide LoggerExtensions;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/downloads/manager.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/dev_config.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/ui/pages/anime_page/cf_bypass_coordinator.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
 import 'package:senpwai/ui/shared/app_error_diagnostics.dart';
-import 'package:senpwai/ui/shared/theme/theme.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page.dart';
 import 'package:senpwai/ui/pages/home_page.dart';
@@ -127,7 +128,10 @@ class App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeConfig = ref.watch(ThemeConfigNotifier.provider);
+    final themeConfig = ref
+        .watch(AppSettingsNotifier.provider)
+        .appearance
+        .toThemeConfig();
     return ToastificationWrapper(
       child: MaterialApp(
         navigatorKey: navigatorKey,
@@ -156,6 +160,14 @@ class _AppRootState extends ConsumerState<_AppRoot> {
   @override
   void initState() {
     super.initState();
+    final settings = ref.read(AppSettingsNotifier.provider);
+    ref
+        .read(AnilistNotifier.provider.notifier)
+        .updateContentSettings(
+          AnilistContentSettings(
+            showAdultContent: settings.content.showAdultContent,
+          ),
+        );
     unawaited(ref.read(AnilistNotifier.provider.notifier).initialize());
     if (kDebugMode) {
       debugPrint('SENPWAI_MOCK_DOWNLOADS=$_seedMockDownloads');
@@ -185,6 +197,15 @@ class _AppRootState extends ConsumerState<_AppRoot> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(AppSettingsNotifier.provider, (_, settings) {
+      ref
+          .read(AnilistNotifier.provider.notifier)
+          .updateContentSettings(
+            AnilistContentSettings(
+              showAdultContent: settings.content.showAdultContent,
+            ),
+          );
+    });
     final anilist = ref.watch(AnilistNotifier.provider);
     final currentPage = ref.watch(AppPageNotifier.provider);
     AppErrorDiagnostics.currentPage = currentPage.name;

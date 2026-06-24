@@ -1,7 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
@@ -124,15 +126,18 @@ class AnimeInfoHeader extends StatelessWidget {
   }
 }
 
-class _TitleBlock extends StatelessWidget {
+class _TitleBlock extends ConsumerWidget {
   final AnilistAnimeBase anime;
 
   const _TitleBlock({required this.anime});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final title = ref
+        .watch(AppSettingsNotifier.provider)
+        .displayTitle(anime.title);
     final nativeTitle = anime.title.native?.trim();
 
     return Column(
@@ -141,7 +146,7 @@ class _TitleBlock extends StatelessWidget {
       children: [
         // Title
         Text(
-          anime.title.display,
+          title,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.headlineSmall?.copyWith(
@@ -151,7 +156,7 @@ class _TitleBlock extends StatelessWidget {
         ),
         if (nativeTitle != null &&
             nativeTitle.isNotEmpty &&
-            nativeTitle != anime.title.display) ...[
+            nativeTitle != title) ...[
           const SizedBox(height: 4),
           Text(
             nativeTitle,

@@ -1,29 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/pages/settings_page/appearance_settings.dart';
+import 'package:senpwai/ui/pages/settings_page/content_download_settings.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
-import 'package:senpwai/ui/shared/theme/theme.dart';
+import 'package:senpwai/ui/pages/settings_page/source_settings_section.dart';
+import 'package:senpwai/ui/pages/settings_page/storage_settings_section.dart';
+import 'package:senpwai/ui/pages/settings_page/torrent_anilist_settings.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
-class SettingsPage extends ConsumerStatefulWidget {
+class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
-  ConsumerState<SettingsPage> createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends ConsumerState<SettingsPage> {
-  bool _notificationsEnabled = true;
-  bool _autoUpdate = false;
-  bool _nsfwFilter = true;
-  double _downloadQuality = 1;
-  String _preferredTitleLanguage = 'romaji';
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final config = ref.watch(ThemeConfigNotifier.provider);
-    final notifier = ref.read(ThemeConfigNotifier.provider.notifier);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(AppSettingsNotifier.provider);
+    final notifier = ref.read(AppSettingsNotifier.provider.notifier);
     final pad = horizontalPadding(context);
 
     return CustomScrollView(
@@ -31,150 +23,90 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(pad, 24, pad, 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 700),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SettingsSectionTitle(
-                    title: 'Appearance',
-                    icon: Icons.palette,
-                  ),
-                  const SizedBox(height: 12),
-                  AppearanceSettings(config: config, notifier: notifier),
-                  const SizedBox(height: 24),
-
-                  const SettingsSectionTitle(
-                    title: 'General',
-                    icon: Icons.tune,
-                  ),
-                  const SizedBox(height: 8),
-                  SettingsTile(
-                    icon: Icons.language,
-                    title: 'Preferred Title Language',
-                    subtitle: 'Choose which title format to display',
-                    trailing: DropdownButton<String>(
-                      value: _preferredTitleLanguage,
-                      underline: const SizedBox.shrink(),
-                      style: theme.textTheme.bodySmall,
-                      dropdownColor: theme.colorScheme.surfaceContainerHighest,
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'romaji',
-                          child: Text('Romaji'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'english',
-                          child: Text('English'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'native',
-                          child: Text('Native'),
-                        ),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() => _preferredTitleLanguage = v);
-                        }
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SettingsSectionTitle(
+                      title: 'Appearance',
+                      icon: Icons.palette_rounded,
+                    ),
+                    const SizedBox(height: 12),
+                    AppearanceSettings(settings: settings, notifier: notifier),
+                    const SizedBox(height: 24),
+                    const SettingsSectionTitle(
+                      title: 'Content and Downloads',
+                      icon: Icons.tune_rounded,
+                    ),
+                    const SizedBox(height: 8),
+                    ContentDownloadSettings(
+                      settings: settings,
+                      notifier: notifier,
+                    ),
+                    const SizedBox(height: 24),
+                    const SettingsSectionTitle(
+                      title: 'Sources',
+                      icon: Icons.source_rounded,
+                    ),
+                    const SizedBox(height: 8),
+                    SourceSettingsSection(
+                      settings: settings,
+                      notifier: notifier,
+                    ),
+                    const SizedBox(height: 24),
+                    const SettingsSectionTitle(
+                      title: 'Torrent and AniList',
+                      icon: Icons.hub_rounded,
+                    ),
+                    const SizedBox(height: 8),
+                    TorrentAnilistSettings(
+                      settings: settings,
+                      notifier: notifier,
+                    ),
+                    const SizedBox(height: 24),
+                    const SettingsSectionTitle(
+                      title: 'Storage',
+                      icon: Icons.storage_rounded,
+                    ),
+                    const SizedBox(height: 8),
+                    StorageSettingsSection(
+                      settings: settings,
+                      notifier: notifier,
+                    ),
+                    const SizedBox(height: 24),
+                    const SettingsSectionTitle(
+                      title: 'About',
+                      icon: Icons.info_outline_rounded,
+                    ),
+                    const SizedBox(height: 8),
+                    const SettingsTile(
+                      icon: Icons.code_rounded,
+                      title: 'Version',
+                      subtitle: '1.0.0',
+                    ),
+                    SettingsTile(
+                      icon: Icons.description_outlined,
+                      title: 'Licenses',
+                      subtitle: 'View open source licenses',
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () {
+                        showLicensePage(
+                          context: context,
+                          applicationName: 'Senpwai',
+                          applicationVersion: '1.0.0',
+                        );
                       },
                     ),
-                  ),
-                  SettingsTile(
-                    icon: Icons.filter_alt_outlined,
-                    title: 'NSFW Filter',
-                    subtitle: 'Hide adult content from results',
-                    trailing: Switch(
-                      value: _nsfwFilter,
-                      onChanged: (v) => setState(() => _nsfwFilter = v),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  const SettingsSectionTitle(
-                    title: 'Downloads',
-                    icon: Icons.download,
-                  ),
-                  const SizedBox(height: 8),
-                  SettingsTile(
-                    icon: Icons.high_quality,
-                    title: 'Download Quality',
-                    subtitle: _qualityLabel,
-                    trailing: SizedBox(
-                      width: 160,
-                      child: Slider(
-                        value: _downloadQuality,
-                        min: 0,
-                        max: 2,
-                        divisions: 2,
-                        label: _qualityLabel,
-                        activeColor: theme.colorScheme.primary,
-                        onChanged: (v) => setState(() => _downloadQuality = v),
-                      ),
-                    ),
-                  ),
-                  SettingsTile(
-                    icon: Icons.update,
-                    title: 'Auto-Update Downloads',
-                    subtitle: 'Automatically fetch new episodes',
-                    trailing: Switch(
-                      value: _autoUpdate,
-                      onChanged: (v) => setState(() => _autoUpdate = v),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  const SettingsSectionTitle(
-                    title: 'Notifications',
-                    icon: Icons.notifications_none,
-                  ),
-                  const SizedBox(height: 8),
-                  SettingsTile(
-                    icon: Icons.notifications_active_outlined,
-                    title: 'Push Notifications',
-                    subtitle: 'Get notified for new episodes',
-                    trailing: Switch(
-                      value: _notificationsEnabled,
-                      onChanged: (v) =>
-                          setState(() => _notificationsEnabled = v),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  const SettingsSectionTitle(
-                    title: 'About',
-                    icon: Icons.info_outline,
-                  ),
-                  const SizedBox(height: 8),
-                  const SettingsTile(
-                    icon: Icons.code,
-                    title: 'Version',
-                    subtitle: '1.0.0',
-                  ),
-                  SettingsTile(
-                    icon: Icons.description_outlined,
-                    title: 'Licenses',
-                    subtitle: 'View open source licenses',
-                    trailing: const Icon(Icons.chevron_right, size: 20),
-                    onTap: () {
-                      showLicensePage(
-                        context: context,
-                        applicationName: 'Senpwai',
-                        applicationVersion: '1.0.0',
-                      );
-                    },
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ],
     );
-  }
-
-  String get _qualityLabel {
-    if (_downloadQuality <= 0) return 'Low (480p)';
-    if (_downloadQuality <= 1) return 'Medium (720p)';
-    return 'High (1080p)';
   }
 }

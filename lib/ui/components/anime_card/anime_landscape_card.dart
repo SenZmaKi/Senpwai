@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/anime_card/card_hover_mixin.dart';
 import 'package:senpwai/ui/components/anime_card/media_list_status_dot.dart';
@@ -9,17 +11,17 @@ import 'package:senpwai/ui/components/genre_tag.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
-class AnimeLandscapeCard extends StatefulWidget {
+class AnimeLandscapeCard extends ConsumerStatefulWidget {
   final AnilistAnimeBase anime;
   final VoidCallback? onTap;
 
   const AnimeLandscapeCard({super.key, required this.anime, this.onTap});
 
   @override
-  State<AnimeLandscapeCard> createState() => _AnimeLandscapeCardState();
+  ConsumerState<AnimeLandscapeCard> createState() => _AnimeLandscapeCardState();
 }
 
-class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
+class _AnimeLandscapeCardState extends ConsumerState<AnimeLandscapeCard>
     with CardHoverMixin {
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,9 @@ class _AnimeLandscapeCardState extends State<AnimeLandscapeCard>
     final ext = theme.extension<SenpwaiThemeExtension>()!;
     final anime = widget.anime;
     final imageUrl = anime.coverImage?.best;
-    final title = anime.title.display;
+    final title = ref
+        .watch(AppSettingsNotifier.provider)
+        .displayTitle(anime.title);
     final score = anime.averageScore;
     final desc = anime.description;
 
