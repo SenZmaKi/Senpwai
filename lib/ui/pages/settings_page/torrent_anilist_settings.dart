@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:senpwai/notifications/app_notification_service.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_controls.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_formatters.dart';
@@ -96,9 +97,29 @@ class TorrentAnilistSettings extends StatelessWidget {
         SettingsTile(
           icon: Icons.notifications_none_rounded,
           title: 'Notifications',
-          subtitle: 'Download and episode notifications are planned',
-          trailing: const DisabledBadge(),
-          enabled: false,
+          subtitle: _notificationsSubtitle(settings.notifications),
+          trailing: AsyncSwitch(
+            value: settings.notifications.enabled,
+            onChanged: (enabled) => AppNotificationService.instance
+                .setEnabledFromSettings(notifier: notifier, enabled: enabled),
+          ),
+        ),
+        SettingsTile(
+          icon: Icons.stacked_bar_chart_rounded,
+          title: 'Download Notification Style',
+          subtitle: _downloadNotificationStyleSubtitle(
+            settings.notifications.downloadStyle,
+          ),
+          trailing: SettingsDropdown<DownloadNotificationStyle>(
+            value: settings.notifications.downloadStyle,
+            items: [
+              for (final value in DownloadNotificationStyle.values)
+                DropdownMenuItem(value: value, child: Text(value.label)),
+            ],
+            onChanged: (value) =>
+                unawaited(notifier.setDownloadNotificationStyle(value)),
+          ),
+          enabled: settings.notifications.enabled,
         ),
         SettingsTile(
           icon: Icons.bug_report_outlined,
@@ -137,3 +158,23 @@ class _DiscoverySwitch extends StatelessWidget {
 }
 
 int _bytesToMegabytes(int bytes) => (bytes / (1024 * 1024)).round();
+
+String _notificationsSubtitle(NotificationPreferences notifications) {
+  if (!notifications.enabled) {
+    return notifications.permissionDenied
+        ? 'Disabled after permission was denied'
+        : 'Disabled';
+  }
+  return 'Download progress and status updates';
+}
+
+String _downloadNotificationStyleSubtitle(DownloadNotificationStyle style) {
+  return switch (style) {
+    DownloadNotificationStyle.batchSummary =>
+      'Use one progress notification for the active batch',
+    DownloadNotificationStyle.eachDownload =>
+      'Show progress for every active item',
+    DownloadNotificationStyle.completionOnly =>
+      'Only notify when downloads finish or fail',
+  };
+}

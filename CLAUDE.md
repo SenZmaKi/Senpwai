@@ -1,1 +1,1 @@
-Check AGENTS.md
+@AGENTS.md

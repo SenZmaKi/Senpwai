@@ -19,6 +19,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   @override
   AppSettings build() => AppPersistence.settings;
 
+  AppSettings get currentState => state;
+
   Future<void> _commit(AppSettings next) async {
     state = next;
     await AppPersistence.settingsRepository.save(next);
@@ -204,5 +206,37 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       ),
     );
     return normalized != duration;
+  }
+
+  Future<void> setNotificationsEnabled(bool enabled) {
+    return _commit(
+      state.copyWith(
+        notifications: state.notifications.copyWith(
+          enabled: enabled,
+          permissionDenied: enabled
+              ? state.notifications.permissionDenied
+              : false,
+        ),
+      ),
+    );
+  }
+
+  Future<void> setNotificationPermissionDenied(bool denied) {
+    return _commit(
+      state.copyWith(
+        notifications: state.notifications.copyWith(
+          enabled: denied ? false : state.notifications.enabled,
+          permissionDenied: denied,
+        ),
+      ),
+    );
+  }
+
+  Future<void> setDownloadNotificationStyle(DownloadNotificationStyle style) {
+    return _commit(
+      state.copyWith(
+        notifications: state.notifications.copyWith(downloadStyle: style),
+      ),
+    );
   }
 }

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/downloads/manager.dart';
+import 'package:senpwai/notifications/app_notification_service.dart';
+import 'package:senpwai/notifications/download_notification_bridge.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/dev_config.dart';
 import 'package:senpwai/shared/net/net.dart';
@@ -50,6 +52,7 @@ Future<void> initApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   setupLogger();
   await AppPersistence.initialize();
+  await AppNotificationService.instance.initialize();
   applyDevConfig();
   _initCfBypassSolver();
   _initNetworkErrorHandling();
@@ -133,13 +136,17 @@ class App extends ConsumerWidget {
         .appearance
         .toThemeConfig();
     return ToastificationWrapper(
-      child: MaterialApp(
-        navigatorKey: navigatorKey,
-        title: 'Senpwai',
-        theme: themeConfig.buildLightTheme(),
-        darkTheme: themeConfig.buildDarkTheme(),
-        themeMode: themeConfig.themeMode,
-        home: const _AppRoot(),
+      child: DownloadNotificationBridge(
+        onOpenDownloads: () =>
+            ref.read(AppPageNotifier.provider.notifier).showDownloads(),
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          title: 'Senpwai',
+          theme: themeConfig.buildLightTheme(),
+          darkTheme: themeConfig.buildDarkTheme(),
+          themeMode: themeConfig.themeMode,
+          home: const _AppRoot(),
+        ),
       ),
     );
   }
@@ -178,6 +185,13 @@ class _AppRootState extends ConsumerState<_AppRoot> {
         ref.read(AppPageNotifier.provider.notifier).showDownloads();
       });
     }
+    Future.microtask(() {
+      unawaited(
+        AppNotificationService.instance.syncSettings(
+          ref.read(AppSettingsNotifier.provider.notifier),
+        ),
+      );
+    });
   }
 
   Future<void> _handleLogin() async {

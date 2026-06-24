@@ -18,6 +18,18 @@ enum TitleLanguagePreference {
   };
 }
 
+enum DownloadNotificationStyle {
+  batchSummary,
+  eachDownload,
+  completionOnly;
+
+  String get label => switch (this) {
+    DownloadNotificationStyle.batchSummary => 'Batch summary',
+    DownloadNotificationStyle.eachDownload => 'Each download',
+    DownloadNotificationStyle.completionOnly => 'Completion only',
+  };
+}
+
 extension AnilistTitleLanguageDisplay on TitleLanguagePreference {
   String displayTitle({
     required String? romaji,
@@ -49,6 +61,7 @@ class AppSettings {
   final TorrentPreferences torrent;
   final AnilistPreferences anilist;
   final StoragePreferences storage;
+  final NotificationPreferences notifications;
 
   const AppSettings({
     this.schemaVersion = currentSchemaVersion,
@@ -59,6 +72,7 @@ class AppSettings {
     this.torrent = const TorrentPreferences(),
     this.anilist = const AnilistPreferences(),
     this.storage = const StoragePreferences(),
+    this.notifications = const NotificationPreferences(),
   });
 
   factory AppSettings.defaults() => const AppSettings();
@@ -72,6 +86,9 @@ class AppSettings {
     torrent: TorrentPreferences.fromJson(_mapValue(json['torrent'])),
     anilist: AnilistPreferences.fromJson(_mapValue(json['anilist'])),
     storage: StoragePreferences.fromJson(_mapValue(json['storage'])),
+    notifications: NotificationPreferences.fromJson(
+      _mapValue(json['notifications']),
+    ),
   );
 
   Map<String, dynamic> toJson() => {
@@ -83,6 +100,7 @@ class AppSettings {
     'torrent': torrent.toJson(),
     'anilist': anilist.toJson(),
     'storage': storage.toJson(),
+    'notifications': notifications.toJson(),
   };
 
   String displayTitle(AnilistTitle title) => content.titleLanguage.displayTitle(
@@ -99,6 +117,7 @@ class AppSettings {
     TorrentPreferences? torrent,
     AnilistPreferences? anilist,
     StoragePreferences? storage,
+    NotificationPreferences? notifications,
   }) {
     return AppSettings(
       schemaVersion: schemaVersion,
@@ -109,6 +128,7 @@ class AppSettings {
       torrent: torrent ?? this.torrent,
       anilist: anilist ?? this.anilist,
       storage: storage ?? this.storage,
+      notifications: notifications ?? this.notifications,
     );
   }
 }
@@ -495,6 +515,48 @@ class StoragePreferences {
       httpCacheMaxAgeSeconds: httpCacheMaxAgeSeconds == null
           ? this.httpCacheMaxAgeSeconds
           : normalizeHttpCacheMaxAgeSeconds(httpCacheMaxAgeSeconds),
+    );
+  }
+}
+
+@immutable
+class NotificationPreferences {
+  final bool enabled;
+  final bool permissionDenied;
+  final DownloadNotificationStyle downloadStyle;
+
+  const NotificationPreferences({
+    this.enabled = true,
+    this.permissionDenied = false,
+    this.downloadStyle = DownloadNotificationStyle.batchSummary,
+  });
+
+  factory NotificationPreferences.fromJson(Map<String, dynamic> json) =>
+      NotificationPreferences(
+        enabled: _boolValue(json['enabled'], true),
+        permissionDenied: _boolValue(json['permissionDenied'], false),
+        downloadStyle: _enumValue(
+          DownloadNotificationStyle.values,
+          json['downloadStyle'],
+          DownloadNotificationStyle.batchSummary,
+        ),
+      );
+
+  Map<String, dynamic> toJson() => {
+    'enabled': enabled,
+    'permissionDenied': permissionDenied,
+    'downloadStyle': downloadStyle.name,
+  };
+
+  NotificationPreferences copyWith({
+    bool? enabled,
+    bool? permissionDenied,
+    DownloadNotificationStyle? downloadStyle,
+  }) {
+    return NotificationPreferences(
+      enabled: enabled ?? this.enabled,
+      permissionDenied: permissionDenied ?? this.permissionDenied,
+      downloadStyle: downloadStyle ?? this.downloadStyle,
     );
   }
 }

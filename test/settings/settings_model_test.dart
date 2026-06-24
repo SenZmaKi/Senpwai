@@ -19,6 +19,12 @@ void main() {
       expect(settings.sources.priority.first, AnimeSource.animepahe);
       expect(settings.storage.imageCacheMaxBytes, 50 * 1024 * 1024);
       expect(settings.anilist.syncWatchingToTrackedAnime, isFalse);
+      expect(settings.notifications.enabled, isTrue);
+      expect(settings.notifications.permissionDenied, isFalse);
+      expect(
+        settings.notifications.downloadStyle,
+        DownloadNotificationStyle.batchSummary,
+      );
     });
 
     test('round trips through json and tolerates unknown fields', () {
@@ -32,6 +38,11 @@ void main() {
           enabledSources: {AnimeSource.nyaa},
           priority: [AnimeSource.nyaa, AnimeSource.animepahe],
         ),
+        notifications: const NotificationPreferences(
+          enabled: false,
+          permissionDenied: true,
+          downloadStyle: DownloadNotificationStyle.eachDownload,
+        ),
       );
       final json = settings.toJson()..['futureField'] = 'ignored';
 
@@ -44,6 +55,12 @@ void main() {
       expect(decoded.content.defaultResolution, Resolution.res720p);
       expect(decoded.sources.enabledSources, {AnimeSource.nyaa});
       expect(decoded.sources.priority.first, AnimeSource.nyaa);
+      expect(decoded.notifications.enabled, isFalse);
+      expect(decoded.notifications.permissionDenied, isTrue);
+      expect(
+        decoded.notifications.downloadStyle,
+        DownloadNotificationStyle.eachDownload,
+      );
     });
 
     test('normalizes invalid HTTP cache age from json', () {
