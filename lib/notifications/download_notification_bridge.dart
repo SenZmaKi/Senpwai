@@ -8,6 +8,7 @@ import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/notifications/app_notification_service.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_formatters.dart';
+import 'package:windows_taskbar/windows_taskbar.dart';
 
 class DownloadNotificationBridge extends ConsumerStatefulWidget {
   final Widget child;
@@ -33,6 +34,9 @@ class _DownloadNotificationBridgeState
   final Set<String> _terminalBatchesNotified = {};
   final Set<int> _activeProgressNotificationIds = {};
   StreamSubscription<NotificationActionEvent>? _actionSubscription;
+  int? _lastTaskbarMode;
+  int? _lastTaskbarCompleted;
+  int? _lastTaskbarTotal;
 
   @override
   void initState() {
@@ -48,6 +52,9 @@ class _DownloadNotificationBridgeState
 
   @override
   void dispose() {
+    if (Platform.isWindows) {
+      unawaited(_setWindowsTaskbarMode(TaskbarProgressMode.noProgress));
+    }
     unawaited(_actionSubscription?.cancel());
     super.dispose();
   }
@@ -68,6 +75,7 @@ class _DownloadNotificationBridgeState
     DownloadManagerState? previous,
     DownloadManagerState next,
   ) {
+    _updateWindowsTaskbarProgress(next);
     final notificationSettings = ref.read(
       AppSettingsNotifier.provider.select((s) => s.notifications),
     );
@@ -363,6 +371,69 @@ class _DownloadNotificationBridgeState
       _activeProgressNotificationIds.remove(id);
       unawaitedNotification(AppNotificationService.instance.cancel(id));
     }
+  }
+
+  void _updateWindowsTaskbarProgress(DownloadManagerState state) {
+    if (!Platform.isWindows) return;
+    unawaited(_setWindowsTaskbarProgress(state).catchError((_) {}));
+  }
+
+  Future<void> _setWindowsTaskbarProgress(DownloadManagerState state) async {
+    final activeBatchId = state.activeBatchId;
+    final activeBatch = activeBatchId == null
+        ? null
+        : _batchById(state, activeBatchId);
+    if (activeBatch == null) {
+      await _setWindowsTaskbarMode(TaskbarProgressMode.noProgress);
+      return;
+    }
+
+    final items = _itemsForBatch(state, activeBatch);
+    final activeItems = items.where((item) => !item.status.isTerminal).toList();
+    if (items.isEmpty || activeItems.isEmpty) {
+      await _setWindowsTaskbarMode(TaskbarProgressMode.noProgress);
+      return;
+    }
+
+    final totalBytes = items.fold<int>(0, (sum, item) => sum + item.totalBytes);
+    final downloadedBytes = items.fold<int>(
+      0,
+      (sum, item) => sum + item.downloadedBytes,
+    );
+    final mode =
+        activeItems.every((item) => item.status == DownloadQueueStatus.paused)
+        ? TaskbarProgressMode.paused
+        : TaskbarProgressMode.normal;
+
+    if (totalBytes <= 0) {
+      await _setWindowsTaskbarMode(TaskbarProgressMode.indeterminate);
+      return;
+    }
+
+    final completed = downloadedBytes.clamp(0, totalBytes);
+    if (_lastTaskbarMode == mode &&
+        _lastTaskbarCompleted == completed &&
+        _lastTaskbarTotal == totalBytes) {
+      return;
+    }
+
+    await WindowsTaskbar.setProgress(completed, totalBytes);
+    await WindowsTaskbar.setProgressMode(mode);
+    _lastTaskbarMode = mode;
+    _lastTaskbarCompleted = completed;
+    _lastTaskbarTotal = totalBytes;
+  }
+
+  Future<void> _setWindowsTaskbarMode(int mode) async {
+    if (_lastTaskbarMode == mode &&
+        _lastTaskbarCompleted == null &&
+        _lastTaskbarTotal == null) {
+      return;
+    }
+    await WindowsTaskbar.setProgressMode(mode);
+    _lastTaskbarMode = mode;
+    _lastTaskbarCompleted = null;
+    _lastTaskbarTotal = null;
   }
 
   DownloadBatchQueue? _batchById(DownloadManagerState state, String id) {
