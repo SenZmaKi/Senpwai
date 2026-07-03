@@ -23,7 +23,7 @@ void main() {
       expect(settings.notifications.permissionDenied, isFalse);
       expect(
         settings.notifications.downloadStyle,
-        DownloadNotificationStyle.batchSummary,
+        DownloadNotificationStyle.batchCompletion,
       );
     });
 
@@ -41,7 +41,7 @@ void main() {
         notifications: const NotificationPreferences(
           enabled: false,
           permissionDenied: true,
-          downloadStyle: DownloadNotificationStyle.eachDownload,
+          downloadStyle: DownloadNotificationStyle.episodeCompletion,
         ),
       );
       final json = settings.toJson()..['futureField'] = 'ignored';
@@ -59,7 +59,7 @@ void main() {
       expect(decoded.notifications.permissionDenied, isTrue);
       expect(
         decoded.notifications.downloadStyle,
-        DownloadNotificationStyle.eachDownload,
+        DownloadNotificationStyle.episodeCompletion,
       );
     });
 

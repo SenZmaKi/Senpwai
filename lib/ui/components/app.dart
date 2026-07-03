@@ -33,7 +33,10 @@ class AppPageNotifier extends Notifier<AppPage> {
   );
 
   @override
-  AppPage build() => AppPage.home;
+  AppPage build() =>
+      PlatformDispatcher.instance.defaultRouteName == downloadsNotificationRoute
+      ? AppPage.downloads
+      : AppPage.home;
 
   void setPage(AppPage page) {
     state = page;
@@ -142,6 +145,7 @@ class App extends ConsumerWidget {
         child: MaterialApp(
           navigatorKey: navigatorKey,
           title: 'Senpwai',
+          initialRoute: '/',
           theme: themeConfig.buildLightTheme(),
           darkTheme: themeConfig.buildDarkTheme(),
           themeMode: themeConfig.themeMode,

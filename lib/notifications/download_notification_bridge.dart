@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,6 @@ import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/notifications/app_notification_service.dart';
 import 'package:senpwai/settings/settings.dart';
-import 'package:senpwai/shared/app_lifecycle.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_formatters.dart';
 
 class DownloadNotificationBridge extends ConsumerStatefulWidget {
@@ -61,9 +61,6 @@ class _DownloadNotificationBridgeState
     ) {
       if (!next.enabled) _cancelAllProgressNotifications();
     });
-    ref.listen(AppLifecycleNotifier.provider, (_, next) {
-      _onLifecycleChanged(next);
-    });
     return widget.child;
   }
 
@@ -78,23 +75,22 @@ class _DownloadNotificationBridgeState
       _cancelAllProgressNotifications();
       return;
     }
-    if (!_shouldShowNotifications()) {
-      _cancelAllProgressNotifications();
-      _rememberItemStatuses(next);
-      return;
-    }
-
+    if (Platform.isAndroid) return;
     _handleRemovedItems(next);
     final desiredProgressIds = switch (notificationSettings.downloadStyle) {
-      DownloadNotificationStyle.batchSummary => _handleBatchSummary(
+      DownloadNotificationStyle.batchCompletion => _handleBatchSummary(
         previous,
         next,
+        notifyTerminalBatches: true,
       ),
-      DownloadNotificationStyle.eachDownload => _handleEachDownload(next),
-      DownloadNotificationStyle.completionOnly => <int>{},
+      DownloadNotificationStyle.episodeCompletion => _handleBatchSummary(
+        previous,
+        next,
+        notifyTerminalBatches: false,
+      ),
     };
     if (notificationSettings.downloadStyle ==
-        DownloadNotificationStyle.completionOnly) {
+        DownloadNotificationStyle.episodeCompletion) {
       _handleTerminalItems(next);
     }
     _cancelObsoleteProgressNotifications(desiredProgressIds);
@@ -102,9 +98,12 @@ class _DownloadNotificationBridgeState
 
   Set<int> _handleBatchSummary(
     DownloadManagerState? previous,
-    DownloadManagerState next,
-  ) {
-    _handleTerminalBatches(previous, next);
+    DownloadManagerState next, {
+    required bool notifyTerminalBatches,
+  }) {
+    if (notifyTerminalBatches) {
+      _handleTerminalBatches(previous, next);
+    }
 
     final activeBatchId = next.activeBatchId;
     if (activeBatchId == null) return const {};
@@ -112,39 +111,23 @@ class _DownloadNotificationBridgeState
     final batch = _batchById(next, activeBatchId);
     if (batch == null) return const {};
 
-    final items = _itemsForBatch(
-      next,
-      batch,
-    ).where((item) => !item.status.isTerminal).toList();
-    if (items.isEmpty) return const {};
+    final items = _itemsForBatch(next, batch);
+    if (items.isEmpty || items.every((item) => item.status.isTerminal)) {
+      return const {};
+    }
 
     final id = _batchNotificationId(batch.id);
     _maybeShowBatchProgress(id, batch, items);
     return {id};
   }
 
-  Set<int> _handleEachDownload(DownloadManagerState next) {
-    final desiredIds = <int>{};
-    for (final item in next.items) {
-      final id = _downloadNotificationId(item.id);
-      if (item.status == DownloadQueueStatus.downloading ||
-          item.status == DownloadQueueStatus.paused) {
-        desiredIds.add(id);
-        _maybeShowItemProgress(id, item);
-        continue;
-      }
-      _handleTerminalItem(item);
-    }
-    return desiredIds;
-  }
-
   void _handleTerminalItems(DownloadManagerState next) {
     for (final item in next.items) {
-      _handleTerminalItem(item);
+      _handleTerminalItem(next, item);
     }
   }
 
-  void _handleTerminalItem(DownloadQueueItem item) {
+  void _handleTerminalItem(DownloadManagerState state, DownloadQueueItem item) {
     final previousStatus = _lastItemStatuses[item.id];
     _lastItemStatuses[item.id] = item.status;
     if (!item.status.isTerminal) return;
@@ -153,7 +136,13 @@ class _DownloadNotificationBridgeState
     _lastProgressUpdates.remove(item.id);
     final id = _downloadNotificationId(item.id);
     _activeProgressNotificationIds.remove(id);
-    unawaitedNotification(_replaceProgressWithFinalNotification(id, item));
+    unawaitedNotification(
+      _replaceProgressWithFinalNotification(
+        id,
+        item,
+        _batchById(state, item.batchId),
+      ),
+    );
   }
 
   void _handleRemovedItems(DownloadManagerState next) {
@@ -198,10 +187,10 @@ class _DownloadNotificationBridgeState
       unawaitedNotification(
         AppNotificationService.instance.showEvent(
           id: id,
-          title: failed > 0 ? 'Batch finished with errors' : 'Batch completed',
+          title: batch.title,
           body: failed > 0 || cancelled > 0
-              ? '$completed completed · $failed failed · $cancelled cancelled'
-              : batch.title,
+              ? '${failed > 0 ? 'Batch finished with errors' : 'Batch cancelled'} · $completed completed · $failed failed · $cancelled cancelled'
+              : 'Batch completed',
         ),
       );
     }
@@ -231,9 +220,10 @@ class _DownloadNotificationBridgeState
       (sum, item) => sum + item.bytesPerSecond,
     );
     final progress = totalBytes <= 0 ? 0.0 : downloadedBytes / totalBytes;
+    final activeItems = items.where((item) => !item.status.isTerminal).toList();
     final paused =
-        items.isNotEmpty &&
-        items.every((item) => item.status == DownloadQueueStatus.paused);
+        activeItems.isNotEmpty &&
+        activeItems.every((item) => item.status == DownloadQueueStatus.paused);
 
     unawaitedNotification(
       AppNotificationService.instance.showDownloadProgress(
@@ -255,59 +245,30 @@ class _DownloadNotificationBridgeState
     );
   }
 
-  void _maybeShowItemProgress(int id, DownloadQueueItem item) {
-    final now = DateTime.now();
-    final lastUpdate = _lastProgressUpdates[item.id];
-    final previousStatus = _lastItemStatuses[item.id];
-    _lastItemStatuses[item.id] = item.status;
-    final statusChanged = previousStatus != item.status;
-    final completed = item.progress >= 1;
-    final shouldUpdate =
-        lastUpdate == null ||
-        statusChanged ||
-        completed ||
-        now.difference(lastUpdate) >= _minimumProgressInterval;
-
-    if (!shouldUpdate) return;
-
-    _lastProgressUpdates[item.id] = now;
-    _activeProgressNotificationIds.add(id);
-    unawaitedNotification(
-      AppNotificationService.instance.showDownloadProgress(
-        id: id,
-        title: item.displayTitle,
-        body: _itemProgressBody(item),
-        progress: item.progress,
-        paused: item.status == DownloadQueueStatus.paused,
-        targetType: NotificationActionTargetType.download,
-        targetId: item.id,
-      ),
-    );
-  }
-
   Future<void> _replaceProgressWithFinalNotification(
     int id,
     DownloadQueueItem item,
+    DownloadBatchQueue? batch,
   ) async {
     await AppNotificationService.instance.cancel(id);
     switch (item.status) {
       case DownloadQueueStatus.completed:
         await AppNotificationService.instance.showDownloadCompleted(
           id: id,
-          title: 'Download completed',
-          body: item.displayTitle,
+          title: item.displayTitle,
+          body: _terminalEpisodeBody(item, batch),
         );
       case DownloadQueueStatus.failed:
         await AppNotificationService.instance.showDownloadFailed(
           id: id,
-          title: item.errorTitle ?? 'Download failed',
-          body: item.errorDescription ?? item.displayTitle,
+          title: item.displayTitle,
+          body: _terminalEpisodeBody(item, batch),
         );
       case DownloadQueueStatus.cancelled:
         await AppNotificationService.instance.showEvent(
           id: id,
-          title: 'Download cancelled',
-          body: item.displayTitle,
+          title: item.displayTitle,
+          body: _terminalEpisodeBody(item, batch),
         );
       case DownloadQueueStatus.preparing ||
           DownloadQueueStatus.queued ||
@@ -347,28 +308,6 @@ class _DownloadNotificationBridgeState
     }
   }
 
-  void _onLifecycleChanged(AppLifecycleState state) {
-    if (!_shouldShowNotifications(state)) {
-      _cancelAllProgressNotifications();
-      return;
-    }
-    _handleDownloadStateChanged(
-      null,
-      ref.read(DownloadManagerNotifier.provider),
-    );
-  }
-
-  bool _shouldShowNotifications([AppLifecycleState? state]) {
-    final lifecycleState = state ?? ref.read(AppLifecycleNotifier.provider);
-    return lifecycleState != AppLifecycleState.resumed;
-  }
-
-  void _rememberItemStatuses(DownloadManagerState state) {
-    for (final item in state.items) {
-      _lastItemStatuses[item.id] = item.status;
-    }
-  }
-
   String _batchProgressBody({
     required List<DownloadQueueItem> items,
     required double progress,
@@ -377,38 +316,41 @@ class _DownloadNotificationBridgeState
     required double bytesPerSecond,
     required bool paused,
   }) {
-    final activeCount = items
-        .where(
-          (item) =>
-              item.status == DownloadQueueStatus.downloading ||
-              item.status == DownloadQueueStatus.paused,
-        )
-        .length;
+    final activeCount = items.where((item) => !item.status.isTerminal).length;
+    final doneCount = items.length - activeCount;
     final percent = (progress * 100).round().clamp(0, 100);
     final downloaded = formatBytes(downloadedBytes);
     final total = totalBytes > 0 ? formatBytes(totalBytes) : 'Unknown';
+    final countText = doneCount > 0
+        ? '$activeCount active · $doneCount done'
+        : '$activeCount active';
     if (paused) {
-      return 'Paused · $activeCount items · $percent% · $downloaded / $total';
+      return 'Paused · $countText · $percent% · $downloaded / $total';
     }
     final speed = bytesPerSecond <= 0
         ? 'Starting...'
         : '${formatBytes(bytesPerSecond.round())}/s';
-    return '$activeCount items · $percent% · $downloaded / $total · $speed';
+    return '$countText · $percent% · $downloaded / $total · $speed';
   }
 
-  String _itemProgressBody(DownloadQueueItem item) {
-    final percent = (item.progress * 100).round().clamp(0, 100);
-    final downloaded = formatBytes(item.downloadedBytes);
-    final total = item.totalBytes > 0
-        ? formatBytes(item.totalBytes)
-        : 'Unknown';
-    if (item.status == DownloadQueueStatus.paused) {
-      return 'Paused at $percent% · $downloaded / $total';
-    }
-    final speed = item.bytesPerSecond <= 0
-        ? 'Starting...'
-        : '${formatBytes(item.bytesPerSecond.round())}/s';
-    return '$percent% · $downloaded / $total · $speed';
+  String _terminalEpisodeBody(
+    DownloadQueueItem item,
+    DownloadBatchQueue? batch,
+  ) {
+    final status = switch (item.status) {
+      DownloadQueueStatus.completed => 'Download completed',
+      DownloadQueueStatus.failed => item.errorTitle ?? 'Download failed',
+      DownloadQueueStatus.cancelled => 'Download cancelled',
+      _ => 'Download updated',
+    };
+    final parts = [
+      status,
+      if (batch != null) batch.title,
+      if (item.status == DownloadQueueStatus.failed &&
+          item.errorDescription != null)
+        item.errorDescription!,
+    ];
+    return parts.join(' · ');
   }
 
   void _cancelAllProgressNotifications() {

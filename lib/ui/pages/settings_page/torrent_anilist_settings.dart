@@ -170,11 +170,9 @@ String _notificationsSubtitle(NotificationPreferences notifications) {
 
 String _downloadNotificationStyleSubtitle(DownloadNotificationStyle style) {
   return switch (style) {
-    DownloadNotificationStyle.batchSummary =>
-      'Use one progress notification for the active batch',
-    DownloadNotificationStyle.eachDownload =>
-      'Show progress for every active item',
-    DownloadNotificationStyle.completionOnly =>
-      'Only notify when downloads finish or fail',
+    DownloadNotificationStyle.batchCompletion =>
+      'Show batch progress, then one batch result',
+    DownloadNotificationStyle.episodeCompletion =>
+      'Show batch progress, then episode results',
   };
 }

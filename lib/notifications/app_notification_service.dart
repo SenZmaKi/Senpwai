@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +7,10 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
+
+const backgroundNotificationActionPortName =
+    'senpwai.background_notification_action';
+const downloadsNotificationRoute = '/downloads';
 
 enum NotificationActionKind { open, pause, resume, cancel }
 
@@ -33,8 +36,6 @@ class AppNotificationService {
   static const actionPause = 'download.pause';
   static const actionResume = 'download.resume';
   static const actionCancel = 'download.cancel';
-  static const _backgroundActionPortName =
-      'senpwai.notification.backgroundActions';
   static const _downloadProgressChannelId = 'download_progress';
   static const _downloadEventsChannelId = 'download_events';
   static const _defaultWindowsProgressId = 'download-progress';
@@ -44,7 +45,6 @@ class AppNotificationService {
   final _actionController =
       StreamController<NotificationActionEvent>.broadcast();
   final List<NotificationActionEvent> _pendingActionEvents = [];
-  ReceivePort? _backgroundActionPort;
   bool _initialized = false;
 
   Stream<NotificationActionEvent> get actionStream => _actionController.stream;
@@ -53,6 +53,10 @@ class AppNotificationService {
     final events = List<NotificationActionEvent>.from(_pendingActionEvents);
     _pendingActionEvents.clear();
     return events;
+  }
+
+  void emitActionEvent(NotificationActionEvent event) {
+    _emitActionEvent(event);
   }
 
   Future<void> initialize() async {
@@ -86,7 +90,6 @@ class AppNotificationService {
       onDidReceiveBackgroundNotificationResponse:
           handleBackgroundNotificationResponse,
     );
-    _registerBackgroundActionPort();
     await _captureLaunchNotificationResponse();
     _initialized = true;
   }
@@ -157,7 +160,6 @@ class AppNotificationService {
           color: accentColor,
           colorized: true,
           category: AndroidNotificationCategory.progress,
-          actions: _downloadActions(paused: paused),
         ),
         windows: WindowsNotificationDetails(
           progressBars: [
@@ -276,48 +278,12 @@ class AppNotificationService {
     _actionController.add(event);
   }
 
-  void _registerBackgroundActionPort() {
-    if (_backgroundActionPort != null) return;
-    IsolateNameServer.removePortNameMapping(_backgroundActionPortName);
-    final port = ReceivePort();
-    _backgroundActionPort = port;
-    IsolateNameServer.registerPortWithName(
-      port.sendPort,
-      _backgroundActionPortName,
-    );
-    port.listen((message) {
-      final event = _eventFromBackgroundMessage(message);
-      if (event == null) return;
-      _emitActionEvent(event);
-    });
-  }
-
   String _payload(NotificationActionTargetType type, String id) {
     final prefix = switch (type) {
       NotificationActionTargetType.download => 'download',
       NotificationActionTargetType.batch => 'batch',
     };
     return '$prefix:$id';
-  }
-
-  List<AndroidNotificationAction> _downloadActions({required bool paused}) {
-    return [
-      AndroidNotificationAction(
-        paused ? actionResume : actionPause,
-        paused ? 'Resume' : 'Pause',
-        showsUserInterface: false,
-        cancelNotification: false,
-        semanticAction: SemanticAction.none,
-        titleColor: _notificationAccentColor(),
-      ),
-      const AndroidNotificationAction(
-        actionCancel,
-        'Cancel',
-        showsUserInterface: false,
-        cancelNotification: false,
-        semanticAction: SemanticAction.delete,
-      ),
-    ];
   }
 
   Color _notificationAccentColor() {
@@ -335,11 +301,20 @@ class AppNotificationService {
 
 @pragma('vm:entry-point')
 void handleBackgroundNotificationResponse(NotificationResponse response) {
+  DartPluginRegistrant.ensureInitialized();
+  final event = notificationActionEventFromResponse(response);
+  if (event.kind == NotificationActionKind.open) return;
+  final message = {
+    'kind': event.kind.name,
+    'targetType': event.targetType?.name,
+    'targetId': event.targetId,
+  };
   final port = IsolateNameServer.lookupPortByName(
-    AppNotificationService._backgroundActionPortName,
+    backgroundNotificationActionPortName,
   );
-  if (port == null) return;
-  port.send({'actionId': response.actionId, 'payload': response.payload});
+  if (port != null) {
+    port.send(message);
+  }
 }
 
 NotificationActionKind _actionKindFromId(String? actionId) {
@@ -351,15 +326,12 @@ NotificationActionKind _actionKindFromId(String? actionId) {
   };
 }
 
-NotificationActionEvent? _eventFromBackgroundMessage(Object? message) {
-  if (message is! Map) return null;
-  final actionId = message['actionId'];
-  final payload = message['payload'];
-  if (actionId != null && actionId is! String) return null;
-  if (payload != null && payload is! String) return null;
-  final target = _parseNotificationPayload(payload as String?);
+NotificationActionEvent notificationActionEventFromResponse(
+  NotificationResponse response,
+) {
+  final target = _parseNotificationPayload(response.payload);
   return NotificationActionEvent(
-    kind: _actionKindFromId(actionId as String?),
+    kind: _actionKindFromId(response.actionId),
     targetType: target?.type,
     targetId: target?.id,
   );

@@ -19,14 +19,12 @@ enum TitleLanguagePreference {
 }
 
 enum DownloadNotificationStyle {
-  batchSummary,
-  eachDownload,
-  completionOnly;
+  batchCompletion,
+  episodeCompletion;
 
   String get label => switch (this) {
-    DownloadNotificationStyle.batchSummary => 'Batch summary',
-    DownloadNotificationStyle.eachDownload => 'Each download',
-    DownloadNotificationStyle.completionOnly => 'Completion only',
+    DownloadNotificationStyle.batchCompletion => 'Batch completion',
+    DownloadNotificationStyle.episodeCompletion => 'Episode completion',
   };
 }
 
@@ -528,18 +526,14 @@ class NotificationPreferences {
   const NotificationPreferences({
     this.enabled = true,
     this.permissionDenied = false,
-    this.downloadStyle = DownloadNotificationStyle.batchSummary,
+    this.downloadStyle = DownloadNotificationStyle.batchCompletion,
   });
 
   factory NotificationPreferences.fromJson(Map<String, dynamic> json) =>
       NotificationPreferences(
         enabled: _boolValue(json['enabled'], true),
         permissionDenied: _boolValue(json['permissionDenied'], false),
-        downloadStyle: _enumValue(
-          DownloadNotificationStyle.values,
-          json['downloadStyle'],
-          DownloadNotificationStyle.batchSummary,
-        ),
+        downloadStyle: _downloadNotificationStyleValue(json['downloadStyle']),
       );
 
   Map<String, dynamic> toJson() => {
@@ -559,6 +553,17 @@ class NotificationPreferences {
       downloadStyle: downloadStyle ?? this.downloadStyle,
     );
   }
+}
+
+DownloadNotificationStyle _downloadNotificationStyleValue(Object? value) {
+  return switch (value) {
+    'episodeCompletion' ||
+    'eachDownload' => DownloadNotificationStyle.episodeCompletion,
+    'batchCompletion' ||
+    'batchSummary' ||
+    'completionOnly' => DownloadNotificationStyle.batchCompletion,
+    _ => DownloadNotificationStyle.batchCompletion,
+  };
 }
 
 Map<String, dynamic> nyaaFiltersToJson(NyaaManualSearchFilters filters) => {

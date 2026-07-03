@@ -71,6 +71,8 @@ dependencies:
     http_cache_file_store: ^2.0.1
     file: ^7.0.1
     flutter_local_notifications: ^22.0.1
+    flutter_foreground_task:
+        path: ../flutter_foreground_task_progress
 
 dev_dependencies:
     flutter_test:
