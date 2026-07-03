@@ -16,15 +16,17 @@ class DownloadStatusStyle {
     required this.label,
   });
 
-  factory DownloadStatusStyle.of(
-    ThemeData theme,
-    DownloadQueueStatus status,
-  ) {
+  factory DownloadStatusStyle.of(ThemeData theme, DownloadQueueStatus status) {
     final palette = theme.extension<SenpwaiThemeExtension>()!.downloadColors;
     return switch (status) {
       DownloadQueueStatus.downloading => DownloadStatusStyle(
         color: palette.downloading,
         icon: Icons.downloading_rounded,
+        label: status.label,
+      ),
+      DownloadQueueStatus.seeding => DownloadStatusStyle(
+        color: palette.downloading,
+        icon: Icons.upload_rounded,
         label: status.label,
       ),
       DownloadQueueStatus.paused => DownloadStatusStyle(

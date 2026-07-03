@@ -72,7 +72,9 @@ class BatchBigProgressBar extends StatelessWidget {
           color: style.color,
           trackColor: track,
           pulseColor: palette.pulseHighlight,
-          pulsing: snapshot.status == DownloadQueueStatus.downloading ||
+          pulsing:
+              snapshot.status == DownloadQueueStatus.downloading ||
+              snapshot.status == DownloadQueueStatus.seeding ||
               snapshot.status == DownloadQueueStatus.queued,
           borderRadius: BorderRadius.circular(barRadius),
         ),

@@ -1001,6 +1001,7 @@ String _terminalEpisodeBody(DownloadQueueItem item, DownloadBatchQueue? batch) {
     DownloadQueueStatus.completed => 'Download completed',
     DownloadQueueStatus.failed => item.errorTitle ?? 'Download failed',
     DownloadQueueStatus.cancelled => 'Download cancelled',
+    DownloadQueueStatus.seeding => 'Seeding',
     _ => 'Download updated',
   };
   final parts = [
@@ -1019,7 +1020,9 @@ _BatchNotificationStatus _batchNotificationStatus(
 ) {
   if (activeItems.isEmpty) return _terminalBatchStatus(batchItems);
   if (activeItems.any(
-    (item) => item.status == DownloadQueueStatus.downloading,
+    (item) =>
+        item.status == DownloadQueueStatus.downloading ||
+        item.status == DownloadQueueStatus.seeding,
   )) {
     return _BatchNotificationStatus.downloading;
   }

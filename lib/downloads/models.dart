@@ -22,6 +22,7 @@ enum DownloadQueueStatus {
   // implies the item was running and got stopped.
   queued,
   downloading,
+  seeding,
   paused,
   completed,
   failed,
@@ -40,6 +41,7 @@ extension DownloadQueueStatusExtension on DownloadQueueStatus {
     DownloadQueueStatus.preparing => 'Preparing',
     DownloadQueueStatus.queued => 'Queued',
     DownloadQueueStatus.downloading => 'Downloading',
+    DownloadQueueStatus.seeding => 'Seeding',
     DownloadQueueStatus.paused => 'Paused',
     DownloadQueueStatus.completed => 'Completed',
     DownloadQueueStatus.failed => 'Failed',

@@ -18,6 +18,8 @@ class DownloadBatchSnapshot {
       items.where((i) => i.status == DownloadQueueStatus.queued).length;
   int get downloadingCount =>
       items.where((i) => i.status == DownloadQueueStatus.downloading).length;
+  int get seedingCount =>
+      items.where((i) => i.status == DownloadQueueStatus.seeding).length;
   int get pausedCount =>
       items.where((i) => i.status == DownloadQueueStatus.paused).length;
 
@@ -67,6 +69,7 @@ class DownloadBatchSnapshot {
   DownloadQueueStatus get status {
     if (items.isEmpty) return DownloadQueueStatus.cancelled;
     if (downloadingCount > 0) return DownloadQueueStatus.downloading;
+    if (seedingCount > 0) return DownloadQueueStatus.seeding;
     if (pausedCount > 0) return DownloadQueueStatus.paused;
     if (queuedCount > 0) return DownloadQueueStatus.queued;
     if (failedCount > 0) return DownloadQueueStatus.failed;
@@ -82,7 +85,7 @@ class DownloadBatchSnapshot {
   bool get isTerminal =>
       items.isNotEmpty && items.every((i) => i.status.isTerminal);
 
-  bool get canPause => downloadingCount > 0;
+  bool get canPause => downloadingCount > 0 || seedingCount > 0;
   bool get canResume => pausedCount > 0;
 }
 

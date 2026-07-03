@@ -284,6 +284,7 @@ class _DownloadNotificationBridgeState
       case DownloadQueueStatus.preparing ||
           DownloadQueueStatus.queued ||
           DownloadQueueStatus.downloading ||
+          DownloadQueueStatus.seeding ||
           DownloadQueueStatus.paused:
         break;
     }

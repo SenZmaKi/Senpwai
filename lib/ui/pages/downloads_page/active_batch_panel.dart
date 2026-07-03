@@ -140,10 +140,11 @@ class _PanelHeader extends StatelessWidget {
                 snapshot.batch.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: (mobile
-                        ? theme.textTheme.titleMedium
-                        : theme.textTheme.titleLarge)
-                    ?.copyWith(fontWeight: FontWeight.w800, height: 1.15),
+                style:
+                    (mobile
+                            ? theme.textTheme.titleMedium
+                            : theme.textTheme.titleLarge)
+                        ?.copyWith(fontWeight: FontWeight.w800, height: 1.15),
               ),
               const SizedBox(height: 4),
               Text(
@@ -166,14 +167,15 @@ class _PanelHeader extends StatelessWidget {
 }
 
 String _eyebrowFor(DownloadQueueStatus status) => switch (status) {
-      DownloadQueueStatus.downloading => 'NOW DOWNLOADING',
-      DownloadQueueStatus.paused => 'PAUSED',
-      DownloadQueueStatus.queued => 'QUEUED',
-      DownloadQueueStatus.preparing => 'PREPARING',
-      DownloadQueueStatus.completed => 'COMPLETED',
-      DownloadQueueStatus.failed => 'FAILED',
-      DownloadQueueStatus.cancelled => 'CANCELLED',
-    };
+  DownloadQueueStatus.downloading => 'NOW DOWNLOADING',
+  DownloadQueueStatus.seeding => 'NOW SEEDING',
+  DownloadQueueStatus.paused => 'PAUSED',
+  DownloadQueueStatus.queued => 'QUEUED',
+  DownloadQueueStatus.preparing => 'PREPARING',
+  DownloadQueueStatus.completed => 'COMPLETED',
+  DownloadQueueStatus.failed => 'FAILED',
+  DownloadQueueStatus.cancelled => 'CANCELLED',
+};
 
 class _BatchControls extends StatelessWidget {
   final DownloadBatchSnapshot snapshot;

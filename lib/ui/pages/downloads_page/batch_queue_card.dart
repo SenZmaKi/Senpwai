@@ -35,59 +35,60 @@ class BatchQueueCard extends ConsumerWidget {
       color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(radius),
       child: Container(
-          padding: const EdgeInsets.fromLTRB(6, 12, 10, 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(
-              color: isActive
-                  ? theme.colorScheme.primary.withValues(alpha: 0.6)
-                  : (senpwai?.cardBorderColor ??
-                        theme.colorScheme.outline.withValues(alpha: 0.18)),
-              width: senpwai?.cardBorderWidth ?? 1,
-            ),
-            boxShadow: senpwai?.cardShadows,
+        padding: const EdgeInsets.fromLTRB(6, 12, 10, 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(
+            color: isActive
+                ? theme.colorScheme.primary.withValues(alpha: 0.6)
+                : (senpwai?.cardBorderColor ??
+                      theme.colorScheme.outline.withValues(alpha: 0.18)),
+            width: senpwai?.cardBorderWidth ?? 1,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              dragHandle,
-              const SizedBox(width: 8),
-              Expanded(
-                child: _Body(
-                  snapshot: snapshot,
-                  style: style,
-                  isActive: isActive,
-                ),
+          boxShadow: senpwai?.cardShadows,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            dragHandle,
+            const SizedBox(width: 8),
+            Expanded(
+              child: _Body(
+                snapshot: snapshot,
+                style: style,
+                isActive: isActive,
               ),
-              const SizedBox(width: 16),
-              if (snapshot.activeCount > 0)
-                _IconButton(
-                  icon: Icons.close_rounded,
-                  tooltip: isActive ? 'Cancel batch' : 'Remove from queue',
-                  color: theme.colorScheme.error.withValues(alpha: 0.75),
-                  onTap: () async {
-                    final confirmed = await showConfirmDialog(
-                      context,
-                      title: isActive
-                          ? 'Cancel this batch?'
-                          : 'Remove batch from queue?',
-                      message: isActive
-                          ? 'This will stop "${snapshot.batch.title}" and '
+            ),
+            const SizedBox(width: 16),
+            if (snapshot.activeCount > 0)
+              _IconButton(
+                icon: Icons.close_rounded,
+                tooltip: isActive ? 'Cancel batch' : 'Remove from queue',
+                color: theme.colorScheme.error.withValues(alpha: 0.75),
+                onTap: () async {
+                  final confirmed = await showConfirmDialog(
+                    context,
+                    title: isActive
+                        ? 'Cancel this batch?'
+                        : 'Remove batch from queue?',
+                    message: isActive
+                        ? 'This will stop "${snapshot.batch.title}" and '
                               'discard its remaining downloads. Completed '
                               'files will not be deleted.'
-                          : 'This will cancel "${snapshot.batch.title}" and '
+                        : 'This will cancel "${snapshot.batch.title}" and '
                               'discard its remaining downloads. Completed '
                               'files will not be deleted.',
-                      confirmLabel: isActive ? 'Cancel batch' : 'Remove',
-                      cancelLabel:
-                          isActive ? 'Keep downloading' : 'Keep in queue',
-                      destructive: true,
-                    );
-                    if (confirmed) notifier.cancelBatch(snapshot.batch.id);
-                  },
-                ),
-            ],
-          ),
+                    confirmLabel: isActive ? 'Cancel batch' : 'Remove',
+                    cancelLabel: isActive
+                        ? 'Keep downloading'
+                        : 'Keep in queue',
+                    destructive: true,
+                  );
+                  if (confirmed) notifier.cancelBatch(snapshot.batch.id);
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -155,21 +156,27 @@ class _Body extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Builder(builder: (context) {
-          final senpwai = Theme.of(context).extension<SenpwaiThemeExtension>()!;
-          final palette = senpwai.downloadColors;
-          final barRadius = (senpwai.cardRadius * 0.5).clamp(0, 6).toDouble();
-          return PulsingProgressBar(
-            value: snapshot.progress.clamp(0.0, 1.0),
-            height: 4,
-            color: style.color,
-            trackColor: palette.progressTrack,
-            pulseColor: palette.pulseHighlight,
-            pulsing: isActive &&
-                snapshot.status == DownloadQueueStatus.downloading,
-            borderRadius: BorderRadius.circular(barRadius),
-          );
-        }),
+        Builder(
+          builder: (context) {
+            final senpwai = Theme.of(
+              context,
+            ).extension<SenpwaiThemeExtension>()!;
+            final palette = senpwai.downloadColors;
+            final barRadius = (senpwai.cardRadius * 0.5).clamp(0, 6).toDouble();
+            return PulsingProgressBar(
+              value: snapshot.progress.clamp(0.0, 1.0),
+              height: 4,
+              color: style.color,
+              trackColor: palette.progressTrack,
+              pulseColor: palette.pulseHighlight,
+              pulsing:
+                  isActive &&
+                  (snapshot.status == DownloadQueueStatus.downloading ||
+                      snapshot.status == DownloadQueueStatus.seeding),
+              borderRadius: BorderRadius.circular(barRadius),
+            );
+          },
+        ),
       ],
     );
   }

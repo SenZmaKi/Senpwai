@@ -84,10 +84,11 @@ class _Heading extends StatelessWidget {
                 item.displayTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: (mobile
-                        ? theme.textTheme.bodySmall
-                        : theme.textTheme.bodyMedium)
-                    ?.copyWith(fontWeight: FontWeight.w700, height: 1.25),
+                style:
+                    (mobile
+                            ? theme.textTheme.bodySmall
+                            : theme.textTheme.bodyMedium)
+                        ?.copyWith(fontWeight: FontWeight.w700, height: 1.25),
               ),
               const SizedBox(height: 2),
               Text(
@@ -159,7 +160,9 @@ class _ProgressLine extends StatelessWidget {
       trackColor: palette.progressTrack,
       pulseColor: palette.pulseHighlight,
       pulsing:
-          item.status == DownloadQueueStatus.downloading || isIndeterminate,
+          item.status == DownloadQueueStatus.downloading ||
+          item.status == DownloadQueueStatus.seeding ||
+          isIndeterminate,
       borderRadius: BorderRadius.circular(barRadius),
     );
   }
@@ -175,6 +178,7 @@ class _MetricsAndControls extends ConsumerWidget {
     final notifier = ref.read(DownloadManagerNotifier.provider.notifier);
     final pct = (item.progress.clamp(0.0, 1.0) * 100).toStringAsFixed(1);
     final isDownloading = item.status == DownloadQueueStatus.downloading;
+    final isSeeding = item.status == DownloadQueueStatus.seeding;
     final isPaused = item.status == DownloadQueueStatus.paused;
     final showLive = isDownloading && item.bytesPerSecond > 0;
     final speed = showLive ? formatDownloadSpeed(item.bytesPerSecond) : '—';
@@ -234,7 +238,7 @@ class _MetricsAndControls extends ConsumerWidget {
             ],
           ),
         ),
-        if (isDownloading)
+        if (isDownloading || isSeeding)
           _IconAction(
             icon: Icons.pause_rounded,
             tooltip: 'Pause',
@@ -250,18 +254,20 @@ class _MetricsAndControls extends ConsumerWidget {
         if (!item.status.isTerminal)
           _IconAction(
             icon: Icons.close_rounded,
-            tooltip: 'Cancel',
+            tooltip: isSeeding ? 'Stop seeding' : 'Cancel',
             color: theme.colorScheme.error.withValues(alpha: 0.75),
             onTap: () async {
               final confirmed = await showConfirmDialog(
                 context,
-                title: 'Cancel this download?',
-                message:
-                    'This will stop "${item.displayTitle}" and discard its '
-                    'remaining download progress.',
-                confirmLabel: 'Cancel download',
-                cancelLabel: 'Keep downloading',
-                destructive: true,
+                title: isSeeding ? 'Stop seeding?' : 'Cancel this download?',
+                message: isSeeding
+                    ? 'This will stop sharing "${item.displayTitle}". The '
+                          'downloaded files will not be deleted.'
+                    : 'This will stop "${item.displayTitle}" and discard its '
+                          'remaining download progress.',
+                confirmLabel: isSeeding ? 'Stop seeding' : 'Cancel download',
+                cancelLabel: isSeeding ? 'Keep seeding' : 'Keep downloading',
+                destructive: !isSeeding,
               );
               if (confirmed) notifier.cancel(item.id);
             },
@@ -325,14 +331,15 @@ class _Tile extends StatelessWidget {
         SizedBox(width: mobile ? 3 : 4),
         Text(
           emphasize ? '$value%' : value,
-          style: (mobile
-                  ? theme.textTheme.labelSmall
-                  : theme.textTheme.labelMedium)
-              ?.copyWith(
-            color: color,
-            fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
+          style:
+              (mobile
+                      ? theme.textTheme.labelSmall
+                      : theme.textTheme.labelMedium)
+                  ?.copyWith(
+                    color: color,
+                    fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
         ),
       ],
     );
