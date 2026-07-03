@@ -78,14 +78,7 @@ class NyaaDownloadPlanner {
       preferredResolution: request.resolution,
       preferredLanguage: request.language,
     );
-    final requestedEpisodes = [
-      for (
-        var episode = request.startEpisode;
-        episode <= request.endEpisode;
-        episode++
-      )
-        episode,
-    ];
+    final requestedEpisodes = request.episodeNumbers;
     final notices = <DownloadNotice>[];
     final anime = request.anime;
 

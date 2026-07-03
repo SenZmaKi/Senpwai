@@ -7,6 +7,7 @@ class AppPaths {
   final Directory rootDirectory;
   final Directory settingsDirectory;
   final File settingsFile;
+  final File trackedAnimeFile;
   final Directory networkDirectory;
   final Directory networkCookiesDirectory;
   final Directory networkDioCacheDirectory;
@@ -21,6 +22,7 @@ class AppPaths {
     required this.rootDirectory,
     required this.settingsDirectory,
     required this.settingsFile,
+    required this.trackedAnimeFile,
     required this.networkDirectory,
     required this.networkCookiesDirectory,
     required this.networkDioCacheDirectory,
@@ -67,6 +69,9 @@ class AppPaths {
       settingsDirectory: settingsDirectory,
       settingsFile: File(
         path.join(settingsDirectory.path, 'app_settings.json'),
+      ),
+      trackedAnimeFile: File(
+        path.join(settingsDirectory.path, 'tracked_anime.json'),
       ),
       networkDirectory: networkDirectory,
       networkCookiesDirectory: networkCookiesDirectory,

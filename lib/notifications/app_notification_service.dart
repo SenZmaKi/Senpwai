@@ -3,10 +3,13 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
+import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
+import 'package:window_manager/window_manager.dart' as window_manager;
 
 const backgroundNotificationActionPortName =
     'senpwai.background_notification_action';
@@ -45,6 +48,8 @@ class AppNotificationService {
   final _actionController =
       StreamController<NotificationActionEvent>.broadcast();
   final List<NotificationActionEvent> _pendingActionEvents = [];
+  _NotificationPresentationObserver? _presentationObserver;
+  GlobalKey<NavigatorState>? _navigatorKey;
   bool _initialized = false;
 
   Stream<NotificationActionEvent> get actionStream => _actionController.stream;
@@ -92,6 +97,16 @@ class AppNotificationService {
     );
     await _captureLaunchNotificationResponse();
     _initialized = true;
+  }
+
+  Future<void> configurePresentation({
+    required GlobalKey<NavigatorState> navigatorKey,
+  }) async {
+    _navigatorKey = navigatorKey;
+    final observer =
+        _presentationObserver ?? _NotificationPresentationObserver();
+    _presentationObserver = observer;
+    await observer.initialize();
   }
 
   Future<void> syncSettings(AppSettingsNotifier notifier) async {
@@ -187,7 +202,7 @@ class AppNotificationService {
     required String title,
     required String body,
   }) {
-    return showEvent(id: id, title: title, body: body);
+    return showUserEvent(id: id, title: title, body: body);
   }
 
   Future<void> showDownloadFailed({
@@ -195,7 +210,27 @@ class AppNotificationService {
     required String title,
     required String body,
   }) {
-    return showEvent(id: id, title: title, body: body);
+    return showUserEvent(
+      id: id,
+      title: title,
+      body: body,
+      level: UserEventLevel.error,
+    );
+  }
+
+  Future<void> showUserEvent({
+    required int id,
+    required String title,
+    required String body,
+    UserEventLevel level = UserEventLevel.info,
+  }) async {
+    final context = _navigatorKey?.currentContext;
+    if (context != null &&
+        (_presentationObserver?.shouldUseToast ?? _fallbackShouldUseToast)) {
+      _showToast(context, title: title, body: body, level: level);
+      return;
+    }
+    await showEvent(id: id, title: title, body: body);
   }
 
   Future<void> showEvent({
@@ -296,6 +331,82 @@ class AppNotificationService {
         PlatformDispatcher.instance.platformBrightness == Brightness.dark,
     };
     return isDark ? colors.dark.primary : colors.light.primary;
+  }
+
+  bool get _fallbackShouldUseToast =>
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+
+  void _showToast(
+    BuildContext context, {
+    required String title,
+    required String body,
+    required UserEventLevel level,
+  }) {
+    switch (level) {
+      case UserEventLevel.info:
+        AppToast.showInfoDeferred(context, title: title, description: body);
+      case UserEventLevel.warning:
+        AppToast.showWarningDeferred(context, title: title, description: body);
+      case UserEventLevel.error:
+        AppToast.showErrorDeferred(context, title: title, description: body);
+    }
+  }
+}
+
+enum UserEventLevel { info, warning, error }
+
+class _NotificationPresentationObserver extends WidgetsBindingObserver
+    with window_manager.WindowListener {
+  var _lifecycleState =
+      WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed;
+  var _desktopFocused = true;
+  var _desktopVisible = true;
+  var _desktopMinimized = false;
+  var _initialized = false;
+
+  bool get shouldUseToast {
+    if (_lifecycleState != AppLifecycleState.resumed) return false;
+    if (Platform.isAndroid || Platform.isIOS) return true;
+    return _desktopFocused && _desktopVisible && !_desktopMinimized;
+  }
+
+  Future<void> initialize() async {
+    if (_initialized) return;
+    WidgetsBinding.instance.addObserver(this);
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      await window_manager.windowManager.ensureInitialized();
+      window_manager.windowManager.addListener(this);
+      _desktopFocused = await window_manager.windowManager.isFocused();
+      _desktopVisible = await window_manager.windowManager.isVisible();
+      _desktopMinimized = await window_manager.windowManager.isMinimized();
+    }
+    _initialized = true;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
+  }
+
+  @override
+  void onWindowFocus() {
+    _desktopFocused = true;
+  }
+
+  @override
+  void onWindowBlur() {
+    _desktopFocused = false;
+  }
+
+  @override
+  void onWindowMinimize() {
+    _desktopMinimized = true;
+  }
+
+  @override
+  void onWindowRestore() {
+    _desktopMinimized = false;
+    _desktopVisible = true;
   }
 }
 

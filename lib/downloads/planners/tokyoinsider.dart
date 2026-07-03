@@ -17,6 +17,10 @@ class TokyoInsiderDownloadPlanner {
     required DownloadRequest request,
     required tokyoinsider.AnimeResult? animeMatch,
   }) async {
+    final requestedEpisodes = request.episodeNumbers;
+    if (requestedEpisodes.isEmpty) {
+      return const PreparedDownloadBatch(jobs: []);
+    }
     if (animeMatch == null) {
       throw const DownloadUserError(
         title: 'TokyoInsider unavailable',
@@ -33,11 +37,7 @@ class TokyoInsiderDownloadPlanner {
       pagesByEpisode.putIfAbsent(page.episodeNumber, () => page);
     }
     final missingEpisodes = [
-      for (
-        var episode = request.startEpisode;
-        episode <= request.endEpisode;
-        episode++
-      )
+      for (final episode in requestedEpisodes)
         if (!pagesByEpisode.containsKey(episode)) episode,
     ];
     if (missingEpisodes.isNotEmpty) {
@@ -50,12 +50,7 @@ class TokyoInsiderDownloadPlanner {
 
     final notices = <DownloadNotice>[];
     final selectedPages = [
-      for (
-        var episode = request.startEpisode;
-        episode <= request.endEpisode;
-        episode++
-      )
-        pagesByEpisode[episode]!,
+      for (final episode in requestedEpisodes) pagesByEpisode[episode]!,
     ];
     final jobs = <PreparedDownloadJob>[];
     for (var index = 0; index < selectedPages.length; index++) {
@@ -120,6 +115,16 @@ class TokyoInsiderDownloadPlanner {
     final languagePool = exactLanguage.isNotEmpty
         ? exactLanguage
         : (unknownLanguage.isNotEmpty ? unknownLanguage : links);
+    if (exactLanguage.isEmpty) {
+      notices.add(
+        DownloadNotice(
+          level: DownloadNoticeLevel.warning,
+          title: 'Audio fallback',
+          description:
+              'TokyoInsider episode $episodeNumber is not available in ${request.language}; using ${languagePool.first.language ?? 'unknown audio'}.',
+        ),
+      );
+    }
 
     final exactResolution = languagePool
         .where((link) => link.resolution == request.resolution)

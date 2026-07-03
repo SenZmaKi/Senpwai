@@ -235,20 +235,67 @@ class DownloadRuntimeCodec {
   ) => {
     'maxDownloadBytesPerSecond': settings.maxDownloadBytesPerSecond,
     'maxUploadBytesPerSecond': settings.maxUploadBytesPerSecond,
+    'maxActiveDownloads': settings.maxActiveDownloads,
+    'maxActiveSeeds': settings.maxActiveSeeds,
+    'maxConnections': settings.maxConnections,
+    'seedRatioLimit': settings.seedRatioLimit,
+    'seedTimeLimitMinutes': settings.seedTimeLimitMinutes,
+    'torrentPort': settings.torrentPort,
+    'encryptionMode': settings.encryptionMode.name,
+    'anonymousMode': settings.anonymousMode,
+    'enableIncomingTcp': settings.enableIncomingTcp,
+    'enableIncomingUtp': settings.enableIncomingUtp,
+    'enableOutgoingTcp': settings.enableOutgoingTcp,
+    'enableOutgoingUtp': settings.enableOutgoingUtp,
+    'autoManagePreferSeeds': settings.autoManagePreferSeeds,
     'enableDht': settings.enableDht,
     'enableLsd': settings.enableLsd,
     'enableUpnp': settings.enableUpnp,
     'enableNatPmp': settings.enableNatPmp,
+    'proxyMode': settings.proxyMode.name,
+    'proxyHost': settings.proxyHost,
+    'proxyPort': settings.proxyPort,
+    'proxyUsername': settings.proxyUsername,
+    'proxyPassword': settings.proxyPassword,
   };
 
   static TorrentPreferences decodeTorrentSettings(Map<Object?, Object?> map) {
     return TorrentPreferences(
       maxDownloadBytesPerSecond: _int(map['maxDownloadBytesPerSecond']),
       maxUploadBytesPerSecond: _int(map['maxUploadBytesPerSecond']),
+      maxActiveDownloads: _positiveInt(map['maxActiveDownloads'], 1),
+      maxActiveSeeds: _positiveInt(map['maxActiveSeeds'], 5),
+      maxConnections: _positiveInt(map['maxConnections'], 200),
+      seedRatioLimit: _nonNegativeInt(map['seedRatioLimit'], 200),
+      seedTimeLimitMinutes: _nonNegativeInt(
+        map['seedTimeLimitMinutes'],
+        24 * 60,
+      ),
+      torrentPort: _port(map['torrentPort'], 6881),
+      encryptionMode: _enum(
+        TorrentEncryptionMode.values,
+        map['encryptionMode'],
+        TorrentEncryptionMode.enabled,
+      ),
+      anonymousMode: _bool(map['anonymousMode'], false),
+      enableIncomingTcp: _bool(map['enableIncomingTcp'], true),
+      enableIncomingUtp: _bool(map['enableIncomingUtp'], true),
+      enableOutgoingTcp: _bool(map['enableOutgoingTcp'], true),
+      enableOutgoingUtp: _bool(map['enableOutgoingUtp'], true),
+      autoManagePreferSeeds: _bool(map['autoManagePreferSeeds'], false),
       enableDht: _bool(map['enableDht'], true),
       enableLsd: _bool(map['enableLsd'], true),
       enableUpnp: _bool(map['enableUpnp'], true),
       enableNatPmp: _bool(map['enableNatPmp'], true),
+      proxyMode: _enum(
+        TorrentProxyMode.values,
+        map['proxyMode'],
+        TorrentProxyMode.none,
+      ),
+      proxyHost: _string(map['proxyHost']),
+      proxyPort: _port(map['proxyPort'], 0),
+      proxyUsername: _string(map['proxyUsername']),
+      proxyPassword: _string(map['proxyPassword']),
     );
   }
 }
@@ -268,6 +315,29 @@ int _int(Object? value) => value is int ? value : 0;
 int? _nullableInt(Object? value) => value is int ? value : null;
 
 double _double(Object? value) => value is num ? value.toDouble() : 0;
+
+int _nonNegativeInt(Object? value, int fallback) {
+  final parsed = value is int ? value : fallback;
+  return parsed < 0 ? fallback : parsed;
+}
+
+int _positiveInt(Object? value, int fallback) {
+  final parsed = value is int ? value : fallback;
+  return parsed <= 0 ? fallback : parsed;
+}
+
+int _port(Object? value, int fallback) {
+  final parsed = value is int ? value : fallback;
+  return parsed < 0 || parsed > 65535 ? fallback : parsed;
+}
+
+T _enum<T extends Enum>(List<T> values, Object? value, T fallback) {
+  if (value is! String) return fallback;
+  for (final candidate in values) {
+    if (candidate.name == value) return candidate;
+  }
+  return fallback;
+}
 
 bool _bool(Object? value, bool fallback) => value is bool ? value : fallback;
 

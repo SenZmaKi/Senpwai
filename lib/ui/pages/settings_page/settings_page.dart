@@ -7,6 +7,7 @@ import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 import 'package:senpwai/ui/pages/settings_page/source_settings_section.dart';
 import 'package:senpwai/ui/pages/settings_page/storage_settings_section.dart';
 import 'package:senpwai/ui/pages/settings_page/torrent_anilist_settings.dart';
+import 'package:senpwai/ui/pages/settings_page/tracking_settings_section.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -66,6 +67,13 @@ class SettingsPage extends ConsumerWidget {
                       settings: settings,
                       notifier: notifier,
                     ),
+                    const SizedBox(height: 24),
+                    const SettingsSectionTitle(
+                      title: 'Tracked Anime',
+                      icon: Icons.radar_rounded,
+                    ),
+                    const SizedBox(height: 8),
+                    const TrackingSettingsSection(),
                     const SizedBox(height: 24),
                     const SettingsSectionTitle(
                       title: 'Storage',

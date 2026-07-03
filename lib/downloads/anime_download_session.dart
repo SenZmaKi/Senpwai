@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
 import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
@@ -11,6 +15,7 @@ import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/platform_paths.dart';
 import 'package:senpwai/sources/shared/shared.dart';
+import 'package:senpwai/tracking/notifier.dart';
 
 enum DownloadSubmissionStage { idle, planning, reviewing, queueing }
 
@@ -56,6 +61,7 @@ class AnimeDownloadSessionState {
   final int endEpisode;
   final String? downloadFolder;
   final String resolvedDownloadTitle;
+  final Set<int> ownedEpisodes;
   final bool trackingEnabled;
   final DownloadSubmissionStage submissionStage;
   final bool sourceSelectedByUser;
@@ -74,6 +80,7 @@ class AnimeDownloadSessionState {
     this.endEpisode = 1,
     this.downloadFolder,
     this.resolvedDownloadTitle = '',
+    this.ownedEpisodes = const {},
     this.trackingEnabled = false,
     this.submissionStage = DownloadSubmissionStage.idle,
     this.sourceSelectedByUser = false,
@@ -128,6 +135,7 @@ class AnimeDownloadSessionState {
     int? endEpisode,
     String? downloadFolder,
     String? resolvedDownloadTitle,
+    Set<int>? ownedEpisodes,
     bool? trackingEnabled,
     DownloadSubmissionStage? submissionStage,
     bool? sourceSelectedByUser,
@@ -150,6 +158,7 @@ class AnimeDownloadSessionState {
       downloadFolder: downloadFolder ?? this.downloadFolder,
       resolvedDownloadTitle:
           resolvedDownloadTitle ?? this.resolvedDownloadTitle,
+      ownedEpisodes: ownedEpisodes ?? this.ownedEpisodes,
       trackingEnabled: trackingEnabled ?? this.trackingEnabled,
       submissionStage: submissionStage ?? this.submissionStage,
       sourceSelectedByUser: sourceSelectedByUser ?? this.sourceSelectedByUser,
@@ -185,6 +194,25 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   @override
   AnimeDownloadSessionState build() {
     final settings = ref.read(AppSettingsNotifier.provider);
+    final tracking = ref.read(TrackingNotifier.provider);
+    ref.listen(
+      TrackingNotifier.provider.select(
+        (trackingState) => trackingState.isTracked(_anime.id),
+      ),
+      (_, isTracked) {
+        if (state.trackingEnabled != isTracked) {
+          state = state.copyWith(trackingEnabled: isTracked);
+        }
+      },
+    );
+    ref.listen(AppSettingsNotifier.provider.select((s) => s.sources), (_, _) {
+      if (_sourceResolverOverride == null) unawaited(_resolveSources());
+    });
+    ref.listen(AppSettingsNotifier.provider.select((s) => s.downloads), (_, _) {
+      if (!state.downloadFolderSelectedByUser) {
+        unawaited(_resolveInitialLocation());
+      }
+    });
     Future.microtask(_initialize);
     return AnimeDownloadSessionState(
       anime: _anime,
@@ -192,6 +220,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       selectedLanguage: settings.content.defaultAudioLanguage,
       startEpisode: 1,
       endEpisode: _defaultAvailableEpisode,
+      trackingEnabled: tracking.isTracked(_anime.id),
       endEpisodeUsesLatest: true,
     );
   }
@@ -214,13 +243,33 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         (await defaultAnimeDownloadsRootDirectory()).path;
     final plannedLocation = await _targetPlanner.resolveAnimeLocation(
       anime: _anime,
-      downloadRoot: defaultRoot,
+      downloadRoots: settings.downloads.effectiveRootDirectories.isNotEmpty
+          ? settings.downloads.effectiveRootDirectories
+          : [defaultRoot],
+      customAnimeFolders: settings.downloads.customAnimeFolders,
     );
+    final ownedEpisodes = await _ownedEpisodes(
+      plannedLocation.episodeDirectory,
+    );
+    final highestExistingEpisode = ownedEpisodes.isEmpty
+        ? null
+        : ownedEpisodes.reduce((max, episode) => episode > max ? episode : max);
+    final availableEpisodes = state.availableEpisodes;
+    final resolvedStartEpisode =
+        highestExistingEpisode == null ||
+            availableEpisodes <= 0 ||
+            highestExistingEpisode >= availableEpisodes
+        ? state.startEpisode
+        : highestExistingEpisode + 1;
     state = state.copyWith(
       downloadFolder: state.downloadFolderSelectedByUser
           ? state.downloadFolder
           : plannedLocation.episodeDirectory,
       resolvedDownloadTitle: plannedLocation.httpJobTitle,
+      ownedEpisodes: ownedEpisodes,
+      startEpisode: state.downloadFolderSelectedByUser
+          ? state.startEpisode
+          : resolvedStartEpisode,
     );
   }
 
@@ -278,14 +327,48 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     );
   }
 
-  void setDownloadFolder(String folder) {
+  Future<void> setDownloadFolder(String folder) async {
+    final ownedEpisodes = await _ownedEpisodes(folder);
     state = state.copyWith(
       downloadFolder: folder,
       downloadFolderSelectedByUser: true,
+      ownedEpisodes: ownedEpisodes,
+    );
+    unawaited(
+      ref
+          .read(AppSettingsNotifier.provider.notifier)
+          .upsertCustomAnimeFolder(
+            animeTitle: state.anime.title.display,
+            folder: folder,
+          ),
     );
   }
 
-  void setTrackingEnabled(bool enabled) {
+  Future<void> setTrackingEnabled(bool enabled) async {
+    if (enabled) {
+      final folder = state.downloadFolder;
+      if (folder == null || folder.trim().isEmpty) {
+        throw const DownloadUserError(
+          title: 'No folder selected',
+          description: 'Choose a download folder before tracking this anime.',
+        );
+      }
+      await ref
+          .read(TrackingNotifier.provider.notifier)
+          .trackAnime(
+            anime: state.anime,
+            preferredSource: state.selectedSource,
+            sourceSelectedByUser: state.sourceSelectedByUser,
+            resolution: state.selectedResolution,
+            language: state.selectedLanguage,
+            downloadFolder: folder,
+            httpJobTitle: state.resolvedDownloadTitle,
+          );
+    } else {
+      await ref
+          .read(TrackingNotifier.provider.notifier)
+          .untrackAnime(state.anime.id);
+    }
     state = state.copyWith(trackingEnabled: enabled);
   }
 
@@ -320,6 +403,17 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       startInput: startInput,
       endInput: endInput,
     );
+    final requestedEpisodes = [
+      for (var episode = range.start; episode <= range.end; episode++)
+        if (!state.ownedEpisodes.contains(episode)) episode,
+    ];
+    if (requestedEpisodes.isEmpty) {
+      throw const DownloadUserError(
+        title: 'No missing episodes',
+        description:
+            'Every episode in that range already exists in the selected folder.',
+      );
+    }
     state = state.copyWith(
       startEpisode: range.start,
       endEpisode: range.end,
@@ -331,6 +425,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         source: source,
         startEpisode: range.start,
         endEpisode: range.end,
+        episodeNumbers: requestedEpisodes,
         downloadFolder: folder,
         httpJobTitle: state.resolvedDownloadTitle,
         resolution: state.selectedResolution,
@@ -391,6 +486,20 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       resolution: state.selectedResolution,
       language: state.selectedLanguage,
     );
+  }
+
+  Future<Set<int>> _ownedEpisodes(String folder) async {
+    final directory = Directory(folder);
+    if (!await directory.exists()) return const {};
+    final episodes = <int>[];
+    await for (final entity in directory.list(followLinks: false)) {
+      if (entity is! File) continue;
+      final fileName = entity.uri.pathSegments.last;
+      if (fileName.contains('[Downloading]')) continue;
+      final episode = anitomy_parser.parseFilename(fileName).episode;
+      if (episode != null && episode > 0) episodes.add(episode);
+    }
+    return episodes.toSet();
   }
 
   ({int start, int end}) _parseEpisodeRange({

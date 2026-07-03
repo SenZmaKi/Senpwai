@@ -802,14 +802,39 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     for (final runtime in _torrentDownloads.values) {
       _applyTorrentSettings(runtime.session, settings);
     }
+    _maybePromote();
   }
 
   @override
   void updateNotificationSettings(NotificationPreferences settings) {}
 
   void _applyTorrentSettings(Session session, TorrentPreferences settings) {
-    session.setDownloadRateLimit(settings.maxDownloadBytesPerSecond);
-    session.setUploadRateLimit(settings.maxUploadBytesPerSecond);
+    session.applyConfig(
+      SessionConfig(
+        downloadRateLimit: settings.maxDownloadBytesPerSecond,
+        uploadRateLimit: settings.maxUploadBytesPerSecond,
+        connectionsLimit: settings.maxConnections,
+        activeDownloads: settings.maxActiveDownloads,
+        activeSeeds: settings.maxActiveSeeds,
+        seedRatioLimit: settings.seedRatioLimit,
+        seedTimeLimit: Duration(minutes: settings.seedTimeLimitMinutes),
+        torrentPort: settings.torrentPort,
+        outgoingEncryptionPolicy: _encryptionPolicyValue(
+          settings.encryptionMode,
+        ),
+        incomingEncryptionPolicy: _encryptionPolicyValue(
+          settings.encryptionMode,
+        ),
+        allowedEncryptionLevel: LibtorrentEncryptionLevel.both,
+        anonymousMode: settings.anonymousMode,
+        enableIncomingTcp: settings.enableIncomingTcp,
+        enableIncomingUtp: settings.enableIncomingUtp,
+        enableOutgoingTcp: settings.enableOutgoingTcp,
+        enableOutgoingUtp: settings.enableOutgoingUtp,
+        autoManagePreferSeeds: settings.autoManagePreferSeeds,
+        proxy: _proxySetting(settings),
+      ),
+    );
     session.setDhtEnabled(settings.enableDht);
     session.setLsdEnabled(settings.enableLsd);
     session.setUpnpEnabled(settings.enableUpnp);
@@ -865,9 +890,18 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       if (!hasRunnable) continue;
       state = state.copyWith(activeBatchId: batch.id);
       var startedPending = false;
+      var torrentSlots = _torrentSlotsAvailable();
       for (final id in batch.itemIds) {
         final starter = _pendingStarters.remove(id);
         if (starter == null) continue;
+        final item = _findItem(id);
+        if (item?.isTorrent == true) {
+          if (torrentSlots <= 0) {
+            _pendingStarters[id] = starter;
+            continue;
+          }
+          torrentSlots -= 1;
+        }
         startedPending = true;
         starter();
       }
@@ -910,6 +944,13 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
   bool _isItemInActiveBatch(DownloadQueueItem item) =>
       _isActiveBatch(item.batchId);
+
+  int _torrentSlotsAvailable() {
+    final running = state.items.where((item) {
+      return item.isTorrent && item.status == DownloadQueueStatus.downloading;
+    }).length;
+    return _torrentSettings.maxActiveDownloads - running;
+  }
 
   bool _canPauseItem(String id) {
     final item = _findItem(id);
@@ -1213,4 +1254,34 @@ String _formatErrorForCopy(Object error, StackTrace stackTrace) {
       'Type: ${error.runtimeType}\n\n'
       'Stack trace:\n'
       '$stackTrace';
+}
+
+int _encryptionPolicyValue(TorrentEncryptionMode mode) {
+  return switch (mode) {
+    TorrentEncryptionMode.forced => LibtorrentEncryptionPolicy.forced,
+    TorrentEncryptionMode.enabled => LibtorrentEncryptionPolicy.enabled,
+    TorrentEncryptionMode.disabled => LibtorrentEncryptionPolicy.disabled,
+  };
+}
+
+ProxySetting _proxySetting(TorrentPreferences settings) {
+  final proxyEnabled = settings.proxyMode != TorrentProxyMode.none;
+  return ProxySetting(
+    hostname: proxyEnabled ? settings.proxyHost : '',
+    port: proxyEnabled ? settings.proxyPort : 0,
+    username: settings.proxyUsername,
+    password: settings.proxyPassword,
+    type: _proxyTypeValue(settings.proxyMode),
+  );
+}
+
+int _proxyTypeValue(TorrentProxyMode mode) {
+  return switch (mode) {
+    TorrentProxyMode.none => LibtorrentProxyType.none,
+    TorrentProxyMode.socks4 => LibtorrentProxyType.socks4,
+    TorrentProxyMode.socks5 => LibtorrentProxyType.socks5,
+    TorrentProxyMode.socks5Password => LibtorrentProxyType.socks5Password,
+    TorrentProxyMode.http => LibtorrentProxyType.http,
+    TorrentProxyMode.httpPassword => LibtorrentProxyType.httpPassword,
+  };
 }

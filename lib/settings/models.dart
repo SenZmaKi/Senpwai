@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:collection/collection.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
@@ -25,6 +26,36 @@ enum DownloadNotificationStyle {
   String get label => switch (this) {
     DownloadNotificationStyle.batchCompletion => 'Batch completion',
     DownloadNotificationStyle.episodeCompletion => 'Episode completion',
+  };
+}
+
+enum TorrentEncryptionMode {
+  enabled,
+  forced,
+  disabled;
+
+  String get label => switch (this) {
+    TorrentEncryptionMode.enabled => 'Enabled',
+    TorrentEncryptionMode.forced => 'Forced',
+    TorrentEncryptionMode.disabled => 'Disabled',
+  };
+}
+
+enum TorrentProxyMode {
+  none,
+  socks4,
+  socks5,
+  socks5Password,
+  http,
+  httpPassword;
+
+  String get label => switch (this) {
+    TorrentProxyMode.none => 'None',
+    TorrentProxyMode.socks4 => 'SOCKS4',
+    TorrentProxyMode.socks5 => 'SOCKS5',
+    TorrentProxyMode.socks5Password => 'SOCKS5 + password',
+    TorrentProxyMode.http => 'HTTP',
+    TorrentProxyMode.httpPassword => 'HTTP + password',
   };
 }
 
@@ -268,42 +299,86 @@ class ContentPreferences {
 @immutable
 class DownloadPreferences {
   final String? defaultRootDirectory;
+  final List<String> rootDirectories;
+  final List<CustomAnimeFolder> customAnimeFolders;
   final int maxDownloadBytesPerSecond;
 
   const DownloadPreferences({
     this.defaultRootDirectory,
+    this.rootDirectories = const [],
+    this.customAnimeFolders = const [],
     this.maxDownloadBytesPerSecond = 0,
   });
 
-  factory DownloadPreferences.fromJson(Map<String, dynamic> json) =>
-      DownloadPreferences(
-        defaultRootDirectory: _nullableStringValue(
-          json['defaultRootDirectory'],
-        ),
-        maxDownloadBytesPerSecond: _nonNegativeIntValue(
-          json['maxDownloadBytesPerSecond'],
-          0,
-        ),
-      );
+  factory DownloadPreferences.fromJson(Map<String, dynamic> json) {
+    final legacyRoot = _nullableStringValue(json['defaultRootDirectory']);
+    final rootDirectories = _stringListValue(json['rootDirectories']);
+    return DownloadPreferences(
+      defaultRootDirectory: legacyRoot,
+      rootDirectories: rootDirectories.isNotEmpty
+          ? rootDirectories
+          : [if (legacyRoot != null) legacyRoot],
+      customAnimeFolders: _mapListValue(json['customAnimeFolders'])
+          .map(CustomAnimeFolder.fromJson)
+          .where((folder) => folder.animeTitle.trim().isNotEmpty)
+          .toList(),
+      maxDownloadBytesPerSecond: _nonNegativeIntValue(
+        json['maxDownloadBytesPerSecond'],
+        0,
+      ),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
-    'defaultRootDirectory': defaultRootDirectory,
+    'defaultRootDirectory': effectiveRootDirectories.firstOrNull,
+    'rootDirectories': rootDirectories,
+    'customAnimeFolders': customAnimeFolders
+        .map((folder) => folder.toJson())
+        .toList(),
     'maxDownloadBytesPerSecond': maxDownloadBytesPerSecond,
   };
 
+  List<String> get effectiveRootDirectories {
+    if (rootDirectories.isNotEmpty) return rootDirectories;
+    return [if (defaultRootDirectory != null) defaultRootDirectory!];
+  }
+
   DownloadPreferences copyWith({
     String? defaultRootDirectory,
+    List<String>? rootDirectories,
+    List<CustomAnimeFolder>? customAnimeFolders,
     int? maxDownloadBytesPerSecond,
     bool clearDefaultRootDirectory = false,
   }) {
+    final nextRootDirectories = rootDirectories ?? this.rootDirectories;
     return DownloadPreferences(
       defaultRootDirectory: clearDefaultRootDirectory
           ? null
-          : (defaultRootDirectory ?? this.defaultRootDirectory),
+          : (defaultRootDirectory ??
+                nextRootDirectories.firstOrNull ??
+                this.defaultRootDirectory),
+      rootDirectories: nextRootDirectories,
+      customAnimeFolders: customAnimeFolders ?? this.customAnimeFolders,
       maxDownloadBytesPerSecond:
           maxDownloadBytesPerSecond ?? this.maxDownloadBytesPerSecond,
     );
   }
+}
+
+@immutable
+class CustomAnimeFolder {
+  final String animeTitle;
+  final String folder;
+
+  const CustomAnimeFolder({required this.animeTitle, required this.folder});
+
+  factory CustomAnimeFolder.fromJson(Map<String, dynamic> json) =>
+      CustomAnimeFolder(
+        animeTitle: _stringValue(json['animeTitle'], ''),
+        folder: _stringValue(json['folder'], ''),
+      );
+
+  Map<String, dynamic> toJson() => {'animeTitle': animeTitle, 'folder': folder};
 }
 
 @immutable
@@ -379,18 +454,54 @@ class SourcePreferences {
 class TorrentPreferences {
   final int maxDownloadBytesPerSecond;
   final int maxUploadBytesPerSecond;
+  final int maxActiveDownloads;
+  final int maxActiveSeeds;
+  final int maxConnections;
+  final int seedRatioLimit;
+  final int seedTimeLimitMinutes;
+  final int torrentPort;
+  final TorrentEncryptionMode encryptionMode;
+  final bool anonymousMode;
+  final bool enableIncomingTcp;
+  final bool enableIncomingUtp;
+  final bool enableOutgoingTcp;
+  final bool enableOutgoingUtp;
+  final bool autoManagePreferSeeds;
   final bool enableDht;
   final bool enableLsd;
   final bool enableUpnp;
   final bool enableNatPmp;
+  final TorrentProxyMode proxyMode;
+  final String proxyHost;
+  final int proxyPort;
+  final String proxyUsername;
+  final String proxyPassword;
 
   const TorrentPreferences({
     this.maxDownloadBytesPerSecond = 0,
     this.maxUploadBytesPerSecond = 0,
+    this.maxActiveDownloads = 1,
+    this.maxActiveSeeds = 5,
+    this.maxConnections = 200,
+    this.seedRatioLimit = 200,
+    this.seedTimeLimitMinutes = 24 * 60,
+    this.torrentPort = 6881,
+    this.encryptionMode = TorrentEncryptionMode.enabled,
+    this.anonymousMode = false,
+    this.enableIncomingTcp = true,
+    this.enableIncomingUtp = true,
+    this.enableOutgoingTcp = true,
+    this.enableOutgoingUtp = true,
+    this.autoManagePreferSeeds = false,
     this.enableDht = true,
     this.enableLsd = true,
     this.enableUpnp = true,
     this.enableNatPmp = true,
+    this.proxyMode = TorrentProxyMode.none,
+    this.proxyHost = '',
+    this.proxyPort = 0,
+    this.proxyUsername = '',
+    this.proxyPassword = '',
   });
 
   factory TorrentPreferences.fromJson(Map<String, dynamic> json) =>
@@ -403,38 +514,122 @@ class TorrentPreferences {
           json['maxUploadBytesPerSecond'],
           0,
         ),
+        maxActiveDownloads: _positiveIntValue(json['maxActiveDownloads'], 1),
+        maxActiveSeeds: _positiveIntValue(json['maxActiveSeeds'], 5),
+        maxConnections: _positiveIntValue(json['maxConnections'], 200),
+        seedRatioLimit: _nonNegativeIntValue(json['seedRatioLimit'], 200),
+        seedTimeLimitMinutes: _nonNegativeIntValue(
+          json['seedTimeLimitMinutes'],
+          24 * 60,
+        ),
+        torrentPort: _portValue(json['torrentPort'], 6881),
+        encryptionMode: _enumValue(
+          TorrentEncryptionMode.values,
+          json['encryptionMode'],
+          TorrentEncryptionMode.enabled,
+        ),
+        anonymousMode: _boolValue(json['anonymousMode'], false),
+        enableIncomingTcp: _boolValue(json['enableIncomingTcp'], true),
+        enableIncomingUtp: _boolValue(json['enableIncomingUtp'], true),
+        enableOutgoingTcp: _boolValue(json['enableOutgoingTcp'], true),
+        enableOutgoingUtp: _boolValue(json['enableOutgoingUtp'], true),
+        autoManagePreferSeeds: _boolValue(json['autoManagePreferSeeds'], false),
         enableDht: _boolValue(json['enableDht'], true),
         enableLsd: _boolValue(json['enableLsd'], true),
         enableUpnp: _boolValue(json['enableUpnp'], true),
         enableNatPmp: _boolValue(json['enableNatPmp'], true),
+        proxyMode: _enumValue(
+          TorrentProxyMode.values,
+          json['proxyMode'],
+          TorrentProxyMode.none,
+        ),
+        proxyHost: _stringValue(json['proxyHost'], ''),
+        proxyPort: _portValue(json['proxyPort'], 0),
+        proxyUsername: _stringValue(json['proxyUsername'], ''),
+        proxyPassword: _stringValue(json['proxyPassword'], ''),
       );
 
   Map<String, dynamic> toJson() => {
     'maxDownloadBytesPerSecond': maxDownloadBytesPerSecond,
     'maxUploadBytesPerSecond': maxUploadBytesPerSecond,
+    'maxActiveDownloads': maxActiveDownloads,
+    'maxActiveSeeds': maxActiveSeeds,
+    'maxConnections': maxConnections,
+    'seedRatioLimit': seedRatioLimit,
+    'seedTimeLimitMinutes': seedTimeLimitMinutes,
+    'torrentPort': torrentPort,
+    'encryptionMode': encryptionMode.name,
+    'anonymousMode': anonymousMode,
+    'enableIncomingTcp': enableIncomingTcp,
+    'enableIncomingUtp': enableIncomingUtp,
+    'enableOutgoingTcp': enableOutgoingTcp,
+    'enableOutgoingUtp': enableOutgoingUtp,
+    'autoManagePreferSeeds': autoManagePreferSeeds,
     'enableDht': enableDht,
     'enableLsd': enableLsd,
     'enableUpnp': enableUpnp,
     'enableNatPmp': enableNatPmp,
+    'proxyMode': proxyMode.name,
+    'proxyHost': proxyHost,
+    'proxyPort': proxyPort,
+    'proxyUsername': proxyUsername,
+    'proxyPassword': proxyPassword,
   };
 
   TorrentPreferences copyWith({
     int? maxDownloadBytesPerSecond,
     int? maxUploadBytesPerSecond,
+    int? maxActiveDownloads,
+    int? maxActiveSeeds,
+    int? maxConnections,
+    int? seedRatioLimit,
+    int? seedTimeLimitMinutes,
+    int? torrentPort,
+    TorrentEncryptionMode? encryptionMode,
+    bool? anonymousMode,
+    bool? enableIncomingTcp,
+    bool? enableIncomingUtp,
+    bool? enableOutgoingTcp,
+    bool? enableOutgoingUtp,
+    bool? autoManagePreferSeeds,
     bool? enableDht,
     bool? enableLsd,
     bool? enableUpnp,
     bool? enableNatPmp,
+    TorrentProxyMode? proxyMode,
+    String? proxyHost,
+    int? proxyPort,
+    String? proxyUsername,
+    String? proxyPassword,
   }) {
     return TorrentPreferences(
       maxDownloadBytesPerSecond:
           maxDownloadBytesPerSecond ?? this.maxDownloadBytesPerSecond,
       maxUploadBytesPerSecond:
           maxUploadBytesPerSecond ?? this.maxUploadBytesPerSecond,
+      maxActiveDownloads: maxActiveDownloads ?? this.maxActiveDownloads,
+      maxActiveSeeds: maxActiveSeeds ?? this.maxActiveSeeds,
+      maxConnections: maxConnections ?? this.maxConnections,
+      seedRatioLimit: seedRatioLimit ?? this.seedRatioLimit,
+      seedTimeLimitMinutes: seedTimeLimitMinutes ?? this.seedTimeLimitMinutes,
+      torrentPort: torrentPort ?? this.torrentPort,
+      encryptionMode: encryptionMode ?? this.encryptionMode,
+      anonymousMode: anonymousMode ?? this.anonymousMode,
+      enableIncomingTcp: enableIncomingTcp ?? this.enableIncomingTcp,
+      enableIncomingUtp: enableIncomingUtp ?? this.enableIncomingUtp,
+      enableOutgoingTcp: enableOutgoingTcp ?? this.enableOutgoingTcp,
+      enableOutgoingUtp: enableOutgoingUtp ?? this.enableOutgoingUtp,
+      autoManagePreferSeeds:
+          autoManagePreferSeeds ?? this.autoManagePreferSeeds,
       enableDht: enableDht ?? this.enableDht,
       enableLsd: enableLsd ?? this.enableLsd,
       enableUpnp: enableUpnp ?? this.enableUpnp,
       enableNatPmp: enableNatPmp ?? this.enableNatPmp,
+      proxyMode: proxyMode ?? this.proxyMode,
+      proxyHost: proxyHost ?? this.proxyHost,
+      proxyPort: proxyPort ?? this.proxyPort,
+      proxyUsername: proxyUsername ?? this.proxyUsername,
+      proxyPassword: proxyPassword ?? this.proxyPassword,
     );
   }
 }
@@ -609,6 +804,24 @@ NyaaManualSearchFilters nyaaFiltersFromJson(Map<String, dynamic> json) {
 Map<String, dynamic> _mapValue(Object? value) =>
     value is Map<String, dynamic> ? value : const {};
 
+List<Map<String, dynamic>> _mapListValue(Object? value) {
+  if (value is! List) return const [];
+  return [
+    for (final item in value)
+      if (item is Map<String, dynamic>) item,
+  ];
+}
+
+List<String> _stringListValue(Object? value) {
+  if (value is! List) return const [];
+  final strings = <String>[];
+  for (final item in value) {
+    final parsed = _nullableStringValue(item);
+    if (parsed != null && !strings.contains(parsed)) strings.add(parsed);
+  }
+  return strings;
+}
+
 String _stringValue(Object? value, String fallback) {
   if (value is String && value.trim().isNotEmpty) return value;
   return fallback;
@@ -628,6 +841,16 @@ int _intValue(Object? value, int fallback) => value is int ? value : fallback;
 int _nonNegativeIntValue(Object? value, int fallback) {
   final parsed = _intValue(value, fallback);
   return parsed < 0 ? fallback : parsed;
+}
+
+int _positiveIntValue(Object? value, int fallback) {
+  final parsed = _intValue(value, fallback);
+  return parsed <= 0 ? fallback : parsed;
+}
+
+int _portValue(Object? value, int fallback) {
+  final parsed = _intValue(value, fallback);
+  return parsed < 0 || parsed > 65535 ? fallback : parsed;
 }
 
 int? _nullableNonNegativeIntValue(Object? value) {

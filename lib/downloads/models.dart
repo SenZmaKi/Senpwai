@@ -383,19 +383,39 @@ class DownloadRequest {
   final AnimeSource source;
   final int startEpisode;
   final int endEpisode;
+  final List<int> episodeNumbers;
   final String downloadFolder;
   final String httpJobTitle;
   final Resolution resolution;
   final Language language;
 
-  const DownloadRequest({
+  DownloadRequest({
     required this.anime,
     required this.source,
     required this.startEpisode,
     required this.endEpisode,
+    List<int>? episodeNumbers,
     required this.downloadFolder,
     required this.httpJobTitle,
     required this.resolution,
     required this.language,
-  });
+  }) : episodeNumbers = _normalizedEpisodeNumbers(
+         episodeNumbers,
+         startEpisode,
+         endEpisode,
+       );
+}
+
+List<int> _normalizedEpisodeNumbers(
+  List<int>? episodeNumbers,
+  int startEpisode,
+  int endEpisode,
+) {
+  final episodes =
+      episodeNumbers ??
+      [
+        for (var episode = startEpisode; episode <= endEpisode; episode++)
+          episode,
+      ];
+  return episodes.where((episode) => episode > 0).toSet().toList()..sort();
 }

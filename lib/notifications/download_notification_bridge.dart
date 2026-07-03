@@ -192,13 +192,15 @@ class _DownloadNotificationBridgeState
           .length;
       final id = _batchNotificationId(batch.id);
       _activeProgressNotificationIds.remove(id);
+      final hasIssue = failed > 0 || cancelled > 0;
       unawaitedNotification(
-        AppNotificationService.instance.showEvent(
+        AppNotificationService.instance.showUserEvent(
           id: id,
           title: batch.title,
-          body: failed > 0 || cancelled > 0
+          body: hasIssue
               ? '${failed > 0 ? 'Batch finished with errors' : 'Batch cancelled'} · $completed completed · $failed failed · $cancelled cancelled'
               : 'Batch completed',
+          level: hasIssue ? UserEventLevel.warning : UserEventLevel.info,
         ),
       );
     }
@@ -273,10 +275,11 @@ class _DownloadNotificationBridgeState
           body: _terminalEpisodeBody(item, batch),
         );
       case DownloadQueueStatus.cancelled:
-        await AppNotificationService.instance.showEvent(
+        await AppNotificationService.instance.showUserEvent(
           id: id,
           title: item.displayTitle,
           body: _terminalEpisodeBody(item, batch),
+          level: UserEventLevel.warning,
         );
       case DownloadQueueStatus.preparing ||
           DownloadQueueStatus.queued ||

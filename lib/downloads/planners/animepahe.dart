@@ -18,6 +18,10 @@ class AnimePaheDownloadPlanner {
     required DownloadRequest request,
     required animepahe.AnimeResult? animeMatch,
   }) async {
+    final requestedEpisodes = request.episodeNumbers;
+    if (requestedEpisodes.isEmpty) {
+      return const PreparedDownloadBatch(jobs: []);
+    }
     if (animeMatch == null) {
       throw const DownloadUserError(
         title: 'AnimePahe unavailable',
@@ -28,8 +32,8 @@ class AnimePaheDownloadPlanner {
     // Must be called before any AnimePahe network request.
     await animepahe.Source.ensureInitialized();
     final pageRange = await _source.computeEpisodePageRange(
-      startEpisode: request.startEpisode,
-      endEpisode: request.endEpisode,
+      startEpisode: requestedEpisodes.first,
+      endEpisode: requestedEpisodes.last,
       animeSession: animeMatch.session,
     );
     final firstPageSessions = await _source.fetchEpisodeSessions(
@@ -59,13 +63,16 @@ class AnimePaheDownloadPlanner {
     final episodeSessions = episodeSessionsByPage
         .expand((page) => page)
         .toList();
-    final selectedSessions = _source.findEpisodeSessionsWithinRange(
-      animeSession: animeMatch.session,
-      firstEpisode: firstPageSessions.first.number,
-      startEpisode: request.startEpisode,
-      endEpisode: request.endEpisode,
-      episodeSessions: episodeSessions,
-    );
+    final selectedSessions = _source
+        .findEpisodeSessionsWithinRange(
+          animeSession: animeMatch.session,
+          firstEpisode: firstPageSessions.first.number,
+          startEpisode: requestedEpisodes.first,
+          endEpisode: requestedEpisodes.last,
+          episodeSessions: episodeSessions,
+        )
+        .where((session) => requestedEpisodes.contains(session.number))
+        .toList();
 
     final notices = <DownloadNotice>[];
     final jobs = <PreparedDownloadJob>[];

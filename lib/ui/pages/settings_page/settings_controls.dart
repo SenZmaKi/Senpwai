@@ -155,6 +155,178 @@ class _NumberSettingFieldState extends State<NumberSettingField> {
   }
 }
 
+class DecimalSettingField extends StatefulWidget {
+  final double value;
+  final String unit;
+  final double min;
+  final double? max;
+  final int fractionDigits;
+  final ValueChanged<double> onSubmitted;
+
+  const DecimalSettingField({
+    super.key,
+    required this.value,
+    required this.unit,
+    required this.onSubmitted,
+    this.min = 0,
+    this.max,
+    this.fractionDigits = 1,
+  });
+
+  @override
+  State<DecimalSettingField> createState() => _DecimalSettingFieldState();
+}
+
+class _DecimalSettingFieldState extends State<DecimalSettingField> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: _format(widget.value));
+    _focusNode = FocusNode()..addListener(_commitWhenBlurred);
+  }
+
+  @override
+  void didUpdateWidget(covariant DecimalSettingField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_focusNode.hasFocus && widget.value != oldWidget.value) {
+      _controller.text = _format(widget.value);
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_commitWhenBlurred);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 164,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textAlign: TextAlign.end,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+              ],
+              decoration: const InputDecoration(isDense: true),
+              onSubmitted: (_) => _commit(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 62,
+            child: Text(
+              widget.unit,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _commitWhenBlurred() {
+    if (!_focusNode.hasFocus) _commit();
+  }
+
+  void _commit() {
+    final parsed = double.tryParse(_controller.text.trim()) ?? widget.min;
+    final upperBound = widget.max ?? parsed;
+    final clamped = parsed.clamp(widget.min, upperBound).toDouble();
+    _controller.text = _format(clamped);
+    widget.onSubmitted(clamped);
+  }
+
+  String _format(double value) => value.toStringAsFixed(widget.fractionDigits);
+}
+
+class TextSettingField extends StatefulWidget {
+  final String value;
+  final String hintText;
+  final bool obscureText;
+  final ValueChanged<String> onSubmitted;
+
+  const TextSettingField({
+    super.key,
+    required this.value,
+    required this.onSubmitted,
+    this.hintText = '',
+    this.obscureText = false,
+  });
+
+  @override
+  State<TextSettingField> createState() => _TextSettingFieldState();
+}
+
+class _TextSettingFieldState extends State<TextSettingField> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+    _focusNode = FocusNode()..addListener(_commitWhenBlurred);
+  }
+
+  @override
+  void didUpdateWidget(covariant TextSettingField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_focusNode.hasFocus && widget.value != oldWidget.value) {
+      _controller.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_commitWhenBlurred);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 220,
+      child: TextField(
+        controller: _controller,
+        focusNode: _focusNode,
+        obscureText: widget.obscureText,
+        textAlign: TextAlign.end,
+        decoration: InputDecoration(isDense: true, hintText: widget.hintText),
+        onSubmitted: (_) => _commit(),
+      ),
+    );
+  }
+
+  void _commitWhenBlurred() {
+    if (!_focusNode.hasFocus) _commit();
+  }
+
+  void _commit() {
+    widget.onSubmitted(_controller.text.trim());
+  }
+}
+
 class DisabledBadge extends StatelessWidget {
   const DisabledBadge({super.key});
 

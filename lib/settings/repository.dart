@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 import 'package:path/path.dart' as path;
 import 'package:senpwai/settings/models.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/platform_paths.dart';
 
 final _log = Logger('senpwai.settings.repository');
 
@@ -15,7 +16,7 @@ class AppSettingsRepository {
 
   Future<AppSettings> load() async {
     if (!await file.exists()) {
-      final defaults = AppSettings.defaults();
+      final defaults = await _withDefaultDownloadRoot(AppSettings.defaults());
       await save(defaults);
       return defaults;
     }
@@ -25,7 +26,13 @@ class AppSettingsRepository {
       if (decoded is! Map<String, dynamic>) {
         throw const FormatException('Settings root must be a JSON object.');
       }
-      return AppSettings.fromJson(decoded);
+      final parsedSettings = AppSettings.fromJson(decoded);
+      final settings = await _withDefaultDownloadRoot(parsedSettings);
+      if (parsedSettings.downloads.effectiveRootDirectories.isEmpty &&
+          settings.downloads.effectiveRootDirectories.isNotEmpty) {
+        await save(settings);
+      }
+      return settings;
     } on Object catch (error, stackTrace) {
       _log.warningWithMetadata(
         'Failed to load settings; preserving corrupt settings and resetting',
@@ -36,7 +43,7 @@ class AppSettingsRepository {
         },
       );
       await _preserveCorruptFile();
-      final defaults = AppSettings.defaults();
+      final defaults = await _withDefaultDownloadRoot(AppSettings.defaults());
       await save(defaults);
       return defaults;
     }
@@ -64,5 +71,18 @@ class AppSettingsRepository {
       await corruptFile.delete();
     }
     await file.rename(corruptPath);
+  }
+
+  Future<AppSettings> _withDefaultDownloadRoot(AppSettings settings) async {
+    if (settings.downloads.effectiveRootDirectories.isNotEmpty) {
+      return settings;
+    }
+    final defaultRoot = await defaultAnimeDownloadsRootDirectory();
+    return settings.copyWith(
+      downloads: settings.downloads.copyWith(
+        defaultRootDirectory: defaultRoot.path,
+        rootDirectories: [defaultRoot.path],
+      ),
+    );
   }
 }

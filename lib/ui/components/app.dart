@@ -11,6 +11,8 @@ import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/dev_config.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
+import 'package:senpwai/tracking/models.dart';
+import 'package:senpwai/tracking/notifier.dart';
 import 'package:senpwai/ui/pages/anime_page/cf_bypass_coordinator.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
 import 'package:senpwai/ui/shared/app_error_diagnostics.dart';
@@ -56,6 +58,9 @@ Future<void> initApp() async {
   setupLogger();
   await AppPersistence.initialize();
   await AppNotificationService.instance.initialize();
+  await AppNotificationService.instance.configurePresentation(
+    navigatorKey: App.navigatorKey,
+  );
   applyDevConfig();
   _initCfBypassSolver();
   _initNetworkErrorHandling();
@@ -65,7 +70,7 @@ Future<void> initApp() async {
     final ctx = App.navigatorKey.currentContext;
     final diagnostics = buildAppErrorDiagnostics(ctx);
     if (ctx != null) {
-      AppToast.showError(
+      AppToast.showErrorDeferred(
         ctx,
         title: 'Unexpected error',
         description: details.exceptionAsString(),
@@ -82,7 +87,7 @@ Future<void> initApp() async {
     final ctx = App.navigatorKey.currentContext;
     final diagnostics = buildAppErrorDiagnostics(ctx);
     if (ctx != null) {
-      AppToast.showError(
+      AppToast.showErrorDeferred(
         ctx,
         title: 'Unhandled error',
         description: error.toString(),
@@ -224,8 +229,22 @@ class _AppRootState extends ConsumerState<_AppRoot> {
             ),
           );
     });
+    ref.listen(DownloadManagerNotifier.provider, (_, downloadState) {
+      unawaited(
+        ref
+            .read(TrackingNotifier.provider.notifier)
+            .handleDownloadState(downloadState),
+      );
+    });
+    ref.listen(
+      TrackingNotifier.provider.select((tracking) => tracking.latestEvent),
+      (_, event) {
+        if (event != null) _handleTrackingEvent(event);
+      },
+    );
     final anilist = ref.watch(AnilistNotifier.provider);
     final currentPage = ref.watch(AppPageNotifier.provider);
+    ref.watch(TrackingScheduler.provider);
     AppErrorDiagnostics.currentPage = currentPage.name;
 
     return AppShell(
@@ -243,6 +262,21 @@ class _AppRootState extends ConsumerState<_AppRoot> {
           const DownloadsPage(),
           const SettingsPage(),
         ],
+      ),
+    );
+  }
+
+  void _handleTrackingEvent(TrackingEvent event) {
+    unawaited(
+      AppNotificationService.instance.showUserEvent(
+        id: event.id.hashCode & 0x7fffffff,
+        title: event.title,
+        body: event.description,
+        level: switch (event.level) {
+          TrackingEventLevel.info => UserEventLevel.info,
+          TrackingEventLevel.warning => UserEventLevel.warning,
+          TrackingEventLevel.error => UserEventLevel.error,
+        },
       ),
     );
   }

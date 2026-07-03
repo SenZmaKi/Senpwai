@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
@@ -99,12 +100,58 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> setDefaultDownloadRoot(String? root) {
+    final roots = root == null ? const <String>[] : [root];
+    return setDownloadRootDirectories(roots);
+  }
+
+  Future<void> setDownloadRootDirectories(List<String> roots) {
+    final normalizedRoots = _uniqueNonEmptyStrings(roots);
     return _commit(
       state.copyWith(
         downloads: state.downloads.copyWith(
-          defaultRootDirectory: root,
-          clearDefaultRootDirectory: root == null,
+          defaultRootDirectory: normalizedRoots.firstOrNull,
+          rootDirectories: normalizedRoots,
+          clearDefaultRootDirectory: normalizedRoots.isEmpty,
         ),
+      ),
+    );
+  }
+
+  Future<void> addDownloadRootDirectory(String root) {
+    final normalized = root.trim();
+    if (normalized.isEmpty) return Future.value();
+    return setDownloadRootDirectories([
+      ...state.downloads.effectiveRootDirectories,
+      normalized,
+    ]);
+  }
+
+  Future<void> removeDownloadRootDirectory(String root) {
+    return setDownloadRootDirectories([
+      for (final existing in state.downloads.effectiveRootDirectories)
+        if (existing != root) existing,
+    ]);
+  }
+
+  Future<void> upsertCustomAnimeFolder({
+    required String animeTitle,
+    required String folder,
+  }) {
+    final normalizedTitle = animeTitle.trim();
+    final normalizedFolder = folder.trim();
+    if (normalizedTitle.isEmpty || normalizedFolder.isEmpty) {
+      return Future.value();
+    }
+    final nextFolders = [
+      for (final existing in state.downloads.customAnimeFolders)
+        if (_folderTitleKey(existing.animeTitle) !=
+            _folderTitleKey(normalizedTitle))
+          existing,
+      CustomAnimeFolder(animeTitle: normalizedTitle, folder: normalizedFolder),
+    ];
+    return _commit(
+      state.copyWith(
+        downloads: state.downloads.copyWith(customAnimeFolders: nextFolders),
       ),
     );
   }
@@ -155,6 +202,92 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       state.copyWith(
         torrent: state.torrent.copyWith(
           maxUploadBytesPerSecond: bytes < 0 ? 0 : bytes,
+        ),
+      ),
+    );
+  }
+
+  Future<void> setTorrentLimits({
+    int? maxActiveDownloads,
+    int? maxActiveSeeds,
+    int? maxConnections,
+    int? seedRatioLimit,
+    int? seedTimeLimitMinutes,
+    int? torrentPort,
+  }) {
+    return _commit(
+      state.copyWith(
+        torrent: state.torrent.copyWith(
+          maxActiveDownloads: maxActiveDownloads == null
+              ? null
+              : maxActiveDownloads < 1
+              ? 1
+              : maxActiveDownloads,
+          maxActiveSeeds: maxActiveSeeds == null
+              ? null
+              : maxActiveSeeds < 1
+              ? 1
+              : maxActiveSeeds,
+          maxConnections: maxConnections == null
+              ? null
+              : maxConnections < 1
+              ? 1
+              : maxConnections,
+          seedRatioLimit: seedRatioLimit == null
+              ? null
+              : seedRatioLimit < 0
+              ? 0
+              : seedRatioLimit,
+          seedTimeLimitMinutes: seedTimeLimitMinutes == null
+              ? null
+              : seedTimeLimitMinutes < 0
+              ? 0
+              : seedTimeLimitMinutes,
+          torrentPort: torrentPort?.clamp(0, 65535).toInt(),
+        ),
+      ),
+    );
+  }
+
+  Future<void> setTorrentAdvanced({
+    TorrentEncryptionMode? encryptionMode,
+    bool? anonymousMode,
+    bool? enableIncomingTcp,
+    bool? enableIncomingUtp,
+    bool? enableOutgoingTcp,
+    bool? enableOutgoingUtp,
+    bool? autoManagePreferSeeds,
+  }) {
+    return _commit(
+      state.copyWith(
+        torrent: state.torrent.copyWith(
+          encryptionMode: encryptionMode,
+          anonymousMode: anonymousMode,
+          enableIncomingTcp: enableIncomingTcp,
+          enableIncomingUtp: enableIncomingUtp,
+          enableOutgoingTcp: enableOutgoingTcp,
+          enableOutgoingUtp: enableOutgoingUtp,
+          autoManagePreferSeeds: autoManagePreferSeeds,
+        ),
+      ),
+    );
+  }
+
+  Future<void> setTorrentProxy({
+    TorrentProxyMode? proxyMode,
+    String? proxyHost,
+    int? proxyPort,
+    String? proxyUsername,
+    String? proxyPassword,
+  }) {
+    return _commit(
+      state.copyWith(
+        torrent: state.torrent.copyWith(
+          proxyMode: proxyMode,
+          proxyHost: proxyHost,
+          proxyPort: proxyPort?.clamp(0, 65535).toInt(),
+          proxyUsername: proxyUsername,
+          proxyPassword: proxyPassword,
         ),
       ),
     );
@@ -240,3 +373,17 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 }
+
+List<String> _uniqueNonEmptyStrings(List<String> values) {
+  final normalized = <String>[];
+  for (final value in values) {
+    final trimmed = value.trim();
+    if (trimmed.isNotEmpty && !normalized.contains(trimmed)) {
+      normalized.add(trimmed);
+    }
+  }
+  return normalized;
+}
+
+String _folderTitleKey(String value) =>
+    value.toLowerCase().replaceAll(RegExp(r'[\s._-]+'), '');

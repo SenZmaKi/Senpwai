@@ -8,11 +8,15 @@ import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/shared/persistence/cf_bypass_session_store.dart';
 import 'package:senpwai/shared/persistence/secure_token_store.dart';
+import 'package:senpwai/tracking/models.dart';
+import 'package:senpwai/tracking/repository.dart';
 
 class AppPersistence {
   static AppPaths? _paths;
   static AppSettingsRepository? _settingsRepository;
   static AppSettings? _settings;
+  static TrackingRepository? _trackingRepository;
+  static List<TrackedAnime>? _trackedAnime;
   static CfBypassSessionStore? _cfBypassSessionStore;
   static SecureTokenStore? _secureTokenStore;
 
@@ -40,6 +44,29 @@ class AppPersistence {
       throw StateError('AppPersistence.initialize must be called first.');
     }
     return resolved;
+  }
+
+  static TrackingRepository get trackingRepository {
+    final resolved = _trackingRepository;
+    if (resolved == null) {
+      throw StateError('AppPersistence.initialize must be called first.');
+    }
+    return resolved;
+  }
+
+  static List<TrackedAnime> get trackedAnime {
+    final resolved = _trackedAnime;
+    if (resolved == null) {
+      throw StateError('AppPersistence.initialize must be called first.');
+    }
+    return resolved;
+  }
+
+  static set trackedAnime(List<TrackedAnime> value) {
+    if (_trackedAnime == null) {
+      throw StateError('AppPersistence.initialize must be called first.');
+    }
+    _trackedAnime = value;
   }
 
   static AppSettings get settings {
@@ -75,12 +102,18 @@ class AppPersistence {
       file: initializedPaths.settingsFile,
     );
     final loadedSettings = await settingsRepository.load();
+    final trackingRepository = TrackingRepository(
+      file: initializedPaths.trackedAnimeFile,
+    );
+    final loadedTrackedAnime = await trackingRepository.load();
     final cfStore = CfBypassSessionStore(file: initializedPaths.cfSessionsFile);
     const tokenStore = SecureTokenStore();
 
     _paths = initializedPaths;
     _settingsRepository = settingsRepository;
     _settings = loadedSettings;
+    _trackingRepository = trackingRepository;
+    _trackedAnime = loadedTrackedAnime;
     _cfBypassSessionStore = cfStore;
     _secureTokenStore = tokenStore;
 

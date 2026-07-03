@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:path/path.dart' as path;
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
+import 'package:senpwai/settings/models.dart';
 import 'package:senpwai/shared/platform_paths.dart';
 
 class ResolvedAnimeDownloadLocation {
@@ -48,9 +49,17 @@ class DownloadTargetPlanner {
 
   Future<ResolvedAnimeDownloadLocation> resolveAnimeLocation({
     required AnilistAnimeBase anime,
-    required String downloadRoot,
+    required List<String> downloadRoots,
+    List<CustomAnimeFolder> customAnimeFolders = const [],
   }) async {
-    final rootDirectory = path.normalize(downloadRoot);
+    final rootDirectories = [
+      for (final root in downloadRoots)
+        if (root.trim().isNotEmpty) path.normalize(root),
+    ];
+    if (rootDirectories.isEmpty) {
+      rootDirectories.add((await defaultDownloadRootDirectory()).path);
+    }
+    final rootDirectory = rootDirectories.first;
     final titleCandidates = _titleCandidates(anime.title);
     final parsedCandidates = titleCandidates
         .map(_parseAnimeTitle)
@@ -63,62 +72,84 @@ class DownloadTargetPlanner {
       anime.title.english ?? anime.title.display,
     );
 
-    for (final parsed in parsedCandidates) {
-      final existingSeriesDirectory = await _detectChildDirectory(
-        Directory(rootDirectory),
-        [parsed.baseTitle],
-      );
-      if (existingSeriesDirectory != null) {
-        final existingEpisodeDirectory = await _detectExistingEpisodeDirectory(
-          parentSeriesDirectory: existingSeriesDirectory,
-          parsed: parsed,
-          directFolderCandidates: directFolderCandidates,
+    for (final customFolder in customAnimeFolders) {
+      if (_matchesCustomFolder(customFolder, titleCandidates)) {
+        final customPath = path.normalize(customFolder.folder);
+        final customTitle = sanitizePathSegment(customFolder.animeTitle);
+        return ResolvedAnimeDownloadLocation(
+          rootDirectory: path.dirname(customPath),
+          seriesDirectory: customPath,
+          episodeDirectory: customPath,
+          seriesTitle: customTitle,
+          httpJobTitle: customTitle,
+          seasonNumber: null,
+          variantFolderName: null,
         );
-        if (existingEpisodeDirectory != null) {
+      }
+    }
+
+    for (final parsed in parsedCandidates) {
+      for (final root in rootDirectories) {
+        final existingSeriesDirectory = await _detectChildDirectory(
+          Directory(root),
+          [parsed.baseTitle],
+        );
+        if (existingSeriesDirectory != null) {
+          final existingEpisodeDirectory =
+              await _detectExistingEpisodeDirectory(
+                parentSeriesDirectory: existingSeriesDirectory,
+                parsed: parsed,
+                directFolderCandidates: directFolderCandidates,
+              );
+          if (existingEpisodeDirectory != null) {
+            return ResolvedAnimeDownloadLocation(
+              rootDirectory: root,
+              seriesDirectory: existingSeriesDirectory.path,
+              episodeDirectory: existingEpisodeDirectory.path,
+              seriesTitle: parsed.baseTitle,
+              httpJobTitle: parsed.baseTitle,
+              seasonNumber: parsed.seasonNumber,
+              variantFolderName: parsed.variantFolderName,
+            );
+          }
+          final defaultEpisodeDirectory = _defaultEpisodeDirectory(
+            baseSeriesDirectory: existingSeriesDirectory.path,
+            parsed: parsed,
+          );
           return ResolvedAnimeDownloadLocation(
-            rootDirectory: rootDirectory,
+            rootDirectory: root,
             seriesDirectory: existingSeriesDirectory.path,
-            episodeDirectory: existingEpisodeDirectory.path,
+            episodeDirectory: defaultEpisodeDirectory,
             seriesTitle: parsed.baseTitle,
             httpJobTitle: parsed.baseTitle,
             seasonNumber: parsed.seasonNumber,
             variantFolderName: parsed.variantFolderName,
           );
         }
-        final defaultEpisodeDirectory = _defaultEpisodeDirectory(
-          baseSeriesDirectory: existingSeriesDirectory.path,
-          parsed: parsed,
-        );
-        return ResolvedAnimeDownloadLocation(
-          rootDirectory: rootDirectory,
-          seriesDirectory: existingSeriesDirectory.path,
-          episodeDirectory: defaultEpisodeDirectory,
-          seriesTitle: parsed.baseTitle,
-          httpJobTitle: parsed.baseTitle,
-          seasonNumber: parsed.seasonNumber,
-          variantFolderName: parsed.variantFolderName,
-        );
       }
     }
 
     String? matchedTitleCandidate;
     for (final candidate in titleCandidates) {
-      final directMatch = await _detectChildDirectory(
-        Directory(rootDirectory),
-        [sanitizePathSegment(candidate)],
-      );
-      if (directMatch == null) continue;
-      matchedTitleCandidate = candidate;
-      final sanitizedMatchedTitle = sanitizePathSegment(matchedTitleCandidate);
-      return ResolvedAnimeDownloadLocation(
-        rootDirectory: rootDirectory,
-        seriesDirectory: directMatch.path,
-        episodeDirectory: directMatch.path,
-        seriesTitle: sanitizedMatchedTitle,
-        httpJobTitle: sanitizedMatchedTitle,
-        seasonNumber: null,
-        variantFolderName: null,
-      );
+      for (final root in rootDirectories) {
+        final directMatch = await _detectChildDirectory(Directory(root), [
+          sanitizePathSegment(candidate),
+        ]);
+        if (directMatch == null) continue;
+        matchedTitleCandidate = candidate;
+        final sanitizedMatchedTitle = sanitizePathSegment(
+          matchedTitleCandidate,
+        );
+        return ResolvedAnimeDownloadLocation(
+          rootDirectory: root,
+          seriesDirectory: directMatch.path,
+          episodeDirectory: directMatch.path,
+          seriesTitle: sanitizedMatchedTitle,
+          httpJobTitle: sanitizedMatchedTitle,
+          seasonNumber: null,
+          variantFolderName: null,
+        );
+      }
     }
 
     final parsed = parsedCandidates.firstOrNull;
@@ -352,6 +383,17 @@ class DownloadTargetPlanner {
   static String _normalizeForMatch(String value) {
     final sanitized = sanitizePathSegment(value).toLowerCase();
     return sanitized.replaceAll(RegExp(r'[\s._-]+'), '');
+  }
+
+  static bool _matchesCustomFolder(
+    CustomAnimeFolder folder,
+    List<String> titleCandidates,
+  ) {
+    final customTitle = _normalizeForMatch(folder.animeTitle);
+    if (customTitle.isEmpty) return false;
+    return titleCandidates.any(
+      (candidate) => _normalizeForMatch(candidate) == customTitle,
+    );
   }
 }
 

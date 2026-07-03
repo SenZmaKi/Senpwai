@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as path;
 import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/ui/components/app.dart';
@@ -120,7 +122,8 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
                     const SizedBox(width: 2),
                     Switch(
                       value: state.trackingEnabled,
-                      onChanged: notifier.setTrackingEnabled,
+                      onChanged: (enabled) =>
+                          unawaited(_setTrackingEnabled(context, enabled)),
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ],
@@ -385,11 +388,37 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
   }
 
   Future<void> _pickFolder(BuildContext context) async {
+    final initialDirectory = await _folderPickerInitialDirectory(
+      widget.pageState.downloadFolder,
+    );
     final result = await FilePicker.platform.getDirectoryPath(
       dialogTitle: 'Choose download folder',
+      initialDirectory: initialDirectory,
     );
     if (result != null) {
-      widget.notifier.setDownloadFolder(result);
+      await widget.notifier.setDownloadFolder(result);
+    }
+  }
+
+  Future<void> _setTrackingEnabled(BuildContext context, bool enabled) async {
+    try {
+      await widget.notifier.setTrackingEnabled(enabled);
+    } on DownloadUserError catch (error) {
+      if (!context.mounted) return;
+      AppToast.showError(
+        context,
+        title: error.title,
+        description: error.description,
+        copyPayload: error.copyPayload,
+      );
+    } on Object catch (error, stackTrace) {
+      if (!context.mounted) return;
+      AppToast.showError(
+        context,
+        title: 'Tracking failed',
+        description: error.toString(),
+        copyPayload: formatErrorForCopy(error, stackTrace),
+      );
     }
   }
 
@@ -407,9 +436,8 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
         notifier.resetSubmissionStage();
         return;
       }
-      final isNyaa = preparedBatch.jobs.any(
-            (j) => j.source == AnimeSource.nyaa,
-          ) ||
+      final isNyaa =
+          preparedBatch.jobs.any((j) => j.source == AnimeSource.nyaa) ||
           preparedBatch.nyaaEpisodeIssues.isNotEmpty;
       if (isNyaa) {
         notifier.setSubmissionStage(DownloadSubmissionStage.reviewing);
@@ -479,6 +507,18 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       }
     }
   }
+}
+
+Future<String?> _folderPickerInitialDirectory(String? targetFolder) async {
+  final folder = targetFolder?.trim();
+  if (folder == null || folder.isEmpty) return null;
+  var directory = Directory(folder);
+  while (!await directory.exists()) {
+    final parent = path.dirname(directory.path);
+    if (parent == directory.path) return null;
+    directory = Directory(parent);
+  }
+  return directory.path;
 }
 
 // ── Quick info sidebar (removed) ──────────────────────────────────────────────

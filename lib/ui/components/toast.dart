@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:toastification/toastification.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
@@ -21,12 +22,40 @@ class AppToast {
     );
   }
 
+  static void showErrorDeferred(
+    BuildContext context, {
+    required String title,
+    String? description,
+    String? copyPayload,
+  }) {
+    _showDeferred(
+      context,
+      type: ToastificationType.error,
+      title: title,
+      description: description,
+      copyPayload: copyPayload,
+    );
+  }
+
   static ToastificationItem showWarning(
     BuildContext context, {
     required String title,
     String? description,
   }) {
     return _show(
+      context,
+      type: ToastificationType.warning,
+      title: title,
+      description: description,
+    );
+  }
+
+  static void showWarningDeferred(
+    BuildContext context, {
+    required String title,
+    String? description,
+  }) {
+    _showDeferred(
       context,
       type: ToastificationType.warning,
       title: title,
@@ -45,6 +74,38 @@ class AppToast {
       title: title,
       description: description,
     );
+  }
+
+  static void showInfoDeferred(
+    BuildContext context, {
+    required String title,
+    String? description,
+  }) {
+    _showDeferred(
+      context,
+      type: ToastificationType.info,
+      title: title,
+      description: description,
+    );
+  }
+
+  static void _showDeferred(
+    BuildContext context, {
+    required ToastificationType type,
+    required String title,
+    String? description,
+    String? copyPayload,
+  }) {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      _show(
+        context,
+        type: type,
+        title: title,
+        description: description,
+        copyPayload: copyPayload,
+      );
+    });
   }
 
   static ToastificationItem _show(
