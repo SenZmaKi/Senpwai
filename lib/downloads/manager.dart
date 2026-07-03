@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/android_foreground_runtime.dart';
 import 'package:senpwai/downloads/in_process_runtime.dart';
+import 'package:senpwai/downloads/isolate_runtime.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/components/app.dart';
@@ -28,7 +29,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
             initialNotificationSettings: settings.notifications,
             onError: _showGlobalError,
           )
-        : InProcessDownloadRuntime(
+        : DownloadIsolateRuntime(
             initialTorrentSettings: settings.torrent,
             onError: _showGlobalError,
           );
