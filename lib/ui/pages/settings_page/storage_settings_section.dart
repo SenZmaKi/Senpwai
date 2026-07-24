@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/notifications/app_notification_service.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
@@ -13,11 +14,13 @@ import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 class StorageSettingsSection extends ConsumerStatefulWidget {
   final AppSettings settings;
   final AppSettingsNotifier notifier;
+  final String? searchQuery;
 
   const StorageSettingsSection({
     super.key,
     required this.settings,
     required this.notifier,
+    this.searchQuery,
   });
 
   @override
@@ -41,95 +44,181 @@ class _StorageSettingsSectionState
 
   @override
   Widget build(BuildContext context) {
+    final sq = widget.searchQuery;
     return FutureBuilder<AppStorageUsage>(
       future: _usageFuture,
       builder: (context, snapshot) {
         final usage = snapshot.data;
+        final notifications = widget.settings.notifications;
+
         return Column(
           children: [
-            SettingsTile(
-              icon: Icons.image_outlined,
-              title: 'Image Cache Limit',
-              subtitle:
-                  '${_imageCacheLimitLabel(widget.settings.storage.imageCacheMaxBytes)} · Current usage: ${_size(usage?.imageCacheBytes)}',
-              trailing: NumberSettingField(
-                value: _bytesToMegabytes(
-                  widget.settings.storage.imageCacheMaxBytes,
+            SettingsGroupCard(
+              title: 'Notifications',
+              icon: Icons.notifications_outlined,
+              description: 'App status updates and download completion alerts',
+              searchQuery: sq,
+              children: [
+                SettingsTile(
+                  icon: Icons.notifications_none_rounded,
+                  title: 'System Notifications',
+                  subtitle: _notificationsSubtitle(notifications),
+                  searchQuery: sq,
+                  trailing: AsyncSwitch(
+                    value: notifications.enabled,
+                    onChanged: (enabled) => AppNotificationService.instance
+                        .setEnabledFromSettings(
+                          notifier: widget.notifier,
+                          enabled: enabled,
+                        ),
+                  ),
                 ),
-                min: 0,
-                unit: 'MB',
-                onSubmitted: (value) => unawaited(
-                  widget.notifier.setImageCacheMaxBytes(megabytes(value)),
+                SettingsTile(
+                  icon: Icons.stacked_bar_chart_rounded,
+                  title: 'Download Notification Style',
+                  subtitle: _downloadNotificationStyleSubtitle(
+                    notifications.downloadStyle,
+                  ),
+                  searchQuery: sq,
+                  trailing: SettingsDropdown<DownloadNotificationStyle>(
+                    value: notifications.downloadStyle,
+                    items: [
+                      for (final value in DownloadNotificationStyle.values)
+                        DropdownMenuItem(value: value, child: Text(value.label)),
+                    ],
+                    onChanged: (value) => unawaited(
+                      widget.notifier.setDownloadNotificationStyle(value),
+                    ),
+                  ),
+                  enabled: notifications.enabled,
                 ),
-              ),
+              ],
             ),
-            SettingsTile(
-              icon: Icons.http_rounded,
-              title: 'HTTP Cache Age',
-              subtitle: 'Current usage: ${_size(usage?.httpCacheBytes)}',
-              trailing: NumberSettingField(
-                value: widget.settings.storage.httpCacheMaxAge.inHours,
-                min: -999999,
-                allowNegative: true,
-                resetToken: _httpCacheAgeResetToken,
-                unit: 'hours',
-                onSubmitted: (value) => unawaited(_setHttpCacheAge(value)),
-              ),
-            ),
-            SettingsTile(
-              icon: Icons.delete_sweep_outlined,
-              title: 'Clear Image Cache',
-              subtitle: _size(usage?.imageCacheBytes),
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: () => unawaited(
-                _confirmAndRun(
-                  title: 'Clear image cache?',
-                  message:
-                      'Cached covers and banners will be downloaded again.',
-                  action: AppPersistence.clearImageCache,
+            SettingsGroupCard(
+              title: 'Storage & Memory Cache',
+              icon: Icons.storage_rounded,
+              description: 'Manage cache limits and clear disk usage',
+              searchQuery: sq,
+              children: [
+                SettingsTile(
+                  icon: Icons.image_outlined,
+                  title: 'Image Cache Limit',
+                  subtitle:
+                      '${_imageCacheLimitLabel(widget.settings.storage.imageCacheMaxBytes)} · Usage: ${_size(usage?.imageCacheBytes)}',
+                  searchQuery: sq,
+                  trailing: NumberSettingField(
+                    value: _bytesToMegabytes(
+                      widget.settings.storage.imageCacheMaxBytes,
+                    ),
+                    min: 0,
+                    unit: 'MB',
+                    onSubmitted: (value) => unawaited(
+                      widget.notifier.setImageCacheMaxBytes(megabytes(value)),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            SettingsTile(
-              icon: Icons.cleaning_services_outlined,
-              title: 'Clear HTTP Cache',
-              subtitle: _size(usage?.httpCacheBytes),
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: () => unawaited(
-                _confirmAndRun(
-                  title: 'Clear HTTP cache?',
-                  message: 'Cached network responses will be removed.',
-                  action: AppPersistence.clearHttpCache,
+                SettingsTile(
+                  icon: Icons.http_rounded,
+                  title: 'HTTP Cache Age',
+                  subtitle: 'Usage: ${_size(usage?.httpCacheBytes)}',
+                  searchQuery: sq,
+                  trailing: NumberSettingField(
+                    value: widget.settings.storage.httpCacheMaxAge.inHours,
+                    min: -999999,
+                    allowNegative: true,
+                    resetToken: _httpCacheAgeResetToken,
+                    unit: 'hours',
+                    onSubmitted: (value) => unawaited(_setHttpCacheAge(value)),
+                  ),
                 ),
-              ),
-            ),
-            SettingsTile(
-              icon: Icons.cloud_off_outlined,
-              title: 'Clear Cloudflare Sessions',
-              subtitle: _size(usage?.cloudflareSessionBytes),
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: () => unawaited(
-                _confirmAndRun(
-                  title: 'Clear Cloudflare sessions?',
-                  message:
-                      'Cloudflare cookies and bypass sessions will be removed.',
-                  action: AppPersistence.clearNetworkSession,
+                SettingsTile(
+                  icon: Icons.delete_sweep_outlined,
+                  title: 'Clear Image Cache',
+                  subtitle: _size(usage?.imageCacheBytes),
+                  searchQuery: sq,
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => unawaited(
+                    _confirmAndRun(
+                      title: 'Clear image cache?',
+                      message:
+                          'Cached covers and banners will be downloaded again.',
+                      action: AppPersistence.clearImageCache,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            SettingsTile(
-              icon: Icons.layers_clear_outlined,
-              title: 'Clear App Cache and Sessions',
-              subtitle: _size(usage?.appCacheAndSessionBytes),
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: () => unawaited(
-                _confirmAndRun(
-                  title: 'Clear app cache and sessions?',
-                  message:
-                      'This keeps settings, AniList login, and downloaded anime.',
-                  action: AppPersistence.clearAppCacheAndSessions,
+                SettingsTile(
+                  icon: Icons.cleaning_services_outlined,
+                  title: 'Clear HTTP Cache',
+                  subtitle: _size(usage?.httpCacheBytes),
+                  searchQuery: sq,
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => unawaited(
+                    _confirmAndRun(
+                      title: 'Clear HTTP cache?',
+                      message: 'Cached network responses will be removed.',
+                      action: AppPersistence.clearHttpCache,
+                    ),
+                  ),
                 ),
-              ),
+                SettingsTile(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'Clear Cloudflare Sessions',
+                  subtitle: _size(usage?.cloudflareSessionBytes),
+                  searchQuery: sq,
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => unawaited(
+                    _confirmAndRun(
+                      title: 'Clear Cloudflare sessions?',
+                      message:
+                          'Cloudflare cookies and bypass sessions will be removed.',
+                      action: AppPersistence.clearNetworkSession,
+                    ),
+                  ),
+                ),
+                SettingsTile(
+                  icon: Icons.layers_clear_outlined,
+                  title: 'Clear App Cache & Sessions',
+                  subtitle: _size(usage?.appCacheAndSessionBytes),
+                  searchQuery: sq,
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => unawaited(
+                    _confirmAndRun(
+                      title: 'Clear app cache and sessions?',
+                      message:
+                          'This keeps settings, AniList login, and downloaded anime.',
+                      action: AppPersistence.clearAppCacheAndSessions,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SettingsGroupCard(
+              title: 'About Senpwai',
+              icon: Icons.info_outline_rounded,
+              description: 'Version information and third-party software licenses',
+              searchQuery: sq,
+              children: [
+                SettingsTile(
+                  icon: Icons.code_rounded,
+                  title: 'Version',
+                  subtitle: '1.0.0',
+                  searchQuery: sq,
+                ),
+                SettingsTile(
+                  icon: Icons.description_outlined,
+                  title: 'Licenses',
+                  subtitle: 'View open source licenses',
+                  searchQuery: sq,
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () {
+                    showLicensePage(
+                      context: context,
+                      applicationName: 'Senpwai',
+                      applicationVersion: '1.0.0',
+                    );
+                  },
+                ),
+              ],
             ),
           ],
         );
@@ -177,3 +266,21 @@ int _bytesToMegabytes(int bytes) => (bytes / (1024 * 1024)).round();
 
 String _imageCacheLimitLabel(int bytes) =>
     bytes == 0 ? 'Unlimited' : 'Limit: ${formatBytes(bytes)}';
+
+String _notificationsSubtitle(NotificationPreferences notifications) {
+  if (!notifications.enabled) {
+    return notifications.permissionDenied
+        ? 'Disabled after permission was denied'
+        : 'Disabled';
+  }
+  return 'Download progress and status updates';
+}
+
+String _downloadNotificationStyleSubtitle(DownloadNotificationStyle style) {
+  return switch (style) {
+    DownloadNotificationStyle.batchCompletion =>
+      'Show batch progress, then one batch result',
+    DownloadNotificationStyle.episodeCompletion =>
+      'Show batch progress, then episode results',
+  };
+}

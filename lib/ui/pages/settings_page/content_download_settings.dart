@@ -14,98 +14,131 @@ import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 class ContentDownloadSettings extends StatelessWidget {
   final AppSettings settings;
   final AppSettingsNotifier notifier;
+  final String? searchQuery;
 
   const ContentDownloadSettings({
     super.key,
     required this.settings,
     required this.notifier,
+    this.searchQuery,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        SettingsTile(
-          icon: Icons.language_rounded,
-          title: 'Title Language',
-          subtitle: 'Preferred title display with automatic fallbacks',
-          trailing: SettingsDropdown<TitleLanguagePreference>(
-            value: settings.content.titleLanguage,
-            items: [
-              for (final value in TitleLanguagePreference.values)
-                DropdownMenuItem(value: value, child: Text(value.label)),
-            ],
-            onChanged: (value) => unawaited(notifier.setTitleLanguage(value)),
-          ),
-        ),
-        SettingsTile(
-          icon: Icons.visibility_off_outlined,
-          title: 'Adult Content',
-          subtitle: 'Show adult entries in AniList results',
-          trailing: AsyncSwitch(
-            value: settings.content.showAdultContent,
-            onChanged: notifier.setShowAdultContent,
-          ),
-        ),
-        SettingsTile(
-          icon: Icons.high_quality_rounded,
-          title: 'Default Resolution',
-          subtitle: 'Initial resolution selected on anime pages',
-          trailing: SettingsDropdown<Resolution>(
-            value: settings.content.defaultResolution,
-            items:
-                const [
-                      Resolution.res1080p,
-                      Resolution.res720p,
-                      Resolution.res480p,
-                      Resolution.res360p,
-                    ]
-                    .map(
-                      (value) =>
-                          DropdownMenuItem(value: value, child: Text('$value')),
-                    )
-                    .toList(),
-            onChanged: (value) =>
-                unawaited(notifier.setDefaultResolution(value)),
-          ),
-        ),
-        SettingsTile(
-          icon: Icons.record_voice_over_rounded,
-          title: 'Default Audio',
-          subtitle: 'Initial audio language selected on anime pages',
-          trailing: SettingsDropdown<Language>(
-            value: settings.content.defaultAudioLanguage,
-            items: [
-              for (final value in Language.values)
-                DropdownMenuItem(value: value, child: Text(value.toString())),
-            ],
-            onChanged: (value) =>
-                unawaited(notifier.setDefaultAudioLanguage(value)),
-          ),
-        ),
-        _AnimeLibraryFoldersTile(
-          folders: settings.downloads.effectiveRootDirectories,
-          onAdd: () => unawaited(_addAnimeLibraryFolder(context)),
-          onRemove: (folder) =>
-              unawaited(notifier.removeDownloadRootDirectory(folder)),
-          onReorder: (folders) =>
-              unawaited(notifier.setDownloadRootDirectories(folders)),
-        ),
-        SettingsTile(
-          icon: Icons.speed_rounded,
-          title: 'HTTP Download Limit',
-          subtitle: formatSpeedLimit(
-            settings.downloads.maxDownloadBytesPerSecond,
-          ),
-          trailing: NumberSettingField(
-            value: _bytesToMegabytes(
-              settings.downloads.maxDownloadBytesPerSecond,
+        SettingsGroupCard(
+          title: 'Media Preferences',
+          icon: Icons.movie_filter_outlined,
+          description: 'Default resolution, audio language, and title display',
+          searchQuery: searchQuery,
+          children: [
+            SettingsTile(
+              icon: Icons.language_rounded,
+              title: 'Title Language',
+              subtitle: 'Preferred title display with automatic fallbacks',
+              searchQuery: searchQuery,
+              trailing: SettingsDropdown<TitleLanguagePreference>(
+                value: settings.content.titleLanguage,
+                items: [
+                  for (final value in TitleLanguagePreference.values)
+                    DropdownMenuItem(value: value, child: Text(value.label)),
+                ],
+                onChanged: (value) =>
+                    unawaited(notifier.setTitleLanguage(value)),
+              ),
             ),
-            unit: 'MB/s',
-            onSubmitted: (value) => unawaited(
-              notifier.setHttpMaxDownloadBytesPerSecond(megabytes(value)),
+            SettingsTile(
+              icon: Icons.high_quality_rounded,
+              title: 'Default Resolution',
+              subtitle: 'Initial resolution selected on anime pages',
+              searchQuery: searchQuery,
+              trailing: SettingsDropdown<Resolution>(
+                value: settings.content.defaultResolution,
+                items:
+                    const [
+                          Resolution.res1080p,
+                          Resolution.res720p,
+                          Resolution.res480p,
+                          Resolution.res360p,
+                        ]
+                        .map(
+                          (value) => DropdownMenuItem(
+                            value: value,
+                            child: Text('$value'),
+                          ),
+                        )
+                        .toList(),
+                onChanged: (value) =>
+                    unawaited(notifier.setDefaultResolution(value)),
+              ),
             ),
-          ),
+            SettingsTile(
+              icon: Icons.record_voice_over_rounded,
+              title: 'Default Audio',
+              subtitle: 'Initial audio language selected on anime pages',
+              searchQuery: searchQuery,
+              trailing: SettingsDropdown<Language>(
+                value: settings.content.defaultAudioLanguage,
+                items: [
+                  for (final value in Language.values)
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(value.toString()),
+                    ),
+                ],
+                onChanged: (value) =>
+                    unawaited(notifier.setDefaultAudioLanguage(value)),
+              ),
+            ),
+            SettingsTile(
+              icon: Icons.visibility_off_outlined,
+              title: 'Adult Content',
+              subtitle: 'Show adult entries in AniList results',
+              searchQuery: searchQuery,
+              trailing: AsyncSwitch(
+                value: settings.content.showAdultContent,
+                onChanged: notifier.setShowAdultContent,
+              ),
+            ),
+          ],
+        ),
+        SettingsGroupCard(
+          title: 'Storage & Network Limit',
+          icon: Icons.folder_special_outlined,
+          description: 'Manage download destination folders and speed limit',
+          searchQuery: searchQuery,
+          searchTerms: [
+            'Anime Library Folders add remove reorder folder directory path',
+            ...settings.downloads.effectiveRootDirectories,
+          ],
+          children: [
+            _AnimeLibraryFoldersTile(
+              folders: settings.downloads.effectiveRootDirectories,
+              onAdd: () => unawaited(_addAnimeLibraryFolder(context)),
+              onRemove: (folder) =>
+                  unawaited(notifier.removeDownloadRootDirectory(folder)),
+              onReorder: (folders) =>
+                  unawaited(notifier.setDownloadRootDirectories(folders)),
+            ),
+            SettingsTile(
+              icon: Icons.speed_rounded,
+              title: 'HTTP Download Limit',
+              subtitle: formatSpeedLimit(
+                settings.downloads.maxDownloadBytesPerSecond,
+              ),
+              searchQuery: searchQuery,
+              trailing: NumberSettingField(
+                value: _bytesToMegabytes(
+                  settings.downloads.maxDownloadBytesPerSecond,
+                ),
+                unit: 'MB/s',
+                onSubmitted: (value) => unawaited(
+                  notifier.setHttpMaxDownloadBytesPerSecond(megabytes(value)),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

@@ -3,16 +3,19 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/pages/settings_page/font_autocomplete.dart';
+import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
 class AppearanceSettings extends StatelessWidget {
   final AppSettings settings;
   final AppSettingsNotifier notifier;
+  final String? searchQuery;
 
   const AppearanceSettings({
     super.key,
     required this.settings,
     required this.notifier,
+    this.searchQuery,
   });
 
   @override
@@ -20,11 +23,48 @@ class AppearanceSettings extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _BrightnessSelector(settings: settings, notifier: notifier),
-        const SizedBox(height: 16),
-        _PaletteSelector(settings: settings, notifier: notifier),
-        const SizedBox(height: 16),
-        _FontPicker(settings: settings, notifier: notifier),
+        SettingsGroupCard(
+          title: 'Theme & Style',
+          icon: Icons.palette_outlined,
+          description: 'Customize brightness mode and active color theme',
+          searchQuery: searchQuery,
+          searchTerms: [
+            'Brightness light dark system',
+            'Color palette',
+            for (final preset in SenpwaiThemePreset.values) preset.label,
+          ],
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _BrightnessSelector(settings: settings, notifier: notifier),
+                  const SizedBox(height: 20),
+                  _PaletteSelector(settings: settings, notifier: notifier),
+                ],
+              ),
+            ),
+          ],
+        ),
+        SettingsGroupCard(
+          title: 'Typography',
+          icon: Icons.text_fields_rounded,
+          description: 'Set custom Google Fonts for headers and body text',
+          searchQuery: searchQuery,
+          searchTerms: [
+            'Display font',
+            'Body font',
+            settings.appearance.displayFontFamily,
+            settings.appearance.bodyFontFamily,
+          ],
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: _FontPicker(settings: settings, notifier: notifier),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -154,46 +194,30 @@ class _FontPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final allFonts = availableGoogleFonts();
 
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Fonts',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
+        Expanded(
+          child: FontAutocomplete(
+            key: ValueKey('display_${settings.appearance.displayFontFamily}'),
+            label: 'Display Font',
+            currentValue: settings.appearance.displayFontFamily,
+            allFonts: allFonts,
+            onSelected: (value) =>
+                unawaited(notifier.setDisplayFontFamily(value)),
           ),
         ),
-        const SizedBox(height: 8),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: FontAutocomplete(
-                key: ValueKey(
-                  'display_${settings.appearance.displayFontFamily}',
-                ),
-                label: 'Display',
-                currentValue: settings.appearance.displayFontFamily,
-                allFonts: allFonts,
-                onSelected: (value) =>
-                    unawaited(notifier.setDisplayFontFamily(value)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FontAutocomplete(
-                key: ValueKey('body_${settings.appearance.bodyFontFamily}'),
-                label: 'Body',
-                currentValue: settings.appearance.bodyFontFamily,
-                allFonts: allFonts,
-                onSelected: (value) =>
-                    unawaited(notifier.setBodyFontFamily(value)),
-              ),
-            ),
-          ],
+        const SizedBox(width: 16),
+        Expanded(
+          child: FontAutocomplete(
+            key: ValueKey('body_${settings.appearance.bodyFontFamily}'),
+            label: 'Body Font',
+            currentValue: settings.appearance.bodyFontFamily,
+            allFonts: allFonts,
+            onSelected: (value) => unawaited(notifier.setBodyFontFamily(value)),
+          ),
         ),
       ],
     );

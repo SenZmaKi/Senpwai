@@ -8,11 +8,13 @@ import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 class TorrentAdvancedSettings extends StatelessWidget {
   final TorrentPreferences torrent;
   final AppSettingsNotifier notifier;
+  final String? searchQuery;
 
   const TorrentAdvancedSettings({
     super.key,
     required this.torrent,
     required this.notifier,
+    this.searchQuery,
   });
 
   @override
@@ -24,6 +26,7 @@ class TorrentAdvancedSettings extends StatelessWidget {
           title: 'Incoming TCP',
           subtitle: 'Accept TCP peer connections',
           value: torrent.enableIncomingTcp,
+          searchQuery: searchQuery,
           onChanged: (value) =>
               notifier.setTorrentAdvanced(enableIncomingTcp: value),
         ),
@@ -32,6 +35,7 @@ class TorrentAdvancedSettings extends StatelessWidget {
           title: 'Incoming uTP',
           subtitle: 'Accept uTP peer connections',
           value: torrent.enableIncomingUtp,
+          searchQuery: searchQuery,
           onChanged: (value) =>
               notifier.setTorrentAdvanced(enableIncomingUtp: value),
         ),
@@ -40,6 +44,7 @@ class TorrentAdvancedSettings extends StatelessWidget {
           title: 'Outgoing TCP',
           subtitle: 'Connect to peers over TCP',
           value: torrent.enableOutgoingTcp,
+          searchQuery: searchQuery,
           onChanged: (value) =>
               notifier.setTorrentAdvanced(enableOutgoingTcp: value),
         ),
@@ -48,6 +53,7 @@ class TorrentAdvancedSettings extends StatelessWidget {
           title: 'Outgoing uTP',
           subtitle: 'Connect to peers over uTP',
           value: torrent.enableOutgoingUtp,
+          searchQuery: searchQuery,
           onChanged: (value) =>
               notifier.setTorrentAdvanced(enableOutgoingUtp: value),
         ),
@@ -56,6 +62,7 @@ class TorrentAdvancedSettings extends StatelessWidget {
           title: 'Prefer Seeds',
           subtitle: 'Prefer seeding torrents when libtorrent auto-manages',
           value: torrent.autoManagePreferSeeds,
+          searchQuery: searchQuery,
           onChanged: (value) =>
               notifier.setTorrentAdvanced(autoManagePreferSeeds: value),
         ),
@@ -63,6 +70,7 @@ class TorrentAdvancedSettings extends StatelessWidget {
           icon: Icons.route_rounded,
           title: 'Proxy',
           subtitle: torrent.proxyMode.label,
+          searchQuery: searchQuery,
           trailing: SettingsDropdown<TorrentProxyMode>(
             value: torrent.proxyMode,
             items: [
@@ -88,6 +96,7 @@ class TorrentAdvancedSettings extends StatelessWidget {
         icon: Icons.dns_outlined,
         title: 'Proxy Host',
         subtitle: 'Hostname or IP address',
+        searchQuery: searchQuery,
         trailing: TextSettingField(
           value: torrent.proxyHost,
           hintText: '127.0.0.1',
@@ -99,6 +108,7 @@ class TorrentAdvancedSettings extends StatelessWidget {
         icon: Icons.numbers_rounded,
         title: 'Proxy Port',
         subtitle: 'Proxy listener port',
+        searchQuery: searchQuery,
         trailing: NumberSettingField(
           value: torrent.proxyPort,
           unit: 'port',
@@ -116,6 +126,7 @@ class TorrentAdvancedSettings extends StatelessWidget {
         icon: Icons.person_outline_rounded,
         title: 'Proxy Username',
         subtitle: 'Authentication username',
+        searchQuery: searchQuery,
         trailing: TextSettingField(
           value: torrent.proxyUsername,
           onSubmitted: (value) =>
@@ -126,6 +137,7 @@ class TorrentAdvancedSettings extends StatelessWidget {
         icon: Icons.password_rounded,
         title: 'Proxy Password',
         subtitle: 'Authentication password',
+        searchQuery: searchQuery,
         trailing: TextSettingField(
           value: torrent.proxyPassword,
           obscureText: true,
@@ -142,6 +154,7 @@ class _AdvancedSwitch extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool value;
+  final String? searchQuery;
   final Future<void> Function(bool value) onChanged;
 
   const _AdvancedSwitch({
@@ -149,6 +162,7 @@ class _AdvancedSwitch extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.value,
+    this.searchQuery,
     required this.onChanged,
   });
 
@@ -158,6 +172,7 @@ class _AdvancedSwitch extends StatelessWidget {
       icon: icon,
       title: title,
       subtitle: subtitle,
+      searchQuery: searchQuery,
       trailing: AsyncSwitch(value: value, onChanged: onChanged),
     );
   }

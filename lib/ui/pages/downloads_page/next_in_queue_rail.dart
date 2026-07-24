@@ -31,12 +31,13 @@ class NextInQueueRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Mobile: single compact bar — no card overhead.
-    if (compact)
+    if (compact) {
       return _CompactBar(
         upcoming: upcoming,
         totalQueued: totalQueued,
         onTap: onOpenQueue,
       );
+    }
 
     final theme = Theme.of(context);
     final senpwai = theme.extension<SenpwaiThemeExtension>();

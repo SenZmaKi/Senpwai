@@ -10,11 +10,13 @@ import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 class SourceSettingsSection extends StatelessWidget {
   final AppSettings settings;
   final AppSettingsNotifier notifier;
+  final String? searchQuery;
 
   const SourceSettingsSection({
     super.key,
     required this.settings,
     required this.notifier,
+    this.searchQuery,
   });
 
   @override
@@ -23,53 +25,90 @@ class SourceSettingsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          buildDefaultDragHandles: false,
-          itemCount: sources.priority.length,
-          onReorder: (oldIndex, newIndex) {
-            final next = [...sources.priority];
-            if (newIndex > oldIndex) newIndex -= 1;
-            final source = next.removeAt(oldIndex);
-            next.insert(newIndex, source);
-            unawaited(notifier.setSourcePriority(next));
-          },
-          itemBuilder: (context, index) {
-            final source = sources.priority[index];
-            return ReorderableDragStartListener(
-              key: ValueKey(source),
-              index: index,
-              child: SettingsTile(
-                icon: Icons.drag_indicator_rounded,
-                title: source.label,
-                subtitle: sources.enabledSources.contains(source)
-                    ? 'Enabled, priority ${index + 1}'
-                    : 'Disabled',
-                trailing: AsyncSwitch(
-                  value: sources.enabledSources.contains(source),
-                  onChanged: (enabled) {
-                    final next = {...sources.enabledSources};
-                    enabled ? next.add(source) : next.remove(source);
-                    return notifier.setEnabledSources(next);
-                  },
-                ),
-              ),
-            );
-          },
+        SettingsGroupCard(
+          title: 'Provider Priority & Activation',
+          icon: Icons.sort_by_alpha_rounded,
+          description: 'Drag to reorder source priority or toggle sources',
+          searchQuery: searchQuery,
+          searchTerms: [
+            for (final source in sources.priority)
+              '${source.label} source provider ${sources.enabledSources.contains(source) ? 'enabled' : 'disabled'}',
+          ],
+          children: [
+            ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              itemCount: sources.priority.length,
+              onReorder: (oldIndex, newIndex) {
+                final next = [...sources.priority];
+                if (newIndex > oldIndex) newIndex -= 1;
+                final source = next.removeAt(oldIndex);
+                next.insert(newIndex, source);
+                unawaited(notifier.setSourcePriority(next));
+              },
+              itemBuilder: (context, index) {
+                final source = sources.priority[index];
+                return ReorderableDragStartListener(
+                  key: ValueKey(source),
+                  index: index,
+                  child: SettingsTile(
+                    icon: Icons.drag_indicator_rounded,
+                    title: source.label,
+                    subtitle: sources.enabledSources.contains(source)
+                        ? 'Enabled · Priority ${index + 1}'
+                        : 'Disabled',
+                    searchQuery: searchQuery,
+                    trailing: AsyncSwitch(
+                      value: sources.enabledSources.contains(source),
+                      onChanged: (enabled) {
+                        final next = {...sources.enabledSources};
+                        enabled ? next.add(source) : next.remove(source);
+                        return notifier.setEnabledSources(next);
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        _NyaaDefaults(settings: settings, notifier: notifier),
+        const SizedBox(height: 20),
+        SettingsGroupCard(
+          title: 'Nyaa Search & Filtering',
+          icon: Icons.filter_alt_outlined,
+          description:
+              'Default filters and sorting applied to Nyaa torrent searches',
+          searchQuery: searchQuery,
+          searchTerms: const [
+            'Exact Episode Only prefer results parsed requested episode',
+            'Same Season Only filter manual results inferred season',
+            'Manual Sort Order',
+            'Minimum Seeders required',
+          ],
+          children: [
+            _NyaaDefaultsList(
+              settings: settings,
+              notifier: notifier,
+              searchQuery: searchQuery,
+            ),
+          ],
+        ),
       ],
     );
   }
 }
 
-class _NyaaDefaults extends StatelessWidget {
+class _NyaaDefaultsList extends StatelessWidget {
   final AppSettings settings;
   final AppSettingsNotifier notifier;
+  final String? searchQuery;
 
-  const _NyaaDefaults({required this.settings, required this.notifier});
+  const _NyaaDefaultsList({
+    required this.settings,
+    required this.notifier,
+    this.searchQuery,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -78,8 +117,10 @@ class _NyaaDefaults extends StatelessWidget {
       children: [
         SettingsTile(
           icon: Icons.filter_alt_outlined,
-          title: 'Nyaa Exact Episode',
+          title: 'Exact Episode Only',
           subtitle: 'Prefer results parsed as the requested episode',
+          keywords: 'nyaa episode search filter',
+          searchQuery: searchQuery,
           trailing: AsyncSwitch(
             value: filters.exactEpisodeOnly,
             onChanged: (value) => notifier.setNyaaDefaultFilters(
@@ -89,8 +130,10 @@ class _NyaaDefaults extends StatelessWidget {
         ),
         SettingsTile(
           icon: Icons.calendar_view_month_rounded,
-          title: 'Nyaa Same Season',
+          title: 'Same Season Only',
           subtitle: 'Filter manual results to the inferred season',
+          keywords: 'nyaa season search filter',
+          searchQuery: searchQuery,
           trailing: AsyncSwitch(
             value: filters.sameSeasonOnly,
             onChanged: (value) => notifier.setNyaaDefaultFilters(
@@ -100,8 +143,10 @@ class _NyaaDefaults extends StatelessWidget {
         ),
         SettingsTile(
           icon: Icons.sort_rounded,
-          title: 'Nyaa Manual Sort',
+          title: 'Manual Sort Order',
           subtitle: filters.sort.label,
+          keywords: 'nyaa sort order manual search',
+          searchQuery: searchQuery,
           trailing: SettingsDropdown<NyaaManualSearchSort>(
             value: filters.sort,
             items: [
@@ -116,7 +161,9 @@ class _NyaaDefaults extends StatelessWidget {
         SettingsTile(
           icon: Icons.people_alt_outlined,
           title: 'Minimum Seeders',
-          subtitle: '${filters.minSeeders}',
+          subtitle: '${filters.minSeeders} seeders required',
+          keywords: 'nyaa seeders minimum search filter',
+          searchQuery: searchQuery,
           trailing: NumberSettingField(
             value: filters.minSeeders,
             unit: 'seeders',

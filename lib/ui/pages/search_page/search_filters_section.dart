@@ -252,10 +252,11 @@ class SearchFiltersSection extends ConsumerWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final showInline = constraints.maxWidth >= inlineWidth;
+        final availableWidth = constraints.maxWidth - 2 * horizontalPadding;
+        final showInline = availableWidth >= inlineWidth;
         final maxContentWidth = showInline
-            ? inlineWidth + 24
-            : (constraints.maxWidth > 920 ? 920.0 : constraints.maxWidth);
+            ? inlineWidth
+            : (availableWidth > 920 ? 920.0 : availableWidth);
 
         return Padding(
           padding: EdgeInsets.fromLTRB(

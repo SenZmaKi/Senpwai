@@ -3,62 +3,149 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/tracking/models.dart';
 import 'package:senpwai/tracking/notifier.dart';
 import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
+import 'package:senpwai/ui/pages/settings_page/settings_search.dart';
+import 'package:senpwai/ui/pages/settings_page/settings_controls.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 
 class TrackingSettingsSection extends ConsumerWidget {
-  const TrackingSettingsSection({super.key});
+  final AppSettings? settings;
+  final AppSettingsNotifier? notifier;
+  final String? searchQuery;
+
+  const TrackingSettingsSection({
+    super.key,
+    this.settings,
+    this.notifier,
+    this.searchQuery,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tracking = ref.watch(TrackingNotifier.provider);
-    final notifier = ref.read(TrackingNotifier.provider.notifier);
-    if (tracking.trackedAnime.isEmpty) {
-      return const SettingsTile(
-        icon: Icons.playlist_remove_rounded,
-        title: 'No tracked anime',
-        subtitle: 'Use Track on an anime page to watch for future episodes',
-      );
-    }
+    final trackingNotifier = ref.read(TrackingNotifier.provider.notifier);
+    final isSearching = searchQuery?.trim().isNotEmpty ?? false;
+    final generalTrackingMatch = settingsSearchMatches(searchQuery, const [
+      'Tracking AniList',
+      'Tracked Anime Auto-Downloader',
+      'Monitors releases and automatically downloads new episodes',
+      'No tracked anime',
+    ]);
+    final matchingTrackedAnime = tracking.trackedAnime.indexed
+        .where(
+          (entry) =>
+              generalTrackingMatch ||
+              settingsSearchMatches(searchQuery, [
+                entry.$2.animeSnapshot.title.display,
+                entry.$2.downloadFolder,
+                entry.$2.resolution.toString(),
+                entry.$2.language.toString(),
+                _sourceLabel(entry.$2),
+                if (entry.$2.lastError != null) entry.$2.lastError!,
+              ]),
+        )
+        .toList();
+    final showTrackedAnime =
+        !isSearching ||
+        matchingTrackedAnime.isNotEmpty ||
+        (tracking.trackedAnime.isEmpty && generalTrackingMatch);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SettingsTile(
+        if (settings != null && notifier != null) ...[
+          SettingsGroupCard(
+            title: 'AniList Account & Sync',
+            icon: Icons.sync_rounded,
+            description:
+                'Automatic watch status updates and profile synchronization',
+            searchQuery: searchQuery,
+            children: [
+              SettingsTile(
+                icon: Icons.sync_rounded,
+                title: 'Sync Watching to Tracked Anime',
+                subtitle: 'Automatically sync watched episodes with AniList',
+                searchQuery: searchQuery,
+                trailing: AsyncSwitch(
+                  value: settings!.anilist.syncWatchingToTrackedAnime,
+                  onChanged: notifier!.setSyncWatchingToTrackedAnime,
+                ),
+              ),
+            ],
+          ),
+        ],
+        SettingsGroupCard(
+          title: 'Tracked Anime Auto-Downloader',
           icon: Icons.radar_rounded,
-          title: 'Tracker Status',
-          subtitle: tracking.checkInProgress
-              ? 'Checking tracked anime now'
-              : _lastCheckedSubtitle(tracking.lastCheckCompletedAt),
-          trailing: _IconActionButton(
+          description:
+              'Monitors releases and automatically downloads new episodes',
+          searchQuery: searchQuery,
+          headerTrailing: _IconActionButton(
             icon: Icons.refresh_rounded,
             tooltip: 'Check now',
             onPressed: tracking.checkInProgress
                 ? null
-                : () => unawaited(notifier.checkNow()),
+                : () => unawaited(trackingNotifier.checkNow()),
           ),
+          children: [
+            SettingsTile(
+              icon: Icons.radar_rounded,
+              title: 'Tracker Status',
+              subtitle: tracking.checkInProgress
+                  ? 'Checking tracked anime now...'
+                  : _lastCheckedSubtitle(tracking.lastCheckCompletedAt),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          buildDefaultDragHandles: false,
-          itemCount: tracking.trackedAnime.length,
-          onReorder: (oldIndex, newIndex) =>
-              unawaited(notifier.reorder(oldIndex, newIndex)),
-          itemBuilder: (context, index) {
-            final tracked = tracking.trackedAnime[index];
-            return _TrackedAnimeTile(
-              key: ValueKey(tracked.anilistId),
-              tracked: tracked,
-              index: index,
-              notifier: notifier,
-            );
-          },
-        ),
+        if (showTrackedAnime) ...[
+          const SizedBox(height: 16),
+          if (tracking.trackedAnime.isEmpty)
+            const SettingsGroupCard(
+              children: [
+                SettingsTile(
+                  icon: Icons.playlist_remove_rounded,
+                  title: 'No tracked anime',
+                  subtitle:
+                      'Use Track on an anime page to watch for future episodes',
+                ),
+              ],
+            )
+          else if (isSearching)
+            Column(
+              children: [
+                for (final entry in matchingTrackedAnime)
+                  _TrackedAnimeTile(
+                    key: ValueKey(entry.$2.anilistId),
+                    tracked: entry.$2,
+                    index: entry.$1,
+                    notifier: trackingNotifier,
+                    showDragHandle: false,
+                  ),
+              ],
+            )
+          else
+            ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              itemCount: tracking.trackedAnime.length,
+              onReorder: (oldIndex, newIndex) =>
+                  unawaited(trackingNotifier.reorder(oldIndex, newIndex)),
+              itemBuilder: (context, index) {
+                final tracked = tracking.trackedAnime[index];
+                return _TrackedAnimeTile(
+                  key: ValueKey(tracked.anilistId),
+                  tracked: tracked,
+                  index: index,
+                  notifier: trackingNotifier,
+                );
+              },
+            ),
+        ],
       ],
     );
   }
@@ -68,12 +155,14 @@ class _TrackedAnimeTile extends StatelessWidget {
   final TrackedAnime tracked;
   final int index;
   final TrackingNotifier notifier;
+  final bool showDragHandle;
 
   const _TrackedAnimeTile({
     super.key,
     required this.tracked,
     required this.index,
     required this.notifier,
+    this.showDragHandle = true,
   });
 
   @override
@@ -95,16 +184,19 @@ class _TrackedAnimeTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ReorderableDragStartListener(
-                index: index,
-                child: const MouseRegion(
-                  cursor: SystemMouseCursors.grab,
-                  child: Padding(
-                    padding: EdgeInsets.only(top: 24, right: 8),
-                    child: Icon(Icons.drag_indicator_rounded, size: 20),
+              if (showDragHandle)
+                ReorderableDragStartListener(
+                  index: index,
+                  child: const MouseRegion(
+                    cursor: SystemMouseCursors.grab,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 24, right: 8),
+                      child: Icon(Icons.drag_indicator_rounded, size: 20),
+                    ),
                   ),
-                ),
-              ),
+                )
+              else
+                const SizedBox(width: 28),
               ClipRRect(
                 borderRadius: BorderRadius.circular(6),
                 child: SizedBox(
