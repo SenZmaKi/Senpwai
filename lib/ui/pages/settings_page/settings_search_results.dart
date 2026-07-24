@@ -131,6 +131,7 @@ class SettingsSearchResults extends ConsumerWidget {
       'Typography custom Google Fonts headers body text Display Font Body Font',
       settings.appearance.displayFontFamily,
       settings.appearance.bodyFontFamily,
+      'Card Layout anime card style Home Search poster landscape table grid list',
       'Media Preferences default resolution audio language title display',
       'Title Language preferred title display automatic fallbacks',
       'Default Resolution initial resolution selected anime pages',

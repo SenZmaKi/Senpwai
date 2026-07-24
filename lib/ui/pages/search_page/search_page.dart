@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/anilist.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/shared.dart';
-import 'package:senpwai/ui/components/anime_card/card_switcher.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
 import 'package:senpwai/ui/shared/pagination.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
@@ -14,14 +14,14 @@ import 'package:senpwai/ui/pages/search_page/search_filters_section.dart';
 import 'package:senpwai/ui/pages/search_page/search_results_section.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SearchPage extends StatefulWidget {
+class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
 
   @override
-  State<SearchPage> createState() => _SearchPageState();
+  ConsumerState<SearchPage> createState() => _SearchPageState();
 }
 
-class _SearchPageState extends State<SearchPage>
+class _SearchPageState extends ConsumerState<SearchPage>
     with PaginatedScrollMixin, SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
@@ -37,8 +37,6 @@ class _SearchPageState extends State<SearchPage>
   List<AnilistFormat> _formats = [];
   AnilistMediaSort? _sort = AnilistMediaSort.trending;
   bool _sortDescending = true;
-  CardViewMode _viewMode = CardViewMode.poster;
-
   List<AnilistAnimeBase> _results = [];
   Pagination<List<AnilistAnimeBase>>? _pagination;
   bool _loading = false;
@@ -247,6 +245,11 @@ class _SearchPageState extends State<SearchPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final horizontalPad = horizontalPadding(context);
+    final viewMode = ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.cardViewMode,
+      ),
+    );
 
     return CustomScrollView(
       controller: _scrollController,
@@ -300,14 +303,18 @@ class _SearchPageState extends State<SearchPage>
                   sort: _sort,
                   sortDescending: _sortDescending,
                   sortDisabled: _listStatus != null,
-                  viewMode: _viewMode,
+                  viewMode: viewMode,
                   sortIconController: _sortIconController,
                   onSortChanged: (value) => _applyFilter(() => _sort = value),
                   onSortDirectionToggled: () {
                     _sortIconController.forward(from: 0);
                     _applyFilter(() => _sortDescending = !_sortDescending);
                   },
-                  onViewModeChanged: (mode) => setState(() => _viewMode = mode),
+                  onViewModeChanged: (mode) => unawaited(
+                    ref
+                        .read(AppSettingsNotifier.provider.notifier)
+                        .setCardViewMode(mode),
+                  ),
                 ),
                 if (!_loading) ...[
                   const SizedBox(height: 8),
@@ -335,7 +342,7 @@ class _SearchPageState extends State<SearchPage>
             results: _results,
             loading: _loading,
             loadingMore: _loadingMore,
-            viewMode: _viewMode,
+            viewMode: viewMode,
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 32)),

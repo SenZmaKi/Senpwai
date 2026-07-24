@@ -19,6 +19,8 @@ enum TitleLanguagePreference {
   };
 }
 
+enum CardViewMode { poster, landscape, table }
+
 enum DownloadNotificationStyle {
   batchCompletion,
   episodeCompletion;
@@ -168,12 +170,14 @@ class AppearancePreferences {
   final SenpwaiThemePreset themePreset;
   final String displayFontFamily;
   final String bodyFontFamily;
+  final CardViewMode cardViewMode;
 
   const AppearancePreferences({
     this.brightnessMode = BrightnessMode.system,
     this.themePreset = SenpwaiThemePreset.defaultTheme,
     this.displayFontFamily = 'Orbitron',
     this.bodyFontFamily = 'Exo 2',
+    this.cardViewMode = CardViewMode.poster,
   });
 
   factory AppearancePreferences.fromJson(Map<String, dynamic> json) =>
@@ -190,6 +194,11 @@ class AppearancePreferences {
         ),
         displayFontFamily: _stringValue(json['displayFontFamily'], 'Orbitron'),
         bodyFontFamily: _stringValue(json['bodyFontFamily'], 'Exo 2'),
+        cardViewMode: _enumValue(
+          CardViewMode.values,
+          json['cardViewMode'],
+          CardViewMode.poster,
+        ),
       );
 
   Map<String, dynamic> toJson() => {
@@ -197,6 +206,7 @@ class AppearancePreferences {
     'themePreset': themePreset.name,
     'displayFontFamily': displayFontFamily,
     'bodyFontFamily': bodyFontFamily,
+    'cardViewMode': cardViewMode.name,
   };
 
   ThemeConfig toThemeConfig() {
@@ -218,6 +228,7 @@ class AppearancePreferences {
     SenpwaiThemePreset? themePreset,
     String? displayFontFamily,
     String? bodyFontFamily,
+    CardViewMode? cardViewMode,
   }) {
     final nextPreset = themePreset ?? this.themePreset;
     final presetChanged =
@@ -236,6 +247,7 @@ class AppearancePreferences {
           (presetChanged
               ? presetTheme.typography.bodyFamily
               : this.bodyFontFamily),
+      cardViewMode: cardViewMode ?? this.cardViewMode,
     );
   }
 }

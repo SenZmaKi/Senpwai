@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/anilist.dart';
+import 'package:senpwai/settings/models.dart';
 import 'package:senpwai/ui/components/anime_card/anime_landscape_card.dart';
 import 'package:senpwai/ui/components/anime_card/anime_poster_card.dart';
 import 'package:senpwai/ui/components/anime_card/anime_table_card.dart';
-import 'package:senpwai/ui/components/anime_card/card_switcher.dart';
 import 'package:senpwai/ui/components/empty_results_placeholder.dart';
 import 'package:senpwai/ui/components/shimmer_card.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
@@ -63,11 +63,7 @@ class SearchResultsSection extends StatelessWidget {
   }
 
   Widget _buildTableList(BuildContext context) {
-    final mobile = isMobile(context);
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final skeletonHeight = mobile
-        ? (screenWidth < 400 ? 106.0 : 122.0)
-        : (screenWidth < Breakpoints.tablet ? 134.0 : 152.0);
+    final skeletonHeight = tableCardHeight(context);
 
     if (loading) {
       return SliverList(

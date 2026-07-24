@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:senpwai/anilist/anilist.dart';
+import 'package:senpwai/settings/models.dart';
 import 'package:senpwai/ui/components/anime_card/card_switcher.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 

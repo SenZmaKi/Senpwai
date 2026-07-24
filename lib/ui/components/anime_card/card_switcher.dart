@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-enum CardViewMode { poster, landscape, table }
+import 'package:senpwai/settings/models.dart';
 
 class CardSwitcher extends StatelessWidget {
   final CardViewMode selected;

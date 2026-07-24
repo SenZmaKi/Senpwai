@@ -71,6 +71,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setCardViewMode(CardViewMode mode) {
+    return _commit(
+      state.copyWith(appearance: state.appearance.copyWith(cardViewMode: mode)),
+    );
+  }
+
   Future<void> setTitleLanguage(TitleLanguagePreference language) {
     return _commit(
       state.copyWith(content: state.content.copyWith(titleLanguage: language)),

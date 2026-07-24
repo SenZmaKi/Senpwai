@@ -30,9 +30,7 @@ class _AnimeTableCardState extends ConsumerState<AnimeTableCard>
     final anime = widget.anime;
     final mobile = isMobile(context);
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final cardHeight = mobile
-        ? (screenWidth < 400 ? 106.0 : 122.0)
-        : (screenWidth < Breakpoints.tablet ? 134.0 : 152.0);
+    final cardHeight = tableCardHeight(context);
     final coverWidth = screenWidth < Breakpoints.tablet ? 78.0 : 92.0;
     final chipFontSize = mobile ? 9.5 : 10.5;
     final imageUrl = anime.coverImage?.best;

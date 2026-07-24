@@ -58,3 +58,11 @@ double landscapeCardAspectRatio(BuildContext context) {
   if (w < Breakpoints.desktop) return 2.2;
   return 2.4;
 }
+
+double tableCardHeight(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  if (width < 400) return 106;
+  if (width < Breakpoints.mobile) return 122;
+  if (width < Breakpoints.tablet) return 134;
+  return 152;
+}

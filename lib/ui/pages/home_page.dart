@@ -3,9 +3,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/ui/components/anime_banner_carousel.dart';
-import 'package:senpwai/ui/components/anime_card/anime_poster_horizontal.dart';
+import 'package:senpwai/ui/components/anime_card/anime_card_horizontal.dart';
 import 'package:senpwai/ui/components/section_header.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
@@ -246,14 +247,23 @@ class _HomePageState extends ConsumerState<HomePage> {
     required void Function(bool) setLoading,
   }) {
     final pad = horizontalPadding(context);
+    final viewMode = ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.cardViewMode,
+      ),
+    );
+    final homeViewMode = viewMode == CardViewMode.table
+        ? CardViewMode.landscape
+        : viewMode;
     return [
       Padding(
         padding: EdgeInsets.symmetric(horizontal: pad),
         child: SectionHeader(title: title, icon: icon),
       ),
-      AnimePosterHorizontal(
+      AnimeCardHorizontal(
         key: ValueKey('home-section-$id'),
         anime: items,
+        viewMode: homeViewMode,
         isLoading: isLoading,
         isLoadingMore: isLoadingMore,
         onLoadMore: fetchNext != null

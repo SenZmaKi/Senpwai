@@ -23,6 +23,14 @@ class AnimeLandscapeCard extends ConsumerStatefulWidget {
 
 class _AnimeLandscapeCardState extends ConsumerState<AnimeLandscapeCard>
     with CardHoverMixin {
+  final _summaryScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _summaryScrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -44,7 +52,6 @@ class _AnimeLandscapeCardState extends ConsumerState<AnimeLandscapeCard>
     final titleFont = isSmall ? 10.0 : 11.0;
     final seasonFont = isSmall ? 11.0 : 12.0;
     final metaFont = isSmall ? 10.0 : 11.0;
-    final descMaxLines = isSmall ? 3 : 5;
     final genreFont = isSmall ? 9.0 : 10.0;
     final genreCount = isSmall ? 3 : 4;
 
@@ -167,16 +174,21 @@ class _AnimeLandscapeCardState extends ConsumerState<AnimeLandscapeCard>
                   const SizedBox(height: 8),
                   if (desc != null)
                     Expanded(
-                      child: Text(
-                        desc.replaceAll(RegExp(r'<[^>]*>'), ''),
-                        maxLines: descMaxLines,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.65,
+                      child: Scrollbar(
+                        controller: _summaryScrollController,
+                        child: SingleChildScrollView(
+                          controller: _summaryScrollController,
+                          primary: false,
+                          child: Text(
+                            desc.replaceAll(RegExp(r'<[^>]*>'), ''),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.65,
+                              ),
+                              fontSize: metaFont,
+                              height: 1.5,
+                            ),
                           ),
-                          fontSize: metaFont,
-                          height: 1.5,
                         ),
                       ),
                     )
