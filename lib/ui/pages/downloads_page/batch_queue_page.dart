@@ -46,7 +46,8 @@ class BatchQueueSheet extends ConsumerWidget {
             borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
             border: Border(
               top: BorderSide(
-                color: senpwai?.cardBorderColor ??
+                color:
+                    senpwai?.cardBorderColor ??
                     theme.colorScheme.outline.withValues(alpha: 0.18),
               ),
             ),

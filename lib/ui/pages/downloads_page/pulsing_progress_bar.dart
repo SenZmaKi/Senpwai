@@ -92,10 +92,7 @@ class _PulsingProgressBarState extends State<PulsingProgressBar>
                   phase: _ctrl.value,
                   pulsing: widget.pulsing,
                 ),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: widget.height,
-                ),
+                child: SizedBox(width: double.infinity, height: widget.height),
               ),
             );
           },
@@ -127,7 +124,9 @@ class _BarPainter extends CustomPainter {
     final fullRect = Offset.zero & size;
     canvas.drawRect(fullRect, Paint()..color = trackColor);
 
-    final fillWidth = value == null ? size.width : value!.clamp(0, 1) * size.width;
+    final fillWidth = value == null
+        ? size.width
+        : value!.clamp(0, 1) * size.width;
     if (fillWidth <= 0) return;
 
     final fillRect = Rect.fromLTWH(0, 0, fillWidth, size.height);

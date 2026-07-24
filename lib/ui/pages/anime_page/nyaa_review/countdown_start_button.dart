@@ -32,8 +32,7 @@ class CountdownStartButton extends StatelessWidget {
         FilledButton.icon(
           onPressed: enabled ? onPressed : null,
           style: FilledButton.styleFrom(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             shape: const StadiumBorder(),
           ),
           icon: Icon(icon),

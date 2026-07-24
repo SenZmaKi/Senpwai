@@ -32,8 +32,9 @@ void sortMatches<T>(
   List<String> titleCandidates,
   String Function(T result) getTitle,
 ) {
-  final refLength =
-      titleCandidates.map((t) => t.length).reduce((a, b) => a < b ? a : b);
+  final refLength = titleCandidates
+      .map((t) => t.length)
+      .reduce((a, b) => a < b ? a : b);
   matches.sort((a, b) {
     final cmp = b.score.compareTo(a.score);
     if (cmp != 0) return cmp;

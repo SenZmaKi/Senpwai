@@ -46,7 +46,12 @@ class DownloadsPage extends ConsumerWidget {
     return CustomScrollView(
       slivers: [
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(pad, isMobile(context) ? 14 : 18, pad, 14),
+          padding: EdgeInsets.fromLTRB(
+            pad,
+            isMobile(context) ? 14 : 18,
+            pad,
+            14,
+          ),
           sliver: SliverToBoxAdapter(
             child: ActiveBatchPanel(
               snapshot: active,

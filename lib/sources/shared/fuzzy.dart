@@ -5,8 +5,11 @@ final _nonAlphanumeric = RegExp(r'[^\p{L}\p{N}\s]', unicode: true);
 
 /// Strips all non-alphanumeric characters (preserving Unicode letters/digits)
 /// and collapses whitespace for cleaner fuzzy comparison.
-String _normalize(String s) =>
-    s.replaceAll(_nonAlphanumeric, ' ').replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+String _normalize(String s) => s
+    .replaceAll(_nonAlphanumeric, ' ')
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .trim()
+    .toLowerCase();
 
 /// Computes a fuzzy title similarity score that avoids inflated partial matches.
 /// Normalizes punctuation before comparing so `wa.` matches `wa` and `(TV)` is

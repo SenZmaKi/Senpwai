@@ -6,22 +6,22 @@ enum EpisodeReviewStatus { autoPlanned, manuallySwapped, unresolved }
 
 extension on EpisodeReviewStatus {
   Color color(ThemeData theme) => switch (this) {
-        EpisodeReviewStatus.autoPlanned => Colors.green,
-        EpisodeReviewStatus.manuallySwapped => theme.colorScheme.primary,
-        EpisodeReviewStatus.unresolved => theme.colorScheme.error,
-      };
+    EpisodeReviewStatus.autoPlanned => Colors.green,
+    EpisodeReviewStatus.manuallySwapped => theme.colorScheme.primary,
+    EpisodeReviewStatus.unresolved => theme.colorScheme.error,
+  };
 
   IconData get icon => switch (this) {
-        EpisodeReviewStatus.autoPlanned => Icons.auto_awesome_rounded,
-        EpisodeReviewStatus.manuallySwapped => Icons.swap_horiz_rounded,
-        EpisodeReviewStatus.unresolved => Icons.error_outline_rounded,
-      };
+    EpisodeReviewStatus.autoPlanned => Icons.auto_awesome_rounded,
+    EpisodeReviewStatus.manuallySwapped => Icons.swap_horiz_rounded,
+    EpisodeReviewStatus.unresolved => Icons.error_outline_rounded,
+  };
 
   String get label => switch (this) {
-        EpisodeReviewStatus.autoPlanned => 'Auto',
-        EpisodeReviewStatus.manuallySwapped => 'Manual',
-        EpisodeReviewStatus.unresolved => 'Unresolved',
-      };
+    EpisodeReviewStatus.autoPlanned => 'Auto',
+    EpisodeReviewStatus.manuallySwapped => 'Manual',
+    EpisodeReviewStatus.unresolved => 'Unresolved',
+  };
 }
 
 class EpisodeReviewRow extends StatelessWidget {
@@ -77,10 +77,7 @@ class EpisodeReviewRow extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 4,
-                  color: accent.withValues(alpha: 0.85),
-                ),
+                Container(width: 4, color: accent.withValues(alpha: 0.85)),
                 _EpisodeBadge(label: episodeLabel, color: accent),
                 Expanded(
                   child: Padding(
@@ -108,8 +105,9 @@ class EpisodeReviewRow extends StatelessWidget {
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: torrentName == null
-                                ? theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.55)
+                                ? theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.55,
+                                  )
                                 : null,
                             fontStyle: torrentName == null
                                 ? FontStyle.italic
@@ -127,8 +125,9 @@ class EpisodeReviewRow extends StatelessWidget {
                           Text(
                             unresolvedReason!,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.6),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
                               height: 1.3,
                             ),
                             maxLines: 2,
@@ -150,8 +149,9 @@ class EpisodeReviewRow extends StatelessWidget {
                           ? Icons.add_circle_outline_rounded
                           : Icons.chevron_right_rounded,
                       size: 22,
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.55),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.55,
+                      ),
                     ),
                   ),
               ],
@@ -176,9 +176,7 @@ class _EpisodeBadge extends StatelessWidget {
       width: 56,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        border: Border(
-          right: BorderSide(color: color.withValues(alpha: 0.18)),
-        ),
+        border: Border(right: BorderSide(color: color.withValues(alpha: 0.18))),
       ),
       child: Center(
         child: Text(

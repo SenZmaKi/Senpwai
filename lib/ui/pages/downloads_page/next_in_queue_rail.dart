@@ -31,7 +31,12 @@ class NextInQueueRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Mobile: single compact bar — no card overhead.
-    if (compact) return _CompactBar(upcoming: upcoming, totalQueued: totalQueued, onTap: onOpenQueue);
+    if (compact)
+      return _CompactBar(
+        upcoming: upcoming,
+        totalQueued: totalQueued,
+        onTap: onOpenQueue,
+      );
 
     final theme = Theme.of(context);
     final senpwai = theme.extension<SenpwaiThemeExtension>();
@@ -45,7 +50,8 @@ class NextInQueueRail extends StatelessWidget {
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
-          color: senpwai?.cardBorderColor ??
+          color:
+              senpwai?.cardBorderColor ??
               theme.colorScheme.outline.withValues(alpha: 0.18),
         ),
       ),
@@ -84,7 +90,11 @@ class _CompactBar extends StatelessWidget {
   final List<DownloadBatchSnapshot> upcoming;
   final int totalQueued;
   final VoidCallback onTap;
-  const _CompactBar({required this.upcoming, required this.totalQueued, required this.onTap});
+  const _CompactBar({
+    required this.upcoming,
+    required this.totalQueued,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -103,10 +113,13 @@ class _CompactBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.4,
+            ),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: senpwai?.cardBorderColor ??
+              color:
+                  senpwai?.cardBorderColor ??
                   theme.colorScheme.outline.withValues(alpha: 0.18),
             ),
           ),
@@ -123,13 +136,19 @@ class _CompactBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(width: 1, height: 12, color: theme.colorScheme.outline.withValues(alpha: 0.25)),
+              Container(
+                width: 1,
+                height: 12,
+                color: theme.colorScheme.outline.withValues(alpha: 0.25),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: first == null
                     ? Text(
                         'Nothing queued',
-                        style: theme.textTheme.labelSmall?.copyWith(color: muted),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: muted,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       )
                     : Text(
@@ -215,7 +234,8 @@ class _QueueRow extends StatelessWidget {
     final theme = Theme.of(context);
     final style = DownloadStatusStyle.of(theme, snapshot.status);
     final muted = theme.colorScheme.onSurface.withValues(alpha: 0.55);
-    final hasProgress = snapshot.status == DownloadQueueStatus.paused &&
+    final hasProgress =
+        snapshot.status == DownloadQueueStatus.paused &&
         snapshot.downloadedBytes > 0;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,7 +276,7 @@ class _QueueRow extends StatelessWidget {
               Text(
                 hasProgress
                     ? '${(snapshot.progress * 100).toStringAsFixed(0)}% downloaded'
-                        '  ·  ${relativeDownloadTime(snapshot.batch.createdAt)}'
+                          '  ·  ${relativeDownloadTime(snapshot.batch.createdAt)}'
                     : relativeDownloadTime(snapshot.batch.createdAt),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -358,9 +378,7 @@ class _OpenQueueButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(radius),
-              border: Border.all(
-                color: primary.withValues(alpha: 0.4),
-              ),
+              border: Border.all(color: primary.withValues(alpha: 0.4)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

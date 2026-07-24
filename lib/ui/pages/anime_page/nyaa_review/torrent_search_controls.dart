@@ -66,11 +66,7 @@ class TorrentSearchControls extends StatelessWidget {
         ),
         if (activeChips.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: activeChips,
-          ),
+          Wrap(spacing: 6, runSpacing: 6, children: activeChips),
         ],
       ],
     );
@@ -92,8 +88,10 @@ class TorrentSearchControls extends StatelessWidget {
     }
 
     if (!filters.exactEpisodeOnly) {
-      add('Allow other episodes',
-          () => filters.copyWith(exactEpisodeOnly: true));
+      add(
+        'Allow other episodes',
+        () => filters.copyWith(exactEpisodeOnly: true),
+      );
     }
     if (!filters.sameSeasonOnly) {
       add('Any season', () => filters.copyWith(sameSeasonOnly: true));
@@ -112,8 +110,7 @@ class TorrentSearchControls extends StatelessWidget {
       final list = filters.languageSignals.map((s) => s.label).join(', ');
       add(
         'Audio: $list',
-        () => filters
-            .copyWith(languageSignals: const <NyaaLanguageSignal>{}),
+        () => filters.copyWith(languageSignals: const <NyaaLanguageSignal>{}),
       );
     }
     if (filters.batchMode != NyaaBatchMode.any) {
@@ -164,8 +161,7 @@ class _FilterButton extends StatelessWidget {
               right: -6,
               top: -4,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary,
                   borderRadius: BorderRadius.circular(999),

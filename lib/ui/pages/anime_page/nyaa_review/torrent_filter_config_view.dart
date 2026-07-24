@@ -53,10 +53,7 @@ class _TorrentFilterConfigViewState extends State<TorrentFilterConfigView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Header(
-          activeCount: _filters.activeCount,
-          onClose: widget.onClose,
-        ),
+        _Header(activeCount: _filters.activeCount, onClose: widget.onClose),
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -101,8 +98,7 @@ class _TorrentFilterConfigViewState extends State<TorrentFilterConfigView> {
                   Text(
                     'Allow specific audio signals',
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -133,8 +129,9 @@ class _TorrentFilterConfigViewState extends State<TorrentFilterConfigView> {
                       child: Text(
                         'No restriction — all audio signals allowed.',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.5),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                     ),
@@ -152,8 +149,9 @@ class _TorrentFilterConfigViewState extends State<TorrentFilterConfigView> {
                         FilterChip(
                           label: Text(r.toString()),
                           selected: _filters.resolutions.contains(r),
-                          selectedColor:
-                              qualityColor(r).withValues(alpha: 0.18),
+                          selectedColor: qualityColor(
+                            r,
+                          ).withValues(alpha: 0.18),
                           checkmarkColor: qualityColor(r),
                           onSelected: (v) {
                             final next = {..._filters.resolutions};
@@ -173,8 +171,9 @@ class _TorrentFilterConfigViewState extends State<TorrentFilterConfigView> {
                       child: Text(
                         'No restriction — all resolutions allowed.',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.5),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                     ),
@@ -212,9 +211,8 @@ class _TorrentFilterConfigViewState extends State<TorrentFilterConfigView> {
                           label: _filters.minSeeders == 0
                               ? 'Any'
                               : 'min ${_filters.minSeeders}',
-                          onChanged: (v) => _update(
-                            _filters.copyWith(minSeeders: v.round()),
-                          ),
+                          onChanged: (v) =>
+                              _update(_filters.copyWith(minSeeders: v.round())),
                         ),
                       ),
                       SizedBox(
@@ -321,8 +319,7 @@ class _Header extends StatelessWidget {
           if (activeCount > 0) ...[
             const SizedBox(width: 8),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
               decoration: BoxDecoration(
                 color: theme.colorScheme.primary.withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(999),
@@ -478,7 +475,8 @@ class _SizeRangeControl extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final minGb = (minBytes ?? 0) / (1024 * 1024 * 1024);
-    final maxGb = (maxBytes ?? _maxGb.toInt() * 1024 * 1024 * 1024) /
+    final maxGb =
+        (maxBytes ?? _maxGb.toInt() * 1024 * 1024 * 1024) /
         (1024 * 1024 * 1024);
     final values = RangeValues(
       minGb.clamp(0.0, _maxGb),

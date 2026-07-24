@@ -83,8 +83,8 @@ class TorrentMetaRow extends StatelessWidget {
     final episodeLabel = data.isBatch
         ? 'Batch'
         : data.episodeNumber != null
-            ? 'Ep ${data.episodeNumber}'
-            : null;
+        ? 'Ep ${data.episodeNumber}'
+        : null;
 
     return Wrap(
       spacing: compact ? 4 : 6,
@@ -111,10 +111,7 @@ class TorrentMetaRow extends StatelessWidget {
             color: qualityColor(data.resolution),
           ),
         if (data.languageLabel != null)
-          MetaBadge(
-            icon: Icons.language_rounded,
-            label: data.languageLabel!,
-          ),
+          MetaBadge(icon: Icons.language_rounded, label: data.languageLabel!),
         if (data.seeders != null)
           MetaBadge(
             icon: Icons.upload_rounded,
