@@ -712,7 +712,6 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       );
 
       _pendingStarters[id] = () {
-        handle.resume();
         // Flip pending → downloading so subsequent listener events stop
         // treating this item as never-started.
         _updateItem(
@@ -721,6 +720,8 @@ class InProcessDownloadRuntime implements DownloadRuntime {
               ? item.copyWith(status: DownloadQueueStatus.downloading)
               : item,
         );
+        handle.resume();
+        _nudgeTorrentDiscovery(handle);
       };
     } catch (error, stackTrace) {
       _disposeTorrentRuntime(id, deleteFiles: false);
@@ -1007,7 +1008,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
           torrentSlots -= 1;
         }
         startedPending = true;
-        starter();
+        _startPendingDownload(id, starter);
       }
       if (!startedPending) {
         for (final id in batch.itemIds) {
@@ -1035,6 +1036,38 @@ class InProcessDownloadRuntime implements DownloadRuntime {
           if (item.id == id) update(item) else item,
       ],
     );
+  }
+
+  void _startPendingDownload(String id, void Function() starter) {
+    Timer.run(() {
+      final item = _findItem(id);
+      if (item == null || item.status.isTerminal) return;
+      try {
+        starter();
+      } on Object catch (error, stackTrace) {
+        _failItem(
+          id,
+          title: 'Download failed',
+          description: 'Failed to start ${item.displayTitle}.',
+          copyPayload: _formatErrorForCopy(error, stackTrace),
+        );
+        _showGlobalError(
+          title: 'Download failed',
+          description: 'Failed to start ${item.displayTitle}.',
+          copyPayload: _formatErrorForCopy(error, stackTrace),
+        );
+      }
+    });
+  }
+
+  void _nudgeTorrentDiscovery(TorrentHandle handle) {
+    try {
+      handle.forceReannounce();
+    } catch (_) {}
+    if (!_torrentSettings.enableDht) return;
+    try {
+      handle.forceDhtAnnounce();
+    } catch (_) {}
   }
 
   DownloadQueueItem? _findItem(String id) {
@@ -1211,7 +1244,9 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     state = state.copyWith(activeBatchId: top.id);
     if (hasPending) {
       for (final id in top.itemIds) {
-        _pendingStarters.remove(id)?.call();
+        final starter = _pendingStarters.remove(id);
+        if (starter == null) continue;
+        _startPendingDownload(id, starter);
       }
     } else {
       for (final id in top.itemIds) {
