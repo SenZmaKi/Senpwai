@@ -183,8 +183,9 @@ class SettingsCategoryNav extends StatelessWidget {
                           Text(
                             cat.title,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight:
-                                  active ? FontWeight.bold : FontWeight.w500,
+                              fontWeight: active
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
                               color: active
                                   ? theme.colorScheme.primary
                                   : theme.colorScheme.onSurface,

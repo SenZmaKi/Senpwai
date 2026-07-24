@@ -66,8 +66,8 @@ class _StorageSettingsSectionState
                   searchQuery: sq,
                   trailing: AsyncSwitch(
                     value: notifications.enabled,
-                    onChanged: (enabled) => AppNotificationService.instance
-                        .setEnabledFromSettings(
+                    onChanged: (enabled) =>
+                        AppNotificationService.instance.setEnabledFromSettings(
                           notifier: widget.notifier,
                           enabled: enabled,
                         ),
@@ -84,7 +84,10 @@ class _StorageSettingsSectionState
                     value: notifications.downloadStyle,
                     items: [
                       for (final value in DownloadNotificationStyle.values)
-                        DropdownMenuItem(value: value, child: Text(value.label)),
+                        DropdownMenuItem(
+                          value: value,
+                          child: Text(value.label),
+                        ),
                     ],
                     onChanged: (value) => unawaited(
                       widget.notifier.setDownloadNotificationStyle(value),
@@ -195,7 +198,8 @@ class _StorageSettingsSectionState
             SettingsGroupCard(
               title: 'About Senpwai',
               icon: Icons.info_outline_rounded,
-              description: 'Version information and third-party software licenses',
+              description:
+                  'Version information and third-party software licenses',
               searchQuery: sq,
               children: [
                 SettingsTile(
