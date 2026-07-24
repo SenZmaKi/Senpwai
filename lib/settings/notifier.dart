@@ -317,14 +317,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
-  Future<void> setSyncWatchingToTrackedAnime(bool sync) {
-    return _commit(
-      state.copyWith(
-        anilist: state.anilist.copyWith(syncWatchingToTrackedAnime: sync),
-      ),
-    );
-  }
-
   Future<void> setTrackerCheckIntervalHours(int hours) {
     return _commit(
       state.copyWith(

@@ -18,7 +18,7 @@ void main() {
       expect(settings.sources.enabledSources, AnimeSource.values.toSet());
       expect(settings.sources.priority.first, AnimeSource.animepahe);
       expect(settings.storage.imageCacheMaxBytes, 50 * 1024 * 1024);
-      expect(settings.anilist.syncWatchingToTrackedAnime, isFalse);
+      expect(settings.anilist.trackerCheckIntervalHours, 1);
       expect(settings.notifications.enabled, isTrue);
       expect(settings.notifications.permissionDenied, isFalse);
       expect(

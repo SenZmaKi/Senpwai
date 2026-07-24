@@ -81,6 +81,20 @@ class AnilistNotifier extends Notifier<AnilistStateData> {
     state = state.copyWith(viewer: viewer);
   }
 
+  Future<void> logout() async {
+    if (state.isAuthLoading) return;
+
+    state = state.copyWith(isAuthLoading: true);
+    try {
+      await authClient.auth.clearToken();
+      authClient.viewerId = null;
+      state = const AnilistStateData();
+    } on Object {
+      state = state.copyWith(isAuthLoading: false);
+      rethrow;
+    }
+  }
+
   Future<void> _clearRestoredAuth() async {
     await authClient.auth.clearToken();
     authClient.viewerId = null;

@@ -24,7 +24,7 @@ enum SettingsCategory {
   tracking(
     'Tracking & AniList',
     Icons.radar_rounded,
-    'AniList sync & auto-downloader',
+    'AniList & auto-downloader',
   ),
   system(
     'System & Storage',

@@ -8,6 +8,7 @@ import 'package:senpwai/tracking/models.dart';
 import 'package:senpwai/tracking/notifier.dart';
 import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
+import 'package:senpwai/ui/pages/settings_page/anilist_account_card.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_search.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_controls.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
@@ -65,27 +66,7 @@ class TrackingSettingsSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (settings != null && notifier != null) ...[
-          SettingsGroupCard(
-            title: 'AniList Account & Sync',
-            icon: Icons.sync_rounded,
-            description:
-                'Automatic watch status updates and profile synchronization',
-            searchQuery: searchQuery,
-            children: [
-              SettingsTile(
-                icon: Icons.sync_rounded,
-                title: 'Sync Watching to Tracked Anime',
-                subtitle: 'Automatically sync watched episodes with AniList',
-                searchQuery: searchQuery,
-                trailing: AsyncSwitch(
-                  value: settings!.anilist.syncWatchingToTrackedAnime,
-                  onChanged: notifier!.setSyncWatchingToTrackedAnime,
-                ),
-              ),
-            ],
-          ),
-        ],
+        AnilistAccountCard(searchQuery: searchQuery),
         SettingsGroupCard(
           title: 'Tracked Anime Auto-Downloader',
           icon: Icons.radar_rounded,

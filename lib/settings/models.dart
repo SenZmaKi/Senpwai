@@ -650,20 +650,14 @@ class TorrentPreferences {
 class AnilistPreferences {
   static const defaultTrackerCheckIntervalHours = 1;
 
-  final bool syncWatchingToTrackedAnime;
   final int trackerCheckIntervalHours;
 
   const AnilistPreferences({
-    this.syncWatchingToTrackedAnime = false,
     this.trackerCheckIntervalHours = defaultTrackerCheckIntervalHours,
   });
 
   factory AnilistPreferences.fromJson(Map<String, dynamic> json) =>
       AnilistPreferences(
-        syncWatchingToTrackedAnime: _boolValue(
-          json['syncWatchingToTrackedAnime'],
-          false,
-        ),
         trackerCheckIntervalHours: _nonNegativeIntValue(
           json['trackerCheckIntervalHours'],
           defaultTrackerCheckIntervalHours,
@@ -671,19 +665,14 @@ class AnilistPreferences {
       );
 
   Map<String, dynamic> toJson() => {
-    'syncWatchingToTrackedAnime': syncWatchingToTrackedAnime,
     'trackerCheckIntervalHours': trackerCheckIntervalHours,
   };
 
-  AnilistPreferences copyWith({
-    bool? syncWatchingToTrackedAnime,
-    int? trackerCheckIntervalHours,
-  }) => AnilistPreferences(
-    syncWatchingToTrackedAnime:
-        syncWatchingToTrackedAnime ?? this.syncWatchingToTrackedAnime,
-    trackerCheckIntervalHours:
-        trackerCheckIntervalHours ?? this.trackerCheckIntervalHours,
-  );
+  AnilistPreferences copyWith({int? trackerCheckIntervalHours}) =>
+      AnilistPreferences(
+        trackerCheckIntervalHours:
+            trackerCheckIntervalHours ?? this.trackerCheckIntervalHours,
+      );
 }
 
 @immutable

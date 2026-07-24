@@ -167,10 +167,9 @@ class SettingsSearchResults extends ConsumerWidget {
       'Nyaa Search Filtering default filters sorting torrent searches',
       'Exact Episode Only Same Season Only Manual Sort Order Minimum Seeders',
       settings.sources.nyaaDefaultFilters.sort.label,
-      'AniList Account Sync automatic watch status profile synchronization',
-      'Sync Watching to Tracked Anime automatically sync watched episodes',
+      'AniList Account profile username log in log out connected',
       'Tracked Anime Auto-Downloader monitors releases downloads new episodes',
-      'Tracker Status checking last checked Check now No tracked anime',
+      'Check interval Check now No tracked anime',
       for (final tracked in tracking.trackedAnime) ...[
         tracked.animeSnapshot.title.display,
         tracked.downloadFolder,
