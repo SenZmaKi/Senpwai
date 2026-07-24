@@ -33,6 +33,10 @@ class TrackingSettingsSection extends ConsumerWidget {
       'Tracking AniList',
       'Tracked Anime Auto-Downloader',
       'Monitors releases and automatically downloads new episodes',
+      'Check interval',
+      'Check on launch then repeat while Senpwai is running',
+      'Disabled',
+      'hours',
       'No tracked anime',
     ]);
     final matchingTrackedAnime = tracking.trackedAnime.indexed
@@ -53,6 +57,10 @@ class TrackingSettingsSection extends ConsumerWidget {
         !isSearching ||
         matchingTrackedAnime.isNotEmpty ||
         (tracking.trackedAnime.isEmpty && generalTrackingMatch);
+    final trackerCheckIntervalHours =
+        settings?.anilist.trackerCheckIntervalHours ??
+        AnilistPreferences.defaultTrackerCheckIntervalHours;
+    final trackerDisabled = trackerCheckIntervalHours == 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,18 +95,27 @@ class TrackingSettingsSection extends ConsumerWidget {
           headerTrailing: _IconActionButton(
             icon: Icons.refresh_rounded,
             tooltip: 'Check now',
-            onPressed: tracking.checkInProgress
+            onPressed: tracking.checkInProgress || trackerDisabled
                 ? null
                 : () => unawaited(trackingNotifier.checkNow()),
           ),
           children: [
-            SettingsTile(
-              icon: Icons.radar_rounded,
-              title: 'Tracker Status',
-              subtitle: tracking.checkInProgress
-                  ? 'Checking tracked anime now...'
-                  : _lastCheckedSubtitle(tracking.lastCheckCompletedAt),
-            ),
+            if (settings != null && notifier != null)
+              SettingsTile(
+                icon: Icons.schedule_rounded,
+                title: 'Check interval',
+                subtitle: trackerDisabled
+                    ? 'Disabled'
+                    : 'Check on launch, then repeat while Senpwai is running',
+                searchQuery: searchQuery,
+                trailing: NumberSettingField(
+                  value: settings!.anilist.trackerCheckIntervalHours,
+                  min: 0,
+                  unit: 'hours',
+                  onSubmitted: (hours) =>
+                      unawaited(notifier!.setTrackerCheckIntervalHours(hours)),
+                ),
+              ),
           ],
         ),
         if (showTrackedAnime) ...[
@@ -344,13 +361,4 @@ class _IconActionButton extends StatelessWidget {
       ),
     );
   }
-}
-
-String _lastCheckedSubtitle(DateTime? value) {
-  if (value == null) return 'Waiting for the first automatic check';
-  final elapsed = DateTime.now().difference(value);
-  if (elapsed.inMinutes < 1) return 'Checked just now';
-  if (elapsed.inHours < 1) return 'Checked ${elapsed.inMinutes} min ago';
-  if (elapsed.inDays < 1) return 'Checked ${elapsed.inHours} hr ago';
-  return 'Checked ${elapsed.inDays} days ago';
 }

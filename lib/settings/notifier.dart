@@ -325,6 +325,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setTrackerCheckIntervalHours(int hours) {
+    return _commit(
+      state.copyWith(
+        anilist: state.anilist.copyWith(
+          trackerCheckIntervalHours: hours < 0 ? 0 : hours,
+        ),
+      ),
+    );
+  }
+
   Future<void> setImageCacheMaxBytes(int bytes) {
     return _commit(
       state.copyWith(

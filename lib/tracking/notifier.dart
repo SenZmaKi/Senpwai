@@ -117,7 +117,15 @@ class TrackingNotifier extends Notifier<TrackingState> {
   }
 
   Future<void> checkNow() async {
-    if (state.checkInProgress || state.trackedAnime.isEmpty) return;
+    final intervalHours = ref
+        .read(AppSettingsNotifier.provider)
+        .anilist
+        .trackerCheckIntervalHours;
+    if (intervalHours == 0 ||
+        state.checkInProgress ||
+        state.trackedAnime.isEmpty) {
+      return;
+    }
     final startedAt = DateTime.now();
     state = state.copyWith(
       checkInProgress: true,
@@ -190,23 +198,39 @@ class TrackingScheduler extends Notifier<int> {
     TrackingScheduler.new,
   );
 
-  static const interval = Duration(minutes: 30);
   Timer? _timer;
-  Timer? _initialTimer;
 
   @override
   int build() {
-    _timer = Timer.periodic(interval, (_) {
+    final intervalHours = ref.read(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.anilist.trackerCheckIntervalHours,
+      ),
+    );
+    _schedule(intervalHours);
+    ref.listen(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.anilist.trackerCheckIntervalHours,
+      ),
+      (_, hours) => _schedule(hours),
+    );
+    if (intervalHours > 0) {
+      Future.microtask(() {
+        unawaited(ref.read(TrackingNotifier.provider.notifier).checkNow());
+      });
+    }
+    ref.onDispose(() {
+      _timer?.cancel();
+    });
+    return 0;
+  }
+
+  void _schedule(int intervalHours) {
+    _timer?.cancel();
+    if (intervalHours <= 0) return;
+    _timer = Timer.periodic(Duration(hours: intervalHours), (_) {
       unawaited(ref.read(TrackingNotifier.provider.notifier).checkNow());
       state += 1;
     });
-    _initialTimer = Timer(const Duration(seconds: 20), () {
-      unawaited(ref.read(TrackingNotifier.provider.notifier).checkNow());
-    });
-    ref.onDispose(() {
-      _timer?.cancel();
-      _initialTimer?.cancel();
-    });
-    return 0;
   }
 }
