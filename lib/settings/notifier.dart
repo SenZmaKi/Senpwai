@@ -172,6 +172,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setSkipFillers(bool skip) {
+    return _commit(
+      state.copyWith(downloads: state.downloads.copyWith(skipFillers: skip)),
+    );
+  }
+
   Future<void> setEnabledSources(Set<AnimeSource> sources) {
     if (sources.isEmpty) return Future.value();
     return _commit(

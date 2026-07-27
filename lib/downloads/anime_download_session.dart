@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
+import 'package:senpwai/downloads/filler_episodes.dart';
 import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
@@ -183,6 +184,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   final DownloadSourceResolver? _sourceResolverOverride;
   final AnimeDownloadCoordinator _coordinator;
   final DownloadTargetPlanner _targetPlanner;
+  final AnimeFillerService _fillerService;
   Future<void>? _activeFilesystemRefresh;
   bool _resolvedFolderExisted = false;
   bool? _startEpisodeSelectedByUser;
@@ -192,9 +194,11 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     DownloadSourceResolver? sourceResolver,
     AnimeDownloadCoordinator? coordinator,
     DownloadTargetPlanner? targetPlanner,
+    AnimeFillerService? fillerService,
   }) : _sourceResolverOverride = sourceResolver,
        _coordinator = coordinator ?? AnimeDownloadCoordinator(),
-       _targetPlanner = targetPlanner ?? const DownloadTargetPlanner();
+       _targetPlanner = targetPlanner ?? const DownloadTargetPlanner(),
+       _fillerService = fillerService ?? AnimeFillerService.instance;
 
   @override
   AnimeDownloadSessionState build() {
@@ -498,15 +502,33 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       startInput: startInput,
       endInput: endInput,
     );
-    final requestedEpisodes = [
+    final missingEpisodes = [
       for (var episode = range.start; episode <= range.end; episode++)
         if (!state.ownedEpisodes.contains(episode)) episode,
     ];
-    if (requestedEpisodes.isEmpty) {
+    if (missingEpisodes.isEmpty) {
       throw const DownloadUserError(
         title: 'No missing episodes',
         description:
             'Every episode in that range already exists in the selected folder.',
+      );
+    }
+    final settings = ref.read(AppSettingsNotifier.provider);
+    final fillerEpisodes = settings.downloads.skipFillers
+        ? await _fillerService.getFillerEpisodes(
+            anime: state.anime,
+            episodeCount: state.availableEpisodes,
+          )
+        : const <int>{};
+    final requestedEpisodes = [
+      for (final episode in missingEpisodes)
+        if (!fillerEpisodes.contains(episode)) episode,
+    ];
+    if (requestedEpisodes.isEmpty) {
+      throw const DownloadUserError(
+        title: 'No canon episodes to download',
+        description:
+            'Every missing episode in that range is marked as pure filler.',
       );
     }
     state = state.copyWith(

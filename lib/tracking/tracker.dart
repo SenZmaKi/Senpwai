@@ -6,6 +6,7 @@ import 'package:senpwai/anilist/client/unauthenticated.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
+import 'package:senpwai/downloads/filler_episodes.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/request_coordinator.dart';
 import 'package:senpwai/downloads/source_resolver.dart';
@@ -39,16 +40,19 @@ class AnimeTracker {
   final AnilistUnauthenticatedClient _anilistClient;
   final DownloadTargetPlanner _targetPlanner;
   final AnimeDownloadCoordinator _coordinator;
+  final AnimeFillerService _fillerService;
 
   AnimeTracker({
     AnilistUnauthenticatedClient? anilistClient,
     DownloadTargetPlanner targetPlanner = const DownloadTargetPlanner(),
     AnimeDownloadCoordinator? coordinator,
+    AnimeFillerService? fillerService,
   }) : _anilistClient = anilistClient ?? AnilistUnauthenticatedClient(),
        _targetPlanner = targetPlanner,
        _coordinator =
            coordinator ??
-           AnimeDownloadCoordinator(targetPlanner: targetPlanner);
+           AnimeDownloadCoordinator(targetPlanner: targetPlanner),
+       _fillerService = fillerService ?? AnimeFillerService.instance;
 
   Future<TrackingCheckResult> check({
     required List<TrackedAnime> trackedAnime,
@@ -148,15 +152,7 @@ class AnimeTracker {
           tracked: null,
           queuedBatch: false,
           queuedEpisodes: 0,
-          events: [
-            TrackingEvent.create(
-              kind: TrackingEventKind.finishedTracking,
-              level: TrackingEventLevel.info,
-              title: 'Finished tracking',
-              description:
-                  '${freshAnime.title.display} completed and was removed from tracked anime.',
-            ),
-          ],
+          events: [_finishedTrackingEvent(freshAnime)],
         );
       }
       return (
@@ -169,6 +165,33 @@ class AnimeTracker {
 
     final startEpisode = havedEpisode + 1;
     final endEpisode = availableEpisodes;
+    final fillerEpisodes = settings.downloads.skipFillers
+        ? await _fillerService.getFillerEpisodes(
+            anime: freshAnime,
+            episodeCount: availableEpisodes,
+          )
+        : const <int>{};
+    final requestedEpisodes = [
+      for (var episode = startEpisode; episode <= endEpisode; episode++)
+        if (!fillerEpisodes.contains(episode)) episode,
+    ];
+    if (requestedEpisodes.isEmpty) {
+      if (freshAnime.status == AnilistAiringStatus.finished) {
+        return (
+          tracked: null,
+          queuedBatch: false,
+          queuedEpisodes: 0,
+          events: [_finishedTrackingEvent(freshAnime)],
+        );
+      }
+      return (
+        tracked: _markChecked(tracked, anime: freshAnime, checkedAt: checkedAt),
+        queuedBatch: false,
+        queuedEpisodes: 0,
+        events: const <TrackingEvent>[],
+      );
+    }
+
     final resolver = DownloadSourceResolver(settings: settings.sources);
     final matches = await resolver.resolveAll(freshAnime);
     final source = resolver.selectPreferredSource(
@@ -193,6 +216,7 @@ class AnimeTracker {
         source: source,
         startEpisode: startEpisode,
         endEpisode: endEpisode,
+        episodeNumbers: requestedEpisodes,
         downloadFolder: folder,
         httpJobTitle: tracked.httpJobTitle,
         resolution: tracked.resolution,
@@ -242,7 +266,7 @@ class AnimeTracker {
         level: TrackingEventLevel.info,
         title: 'Queued new episodes',
         description:
-            '$title episodes $startEpisode-$endEpisode were added to downloads.',
+            '$title episodes ${_episodeListText(requestedEpisodes)} were added to downloads.',
       ),
       ..._noticeEvents(title, batch.notices),
     ];
@@ -263,7 +287,7 @@ class AnimeTracker {
         clearLastError: true,
       ),
       queuedBatch: true,
-      queuedEpisodes: endEpisode - startEpisode + 1,
+      queuedEpisodes: requestedEpisodes.length,
       events: events,
     );
   }
@@ -281,6 +305,37 @@ class AnimeTracker {
     );
   }
 }
+
+TrackingEvent _finishedTrackingEvent(
+  AnilistAnimeBase anime,
+) => TrackingEvent.create(
+  kind: TrackingEventKind.finishedTracking,
+  level: TrackingEventLevel.info,
+  title: 'Finished tracking',
+  description:
+      '${anime.title.display} completed and was removed from tracked anime.',
+);
+
+String _episodeListText(List<int> episodes) {
+  if (episodes.isEmpty) return '';
+  final ranges = <String>[];
+  var rangeStart = episodes.first;
+  var previous = episodes.first;
+  for (final episode in episodes.skip(1)) {
+    if (episode == previous + 1) {
+      previous = episode;
+      continue;
+    }
+    ranges.add(_episodeRangeText(rangeStart, previous));
+    rangeStart = episode;
+    previous = episode;
+  }
+  ranges.add(_episodeRangeText(rangeStart, previous));
+  return ranges.join(', ');
+}
+
+String _episodeRangeText(int start, int end) =>
+    start == end ? '$start' : '$start-$end';
 
 Future<int> _lastHavedEpisode({
   required TrackedAnime tracked,
