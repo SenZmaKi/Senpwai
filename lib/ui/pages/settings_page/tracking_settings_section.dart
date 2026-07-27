@@ -70,12 +70,14 @@ class TrackingSettingsSection extends ConsumerWidget {
         SettingsGroupCard(
           title: 'Tracked Anime Auto-Downloader',
           icon: Icons.radar_rounded,
-          description:
-              'Monitors releases and automatically downloads new episodes',
+          description: tracking.checkInProgress
+              ? 'Checking tracked anime for new episodes...'
+              : 'Monitors releases and automatically downloads new episodes',
           searchQuery: searchQuery,
           headerTrailing: _IconActionButton(
             icon: Icons.refresh_rounded,
-            tooltip: 'Check now',
+            tooltip: tracking.checkInProgress ? 'Checking...' : 'Check now',
+            loading: tracking.checkInProgress,
             onPressed: tracking.checkInProgress || trackerDisabled
                 ? null
                 : () => unawaited(trackingNotifier.checkNow()),
@@ -322,11 +324,13 @@ class _IconActionButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback? onPressed;
+  final bool loading;
 
   const _IconActionButton({
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    this.loading = false,
   });
 
   @override
@@ -338,7 +342,12 @@ class _IconActionButton extends StatelessWidget {
       child: IconButton(
         tooltip: tooltip,
         onPressed: onPressed,
-        icon: Icon(icon, size: 20),
+        icon: loading
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(icon, size: 20),
       ),
     );
   }

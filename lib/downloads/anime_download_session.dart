@@ -170,17 +170,22 @@ class AnimeDownloadSessionState {
 }
 
 class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
-  static final provider =
-      NotifierProvider.family<
+  static final provider = NotifierProvider.autoDispose
+      .family<
         AnimeDownloadSessionNotifier,
         AnimeDownloadSessionState,
         AnilistAnimeBase
       >((anime) => AnimeDownloadSessionNotifier._(anime));
 
+  static const _filesystemRefreshInterval = Duration(seconds: 3);
+
   final AnilistAnimeBase _anime;
   final DownloadSourceResolver? _sourceResolverOverride;
   final AnimeDownloadCoordinator _coordinator;
   final DownloadTargetPlanner _targetPlanner;
+  Future<void>? _activeFilesystemRefresh;
+  bool _resolvedFolderExisted = false;
+  bool? _startEpisodeSelectedByUser;
 
   AnimeDownloadSessionNotifier._(
     this._anime, {
@@ -213,6 +218,11 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         unawaited(_resolveInitialLocation());
       }
     });
+    final filesystemRefreshTimer = Timer.periodic(
+      _filesystemRefreshInterval,
+      (_) => unawaited(_refreshFilesystemState()),
+    );
+    ref.onDispose(filesystemRefreshTimer.cancel);
     Future.microtask(_initialize);
     return AnimeDownloadSessionState(
       anime: _anime,
@@ -236,7 +246,9 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     await Future.wait([_resolveInitialLocation(), _resolveSources()]);
   }
 
-  Future<void> _resolveInitialLocation() async {
+  Future<void> _resolveInitialLocation({
+    bool replaceSelectedFolder = false,
+  }) async {
     final settings = ref.read(AppSettingsNotifier.provider);
     final defaultRoot =
         settings.downloads.defaultRootDirectory ??
@@ -248,29 +260,107 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
           : [defaultRoot],
       customAnimeFolders: settings.downloads.customAnimeFolders,
     );
+    final folderExists = await Directory(
+      plannedLocation.episodeDirectory,
+    ).exists();
     final ownedEpisodes = await _ownedEpisodes(
       plannedLocation.episodeDirectory,
     );
-    final highestExistingEpisode = ownedEpisodes.isEmpty
-        ? null
-        : ownedEpisodes.reduce((max, episode) => episode > max ? episode : max);
-    final availableEpisodes = state.availableEpisodes;
-    final resolvedStartEpisode =
-        highestExistingEpisode == null ||
-            availableEpisodes <= 0 ||
-            highestExistingEpisode >= availableEpisodes
-        ? state.startEpisode
-        : highestExistingEpisode + 1;
+    if (!ref.mounted) return;
+    final resolvedStartEpisode = _recommendedStartEpisode(ownedEpisodes);
     state = state.copyWith(
-      downloadFolder: state.downloadFolderSelectedByUser
+      downloadFolder:
+          state.downloadFolderSelectedByUser && !replaceSelectedFolder
           ? state.downloadFolder
           : plannedLocation.episodeDirectory,
       resolvedDownloadTitle: plannedLocation.httpJobTitle,
       ownedEpisodes: ownedEpisodes,
-      startEpisode: state.downloadFolderSelectedByUser
+      startEpisode: _startEpisodeSelectedByUser == true
           ? state.startEpisode
           : resolvedStartEpisode,
     );
+    _resolvedFolderExisted = folderExists;
+    if (replaceSelectedFolder && state.downloadFolderSelectedByUser) {
+      unawaited(
+        ref
+            .read(AppSettingsNotifier.provider.notifier)
+            .upsertCustomAnimeFolder(
+              animeTitle: state.anime.title.display,
+              folder: plannedLocation.episodeDirectory,
+            ),
+      );
+    }
+  }
+
+  Future<void> _refreshFilesystemState({
+    bool resolveMissingFolder = false,
+  }) async {
+    final activeRefresh = _activeFilesystemRefresh;
+    if (activeRefresh != null) {
+      await activeRefresh;
+      if (resolveMissingFolder && ref.mounted) {
+        await _refreshFilesystemState(resolveMissingFolder: true);
+      }
+      return;
+    }
+
+    final refresh = _performFilesystemRefresh(
+      resolveMissingFolder: resolveMissingFolder,
+    );
+    _activeFilesystemRefresh = refresh;
+    try {
+      await refresh;
+    } finally {
+      if (identical(_activeFilesystemRefresh, refresh)) {
+        _activeFilesystemRefresh = null;
+      }
+    }
+  }
+
+  Future<void> _performFilesystemRefresh({
+    required bool resolveMissingFolder,
+  }) async {
+    final folder = state.downloadFolder?.trim();
+    if (folder == null || folder.isEmpty) {
+      if (resolveMissingFolder) {
+        await _resolveInitialLocation(replaceSelectedFolder: true);
+      }
+      return;
+    }
+
+    final folderExists = await Directory(folder).exists();
+    if (!ref.mounted) return;
+    if (!folderExists) {
+      if (resolveMissingFolder || _resolvedFolderExisted) {
+        await _resolveInitialLocation(replaceSelectedFolder: true);
+      } else if (state.ownedEpisodes.isNotEmpty) {
+        state = state.copyWith(ownedEpisodes: const {});
+      }
+      return;
+    }
+
+    _resolvedFolderExisted = true;
+    final ownedEpisodes = await _ownedEpisodes(folder);
+    if (!ref.mounted) return;
+    if (!setEquals(state.ownedEpisodes, ownedEpisodes)) {
+      state = state.copyWith(
+        ownedEpisodes: ownedEpisodes,
+        startEpisode: _startEpisodeSelectedByUser == true
+            ? state.startEpisode
+            : _recommendedStartEpisode(ownedEpisodes),
+      );
+    }
+  }
+
+  int _recommendedStartEpisode(Set<int> ownedEpisodes) {
+    final availableEpisodes = state.availableEpisodes;
+    if (availableEpisodes <= 0 || ownedEpisodes.isEmpty) return 1;
+    final highestExistingEpisode = ownedEpisodes.reduce(
+      (max, episode) => episode > max ? episode : max,
+    );
+    return highestExistingEpisode >= availableEpisodes
+        ? availableEpisodes
+        : highestExistingEpisode + 1;
   }
 
   Future<void> _resolveSources() async {
@@ -280,6 +370,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
           settings: ref.read(AppSettingsNotifier.provider).sources,
         );
     final matches = await sourceResolver.resolveAll(_anime);
+    if (!ref.mounted) return;
     final preferredSource = sourceResolver.selectPreferredSource(
       matches: matches,
       sourceSelectedByUser: state.sourceSelectedByUser,
@@ -313,6 +404,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   }
 
   void setStartEpisode(int episode) {
+    _startEpisodeSelectedByUser = true;
     state = state.copyWith(startEpisode: episode);
   }
 
@@ -329,10 +421,12 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
 
   Future<void> setDownloadFolder(String folder) async {
     final ownedEpisodes = await _ownedEpisodes(folder);
+    _startEpisodeSelectedByUser = false;
     state = state.copyWith(
       downloadFolder: folder,
       downloadFolderSelectedByUser: true,
       ownedEpisodes: ownedEpisodes,
+      startEpisode: _recommendedStartEpisode(ownedEpisodes),
     );
     unawaited(
       ref
@@ -384,6 +478,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     required String startInput,
     required String endInput,
   }) async {
+    await _refreshFilesystemState(resolveMissingFolder: true);
     final source = state.selectedSource;
     final folder = state.downloadFolder;
     if (source == null) {

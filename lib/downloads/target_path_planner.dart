@@ -75,6 +75,7 @@ class DownloadTargetPlanner {
     for (final customFolder in customAnimeFolders) {
       if (_matchesCustomFolder(customFolder, titleCandidates)) {
         final customPath = path.normalize(customFolder.folder);
+        if (!await Directory(customPath).exists()) continue;
         final customTitle = sanitizePathSegment(customFolder.animeTitle);
         return ResolvedAnimeDownloadLocation(
           rootDirectory: path.dirname(customPath),
