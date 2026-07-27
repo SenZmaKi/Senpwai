@@ -7,7 +7,6 @@ import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net.dart';
 
 const _animeFillerListHome = 'https://www.animefillerlist.com';
-const _cacheDuration = Duration(hours: 24);
 
 final _log = Logger('senpwai.downloads.filler_episodes');
 final _parentheticalText = RegExp(r'\[[^\]]*\]|\([^)]*\)');
@@ -18,10 +17,7 @@ class AnimeFillerService {
   static final instance = AnimeFillerService();
 
   final Dio? _dioOverride;
-  Map<String, List<_FillerShow>>? _showIndex;
-  DateTime? _showIndexFetchedAt;
   Future<Map<String, List<_FillerShow>>>? _showIndexRequest;
-  final Map<String, _CachedFillerPage> _pageCache = {};
 
   AnimeFillerService({Dio? dio}) : _dioOverride = dio;
 
@@ -99,25 +95,13 @@ class AnimeFillerService {
   }
 
   Future<Map<String, List<_FillerShow>>> _getShowIndex() async {
-    final now = DateTime.now();
-    final cached = _showIndex;
-    final fetchedAt = _showIndexFetchedAt;
-    if (cached != null &&
-        fetchedAt != null &&
-        now.difference(fetchedAt) <= _cacheDuration) {
-      return cached;
-    }
-
     final activeRequest = _showIndexRequest;
     if (activeRequest != null) return activeRequest;
 
     final request = _fetchShowIndex();
     _showIndexRequest = request;
     try {
-      final index = await request;
-      _showIndex = index;
-      _showIndexFetchedAt = DateTime.now();
-      return index;
+      return await request;
     } finally {
       if (identical(_showIndexRequest, request)) _showIndexRequest = null;
     }
@@ -150,12 +134,6 @@ class AnimeFillerService {
   }
 
   Future<_FillerPage> _getFillerPage(String path) async {
-    final now = DateTime.now();
-    final cached = _pageCache[path];
-    if (cached != null && now.difference(cached.fetchedAt) <= _cacheDuration) {
-      return cached.page;
-    }
-
     final uri = Uri.parse(_animeFillerListHome).resolve(path);
     final response = await _dio.get<String>(uri.toString());
     final document = html_parser.parse(response.data);
@@ -177,7 +155,6 @@ class AnimeFillerService {
       title: pageTitle.replaceFirst(_fillerListSuffix, '').trim(),
       episodes: episodes,
     );
-    _pageCache[path] = _CachedFillerPage(page: page, fetchedAt: now);
     return page;
   }
 }
@@ -224,11 +201,4 @@ class _FillerPage {
   final List<int> episodes;
 
   const _FillerPage({required this.title, required this.episodes});
-}
-
-class _CachedFillerPage {
-  final _FillerPage page;
-  final DateTime fetchedAt;
-
-  const _CachedFillerPage({required this.page, required this.fetchedAt});
 }
