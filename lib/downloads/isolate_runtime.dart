@@ -15,6 +15,8 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   final _stateController = StreamController<DownloadManagerState>.broadcast();
   final _pendingRequests = <String, Completer<Object?>>{};
 
+  int _maxDownloadBytesPerSecond;
+  String _downloadUserAgent;
   TorrentPreferences _torrentSettings;
   var _stateSnapshot = const DownloadManagerState();
   var _requestCounter = 0;
@@ -25,9 +27,13 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   Completer<void>? _ready;
 
   DownloadIsolateRuntime({
+    required int initialMaxDownloadBytesPerSecond,
+    required String downloadUserAgent,
     required TorrentPreferences initialTorrentSettings,
     required this.onError,
-  }) : _torrentSettings = initialTorrentSettings {
+  }) : _maxDownloadBytesPerSecond = initialMaxDownloadBytesPerSecond,
+       _downloadUserAgent = downloadUserAgent,
+       _torrentSettings = initialTorrentSettings {
     unawaited(_start().catchError((_) {}));
   }
 
@@ -112,6 +118,21 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   }
 
   @override
+  void updateHttpDownloadSettings({
+    required int maxBytesPerSecond,
+    required String userAgent,
+  }) {
+    _maxDownloadBytesPerSecond = maxBytesPerSecond;
+    _downloadUserAgent = userAgent;
+    unawaited(
+      _sendVoidCommand('updateHttpDownloadSettings', {
+        'maxBytesPerSecond': maxBytesPerSecond,
+        'userAgent': userAgent,
+      }),
+    );
+  }
+
+  @override
   void updateTorrentSettings(TorrentPreferences settings) {
     _torrentSettings = settings;
     unawaited(
@@ -192,6 +213,8 @@ class DownloadIsolateRuntime implements DownloadRuntime {
         'settings': DownloadRuntimeCodec.encodeTorrentSettings(
           _torrentSettings,
         ),
+        'maxDownloadBytesPerSecond': _maxDownloadBytesPerSecond,
+        'downloadUserAgent': _downloadUserAgent,
       });
     } on Object catch (error, stackTrace) {
       if (!ready.isCompleted) ready.completeError(error, stackTrace);
@@ -297,7 +320,15 @@ Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
   }
 
   try {
+    final downloadUserAgent = _string(config['downloadUserAgent']);
+    if (downloadUserAgent.isEmpty) {
+      throw StateError('Download isolate user agent is missing.');
+    }
     runtime = InProcessDownloadRuntime(
+      downloadUserAgent: downloadUserAgent,
+      initialMaxDownloadBytesPerSecond: _int(
+        config['maxDownloadBytesPerSecond'],
+      ),
       initialTorrentSettings: DownloadRuntimeCodec.decodeTorrentSettings(
         _map(config['settings']),
       ),
@@ -389,6 +420,12 @@ Future<void> _handleDownloadCommand(
         result = null;
       case 'seedMockDownloads':
         runtime.seedMockDownloads();
+        result = null;
+      case 'updateHttpDownloadSettings':
+        runtime.updateHttpDownloadSettings(
+          maxBytesPerSecond: _int(payload['maxBytesPerSecond']),
+          userAgent: _string(payload['userAgent']),
+        );
         result = null;
       case 'updateTorrentSettings':
         runtime.updateTorrentSettings(

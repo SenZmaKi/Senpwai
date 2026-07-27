@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:libtorrent_dart/libtorrent_dart.dart';
 import 'package:path/path.dart' as path;
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/net/download/download.dart';
+import 'package:senpwai/shared/net/download/download_config.dart';
+import 'package:senpwai/shared/net/download/download_dio.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
 
@@ -34,6 +37,10 @@ abstract class DownloadRuntime {
   void clearHistory();
   void dismiss(String id);
   void seedMockDownloads();
+  void updateHttpDownloadSettings({
+    required int maxBytesPerSecond,
+    required String userAgent,
+  });
   void updateTorrentSettings(TorrentPreferences settings);
   void updateNotificationSettings(NotificationPreferences settings);
   Future<void> dispose();
@@ -41,6 +48,7 @@ abstract class DownloadRuntime {
 
 class InProcessDownloadRuntime implements DownloadRuntime {
   final DownloadRuntimeErrorHandler onError;
+  final Dio _downloadDio;
 
   final Map<String, _ActiveHttpDownload> _httpDownloads = {};
   final Map<String, _ActiveTorrentDownload> _torrentDownloads = {};
@@ -53,9 +61,16 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   int _idCounter = 0;
 
   InProcessDownloadRuntime({
+    required String downloadUserAgent,
+    required int initialMaxDownloadBytesPerSecond,
     required TorrentPreferences initialTorrentSettings,
     required this.onError,
-  }) : _torrentSettings = initialTorrentSettings;
+  }) : _downloadDio = createDownloadDio(userAgent: downloadUserAgent),
+       _torrentSettings = initialTorrentSettings {
+    DownloadConfig.getInstance().updateMaxBytesPerSecond(
+      initialMaxDownloadBytesPerSecond.toDouble(),
+    );
+  }
 
   DownloadManagerState get state => _state;
 
@@ -325,6 +340,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     _torrentSession?.close();
     _torrentSession = null;
     _mockDownloads.clear();
+    _downloadDio.close(force: true);
     await _stateController.close();
   }
 
@@ -434,7 +450,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       numberOfParts: _recommendedPartCount(job.totalBytes),
       headers: job.headers,
     );
-    final download = Download(params: params);
+    final download = Download(params: params, dio: _downloadDio);
     final progressSub = download.state.progressStream.listen((progress) {
       _updateItem(
         id,
@@ -831,6 +847,17 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       );
     });
     _mockDownloads[id] = _ActiveMockDownload(timer: timer);
+  }
+
+  @override
+  void updateHttpDownloadSettings({
+    required int maxBytesPerSecond,
+    required String userAgent,
+  }) {
+    DownloadConfig.getInstance().updateMaxBytesPerSecond(
+      maxBytesPerSecond.toDouble(),
+    );
+    _downloadDio.options.headers['User-Agent'] = userAgent;
   }
 
   @override

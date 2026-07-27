@@ -1,6 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:senpwai/sources/shared/fuzzy.dart';
 import 'package:html/dom.dart';
 import 'package:logging/logging.dart';
@@ -12,6 +17,13 @@ import 'package:senpwai/shared/log.dart';
 final log = Logger("senpwai.anime.sources.tokyoinsider");
 List<Element> parsePageResults(Document htmlPage) =>
     htmlPage.querySelectorAll("div.c_h2 > div > a, div.c_h2b > div > a");
+List<Element> _parseEncodedDownloadRows(Document htmlPage) =>
+    htmlPage.querySelectorAll('div.episode span.download-link[data-a][data-b]');
+List<Element> _parseEncodedFileRows(Document htmlPage) =>
+    htmlPage.querySelectorAll(
+      'div.c_h2 > div > span.dlk[data-a][data-b], '
+      'div.c_h2b > div > span.dlk[data-a][data-b]',
+    );
 
 class Constants {
   static const baseUrl = "https://www.tokyoinsider.com";
@@ -19,6 +31,111 @@ class Constants {
 
 String _resolveUrl(String href) =>
     Uri.parse(Constants.baseUrl).resolve(href).toString();
+
+void _logHtmlResponseDiagnostics({
+  required String operation,
+  required Response<dynamic> response,
+  required Document htmlPage,
+  required List<Element> targetElements,
+  required Map<String, dynamic> context,
+}) {
+  final body = response.data is String ? response.data as String : null;
+  final bodyLower = body?.toLowerCase() ?? '';
+  final documentTitle = htmlPage.querySelector('title')?.text.trim();
+  final challengeIndicators = <String>[
+    if ((documentTitle ?? '').toLowerCase().contains('just a moment'))
+      'just-a-moment-title',
+    if (bodyLower.contains('performing security verification'))
+      'security-verification-text',
+    if (bodyLower.contains('enable javascript and cookies'))
+      'javascript-cookies-required',
+    if (bodyLower.contains('challenges.cloudflare.com'))
+      'cloudflare-challenges-host',
+    if (bodyLower.contains('cdn-cgi/challenge-platform'))
+      'cloudflare-challenge-platform',
+    if (bodyLower.contains('cf_chl_') || bodyLower.contains('cf-chl-'))
+      'cloudflare-challenge-marker',
+  ];
+  final episodeHrefCount = htmlPage
+      .querySelectorAll('a[href*="/episode/"]')
+      .length;
+  final encodedDownloadLinkCount = htmlPage
+      .querySelectorAll('div.episode span.download-link[data-a][data-b]')
+      .length;
+  final encodedFileLinkCount = htmlPage
+      .querySelectorAll('span.dlk[data-a][data-b]')
+      .length;
+  final isUnexpected = targetElements.isEmpty || challengeIndicators.isNotEmpty;
+  final htmlDumpPath = isUnexpected
+      ? _writeUnexpectedHtmlDump(operation: operation, body: body)
+      : null;
+  final metadata = <String, dynamic>{
+    ...context,
+    'operation': operation,
+    'requestUrl': response.requestOptions.uri.toString(),
+    'responseUrl': response.realUri.toString(),
+    'statusCode': response.statusCode,
+    'contentType': response.headers.value(Headers.contentTypeHeader),
+    'server': response.headers.value('server'),
+    'cfMitigated': response.headers.value('cf-mitigated'),
+    'cfRay': response.headers.value('cf-ray'),
+    'fromNetwork': response.extra[extraFromNetworkKey],
+    'bodyLength': body?.length,
+    'documentTitle': documentTitle,
+    'allAnchorCount': htmlPage.querySelectorAll('a').length,
+    'episodeHrefCount': episodeHrefCount,
+    'encodedDownloadLinkCount': encodedDownloadLinkCount,
+    'encodedFileLinkCount': encodedFileLinkCount,
+    'targetElementCount': targetElements.length,
+    'selectorMismatch':
+        targetElements.isEmpty &&
+        (episodeHrefCount > 0 ||
+            encodedDownloadLinkCount > 0 ||
+            encodedFileLinkCount > 0),
+    'challengeIndicators': challengeIndicators,
+    'htmlDumpPath': htmlDumpPath,
+  };
+
+  if (isUnexpected) {
+    log.warningWithMetadata(
+      'TokyoInsider returned unexpected HTML',
+      metadata: metadata,
+    );
+    return;
+  }
+  log.fineWithMetadata(
+    'TokyoInsider HTML response diagnostics',
+    metadata: metadata,
+  );
+}
+
+String? _writeUnexpectedHtmlDump({
+  required String operation,
+  required String? body,
+}) {
+  if (!kDebugMode || body == null) return null;
+
+  final timestamp = DateTime.now().microsecondsSinceEpoch;
+  final file = File(
+    '${Directory.systemTemp.path}/'
+    'senpwai-tokyoinsider-$operation-$timestamp.html',
+  );
+  try {
+    file.writeAsStringSync(body);
+    return file.path;
+  } catch (error, stackTrace) {
+    log.warningWithMetadata(
+      'Failed to write TokyoInsider HTML diagnostic dump',
+      metadata: {
+        'operation': operation,
+        'path': file.path,
+        'error': error.toString(),
+        'stackTrace': stackTrace.toString(),
+      },
+    );
+    return null;
+  }
+}
 
 class AnimeResult {
   final String title;
@@ -157,6 +274,229 @@ class EpisodeDownloadLink {
       "EpisodeDownloadLink(animeTitle: $animeTitle, episodeTitle: $episodeTitle, episodeNumber: $episodeNumber, filename: $filename, url: $url, resolution: $resolution, language: $language)";
 }
 
+List<EpisodePage> _parseLegacyEpisodePages({
+  required List<Element> elements,
+  required String animeTitle,
+  required String animeUrl,
+}) {
+  return elements.mapIndexed((index, element) {
+    final path = element.attributes["href"];
+    if (path == null) {
+      throw SourceException(
+        message: "Could not find episode url",
+        metadata: {"animeUrl": animeUrl},
+      );
+    }
+    final title = element.text.trim();
+    return EpisodePage(
+      animeTitle: animeTitle,
+      title: title,
+      url: _resolveUrl(path),
+      episodeNumber: _parseEpisodeNumber(title) ?? index + 1,
+    );
+  }).toList();
+}
+
+List<EpisodePage> _parseEncodedEpisodePages({
+  required Document htmlPage,
+  required List<Element> elements,
+  required String animeTitle,
+  required String animeUrl,
+}) {
+  final decoder = _TokyoInsiderLinkDecoder.fromDocument(htmlPage);
+  final episodePages = <EpisodePage>[];
+
+  for (final element in elements) {
+    final mediaType = element.querySelector('em')?.text.trim().toLowerCase();
+    if (mediaType != 'episode') continue;
+
+    final episodeNumber = int.tryParse(
+      element.querySelector('strong')?.text.trim() ?? '',
+    );
+    final dataA = element.attributes['data-a'];
+    final dataB = element.attributes['data-b'];
+    if (episodeNumber == null || dataA == null || dataB == null) {
+      throw SourceException(
+        message: "Could not parse encoded episode row",
+        metadata: {
+          "animeUrl": animeUrl,
+          "episodeNumber": episodeNumber,
+          "hasDataA": dataA != null,
+          "hasDataB": dataB != null,
+        },
+      );
+    }
+
+    final path = decoder.decode(dataA + dataB);
+    final uri = Uri.tryParse(path);
+    if (uri == null || !uri.path.contains('/episode/')) {
+      throw SourceException(
+        message: "Decoded TokyoInsider episode url is invalid",
+        metadata: {
+          "animeUrl": animeUrl,
+          "episodeNumber": episodeNumber,
+          "decodedUrl": path,
+        },
+      );
+    }
+    episodePages.add(
+      EpisodePage(
+        animeTitle: animeTitle,
+        title: element.parent?.text.trim() ?? element.text.trim(),
+        url: _resolveUrl(path),
+        episodeNumber: episodeNumber,
+      ),
+    );
+  }
+  return episodePages;
+}
+
+List<EpisodeDownloadLink> _parseLegacyEpisodeDownloadLinks({
+  required List<Element> elements,
+  required EpisodePage episodePage,
+}) {
+  return elements.map((element) {
+    final path = element.attributes["href"];
+    if (path == null) {
+      throw SourceException(
+        message: "Failed to find episode url",
+        metadata: {"episodePage": episodePage},
+      );
+    }
+    return _buildEpisodeDownloadLink(
+      episodePage: episodePage,
+      filename: element.text.trim(),
+      url: _resolveUrl(path),
+    );
+  }).toList();
+}
+
+List<EpisodeDownloadLink> _parseEncodedEpisodeDownloadLinks({
+  required Document htmlPage,
+  required List<Element> elements,
+  required EpisodePage episodePage,
+}) {
+  final decoder = _TokyoInsiderLinkDecoder.fromDocument(htmlPage);
+  return [
+    for (final element in elements)
+      _buildEncodedEpisodeDownloadLink(
+        decoder: decoder,
+        element: element,
+        episodePage: episodePage,
+      ),
+  ];
+}
+
+EpisodeDownloadLink _buildEncodedEpisodeDownloadLink({
+  required _TokyoInsiderLinkDecoder decoder,
+  required Element element,
+  required EpisodePage episodePage,
+}) {
+  final dataA = element.attributes['data-a'];
+  final dataB = element.attributes['data-b'];
+  if (dataA == null || dataB == null) {
+    throw SourceException(
+      message: "Could not parse encoded download row",
+      metadata: {
+        "episodePage": episodePage,
+        "hasDataA": dataA != null,
+        "hasDataB": dataB != null,
+      },
+    );
+  }
+
+  final url = decoder.decode(dataA + dataB);
+  final uri = Uri.tryParse(url);
+  if (uri == null ||
+      !uri.hasScheme ||
+      uri.host.isEmpty ||
+      uri.pathSegments.isEmpty) {
+    throw SourceException(
+      message: "Decoded TokyoInsider download url is invalid",
+      metadata: {"episodePage": episodePage, "decodedUrl": url},
+    );
+  }
+  final filename = uri.pathSegments.last;
+  if (filename.isEmpty) {
+    throw SourceException(
+      message: "Decoded TokyoInsider download filename is missing",
+      metadata: {"episodePage": episodePage, "decodedUrl": url},
+    );
+  }
+  return _buildEpisodeDownloadLink(
+    episodePage: episodePage,
+    filename: filename,
+    url: url,
+  );
+}
+
+EpisodeDownloadLink _buildEpisodeDownloadLink({
+  required EpisodePage episodePage,
+  required String filename,
+  required String url,
+}) {
+  final parsed = anitomy_parser.parseFilename(filename);
+  return EpisodeDownloadLink(
+    filename: filename,
+    url: url,
+    animeTitle: episodePage.animeTitle,
+    episodeTitle: episodePage.title,
+    episodeNumber: parsed.episode ?? episodePage.episodeNumber,
+    resolution: parsed.resolution ?? parseResolution(filename),
+    language: parsed.language,
+  );
+}
+
+class _TokyoInsiderLinkDecoder {
+  final List<int> _key;
+
+  const _TokyoInsiderLinkDecoder(this._key);
+
+  factory _TokyoInsiderLinkDecoder.fromDocument(Document htmlPage) {
+    final scripts = htmlPage
+        .querySelectorAll('script')
+        .map((element) => element.text)
+        .join('\n');
+    final seed = RegExp(
+      r'''var\s+K\s*=\s*r13\(\s*"([^"]+)"''',
+    ).firstMatch(scripts)?.group(1);
+    if (seed == null || seed.isEmpty) {
+      throw SourceException(
+        message: "Could not find TokyoInsider download decoder key",
+        metadata: const {},
+      );
+    }
+    final key = _rot13(_reverse(seed)).codeUnits;
+    return _TokyoInsiderLinkDecoder(key);
+  }
+
+  String decode(String payload) {
+    try {
+      final encoded = _rot13(_reverse(payload));
+      final bytes = base64.decode(encoded);
+      return String.fromCharCodes([
+        for (var index = 0; index < bytes.length; index++)
+          bytes[index] ^ _key[index % _key.length],
+      ]);
+    } on FormatException catch (error) {
+      throw SourceException(
+        message: "Could not decode TokyoInsider download url",
+        metadata: {"error": error.message},
+      );
+    }
+  }
+}
+
+String _reverse(String value) => value.split('').reversed.join();
+
+String _rot13(String value) {
+  return value.replaceAllMapped(RegExp('[a-zA-Z]'), (match) {
+    final codeUnit = match.group(0)!.codeUnitAt(0);
+    final base = codeUnit <= 90 ? 65 : 97;
+    return String.fromCharCode((codeUnit - base + 13) % 26 + base);
+  });
+}
+
 class Source {
   final Dio _dio;
   late final AnimeListCache _animeListCache;
@@ -188,24 +528,52 @@ class Source {
     );
     final response = await _dio.get(animeUrl);
     final htmlPage = parseHtml(response.data);
-    final targetElements = parsePageResults(htmlPage);
-    final episodePages = targetElements.mapIndexed((index, el) {
-      final path = el.attributes["href"];
-      if (path == null) {
-        throw SourceException(
-          message: "Could not find episode url",
-          metadata: {"animeUrl": animeUrl},
-        );
-      }
-      final url = _resolveUrl(path);
-      final title = el.text.trim();
-      return EpisodePage(
-        animeTitle: animeTitle,
-        title: title,
-        url: url,
-        episodeNumber: _parseEpisodeNumber(title) ?? index + 1,
+    final encodedElements = _parseEncodedDownloadRows(htmlPage);
+    final legacyElements = parsePageResults(htmlPage);
+    final targetElements = encodedElements.isNotEmpty
+        ? encodedElements
+        : legacyElements;
+    _logHtmlResponseDiagnostics(
+      operation: 'fetchEpisodePages',
+      response: response,
+      htmlPage: htmlPage,
+      targetElements: targetElements,
+      context: {'animeTitle': animeTitle, 'animeUrl': animeUrl},
+    );
+    late final List<EpisodePage> episodePages;
+    try {
+      episodePages = encodedElements.isNotEmpty
+          ? _parseEncodedEpisodePages(
+              htmlPage: htmlPage,
+              elements: encodedElements,
+              animeTitle: animeTitle,
+              animeUrl: animeUrl,
+            )
+          : _parseLegacyEpisodePages(
+              elements: legacyElements,
+              animeTitle: animeTitle,
+              animeUrl: animeUrl,
+            );
+    } catch (error, stackTrace) {
+      final body = response.data is String ? response.data as String : null;
+      final htmlDumpPath = _writeUnexpectedHtmlDump(
+        operation: 'fetchEpisodePages-decode-error',
+        body: body,
       );
-    }).toList();
+      log.warningWithMetadata(
+        'Failed to parse TokyoInsider episode rows',
+        metadata: {
+          'animeTitle': animeTitle,
+          'animeUrl': animeUrl,
+          'encodedElementCount': encodedElements.length,
+          'legacyElementCount': legacyElements.length,
+          'htmlDumpPath': htmlDumpPath,
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        },
+      );
+      rethrow;
+    }
     log.fineWithMetadata(
       "Fetched episode pages",
       metadata: {"animeTitle": animeTitle, "episodePages": episodePages},
@@ -222,30 +590,53 @@ class Source {
     );
     final response = await _dio.get(episodePage.url);
     final htmlPage = parseHtml(response.data);
-    final targetElements = parsePageResults(htmlPage);
-    final episodeDownloadLinks = targetElements.map((el) {
-      final path = el.attributes["href"];
-      if (path == null) {
-        throw SourceException(
-          message: "Failed to find episode url",
-          metadata: {"episodePage": episodePage},
-        );
-      }
-      final filename = el.text.trim();
-      final url = _resolveUrl(path);
-      final animeTitle = episodePage.animeTitle;
-      final episodeTitle = episodePage.title;
-      final parsed = anitomy_parser.parseFilename(filename);
-      return EpisodeDownloadLink(
-        filename: filename,
-        url: url,
-        animeTitle: animeTitle,
-        episodeTitle: episodeTitle,
-        episodeNumber: parsed.episode ?? episodePage.episodeNumber,
-        resolution: parsed.resolution ?? parseResolution(filename),
-        language: parsed.language,
+    final encodedElements = _parseEncodedFileRows(htmlPage);
+    final legacyElements = parsePageResults(htmlPage);
+    final targetElements = encodedElements.isNotEmpty
+        ? encodedElements
+        : legacyElements;
+    _logHtmlResponseDiagnostics(
+      operation: 'fetchEpisodeDownloadLinks',
+      response: response,
+      htmlPage: htmlPage,
+      targetElements: targetElements,
+      context: {
+        'animeTitle': episodePage.animeTitle,
+        'episodeNumber': episodePage.episodeNumber,
+        'episodeUrl': episodePage.url,
+      },
+    );
+    late final List<EpisodeDownloadLink> episodeDownloadLinks;
+    try {
+      episodeDownloadLinks = encodedElements.isNotEmpty
+          ? _parseEncodedEpisodeDownloadLinks(
+              htmlPage: htmlPage,
+              elements: encodedElements,
+              episodePage: episodePage,
+            )
+          : _parseLegacyEpisodeDownloadLinks(
+              elements: legacyElements,
+              episodePage: episodePage,
+            );
+    } catch (error, stackTrace) {
+      final body = response.data is String ? response.data as String : null;
+      final htmlDumpPath = _writeUnexpectedHtmlDump(
+        operation: 'fetchEpisodeDownloadLinks-decode-error',
+        body: body,
       );
-    }).toList();
+      log.warningWithMetadata(
+        'Failed to parse TokyoInsider episode download links',
+        metadata: {
+          'episodePage': episodePage,
+          'encodedElementCount': encodedElements.length,
+          'legacyElementCount': legacyElements.length,
+          'htmlDumpPath': htmlDumpPath,
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        },
+      );
+      rethrow;
+    }
     log.fineWithMetadata(
       "Fetched episode download links",
       metadata: {

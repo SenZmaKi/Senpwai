@@ -8,6 +8,7 @@ import 'package:senpwai/downloads/in_process_runtime.dart';
 import 'package:senpwai/downloads/isolate_runtime.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/settings/settings.dart';
+import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/ui/components/app.dart';
 import 'package:senpwai/ui/components/toast.dart';
 
@@ -25,11 +26,17 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     final settings = ref.read(AppSettingsNotifier.provider);
     _runtime = Platform.isAndroid
         ? AndroidForegroundDownloadRuntime(
+            initialMaxDownloadBytesPerSecond:
+                settings.downloads.maxDownloadBytesPerSecond,
+            downloadUserAgent: _downloadUserAgent,
             initialTorrentSettings: settings.torrent,
             initialNotificationSettings: settings.notifications,
             onError: _showGlobalError,
           )
         : DownloadIsolateRuntime(
+            initialMaxDownloadBytesPerSecond:
+                settings.downloads.maxDownloadBytesPerSecond,
+            downloadUserAgent: _downloadUserAgent,
             initialTorrentSettings: settings.torrent,
             onError: _showGlobalError,
           );
@@ -42,6 +49,17 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     ) {
       _runtime.updateTorrentSettings(next);
     });
+    ref.listen(
+      AppSettingsNotifier.provider.select(
+        (s) => s.downloads.maxDownloadBytesPerSecond,
+      ),
+      (_, next) {
+        _runtime.updateHttpDownloadSettings(
+          maxBytesPerSecond: next,
+          userAgent: _downloadUserAgent,
+        );
+      },
+    );
     ref.listen(AppSettingsNotifier.provider.select((s) => s.notifications), (
       _,
       next,
@@ -54,6 +72,9 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     });
     return _runtime.currentState;
   }
+
+  String get _downloadUserAgent =>
+      GlobalDio.getInstance().options.headers['User-Agent']?.toString() ?? '';
 
   Future<EnqueuedDownloadsResult> enqueueBatch(PreparedDownloadBatch batch) {
     return _runtime.enqueueBatch(batch);

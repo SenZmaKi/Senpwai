@@ -2,13 +2,16 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:senpwai/shared/net/download/download.dart';
 import 'package:senpwai/shared/net/download/download_config.dart';
+import 'package:senpwai/shared/net/download/download_dio.dart';
 import 'package:senpwai/shared/net/download/download_rate_tracker.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
+import 'package:senpwai/shared/net/user_agents.dart';
 import 'package:senpwai/shared/shared.dart' as shared;
 
 import 'support/download_server.dart';
@@ -16,6 +19,7 @@ import 'support/progress_bar.dart';
 import 'support/support.dart';
 
 late DownloadServer _server;
+late Dio _downloadDio;
 late List<int> _payload;
 late String _payloadSha256;
 
@@ -38,6 +42,7 @@ Download _makeDownload(
   String title = 'artifact',
 }) {
   return Download(
+    dio: _downloadDio,
     params: DownloadParams(
       url: url ?? _server.downloadUrl,
       targetFile: File(path.join(downloadDirectory.path, '$title.bin')),
@@ -87,6 +92,7 @@ Future<void> _deleteDirectoryWithRetry(Directory directory) async {
 void main() {
   setUpAll(() async {
     await setupTestApp();
+    _downloadDio = createDownloadDio(userAgent: getRandomUserAgent());
     _payload = List<int>.generate(
       10 * shared.Constants.megaByte,
       (index) => index % 251,
@@ -101,6 +107,7 @@ void main() {
   });
 
   tearDownAll(() async {
+    _downloadDio.close(force: true);
     await _server.close();
   });
 

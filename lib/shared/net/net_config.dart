@@ -1,12 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
-import 'package:dio/io.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:http_cache_file_store/http_cache_file_store.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/net/http_transport.dart';
 import 'package:senpwai/shared/net/user_agents.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 
@@ -27,14 +26,16 @@ String _cacheKeyBuilder({
 }
 
 class NetConfig {
-  final maxConnectionsPerHost = 25;
-  final idleTimeout = Duration(minutes: 3);
   Duration cacheMaxStale = Duration(hours: 1);
-  final userAgent = getRandomUserAgent();
+  late final HttpTransportConfig transport;
   final AppPaths? paths;
   CacheStore? cacheStore;
 
-  NetConfig({this.paths});
+  NetConfig({this.paths}) {
+    transport = HttpTransportConfig(userAgent: getRandomUserAgent());
+  }
+
+  String get userAgent => transport.userAgent;
 
   static NetConfig? _instance;
 
@@ -63,12 +64,8 @@ class NetConfig {
   }
 
   void attachToDio(Dio dio) {
-    (dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () =>
-        HttpClient()
-          ..maxConnectionsPerHost = maxConnectionsPerHost
-          ..idleTimeout = idleTimeout;
+    transport.attachToDio(dio);
     dio.interceptors.add(DioCacheInterceptor(options: buildCacheOptions()));
-    dio.options.headers["User-Agent"] = userAgent;
   }
 
   void updateCacheMaxStale(Duration maxStale) {

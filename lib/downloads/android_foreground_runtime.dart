@@ -11,6 +11,7 @@ import 'package:senpwai/downloads/runtime_codec.dart';
 import 'package:senpwai/notifications/app_notification_service.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/net/user_agents.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_formatters.dart';
 
 typedef _CommandPayload = Map<String, Object?>;
@@ -28,6 +29,8 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
   final DownloadRuntimeErrorHandler onError;
   final _stateController = StreamController<DownloadManagerState>.broadcast();
   final _pendingRequests = <String, Completer<Object?>>{};
+  int _maxDownloadBytesPerSecond;
+  String _downloadUserAgent;
   TorrentPreferences _torrentSettings;
   NotificationPreferences _notificationSettings;
   var _stateSnapshot = const DownloadManagerState();
@@ -36,10 +39,14 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
   static bool _initialized = false;
 
   AndroidForegroundDownloadRuntime({
+    required int initialMaxDownloadBytesPerSecond,
+    required String downloadUserAgent,
     required TorrentPreferences initialTorrentSettings,
     required NotificationPreferences initialNotificationSettings,
     required this.onError,
-  }) : _torrentSettings = initialTorrentSettings,
+  }) : _maxDownloadBytesPerSecond = initialMaxDownloadBytesPerSecond,
+       _downloadUserAgent = downloadUserAgent,
+       _torrentSettings = initialTorrentSettings,
        _notificationSettings = initialNotificationSettings {
     if (Platform.isAndroid) {
       _initializeForegroundTask();
@@ -129,6 +136,16 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
   }
 
   @override
+  void updateHttpDownloadSettings({
+    required int maxBytesPerSecond,
+    required String userAgent,
+  }) {
+    _maxDownloadBytesPerSecond = maxBytesPerSecond;
+    _downloadUserAgent = userAgent;
+    unawaited(_sendSettingsIfRunning());
+  }
+
+  @override
   void updateTorrentSettings(TorrentPreferences settings) {
     _torrentSettings = settings;
     unawaited(_sendSettingsIfRunning());
@@ -169,6 +186,10 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
   }
 
   void _sendCurrentSettings() {
+    _sendUntrackedCommand('updateHttpDownloadSettings', {
+      'maxBytesPerSecond': _maxDownloadBytesPerSecond,
+      'userAgent': _downloadUserAgent,
+    });
     _sendUntrackedCommand('updateTorrentSettings', {
       'settings': DownloadRuntimeCodec.encodeTorrentSettings(_torrentSettings),
     });
@@ -385,6 +406,8 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
           handleBackgroundNotificationResponse,
     );
     _runtime = InProcessDownloadRuntime(
+      downloadUserAgent: getRandomUserAgent(),
+      initialMaxDownloadBytesPerSecond: 0,
       initialTorrentSettings: const TorrentPreferences(),
       onError: _sendError,
     );
@@ -553,6 +576,12 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
           result = null;
         case 'seedMockDownloads':
           runtime.seedMockDownloads();
+          result = null;
+        case 'updateHttpDownloadSettings':
+          runtime.updateHttpDownloadSettings(
+            maxBytesPerSecond: _int(payload['maxBytesPerSecond']),
+            userAgent: _string(payload['userAgent']),
+          );
           result = null;
         case 'updateTorrentSettings':
           runtime.updateTorrentSettings(

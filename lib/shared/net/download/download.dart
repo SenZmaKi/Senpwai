@@ -18,18 +18,20 @@ final log = Logger("senpwai.shared.net.download.download");
 
 enum _RangeRequestSupport { supported, unsupported }
 
-Map<String, dynamic> _downloadRequestExtra() =>
+Map<String, dynamic> _downloadRequestExtra() => {
+  skipConnectivityErrorTypesExtraKey: [DioExceptionType.receiveTimeout],
+};
+
+Map<String, dynamic> _downloadProbeRequestExtra() =>
     NetConfig.getInstance()
         .buildCacheOptions(policy: CachePolicy.noCache)
         .toExtra()
-      ..[skipConnectivityErrorTypesExtraKey] = [
-        DioExceptionType.receiveTimeout,
-      ];
+      ..addAll(_downloadRequestExtra());
 
 class Download {
   final DownloadParams params;
   final config = DownloadConfig.getInstance();
-  final _dio = GlobalDio.getInstance();
+  final Dio _dio;
   late final DownloadState state = DownloadState(params: params);
   Future<void>? _downloadFuture;
 
@@ -38,7 +40,7 @@ class Download {
   /// so the server returns 200 (and we abort) if the file has changed.
   String? _ifRangeValidator;
 
-  Download({required this.params});
+  Download({required this.params, required Dio dio}) : _dio = dio;
 
   static Future<ResolvedDownloadTarget> probeSingleFile({
     required String url,
@@ -51,7 +53,7 @@ class Download {
         headers: {'Range': 'bytes=0-0', ...?headers},
         responseType: ResponseType.stream,
         validateStatus: (status) => status == 200 || status == 206,
-        extra: _downloadRequestExtra(),
+        extra: _downloadProbeRequestExtra(),
       ),
     );
     try {
