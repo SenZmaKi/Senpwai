@@ -23,13 +23,11 @@ class CfBypassPage extends StatefulWidget {
 
 class _CfBypassPageState extends State<CfBypassPage> {
   static const _connectivityRetryInterval = Duration(seconds: 3);
-  static const _maxRejectedCandidateAttempts = 3;
 
   late CfBypassController _controller;
   CfBypassSolveStatus _status = CfBypassSolveStatus.solving;
   String? _statusMessage;
   final _events = <String>[];
-  final _rejectedCandidateCounts = <String, int>{};
   Timer? _connectivityRetryTimer;
   bool _internetCheckInProgress = false;
   bool _offlineToastShown = false;
@@ -70,7 +68,6 @@ class _CfBypassPageState extends State<CfBypassPage> {
     _activeItemId = active.id;
     _internetCheckInProgress = false;
     _offlineToastShown = false;
-    _rejectedCandidateCounts.clear();
     setState(() {
       _status = CfBypassSolveStatus.solving;
       _statusMessage = 'Opening ${shortenCfBypassUrl(active.challenge.url)}...';
@@ -157,18 +154,6 @@ class _CfBypassPageState extends State<CfBypassPage> {
     await _controller.retry();
   }
 
-  int _recordRejectedCandidate(CfBypassResult result) {
-    final fingerprint =
-        CfCookieHelper.getBypassFingerprint(result.cookies) ?? 'unknown';
-    final count = (_rejectedCandidateCounts[fingerprint] ?? 0) + 1;
-    _rejectedCandidateCounts[fingerprint] = count;
-    return count;
-  }
-
-  void _resetRejectedCandidates() {
-    _rejectedCandidateCounts.clear();
-  }
-
   @override
   Widget build(BuildContext context) {
     final active = widget.coordinator.active;
@@ -199,7 +184,6 @@ class _CfBypassPageState extends State<CfBypassPage> {
                 cursor: SystemMouseCursors.click,
                 child: TextButton.icon(
                   onPressed: () {
-                    _resetRejectedCandidates();
                     setState(() {
                       _status = CfBypassSolveStatus.solving;
                       _statusMessage = 'Retrying verification...';
@@ -240,31 +224,39 @@ class _CfBypassPageState extends State<CfBypassPage> {
                 _addEvent('... Verifying captured clearance');
 
                 final verified = await active.challenge.validate(result);
-                if (!mounted) return verified;
+                if (!mounted) {
+                  return verified
+                      ? CfWebViewSuccessDecision.accept
+                      : CfWebViewSuccessDecision.reject;
+                }
                 if (!verified) {
-                  final rejectionCount = _recordRejectedCandidate(result);
                   _log.warningWithMetadata(
                     "CF bypass candidate rejected",
                     metadata: {
                       "url": activeUrl,
-                      "rejectionCount": rejectionCount,
-                      "maxRejections": _maxRejectedCandidateAttempts,
                       "cookieCount": result.cookies.length,
                     },
                   );
-                  if (rejectionCount >= _maxRejectedCandidateAttempts) {
-                    throw StateError(
-                      'CloudFlare clearance was rejected '
-                      '$rejectionCount times by validation replay.',
-                    );
-                  }
+                  const error =
+                      'Fresh CloudFlare clearance was rejected by validation '
+                      'replay.';
                   setState(() {
-                    _status = CfBypassSolveStatus.solving;
-                    _statusMessage =
-                        'Clearance did not pass. Retrying verification...';
+                    _status = CfBypassSolveStatus.failed;
+                    _statusMessage = error;
                   });
-                  _addEvent('Retrying rejected clearance...');
-                  return false;
+                  _addEvent(error);
+                  widget.coordinator.completeActive(
+                    CfBypassResult.failure(
+                      url: result.url,
+                      finalUrl: result.finalUrl,
+                      error: error,
+                      userAgent: result.userAgent,
+                      cookies: result.cookies,
+                      duration: result.duration,
+                      attempts: result.attempts,
+                    ),
+                  );
+                  return CfWebViewSuccessDecision.reject;
                 }
 
                 _log.infoWithMetadata(
@@ -287,7 +279,7 @@ class _CfBypassPageState extends State<CfBypassPage> {
                   }
                   widget.coordinator.completeActive(result);
                 });
-                return true;
+                return CfWebViewSuccessDecision.accept;
               },
               onFailure: (result) {
                 if (_status == CfBypassSolveStatus.offline) {
@@ -330,7 +322,6 @@ class _CfBypassPageState extends State<CfBypassPage> {
               },
               onLoopDetected: () {
                 _addEvent('Loop detected, retrying...');
-                _resetRejectedCandidates();
                 _controller.retry();
               },
               onError: _onWebViewError,

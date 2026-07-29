@@ -2,6 +2,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
+import 'package:senpwai/shared/net/http2_preferred_adapter.dart';
 import 'package:senpwai/shared/net/interceptors/cf_bypass.dart';
 import 'package:senpwai/shared/net/interceptors/connectivity.dart';
 import 'package:senpwai/shared/net/interceptors/concurrency.dart';
@@ -67,6 +68,7 @@ class GlobalDio {
       ),
     );
     NetConfig.getInstance().attachToDio(_instance!);
+    preferHttp2(_instance!);
   }
 
   static Dio getInstance() {

@@ -72,6 +72,12 @@ class CfBypassSessionStore {
     await _save(sessions);
   }
 
+  Future<void> forgetHost(String host) async {
+    final sessions = await load();
+    if (sessions.remove(host) == null) return;
+    await _save(sessions);
+  }
+
   Future<void> clear() async {
     _sessions = {};
     if (await file.exists()) {

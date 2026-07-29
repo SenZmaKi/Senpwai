@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:senpwai/sources/shared/fuzzy.dart';
 import 'package:html/dom.dart';
 import 'package:logging/logging.dart';
@@ -66,9 +64,6 @@ void _logHtmlResponseDiagnostics({
       .querySelectorAll('span.dlk[data-a][data-b]')
       .length;
   final isUnexpected = targetElements.isEmpty || challengeIndicators.isNotEmpty;
-  final htmlDumpPath = isUnexpected
-      ? _writeUnexpectedHtmlDump(operation: operation, body: body)
-      : null;
   final metadata = <String, dynamic>{
     ...context,
     'operation': operation,
@@ -93,7 +88,6 @@ void _logHtmlResponseDiagnostics({
             encodedDownloadLinkCount > 0 ||
             encodedFileLinkCount > 0),
     'challengeIndicators': challengeIndicators,
-    'htmlDumpPath': htmlDumpPath,
   };
 
   if (isUnexpected) {
@@ -107,34 +101,6 @@ void _logHtmlResponseDiagnostics({
     'TokyoInsider HTML response diagnostics',
     metadata: metadata,
   );
-}
-
-String? _writeUnexpectedHtmlDump({
-  required String operation,
-  required String? body,
-}) {
-  if (!kDebugMode || body == null) return null;
-
-  final timestamp = DateTime.now().microsecondsSinceEpoch;
-  final file = File(
-    '${Directory.systemTemp.path}/'
-    'senpwai-tokyoinsider-$operation-$timestamp.html',
-  );
-  try {
-    file.writeAsStringSync(body);
-    return file.path;
-  } catch (error, stackTrace) {
-    log.warningWithMetadata(
-      'Failed to write TokyoInsider HTML diagnostic dump',
-      metadata: {
-        'operation': operation,
-        'path': file.path,
-        'error': error.toString(),
-        'stackTrace': stackTrace.toString(),
-      },
-    );
-    return null;
-  }
 }
 
 class AnimeResult {
@@ -555,11 +521,6 @@ class Source {
               animeUrl: animeUrl,
             );
     } catch (error, stackTrace) {
-      final body = response.data is String ? response.data as String : null;
-      final htmlDumpPath = _writeUnexpectedHtmlDump(
-        operation: 'fetchEpisodePages-decode-error',
-        body: body,
-      );
       log.warningWithMetadata(
         'Failed to parse TokyoInsider episode rows',
         metadata: {
@@ -567,7 +528,6 @@ class Source {
           'animeUrl': animeUrl,
           'encodedElementCount': encodedElements.length,
           'legacyElementCount': legacyElements.length,
-          'htmlDumpPath': htmlDumpPath,
           'error': error.toString(),
           'stackTrace': stackTrace.toString(),
         },
@@ -619,18 +579,12 @@ class Source {
               episodePage: episodePage,
             );
     } catch (error, stackTrace) {
-      final body = response.data is String ? response.data as String : null;
-      final htmlDumpPath = _writeUnexpectedHtmlDump(
-        operation: 'fetchEpisodeDownloadLinks-decode-error',
-        body: body,
-      );
       log.warningWithMetadata(
         'Failed to parse TokyoInsider episode download links',
         metadata: {
           'episodePage': episodePage,
           'encodedElementCount': encodedElements.length,
           'legacyElementCount': legacyElements.length,
-          'htmlDumpPath': htmlDumpPath,
           'error': error.toString(),
           'stackTrace': stackTrace.toString(),
         },

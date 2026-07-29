@@ -13,6 +13,8 @@ final _log = Logger("senpwai.net.interceptors.cf_bypass");
 
 const _cfBypassRetriedExtraKey = 'cfBypassRetried';
 const _cfBypassValidationExtraKey = 'cfBypassValidation';
+const _cfBypassSessionAppliedExtraKey = 'cfBypassSessionApplied';
+const _cfStaleSessionRetriedExtraKey = 'cfStaleSessionRetried';
 int _nextInterceptorId = 0;
 
 /// Callback the UI layer provides to solve a CF challenge.
@@ -40,6 +42,7 @@ class CfBypassInterceptor extends Interceptor {
   CfBypassSolver? _solver;
   final Map<String, String> _userAgentsByHost = {};
   final Map<String, Future<CfBypassResult>> _bypassByHost = {};
+  final Map<String, Future<void>> _sessionResetByHost = {};
   final Set<String> _bypassedHosts = {};
 
   CfBypassInterceptor({
@@ -87,6 +90,7 @@ class CfBypassInterceptor extends Interceptor {
         : _userAgentsByHost[options.uri.host];
     if (!isValidationRequest &&
         (userAgent != null || _hasBypassSession(options.uri.host))) {
+      options.extra[_cfBypassSessionAppliedExtraKey] = true;
       _applyBypassReplayHeaders(
         options.headers,
         options.uri,
@@ -128,17 +132,6 @@ class CfBypassInterceptor extends Interceptor {
 
     final alreadyRetried =
         err.requestOptions.extra[_cfBypassRetriedExtraKey] == true;
-    if (alreadyRetried) {
-      _log.warningWithMetadata(
-        "CF bypass already retried, passing through",
-        metadata: {
-          "url": err.requestOptions.uri.toString(),
-          "interceptorId": _interceptorId,
-        },
-      );
-      handler.next(err);
-      return;
-    }
 
     final statusCode = response.statusCode ?? 0;
     final body = response.data is String ? response.data as String : null;
@@ -176,9 +169,48 @@ class CfBypassInterceptor extends Interceptor {
     );
 
     if (detection.kind == CfProtectionKind.blocked) {
+      final staleSessionAlreadyRetried =
+          err.requestOptions.extra[_cfStaleSessionRetriedExtraKey] == true;
+      final requestUsedBypassSession =
+          err.requestOptions.extra[_cfBypassSessionAppliedExtraKey] == true;
+      if (requestUsedBypassSession &&
+          !staleSessionAlreadyRetried &&
+          !alreadyRetried) {
+        final host = err.requestOptions.uri.host;
+        _log.warningWithMetadata(
+          "CF blocked remembered session — retrying clean",
+          metadata: {"url": url, "host": host, "interceptorId": _interceptorId},
+        );
+
+        try {
+          await _resetHostSession(err.requestOptions.uri);
+          final retryResponse = await dio.fetch<dynamic>(
+            _buildCleanRetryOptions(err.requestOptions),
+          );
+          handler.resolve(retryResponse);
+        } catch (e, stack) {
+          _log.warningWithMetadata(
+            "CF clean retry failed",
+            metadata: {
+              "url": url,
+              "host": host,
+              "interceptorId": _interceptorId,
+              "error": e.toString(),
+              "stackTrace": stack.toString(),
+            },
+          );
+          handler.next(e is DioException ? e : err);
+        }
+        return;
+      }
+
       _log.warningWithMetadata(
         "CloudFlare hard block — cannot bypass",
-        metadata: {"url": url, "interceptorId": _interceptorId},
+        metadata: {
+          "url": url,
+          "interceptorId": _interceptorId,
+          "cleanRetryAttempted": staleSessionAlreadyRetried,
+        },
       );
       handler.next(
         DioException(
@@ -189,6 +221,18 @@ class CfBypassInterceptor extends Interceptor {
           message: "CloudFlare blocked: ${detection.matchedIndicators}",
         ),
       );
+      return;
+    }
+
+    if (alreadyRetried) {
+      _log.warningWithMetadata(
+        "CF bypass already retried, passing through",
+        metadata: {
+          "url": err.requestOptions.uri.toString(),
+          "interceptorId": _interceptorId,
+        },
+      );
+      handler.next(err);
       return;
     }
 
@@ -384,6 +428,31 @@ class CfBypassInterceptor extends Interceptor {
 
   bool _hasBypassSession(String host) => _bypassedHosts.contains(host);
 
+  Future<void> _resetHostSession(Uri uri) {
+    final host = uri.host;
+    final existingReset = _sessionResetByHost[host];
+    if (existingReset != null) return existingReset;
+
+    _bypassedHosts.remove(host);
+    _userAgentsByHost.remove(host);
+    final reset =
+        Future.wait([
+              sessionStore.forgetHost(host),
+              cookieJar.delete(uri, true),
+            ])
+            .then<void>((_) {
+              _log.infoWithMetadata(
+                "Cleared rejected CF bypass session",
+                metadata: {"host": host, "interceptorId": _interceptorId},
+              );
+            })
+            .whenComplete(() {
+              _sessionResetByHost.remove(host);
+            });
+    _sessionResetByHost[host] = reset;
+    return reset;
+  }
+
   List<String> _cookieNamesFromHeaders(Map<String, dynamic> headers) {
     for (final entry in headers.entries) {
       if (entry.key.toLowerCase() == HttpHeaders.cookieHeader) {
@@ -426,6 +495,36 @@ class CfBypassInterceptor extends Interceptor {
           .buildCacheOptions(policy: CachePolicy.noCache)
           .toExtra(),
     };
+  }
+
+  RequestOptions _buildCleanRetryOptions(RequestOptions requestOptions) {
+    final headers = Map<String, dynamic>.of(requestOptions.headers);
+    _removeHeader(headers, HttpHeaders.cookieHeader);
+
+    final defaultUserAgent = _headerValue(
+      dio.options.headers,
+      HttpHeaders.userAgentHeader,
+    );
+    if (defaultUserAgent == null) {
+      _removeHeader(headers, HttpHeaders.userAgentHeader);
+    } else {
+      headers[HttpHeaders.userAgentHeader] = defaultUserAgent;
+    }
+
+    final extra = _buildNoCacheExtra(requestOptions.extra)
+      ..remove(_cfBypassSessionAppliedExtraKey)
+      ..remove(_cfBypassRetriedExtraKey)
+      ..[_cfStaleSessionRetriedExtraKey] = true;
+
+    return requestOptions.copyWith(headers: headers, extra: extra);
+  }
+
+  Object? _headerValue(Map<String, dynamic> headers, String name) {
+    final lowerName = name.toLowerCase();
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == lowerName) return entry.value;
+    }
+    return null;
   }
 
   RequestOptions _buildBypassReplayOptions(
