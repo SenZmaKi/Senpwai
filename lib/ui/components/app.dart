@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:cf_bypass/cf_bypass.dart' hide LoggerExtensions;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
@@ -8,12 +8,8 @@ import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/notifications/app_notification_service.dart';
 import 'package:senpwai/notifications/download_notification_bridge.dart';
 import 'package:senpwai/settings/settings.dart';
-import 'package:senpwai/shared/dev_config.dart';
-import 'package:senpwai/shared/net/net.dart';
-import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/tracking/models.dart';
 import 'package:senpwai/tracking/notifier.dart';
-import 'package:senpwai/ui/pages/anime_page/cf_bypass_coordinator.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
 import 'package:senpwai/ui/shared/app_error_diagnostics.dart';
 import 'package:senpwai/ui/components/toast.dart';
@@ -23,8 +19,6 @@ import 'package:senpwai/ui/pages/search_page/search_page.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_page.dart';
 import 'package:senpwai/ui/components/app_shell.dart';
 import 'package:toastification/toastification.dart';
-import 'package:flutter/foundation.dart';
-import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
 
 enum AppPage { home, search, downloads, settings }
@@ -51,84 +45,6 @@ class AppPageNotifier extends Notifier<AppPage> {
   void showDownloads() {
     state = AppPage.downloads;
   }
-}
-
-Future<void> initApp() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  setupLogger();
-  await AppPersistence.initialize();
-  await AppNotificationService.instance.initialize();
-  await AppNotificationService.instance.configurePresentation(
-    navigatorKey: App.navigatorKey,
-  );
-  applyDevConfig();
-  _initCfBypassSolver();
-  _initNetworkErrorHandling();
-
-  FlutterError.onError = (details) {
-    FlutterError.presentError(details);
-    final ctx = App.navigatorKey.currentContext;
-    final diagnostics = buildAppErrorDiagnostics(ctx);
-    if (ctx != null) {
-      AppToast.showErrorDeferred(
-        ctx,
-        title: 'Unexpected error',
-        description: details.exceptionAsString(),
-        copyPayload: formatErrorForCopy(
-          details.exception,
-          details.stack,
-          diagnostics,
-        ),
-      );
-    }
-  };
-
-  PlatformDispatcher.instance.onError = (error, stack) {
-    final ctx = App.navigatorKey.currentContext;
-    final diagnostics = buildAppErrorDiagnostics(ctx);
-    if (ctx != null) {
-      AppToast.showErrorDeferred(
-        ctx,
-        title: 'Unhandled error',
-        description: error.toString(),
-        copyPayload: formatErrorForCopy(error, stack, diagnostics),
-      );
-    }
-
-    return true;
-  };
-  WindowManager.getInstance().init();
-}
-
-/// Wires a CF bypass solver that queues challenges into one visible flow.
-void _initCfBypassSolver() {
-  // Ensure Dio (and its interceptor) is initialized.
-  GlobalDio.getInstance();
-  GlobalDio.cfBypassInterceptor?.setSolver((challenge) async {
-    final navigator = App.navigatorKey.currentState;
-    if (navigator == null) {
-      return CfBypassResult(
-        success: false,
-        url: challenge.url,
-        error: 'No app navigator available',
-        cookies: [],
-      );
-    }
-    return CfBypassCoordinator.instance.enqueue(navigator, challenge);
-  });
-}
-
-void _initNetworkErrorHandling() {
-  GlobalDio.getInstance();
-  GlobalDio.connectivityInterceptor?.setOfflineNetworkErrorCallback((error) {
-    final ctx = App.navigatorKey.currentContext;
-    if (ctx == null) return;
-    AppToast.showError(
-      ctx,
-      title: 'No internet access',
-      description: 'Network requests will retry when you reconnect.',
-    );
-  });
 }
 
 class App extends ConsumerWidget {
@@ -220,6 +136,13 @@ class _AppRootState extends ConsumerState<_AppRoot> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.window.alwaysOnTop,
+      ),
+      (_, alwaysOnTop) =>
+          unawaited(WindowManager.getInstance().applyAlwaysOnTop(alwaysOnTop)),
+    );
     ref.listen(AppSettingsNotifier.provider, (_, settings) {
       ref
           .read(AnilistNotifier.provider.notifier)

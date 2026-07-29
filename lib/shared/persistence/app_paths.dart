@@ -13,6 +13,8 @@ class AppPaths {
   final Directory networkDioCacheDirectory;
   final File cfSessionsFile;
   final Directory cacheDirectory;
+  final Directory stateDirectory;
+  final File windowStateFile;
   final Directory imageCacheDirectory;
   final Directory imageCacheMetadataDirectory;
   final File imageCacheMetadataFile;
@@ -28,6 +30,8 @@ class AppPaths {
     required this.networkDioCacheDirectory,
     required this.cfSessionsFile,
     required this.cacheDirectory,
+    required this.stateDirectory,
+    required this.windowStateFile,
     required this.imageCacheDirectory,
     required this.imageCacheMetadataDirectory,
     required this.imageCacheMetadataFile,
@@ -56,6 +60,7 @@ class AppPaths {
       path.join(networkDirectory.path, 'dio_cache'),
     );
     final cacheDirectory = Directory(path.join(rootDirectory.path, 'cache'));
+    final stateDirectory = Directory(path.join(rootDirectory.path, 'state'));
     final imageCacheDirectory = Directory(
       path.join(cacheDirectory.path, 'images'),
     );
@@ -80,6 +85,10 @@ class AppPaths {
         path.join(networkDirectory.path, 'cf_sessions.json'),
       ),
       cacheDirectory: cacheDirectory,
+      stateDirectory: stateDirectory,
+      windowStateFile: File(
+        path.join(stateDirectory.path, 'window_state.json'),
+      ),
       imageCacheDirectory: imageCacheDirectory,
       imageCacheMetadataDirectory: imageCacheMetadataDirectory,
       imageCacheMetadataFile: File(
@@ -95,6 +104,7 @@ class AppPaths {
       networkCookiesDirectory.create(recursive: true),
       networkDioCacheDirectory.create(recursive: true),
       cacheDirectory.create(recursive: true),
+      stateDirectory.create(recursive: true),
       imageCacheDirectory.create(recursive: true),
       imageCacheMetadataDirectory.create(recursive: true),
       logsDirectory.create(recursive: true),

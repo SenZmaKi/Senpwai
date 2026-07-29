@@ -8,6 +8,7 @@ import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/shared/persistence/cf_bypass_session_store.dart';
 import 'package:senpwai/shared/persistence/secure_token_store.dart';
+import 'package:senpwai/shared/persistence/window_state_repository.dart';
 import 'package:senpwai/tracking/models.dart';
 import 'package:senpwai/tracking/repository.dart';
 
@@ -19,6 +20,7 @@ class AppPersistence {
   static List<TrackedAnime>? _trackedAnime;
   static CfBypassSessionStore? _cfBypassSessionStore;
   static SecureTokenStore? _secureTokenStore;
+  static WindowStateRepository? _windowStateRepository;
 
   AppPersistence._();
 
@@ -32,6 +34,14 @@ class AppPersistence {
 
   static SecureTokenStore get secureTokenStore {
     final resolved = _secureTokenStore;
+    if (resolved == null) {
+      throw StateError('AppPersistence.initialize must be called first.');
+    }
+    return resolved;
+  }
+
+  static WindowStateRepository get windowStateRepository {
+    final resolved = _windowStateRepository;
     if (resolved == null) {
       throw StateError('AppPersistence.initialize must be called first.');
     }
@@ -102,6 +112,9 @@ class AppPersistence {
       file: initializedPaths.settingsFile,
     );
     final loadedSettings = await settingsRepository.load();
+    final windowStateRepository = WindowStateRepository(
+      file: initializedPaths.windowStateFile,
+    );
     final trackingRepository = TrackingRepository(
       file: initializedPaths.trackedAnimeFile,
     );
@@ -116,6 +129,7 @@ class AppPersistence {
     _trackedAnime = loadedTrackedAnime;
     _cfBypassSessionStore = cfStore;
     _secureTokenStore = tokenStore;
+    _windowStateRepository = windowStateRepository;
 
     DownloadConfig.getInstance().updateMaxBytesPerSecond(
       loadedSettings.downloads.maxDownloadBytesPerSecond.toDouble(),

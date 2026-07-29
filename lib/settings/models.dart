@@ -93,6 +93,7 @@ class AppSettings {
   final AnilistPreferences anilist;
   final StoragePreferences storage;
   final NotificationPreferences notifications;
+  final WindowPreferences window;
 
   const AppSettings({
     this.schemaVersion = currentSchemaVersion,
@@ -104,6 +105,7 @@ class AppSettings {
     this.anilist = const AnilistPreferences(),
     this.storage = const StoragePreferences(),
     this.notifications = const NotificationPreferences(),
+    this.window = const WindowPreferences(),
   });
 
   factory AppSettings.defaults() => const AppSettings();
@@ -120,6 +122,7 @@ class AppSettings {
     notifications: NotificationPreferences.fromJson(
       _mapValue(json['notifications']),
     ),
+    window: WindowPreferences.fromJson(_mapValue(json['window'])),
   );
 
   Map<String, dynamic> toJson() => {
@@ -132,6 +135,7 @@ class AppSettings {
     'anilist': anilist.toJson(),
     'storage': storage.toJson(),
     'notifications': notifications.toJson(),
+    'window': window.toJson(),
   };
 
   String displayTitle(AnilistTitle title) => content.titleLanguage.displayTitle(
@@ -149,6 +153,7 @@ class AppSettings {
     AnilistPreferences? anilist,
     StoragePreferences? storage,
     NotificationPreferences? notifications,
+    WindowPreferences? window,
   }) {
     return AppSettings(
       schemaVersion: schemaVersion,
@@ -160,6 +165,7 @@ class AppSettings {
       anilist: anilist ?? this.anilist,
       storage: storage ?? this.storage,
       notifications: notifications ?? this.notifications,
+      window: window ?? this.window,
     );
   }
 }
@@ -768,6 +774,44 @@ class NotificationPreferences {
       enabled: enabled ?? this.enabled,
       permissionDenied: permissionDenied ?? this.permissionDenied,
       downloadStyle: downloadStyle ?? this.downloadStyle,
+    );
+  }
+}
+
+@immutable
+class WindowPreferences {
+  final bool alwaysOnTop;
+  final bool startMaximized;
+  final bool startFullScreen;
+
+  const WindowPreferences({
+    this.alwaysOnTop = false,
+    this.startMaximized = true,
+    this.startFullScreen = false,
+  });
+
+  factory WindowPreferences.fromJson(Map<String, dynamic> json) =>
+      WindowPreferences(
+        alwaysOnTop: _boolValue(json['alwaysOnTop'], false),
+        startMaximized: _boolValue(json['startMaximized'], true),
+        startFullScreen: _boolValue(json['startFullScreen'], false),
+      );
+
+  Map<String, dynamic> toJson() => {
+    'alwaysOnTop': alwaysOnTop,
+    'startMaximized': startMaximized,
+    'startFullScreen': startFullScreen,
+  };
+
+  WindowPreferences copyWith({
+    bool? alwaysOnTop,
+    bool? startMaximized,
+    bool? startFullScreen,
+  }) {
+    return WindowPreferences(
+      alwaysOnTop: alwaysOnTop ?? this.alwaysOnTop,
+      startMaximized: startMaximized ?? this.startMaximized,
+      startFullScreen: startFullScreen ?? this.startFullScreen,
     );
   }
 }

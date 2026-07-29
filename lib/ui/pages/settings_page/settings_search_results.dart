@@ -13,6 +13,7 @@ import 'package:senpwai/ui/pages/settings_page/storage_settings_section.dart';
 import 'package:senpwai/ui/pages/settings_page/torrent_settings_section.dart';
 import 'package:senpwai/ui/pages/settings_page/tracking_settings_section.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
+import 'package:senpwai/ui/shared/window_manager.dart';
 
 class SettingsSearchResults extends ConsumerWidget {
   final String query;
@@ -132,6 +133,8 @@ class SettingsSearchResults extends ConsumerWidget {
       settings.appearance.displayFontFamily,
       settings.appearance.bodyFontFamily,
       'Card Layout anime card style Home Search poster landscape table grid list',
+      if (supportsWindowCustomization)
+        'Window desktop launch startup always on top open maximized full screen fullscreen',
       'Media Preferences default resolution audio language title display',
       'Title Language preferred title display automatic fallbacks',
       'Default Resolution initial resolution selected anime pages',

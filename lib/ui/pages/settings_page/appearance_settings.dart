@@ -5,6 +5,8 @@ import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/components/anime_card/card_switcher.dart';
 import 'package:senpwai/ui/pages/settings_page/font_autocomplete.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
+import 'package:senpwai/ui/pages/settings_page/window_settings.dart';
+import 'package:senpwai/ui/shared/window_manager.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
 class AppearanceSettings extends StatelessWidget {
@@ -92,6 +94,12 @@ class AppearanceSettings extends StatelessWidget {
             ),
           ],
         ),
+        if (supportsWindowCustomization)
+          WindowSettings(
+            settings: settings,
+            notifier: notifier,
+            searchQuery: searchQuery,
+          ),
       ],
     );
   }

@@ -77,6 +77,34 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setWindowAlwaysOnTop(bool alwaysOnTop) {
+    return _commit(
+      state.copyWith(window: state.window.copyWith(alwaysOnTop: alwaysOnTop)),
+    );
+  }
+
+  Future<void> setWindowStartMaximized(bool startMaximized) {
+    return _commit(
+      state.copyWith(
+        window: state.window.copyWith(
+          startMaximized: startMaximized,
+          startFullScreen: startMaximized ? false : null,
+        ),
+      ),
+    );
+  }
+
+  Future<void> setWindowStartFullScreen(bool startFullScreen) {
+    return _commit(
+      state.copyWith(
+        window: state.window.copyWith(
+          startFullScreen: startFullScreen,
+          startMaximized: startFullScreen ? false : null,
+        ),
+      ),
+    );
+  }
+
   Future<void> setTitleLanguage(TitleLanguagePreference language) {
     return _commit(
       state.copyWith(content: state.content.copyWith(titleLanguage: language)),

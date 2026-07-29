@@ -1,26 +1,189 @@
+import 'dart:async';
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:screen_retriever/screen_retriever.dart';
+import 'package:senpwai/settings/models.dart';
+import 'package:senpwai/shared/persistence/window_state_repository.dart';
 import 'package:window_manager/window_manager.dart';
 
-class WindowManager {
+bool get supportsWindowCustomization =>
+    !kIsWeb && !Platform.isAndroid && !Platform.isIOS;
+
+class WindowManager with WindowListener {
   static WindowManager? _instance;
+  static const _minimumVisibleExtent = 64.0;
+
+  Timer? _saveBoundsTimer;
+  bool _ready = false;
+  bool _savingBounds = false;
+  bool _saveAgain = false;
+  WindowStateRepository? _stateRepository;
 
   static WindowManager getInstance() {
     _instance ??= WindowManager();
     return _instance!;
   }
 
-  Future<void> init() async {
-    if (Platform.isAndroid || Platform.isIOS) return;
+  Future<void> init(
+    WindowPreferences preferences,
+    WindowStateRepository stateRepository,
+  ) async {
+    if (!supportsWindowCustomization) return;
+    _stateRepository = stateRepository;
     await windowManager.ensureInitialized();
-    WindowOptions windowOptions = WindowOptions(fullScreen: true);
-    windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await focus();
+    windowManager.addListener(this);
+    final savedBounds = await stateRepository.load();
+    final restoredBounds = await _restorableBounds(savedBounds);
+    final windowOptions = WindowOptions(
+      alwaysOnTop: preferences.alwaysOnTop,
+      center: savedBounds != null && restoredBounds == null,
+      fullScreen: preferences.startFullScreen,
+      title: 'Senpwai',
+    );
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      if (restoredBounds != null &&
+          !preferences.startMaximized &&
+          !preferences.startFullScreen) {
+        await windowManager.setBounds(restoredBounds);
+      }
+      if (preferences.startMaximized && !preferences.startFullScreen) {
+        await windowManager.maximize();
+      }
     });
   }
 
+  Future<void> reveal() async {
+    if (!supportsWindowCustomization || _ready) return;
+    await focus();
+    _ready = true;
+  }
+
+  Future<void> applyAlwaysOnTop(bool alwaysOnTop) async {
+    if (!supportsWindowCustomization) return;
+    await windowManager.setAlwaysOnTop(alwaysOnTop);
+  }
+
   Future<void> focus() async {
-    if (Platform.isAndroid || Platform.isIOS) return;
+    if (!supportsWindowCustomization) return;
     await windowManager.show();
     await windowManager.focus();
+  }
+
+  @override
+  void onWindowMove() => _scheduleBoundsSave();
+
+  @override
+  void onWindowMoved() => _saveBoundsNow();
+
+  @override
+  void onWindowResize() => _scheduleBoundsSave();
+
+  @override
+  void onWindowResized() => _saveBoundsNow();
+
+  @override
+  void onWindowUnmaximize() => _scheduleBoundsSave();
+
+  @override
+  void onWindowLeaveFullScreen() => _scheduleBoundsSave();
+
+  void _scheduleBoundsSave() {
+    if (!_ready || _stateRepository == null) return;
+    _saveBoundsTimer?.cancel();
+    _saveBoundsTimer = Timer(
+      const Duration(milliseconds: 500),
+      _saveNormalBounds,
+    );
+  }
+
+  void _saveBoundsNow() {
+    if (!_ready || _stateRepository == null) return;
+    _saveBoundsTimer?.cancel();
+    unawaited(_saveNormalBounds());
+  }
+
+  Future<void> _saveNormalBounds() async {
+    if (_savingBounds) {
+      _saveAgain = true;
+      return;
+    }
+    final repository = _stateRepository;
+    if (!_ready || repository == null) return;
+
+    _savingBounds = true;
+    try {
+      if (await windowManager.isMaximized() ||
+          await windowManager.isFullScreen() ||
+          await windowManager.isMinimized()) {
+        return;
+      }
+      final bounds = await windowManager.getBounds();
+      if (!bounds.left.isFinite ||
+          !bounds.top.isFinite ||
+          !bounds.width.isFinite ||
+          !bounds.height.isFinite ||
+          bounds.width <= 0 ||
+          bounds.height <= 0) {
+        return;
+      }
+      await repository.save(
+        WindowBounds(
+          x: bounds.left,
+          y: bounds.top,
+          width: bounds.width,
+          height: bounds.height,
+        ),
+      );
+    } finally {
+      _savingBounds = false;
+      if (_saveAgain) {
+        _saveAgain = false;
+        _scheduleBoundsSave();
+      }
+    }
+  }
+
+  Future<Rect?> _restorableBounds(WindowBounds? saved) async {
+    if (saved == null) return null;
+    final requested = Rect.fromLTWH(
+      saved.x,
+      saved.y,
+      saved.width,
+      saved.height,
+    );
+    final displays = await screenRetriever.getAllDisplays();
+    Rect? bestFrame;
+    var largestVisibleArea = 0.0;
+    for (final display in displays) {
+      final frame = Rect.fromLTWH(
+        display.visiblePosition?.dx ?? 0,
+        display.visiblePosition?.dy ?? 0,
+        (display.visibleSize ?? display.size).width,
+        (display.visibleSize ?? display.size).height,
+      );
+      final intersection = requested.intersect(frame);
+      final visibleArea =
+          intersection.width.clamp(0, double.infinity) *
+          intersection.height.clamp(0, double.infinity);
+      if (visibleArea > largestVisibleArea) {
+        largestVisibleArea = visibleArea.toDouble();
+        bestFrame = frame;
+      }
+    }
+    if (bestFrame == null ||
+        largestVisibleArea < _minimumVisibleExtent * _minimumVisibleExtent) {
+      return null;
+    }
+
+    final width = requested.width.clamp(_minimumVisibleExtent, bestFrame.width);
+    final height = requested.height.clamp(
+      _minimumVisibleExtent,
+      bestFrame.height,
+    );
+    final left = requested.left.clamp(bestFrame.left, bestFrame.right - width);
+    final top = requested.top.clamp(bestFrame.top, bestFrame.bottom - height);
+    return Rect.fromLTWH(left, top, width, height);
   }
 }
