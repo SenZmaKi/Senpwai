@@ -31,6 +31,7 @@ jobs:
       - run: dart pub get
         working-directory: source-directory/signer
       - run: |
+          mkdir -p ../../site
           dart run bin/sign.dart \
             --input ../source_directory.payload.json \
             --output ../../site/source-directory.json
