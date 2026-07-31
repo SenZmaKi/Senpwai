@@ -897,7 +897,6 @@ class InProcessDownloadRuntime implements DownloadRuntime {
         enableIncomingUtp: settings.enableIncomingUtp,
         enableOutgoingTcp: settings.enableOutgoingTcp,
         enableOutgoingUtp: settings.enableOutgoingUtp,
-        autoManagePreferSeeds: settings.autoManagePreferSeeds,
         proxy: _proxySetting(settings),
       ),
     );

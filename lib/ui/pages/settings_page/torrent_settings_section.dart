@@ -249,7 +249,6 @@ class TorrentSettingsSection extends StatelessWidget {
             'Incoming uTP accept peer connections',
             'Outgoing TCP connect peers',
             'Outgoing uTP connect peers',
-            'Prefer Seeds seeding torrents auto manages',
             'Proxy host port username password authentication',
           ],
           children: [

@@ -490,7 +490,6 @@ class TorrentPreferences {
   final bool enableIncomingUtp;
   final bool enableOutgoingTcp;
   final bool enableOutgoingUtp;
-  final bool autoManagePreferSeeds;
   final bool enableDht;
   final bool enableLsd;
   final bool enableUpnp;
@@ -516,7 +515,6 @@ class TorrentPreferences {
     this.enableIncomingUtp = true,
     this.enableOutgoingTcp = true,
     this.enableOutgoingUtp = true,
-    this.autoManagePreferSeeds = false,
     this.enableDht = true,
     this.enableLsd = true,
     this.enableUpnp = true,
@@ -557,7 +555,6 @@ class TorrentPreferences {
         enableIncomingUtp: _boolValue(json['enableIncomingUtp'], true),
         enableOutgoingTcp: _boolValue(json['enableOutgoingTcp'], true),
         enableOutgoingUtp: _boolValue(json['enableOutgoingUtp'], true),
-        autoManagePreferSeeds: _boolValue(json['autoManagePreferSeeds'], false),
         enableDht: _boolValue(json['enableDht'], true),
         enableLsd: _boolValue(json['enableLsd'], true),
         enableUpnp: _boolValue(json['enableUpnp'], true),
@@ -588,7 +585,6 @@ class TorrentPreferences {
     'enableIncomingUtp': enableIncomingUtp,
     'enableOutgoingTcp': enableOutgoingTcp,
     'enableOutgoingUtp': enableOutgoingUtp,
-    'autoManagePreferSeeds': autoManagePreferSeeds,
     'enableDht': enableDht,
     'enableLsd': enableLsd,
     'enableUpnp': enableUpnp,
@@ -615,7 +611,6 @@ class TorrentPreferences {
     bool? enableIncomingUtp,
     bool? enableOutgoingTcp,
     bool? enableOutgoingUtp,
-    bool? autoManagePreferSeeds,
     bool? enableDht,
     bool? enableLsd,
     bool? enableUpnp,
@@ -643,8 +638,6 @@ class TorrentPreferences {
       enableIncomingUtp: enableIncomingUtp ?? this.enableIncomingUtp,
       enableOutgoingTcp: enableOutgoingTcp ?? this.enableOutgoingTcp,
       enableOutgoingUtp: enableOutgoingUtp ?? this.enableOutgoingUtp,
-      autoManagePreferSeeds:
-          autoManagePreferSeeds ?? this.autoManagePreferSeeds,
       enableDht: enableDht ?? this.enableDht,
       enableLsd: enableLsd ?? this.enableLsd,
       enableUpnp: enableUpnp ?? this.enableUpnp,

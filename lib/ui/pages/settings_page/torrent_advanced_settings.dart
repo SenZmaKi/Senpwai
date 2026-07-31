@@ -57,15 +57,6 @@ class TorrentAdvancedSettings extends StatelessWidget {
           onChanged: (value) =>
               notifier.setTorrentAdvanced(enableOutgoingUtp: value),
         ),
-        _AdvancedSwitch(
-          icon: Icons.manage_search_rounded,
-          title: 'Prefer Seeds',
-          subtitle: 'Prefer seeding torrents when libtorrent auto-manages',
-          value: torrent.autoManagePreferSeeds,
-          searchQuery: searchQuery,
-          onChanged: (value) =>
-              notifier.setTorrentAdvanced(autoManagePreferSeeds: value),
-        ),
         SettingsTile(
           icon: Icons.route_rounded,
           title: 'Proxy',

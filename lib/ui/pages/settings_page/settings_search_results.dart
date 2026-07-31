@@ -164,7 +164,7 @@ class SettingsSearchResults extends ConsumerWidget {
       'Peer Encryption ${torrent.encryptionMode.label}',
       'Anonymous Mode hide client identifying extension data',
       'Advanced Protocol Proxy TCP uTP transport preferences configuration',
-      'Incoming TCP Incoming uTP Outgoing TCP Outgoing uTP Prefer Seeds',
+      'Incoming TCP Incoming uTP Outgoing TCP Outgoing uTP',
       'Proxy Host Port Username Password ${torrent.proxyMode.label}',
       'Provider Priority Activation drag reorder source toggle enabled disabled',
       for (final source in settings.sources.priority) source.label,

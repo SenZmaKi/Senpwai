@@ -296,7 +296,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     bool? enableIncomingUtp,
     bool? enableOutgoingTcp,
     bool? enableOutgoingUtp,
-    bool? autoManagePreferSeeds,
   }) {
     return _commit(
       state.copyWith(
@@ -307,7 +306,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           enableIncomingUtp: enableIncomingUtp,
           enableOutgoingTcp: enableOutgoingTcp,
           enableOutgoingUtp: enableOutgoingUtp,
-          autoManagePreferSeeds: autoManagePreferSeeds,
         ),
       ),
     );
