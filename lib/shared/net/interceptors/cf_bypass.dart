@@ -16,6 +16,7 @@ const _cfBypassValidationExtraKey = 'cfBypassValidation';
 const _cfBypassSessionAppliedExtraKey = 'cfBypassSessionApplied';
 const _cfStaleSessionRetriedExtraKey = 'cfStaleSessionRetried';
 const _cfNetworkProfileRetriedExtraKey = 'cfNetworkProfileRetried';
+const skipCfBypassExtraKey = 'skipCfBypass';
 int _nextInterceptorId = 0;
 
 /// Callback the UI layer provides to solve a CF challenge.
@@ -92,6 +93,10 @@ class CfBypassInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.extra[skipCfBypassExtraKey] == true) {
+      handler.next(options);
+      return;
+    }
     final isValidationRequest = _isValidationRequest(options);
     final userAgent = isValidationRequest
         ? null
@@ -127,6 +132,10 @@ class CfBypassInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
+    if (err.requestOptions.extra[skipCfBypassExtraKey] == true) {
+      handler.next(err);
+      return;
+    }
     final response = err.response;
     if (response == null) {
       handler.next(err);

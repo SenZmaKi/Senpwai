@@ -34,21 +34,31 @@ class _Semaphore {
 
 /// Limits the number of concurrent in-flight HTTP requests **per host**.
 ///
-/// Only hosts explicitly registered in [hostLimits] are affected; all other
-/// requests pass through without any concurrency control.
+/// The host limit is resolved per request, allowing a source directory update
+/// to move a host without rebuilding the Dio client.
 ///
 /// Example — cap nyaa.si at 5 concurrent requests:
 /// ```dart
-/// ConcurrencyInterceptor({'nyaa.si': 5})
+/// ConcurrencyInterceptor((host) => host == 'nyaa.si' ? 5 : null)
 /// ```
 class ConcurrencyInterceptor extends Interceptor {
-  final Map<String, int> hostLimits;
+  static const _semaphoreExtraKey = 'concurrency_semaphore';
+
+  final Map<String, int> _hostLimits;
   final Map<String, _Semaphore> _semaphores = {};
 
-  ConcurrencyInterceptor(this.hostLimits);
+  ConcurrencyInterceptor(Map<String, int> hostLimits)
+    : _hostLimits = Map.of(hostLimits);
+
+  void updateHostLimits(Map<String, int> hostLimits) {
+    _semaphores.removeWhere((host, _) => _hostLimits[host] != hostLimits[host]);
+    _hostLimits
+      ..clear()
+      ..addAll(hostLimits);
+  }
 
   _Semaphore? _semaphoreFor(String host) {
-    final limit = hostLimits[host];
+    final limit = _hostLimits[host];
     if (limit == null) return null;
     return _semaphores.putIfAbsent(host, () => _Semaphore(limit));
   }
@@ -58,7 +68,9 @@ class ConcurrencyInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    await _semaphoreFor(options.uri.host)?.acquire();
+    final semaphore = _semaphoreFor(options.uri.host);
+    options.extra[_semaphoreExtraKey] = semaphore;
+    await semaphore?.acquire();
     handler.next(options);
   }
 
@@ -67,7 +79,8 @@ class ConcurrencyInterceptor extends Interceptor {
     Response<dynamic> response,
     ResponseInterceptorHandler handler,
   ) {
-    _semaphoreFor(response.requestOptions.uri.host)?.release();
+    (response.requestOptions.extra[_semaphoreExtraKey] as _Semaphore?)
+        ?.release();
     handler.next(response);
   }
 
@@ -76,7 +89,10 @@ class ConcurrencyInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
-    _semaphoreFor(err.requestOptions.uri.host)?.release();
+    ((err.response?.requestOptions ?? err.requestOptions)
+                .extra[_semaphoreExtraKey]
+            as _Semaphore?)
+        ?.release();
     handler.next(err);
   }
 }

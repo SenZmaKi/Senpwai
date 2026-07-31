@@ -1,13 +1,34 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/net/interceptors/cf_bypass.dart';
+import 'package:senpwai/shared/net/interceptors/cookie_manager.dart';
+import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 
 final _log = Logger('senpwai.source_directory');
+
+Options sourceDirectoryRequestOptions({required String? eTag}) => Options(
+  headers: {
+    'Cache-Control': 'no-cache',
+    if (eTag != null) 'If-None-Match': eTag,
+  },
+  extra: {
+    ...NetConfig.getInstance()
+        .buildCacheOptions(policy: CachePolicy.noCache)
+        .toExtra(),
+    skipCookieManagerExtraKey: true,
+    skipCfBypassExtraKey: true,
+  },
+  validateStatus: (status) => status == HttpStatus.ok || status == 304,
+);
 
 /// Signed, remotely hosted source endpoints. This intentionally contains no
 /// parsers or executable behavior: a source redesign still requires an app
@@ -17,9 +38,11 @@ class SourceDirectory {
       'https://senzmaki.github.io/Senpwai/source-directory.json';
   static const _publicKeyBase64 =
       'tK5qjqlCFmgyiPDwWt3d6zccUuO7fYHsGqxkDUM6lcU=';
-  static const _refreshInterval = Duration(hours: 24);
-
   static SourceDirectory _instance = SourceDirectory.defaults();
+  static Future<void>? _refreshFuture;
+  static final _updates = StreamController<SourceDirectory>.broadcast();
+  static SourceDirectory? _pendingUpdate;
+  static bool _hadCachedDirectory = false;
 
   final int version;
   final DateTime expiresAt;
@@ -62,25 +85,55 @@ class SourceDirectory {
 
   static SourceDirectory get instance => _instance;
 
+  static Stream<SourceDirectory> get updates => _updates.stream;
+
+  /// Returns an update that completed before the UI began listening.
+  static SourceDirectory? takePendingUpdate() {
+    final update = _pendingUpdate;
+    _pendingUpdate = null;
+    return update;
+  }
+
+  /// Source operations await the launch refresh, while UI startup does not.
+  static Future<void> waitForRefresh() async {
+    await _refreshFuture;
+  }
+
   static Future<void> initialize({required AppPaths paths}) async {
     final repository = _SourceDirectoryRepository(paths: paths);
     final cached = await repository.loadCached();
     if (cached != null) {
       _instance = cached;
+      _hadCachedDirectory = true;
       _log.infoWithMetadata(
         'Using cached source directory',
         metadata: {'version': cached.version, 'expiresAt': cached.expiresAt},
       );
     }
-    if (!await repository.shouldRefresh()) return;
+    _refreshFuture ??= _refresh(repository);
+    unawaited(_refreshFuture!);
+  }
 
+  static Future<void> _refresh(_SourceDirectoryRepository repository) async {
     try {
-      final fetched = await repository.fetchRemote();
-      _instance = fetched;
-      await repository.save();
+      final result = await repository.fetchRemote();
+      if (result.directory == null) {
+        _log.fine('Source directory has not changed.');
+        return;
+      }
+      final didChange = _instance.version != result.directory!.version;
+      _instance = result.directory!;
+      await repository.save(envelope: result.envelope!, eTag: result.eTag);
+      if (_hadCachedDirectory && didChange) {
+        _pendingUpdate = result.directory;
+        _updates.add(result.directory!);
+      }
       _log.infoWithMetadata(
         'Updated source directory',
-        metadata: {'version': fetched.version, 'expiresAt': fetched.expiresAt},
+        metadata: {
+          'version': result.directory!.version,
+          'expiresAt': result.directory!.expiresAt,
+        },
       );
     } catch (error, stackTrace) {
       _log.warningWithMetadata(
@@ -203,56 +256,45 @@ class _SourceDirectoryRepository {
     }
   }
 
-  Future<bool> shouldRefresh() async {
-    if (!await paths.sourceDirectoryFetchStateFile.exists()) return true;
+  Future<_SourceDirectoryFetch> fetchRemote() async {
+    final response = await GlobalDio.getInstance().get<String>(
+      SourceDirectory._directoryUri,
+      options: sourceDirectoryRequestOptions(eTag: await _loadETag()),
+    );
+    if (response.statusCode == HttpStatus.notModified) {
+      return const _SourceDirectoryFetch.notModified();
+    }
+    if (response.statusCode != HttpStatus.ok || response.data == null) {
+      throw HttpException(
+        'Source directory returned HTTP ${response.statusCode}.',
+      );
+    }
+    return _SourceDirectoryFetch.updated(
+      directory: await _decodeAndVerify(response.data!),
+      envelope: response.data!,
+      eTag: response.headers.value('etag'),
+    );
+  }
+
+  Future<void> save({required String envelope, required String? eTag}) async {
+    await paths.sourceDirectoryFile.writeAsString(envelope, flush: true);
+    await paths.sourceDirectoryFetchStateFile.writeAsString(
+      jsonEncode({'eTag': eTag}),
+      flush: true,
+    );
+  }
+
+  Future<String?> _loadETag() async {
+    if (!await paths.sourceDirectoryFetchStateFile.exists()) return null;
     try {
       final state = jsonDecode(
         await paths.sourceDirectoryFetchStateFile.readAsString(),
       );
-      final lastFetched = DateTime.tryParse(
-        state['lastFetched'] as String? ?? '',
-      );
-      return lastFetched == null ||
-          DateTime.now().toUtc().difference(lastFetched.toUtc()) >=
-              SourceDirectory._refreshInterval;
+      return state is Map<String, dynamic> ? state['eTag'] as String? : null;
     } catch (_) {
-      return true;
+      return null;
     }
   }
-
-  Future<SourceDirectory> fetchRemote() async {
-    final dio = Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 8),
-        receiveTimeout: const Duration(seconds: 8),
-        responseType: ResponseType.plain,
-      ),
-    );
-    try {
-      final response = await dio.get<String>(SourceDirectory._directoryUri);
-      if (response.statusCode != HttpStatus.ok || response.data == null) {
-        throw HttpException(
-          'Source directory returned HTTP ${response.statusCode}.',
-        );
-      }
-      return _decodeAndVerify(response.data!);
-    } finally {
-      dio.close(force: true);
-    }
-  }
-
-  Future<void> save() async {
-    await paths.sourceDirectoryFile.writeAsString(
-      _lastVerifiedEnvelope,
-      flush: true,
-    );
-    await paths.sourceDirectoryFetchStateFile.writeAsString(
-      jsonEncode({'lastFetched': DateTime.now().toUtc().toIso8601String()}),
-      flush: true,
-    );
-  }
-
-  late String _lastVerifiedEnvelope;
 
   Future<SourceDirectory> _decodeAndVerify(String envelopeText) async {
     final envelope = jsonDecode(envelopeText);
@@ -280,7 +322,23 @@ class _SourceDirectoryRepository {
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('Invalid source directory payload.');
     }
-    _lastVerifiedEnvelope = envelopeText;
     return SourceDirectory.fromJson(decoded);
   }
+}
+
+class _SourceDirectoryFetch {
+  final SourceDirectory? directory;
+  final String? envelope;
+  final String? eTag;
+
+  const _SourceDirectoryFetch.notModified()
+    : directory = null,
+      envelope = null,
+      eTag = null;
+
+  const _SourceDirectoryFetch.updated({
+    required this.directory,
+    required this.envelope,
+    required this.eTag,
+  });
 }

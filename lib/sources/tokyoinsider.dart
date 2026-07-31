@@ -476,6 +476,7 @@ class Source {
   static Source getInstance() => _instance;
 
   Future<List<AnimeResult>> search({required SearchParams params}) async {
+    await SourceDirectory.waitForRefresh();
     log.infoWithMetadata("Searching", metadata: {"params": params});
     final results = await _animeListCache.search(params: params);
     log.fineWithMetadata(
@@ -489,6 +490,7 @@ class Source {
     required String animeUrl,
     required String animeTitle,
   }) async {
+    await SourceDirectory.waitForRefresh();
     log.infoWithMetadata(
       "Fetching episode pages",
       metadata: {"animeTitle": animeTitle, "animeUrl": animeUrl},
@@ -545,6 +547,7 @@ class Source {
   Future<List<EpisodeDownloadLink>> fetchEpisodeDownloadLinks({
     required EpisodePage episodePage,
   }) async {
+    await SourceDirectory.waitForRefresh();
     log.infoWithMetadata(
       "Fetching episode download links",
       metadata: {"episodePage": episodePage},

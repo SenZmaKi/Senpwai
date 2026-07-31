@@ -63,6 +63,7 @@ class Source {
   Future<Pagination<List<AnimeResult>>> search({
     required SearchParams params,
   }) async {
+    await SourceDirectory.waitForRefresh();
     log.infoWithMetadata("Searching", metadata: {"params": params});
     final term = params.term;
     final page = params.page;

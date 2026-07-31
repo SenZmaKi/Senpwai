@@ -195,6 +195,7 @@ class Source {
   Future<Pagination<List<AnimeResult>>> search({
     required SearchParams params,
   }) async {
+    await SourceDirectory.waitForRefresh();
     log.infoWithMetadata("Searching", metadata: {"params": params});
     final url = apiUrl("search");
     final term = params.term;
@@ -236,6 +237,7 @@ class Source {
     required String animeSession,
     required int pageNum,
   }) async {
+    await SourceDirectory.waitForRefresh();
     final url = apiUrl("release");
     final response = await _dio.get(
       url,
@@ -455,6 +457,7 @@ class Source {
     required String animeSession,
     required EpisodeSession episodeSession,
   }) async {
+    await SourceDirectory.waitForRefresh();
     log.infoWithMetadata(
       "Fetching download links",
       metadata: {
@@ -668,6 +671,7 @@ class Source {
   Future<DirectDownloadLink> fetchDirectDownloadLink({
     required DownloadLink downloadLink,
   }) async {
+    await SourceDirectory.waitForRefresh();
     log.infoWithMetadata(
       "Fetching direct download link",
       metadata: {"downloadLink": downloadLink},

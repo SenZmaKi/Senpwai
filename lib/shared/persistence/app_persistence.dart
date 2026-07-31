@@ -154,11 +154,20 @@ class AppPersistence {
       initializedPaths,
       maxSizeBytes: settings.storage.imageCacheMaxBytes,
     );
-    await SourceDirectory.initialize(paths: initializedPaths);
     await GlobalDio.initialize(
       paths: initializedPaths,
       cfBypassSessionStore: cfStore,
     );
+    await SourceDirectory.initialize(paths: initializedPaths);
+    _updateSourceDirectoryConcurrency(SourceDirectory.instance);
+    SourceDirectory.updates.listen(_updateSourceDirectoryConcurrency);
+  }
+
+  static void _updateSourceDirectoryConcurrency(SourceDirectory directory) {
+    GlobalDio.updateHostConcurrencyLimits({
+      for (final host in directory.nyaa.allowedHosts)
+        host: directory.nyaa.maxConcurrentRequests ?? 5,
+    });
   }
 
   static Future<void> clearNetworkSession() async {
