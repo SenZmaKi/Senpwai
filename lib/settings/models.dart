@@ -108,7 +108,7 @@ class AppSettings {
     this.window = const WindowPreferences(),
   });
 
-  factory AppSettings.defaults() => const AppSettings();
+  factory AppSettings.defaults() => AppSettingsDefaults.settings;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
     schemaVersion: _intValue(json['schemaVersion'], currentSchemaVersion),
@@ -168,6 +168,13 @@ class AppSettings {
       window: window ?? this.window,
     );
   }
+}
+
+/// Device-independent application preferences used as the reset baseline.
+class AppSettingsDefaults {
+  const AppSettingsDefaults._();
+
+  static const settings = AppSettings();
 }
 
 @immutable
@@ -416,6 +423,7 @@ class SourcePreferences {
   final Set<AnimeSource> enabledSources;
   final List<AnimeSource> priority;
   final NyaaManualSearchFilters nyaaDefaultFilters;
+  final bool skipNyaaReviewWhenUnambiguous;
 
   const SourcePreferences({
     this.enabledSources = const {
@@ -425,6 +433,7 @@ class SourcePreferences {
     },
     this.priority = defaultPriority,
     this.nyaaDefaultFilters = const NyaaManualSearchFilters(),
+    this.skipNyaaReviewWhenUnambiguous = false,
   });
 
   factory SourcePreferences.fromJson(Map<String, dynamic> json) {
@@ -442,6 +451,10 @@ class SourcePreferences {
       nyaaDefaultFilters: nyaaFiltersFromJson(
         _mapValue(json['nyaaDefaultFilters']),
       ),
+      skipNyaaReviewWhenUnambiguous: _boolValue(
+        json['skipNyaaReviewWhenUnambiguous'],
+        false,
+      ),
     );
   }
 
@@ -449,6 +462,7 @@ class SourcePreferences {
     'enabledSources': enabledSources.map((source) => source.name).toList(),
     'priority': priority.map((source) => source.name).toList(),
     'nyaaDefaultFilters': nyaaFiltersToJson(nyaaDefaultFilters),
+    'skipNyaaReviewWhenUnambiguous': skipNyaaReviewWhenUnambiguous,
   };
 
   AnimeSource? get preferredEnabledSource {
@@ -462,6 +476,7 @@ class SourcePreferences {
     Set<AnimeSource>? enabledSources,
     List<AnimeSource>? priority,
     NyaaManualSearchFilters? nyaaDefaultFilters,
+    bool? skipNyaaReviewWhenUnambiguous,
   }) {
     final nextEnabled = enabledSources ?? this.enabledSources;
     return SourcePreferences(
@@ -470,6 +485,8 @@ class SourcePreferences {
           ? this.priority
           : _normalizedSourcePriority(priority),
       nyaaDefaultFilters: nyaaDefaultFilters ?? this.nyaaDefaultFilters,
+      skipNyaaReviewWhenUnambiguous:
+          skipNyaaReviewWhenUnambiguous ?? this.skipNyaaReviewWhenUnambiguous,
     );
   }
 }

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/components/app.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/anime_page/nyaa_review/nyaa_review_sheet.dart';
@@ -439,7 +440,12 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       final isNyaa =
           preparedBatch.jobs.any((j) => j.source == AnimeSource.nyaa) ||
           preparedBatch.nyaaEpisodeIssues.isNotEmpty;
-      if (isNyaa) {
+      final skipNyaaReview = ref
+          .read(AppSettingsNotifier.provider)
+          .sources
+          .skipNyaaReviewWhenUnambiguous;
+      if (isNyaa &&
+          (!skipNyaaReview || preparedBatch.nyaaEpisodeIssues.isNotEmpty)) {
         notifier.setSubmissionStage(DownloadSubmissionStage.reviewing);
         final resolvedBatch = await NyaaReviewSheet.show(
           context,

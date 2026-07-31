@@ -24,6 +24,15 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
 
   AppSettings get currentState => state;
 
+  /// Restores the device-aware settings baseline.
+  ///
+  /// AniList authentication, downloads, tracking, caches, and window bounds
+  /// are deliberately outside the settings-reset scope.
+  Future<void> resetToDefaults() async {
+    final defaults = await AppPersistence.settingsRepository.createDefaults();
+    await _commit(defaults);
+  }
+
   Future<void> _commit(AppSettings next) async {
     state = next;
     await AppPersistence.settingsRepository.save(next);
@@ -234,6 +243,14 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     return _commit(
       state.copyWith(
         sources: state.sources.copyWith(nyaaDefaultFilters: filters),
+      ),
+    );
+  }
+
+  Future<void> setSkipNyaaReviewWhenUnambiguous(bool value) {
+    return _commit(
+      state.copyWith(
+        sources: state.sources.copyWith(skipNyaaReviewWhenUnambiguous: value),
       ),
     );
   }

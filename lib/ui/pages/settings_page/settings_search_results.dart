@@ -170,6 +170,7 @@ class SettingsSearchResults extends ConsumerWidget {
       for (final source in settings.sources.priority) source.label,
       'Nyaa Search Filtering default filters sorting torrent searches',
       'Exact Episode Only Same Season Only Manual Sort Order Minimum Seeders',
+      'Skip Nyaa Review When Ready no episode reconciliation needed',
       settings.sources.nyaaDefaultFilters.sort.label,
       'AniList Account profile username log in log out connected',
       'Tracked Anime Auto-Downloader monitors releases downloads new episodes',

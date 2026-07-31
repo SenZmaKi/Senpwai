@@ -196,6 +196,24 @@ class _StorageSettingsSectionState
               ],
             ),
             SettingsGroupCard(
+              title: 'Reset Settings',
+              icon: Icons.restart_alt_rounded,
+              description: 'Restore Senpwai preferences to their defaults',
+              searchQuery: sq,
+              children: [
+                SettingsTile(
+                  icon: Icons.restart_alt_rounded,
+                  title: 'Reset All Settings',
+                  subtitle:
+                      'Keep downloads, library, AniList account, and cache',
+                  keywords: 'restore defaults proxy credentials preferences',
+                  searchQuery: sq,
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => unawaited(_confirmAndResetSettings()),
+                ),
+              ],
+            ),
+            SettingsGroupCard(
               title: 'About Senpwai',
               icon: Icons.info_outline_rounded,
               description:
@@ -247,6 +265,21 @@ class _StorageSettingsSectionState
     if (!mounted) return;
     _refresh();
     AppToast.showInfo(context, title: 'Storage cleared');
+  }
+
+  Future<void> _confirmAndResetSettings() async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Reset all settings?',
+      message:
+          'This restores settings to their defaults and disables the torrent proxy. Downloads, library, AniList account, saved proxy credentials, and cache are kept.',
+      confirmLabel: 'Reset',
+      destructive: true,
+    );
+    if (!confirmed) return;
+    await widget.notifier.resetToDefaults();
+    if (!mounted) return;
+    AppToast.showInfo(context, title: 'Settings reset to defaults');
   }
 
   String _size(int? bytes) =>

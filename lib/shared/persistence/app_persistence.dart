@@ -122,16 +122,12 @@ class AppPersistence {
     final cfStore = CfBypassSessionStore(file: initializedPaths.cfSessionsFile);
     const tokenStore = SecureTokenStore();
     final proxyConfiguration = await tokenStore.readTorrentProxyConfiguration();
-    final settings = proxyConfiguration == null
+    final settings =
+        proxyConfiguration == null ||
+            loadedSettings.torrent.proxyMode == TorrentProxyMode.none
         ? loadedSettings
         : loadedSettings.copyWith(
             torrent: loadedSettings.torrent.copyWith(
-              proxyMode: TorrentProxyMode.values.firstWhere(
-                (mode) => mode.name == proxyConfiguration.mode,
-                orElse: () => TorrentProxyMode.none,
-              ),
-              proxyHost: proxyConfiguration.host,
-              proxyPort: proxyConfiguration.port,
               proxyUsername: proxyConfiguration.username,
               proxyPassword: proxyConfiguration.password,
             ),

@@ -85,6 +85,7 @@ class SourceSettingsSection extends StatelessWidget {
             'Same Season Only filter manual results inferred season',
             'Manual Sort Order',
             'Minimum Seeders required',
+            'Skip review when no episode needs reconciliation',
           ],
           children: [
             _NyaaDefaultsList(
@@ -115,6 +116,18 @@ class _NyaaDefaultsList extends StatelessWidget {
     final filters = settings.sources.nyaaDefaultFilters;
     return Column(
       children: [
+        SettingsTile(
+          icon: Icons.playlist_remove_rounded,
+          title: 'Skip Review When Ready',
+          subtitle:
+              'Start Nyaa downloads directly when no episode needs reconciliation',
+          keywords: 'nyaa review plan automatic skip reconciliation',
+          searchQuery: searchQuery,
+          trailing: AsyncSwitch(
+            value: settings.sources.skipNyaaReviewWhenUnambiguous,
+            onChanged: notifier.setSkipNyaaReviewWhenUnambiguous,
+          ),
+        ),
         SettingsTile(
           icon: Icons.filter_alt_outlined,
           title: 'Exact Episode Only',

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as path;
+import 'package:senpwai/settings/defaults.dart';
 import 'package:senpwai/settings/models.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/platform_paths.dart';
@@ -16,7 +17,7 @@ class AppSettingsRepository {
 
   Future<AppSettings> load() async {
     if (!await file.exists()) {
-      final defaults = await _withDefaultDownloadRoot(AppSettings.defaults());
+      final defaults = await createDefaults();
       await save(defaults);
       return defaults;
     }
@@ -43,7 +44,7 @@ class AppSettingsRepository {
         },
       );
       await _preserveCorruptFile();
-      final defaults = await _withDefaultDownloadRoot(AppSettings.defaults());
+      final defaults = await createDefaults();
       await save(defaults);
       return defaults;
     }
@@ -59,6 +60,9 @@ class AppSettingsRepository {
     }
     await tempFile.rename(file.path);
   }
+
+  /// Creates the same device-aware baseline used on a first launch.
+  Future<AppSettings> createDefaults() => AppSettingsDefaultResolver.resolve();
 
   Future<void> _preserveCorruptFile() async {
     if (!await file.exists()) return;
