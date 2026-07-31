@@ -29,6 +29,7 @@
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
 		72C214672067DD553DE693E8 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 566AF7989FC78E1122965ACD /* Pods_RunnerTests.framework */; };
 		A153A5DCD5E801EBD1DE9E6D /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5116BB150D59B74DDEDAB440 /* Pods_Runner.framework */; };
+		F0A5A0010000000000000001 /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = F0A5A0030000000000000001 /* LaunchAtLogin */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -104,6 +105,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A153A5DCD5E801EBD1DE9E6D /* Pods_Runner.framework in Frameworks */,
+				F0A5A0010000000000000001 /* LaunchAtLogin in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -239,6 +241,7 @@
 				33CC10EA2044A3C60003C045 /* Frameworks */,
 				33CC10EB2044A3C60003C045 /* Resources */,
 				33CC110E2044A8840003C045 /* Bundle Framework */,
+				F0A5A0040000000000000001 /* Copy Launch at Login Helper */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
 				022F50CBC08BD05B02E6DF70 /* [CP] Embed Pods Frameworks */,
 			);
@@ -250,6 +253,9 @@
 			name = Runner;
 			productName = Runner;
 			productReference = 33CC10ED2044A3C60003C045 /* senpwai.app */;
+			packageProductDependencies = (
+				F0A5A0030000000000000001 /* LaunchAtLogin */,
+			);
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -295,6 +301,9 @@
 			productRefGroup = 33CC10EE2044A3C60003C045 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
+			packageReferences = (
+				F0A5A0020000000000000001 /* XCRemoteSwiftPackageReference "LaunchAtLogin" */,
+			);
 			targets = (
 				33CC10EC2044A3C60003C045 /* Runner */,
 				331C80D4294CF70F00263BE5 /* RunnerTests */,
@@ -357,6 +366,18 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "echo \"$PRODUCT_NAME.app\" > \"$PROJECT_DIR\"/Flutter/ephemeral/.app_filename && \"$FLUTTER_ROOT\"/packages/flutter_tools/bin/macos_assemble.sh embed\n";
+		};
+		F0A5A0040000000000000001 /* Copy Launch at Login Helper */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			name = "Copy Launch at Login Helper";
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${BUILT_PRODUCTS_DIR}/LaunchAtLogin_LaunchAtLogin.bundle/Contents/Resources/copy-helper-swiftpm.sh\"\n";
+			showEnvVarsInLog = 0;
 		};
 		33CC111E2044C6BF0003C045 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -469,6 +490,25 @@
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		F0A5A0020000000000000001 /* XCRemoteSwiftPackageReference "LaunchAtLogin" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/LaunchAtLogin";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F0A5A0030000000000000001 /* LaunchAtLogin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F0A5A0020000000000000001 /* XCRemoteSwiftPackageReference "LaunchAtLogin" */;
+			productName = LaunchAtLogin;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		331C80DB294CF71000263BE5 /* Debug */ = {

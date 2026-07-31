@@ -11,6 +11,7 @@ import 'package:senpwai/ui/components/app.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/anime_page/cf_bypass_coordinator.dart';
 import 'package:senpwai/ui/shared/app_error_diagnostics.dart';
+import 'package:senpwai/ui/shared/launch_at_startup_manager.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
 
 Future<void> initApp() async {
@@ -25,6 +26,9 @@ Future<void> initApp() async {
   applyDevConfig();
   _initCfBypassSolver();
   _initNetworkErrorHandling();
+  await LaunchAtStartupManager.getInstance().init(
+    AppPersistence.settings.window.launchAtStartup,
+  );
   await WindowManager.getInstance().init(
     AppPersistence.settings.window,
     AppPersistence.windowStateRepository,

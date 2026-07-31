@@ -776,11 +776,13 @@ class WindowPreferences {
   final bool alwaysOnTop;
   final bool startMaximized;
   final bool startFullScreen;
+  final bool launchAtStartup;
 
   const WindowPreferences({
     this.alwaysOnTop = false,
     this.startMaximized = true,
     this.startFullScreen = false,
+    this.launchAtStartup = false,
   });
 
   factory WindowPreferences.fromJson(Map<String, dynamic> json) =>
@@ -788,23 +790,27 @@ class WindowPreferences {
         alwaysOnTop: _boolValue(json['alwaysOnTop'], false),
         startMaximized: _boolValue(json['startMaximized'], true),
         startFullScreen: _boolValue(json['startFullScreen'], false),
+        launchAtStartup: _boolValue(json['launchAtStartup'], false),
       );
 
   Map<String, dynamic> toJson() => {
     'alwaysOnTop': alwaysOnTop,
     'startMaximized': startMaximized,
     'startFullScreen': startFullScreen,
+    'launchAtStartup': launchAtStartup,
   };
 
   WindowPreferences copyWith({
     bool? alwaysOnTop,
     bool? startMaximized,
     bool? startFullScreen,
+    bool? launchAtStartup,
   }) {
     return WindowPreferences(
       alwaysOnTop: alwaysOnTop ?? this.alwaysOnTop,
       startMaximized: startMaximized ?? this.startMaximized,
       startFullScreen: startFullScreen ?? this.startFullScreen,
+      launchAtStartup: launchAtStartup ?? this.launchAtStartup,
     );
   }
 }

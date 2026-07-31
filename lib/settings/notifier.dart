@@ -11,6 +11,7 @@ import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
+import 'package:senpwai/ui/shared/launch_at_startup_manager.dart';
 
 class AppSettingsNotifier extends Notifier<AppSettings> {
   static final provider = NotifierProvider<AppSettingsNotifier, AppSettings>(
@@ -101,6 +102,15 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           startFullScreen: startFullScreen,
           startMaximized: startFullScreen ? false : null,
         ),
+      ),
+    );
+  }
+
+  Future<void> setLaunchAtStartup(bool launchAtStartup) async {
+    await LaunchAtStartupManager.getInstance().setEnabled(launchAtStartup);
+    await _commit(
+      state.copyWith(
+        window: state.window.copyWith(launchAtStartup: launchAtStartup),
       ),
     );
   }

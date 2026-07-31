@@ -25,11 +25,23 @@ class WindowSettings extends StatelessWidget {
       searchQuery: searchQuery,
       searchTerms: const [
         'desktop window launch startup',
+        'launch at login automatically open when computer starts',
         'always on top',
         'open maximized',
         'open full screen fullscreen',
       ],
       children: [
+        SettingsTile(
+          icon: Icons.rocket_launch_outlined,
+          title: 'Launch at startup',
+          subtitle: 'Open Senpwai when you sign in to this computer',
+          keywords: 'desktop launch startup login automatically open computer',
+          searchQuery: searchQuery,
+          trailing: AsyncSwitch(
+            value: preferences.launchAtStartup,
+            onChanged: notifier.setLaunchAtStartup,
+          ),
+        ),
         SettingsTile(
           icon: Icons.vertical_align_top_rounded,
           title: 'Always on top',
