@@ -20,6 +20,7 @@ import 'package:senpwai/ui/pages/settings_page/settings_page.dart';
 import 'package:senpwai/ui/components/app_shell.dart';
 import 'package:toastification/toastification.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
+import 'package:senpwai/ui/shared/desktop_tray_controller.dart';
 
 enum AppPage { home, search, downloads, settings }
 
@@ -101,6 +102,12 @@ class _AppRootState extends ConsumerState<_AppRoot> {
           ),
         );
     unawaited(ref.read(AnilistNotifier.provider.notifier).initialize());
+    unawaited(
+      DesktopTrayController.instance.initialize(
+        onCheckTrackedAnime: () =>
+            ref.read(TrackingNotifier.provider.notifier).checkNow(),
+      ),
+    );
     if (kDebugMode) {
       debugPrint('SENPWAI_MOCK_DOWNLOADS=$_seedMockDownloads');
     }

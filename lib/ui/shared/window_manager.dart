@@ -3,13 +3,17 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:logging/logging.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:senpwai/settings/models.dart';
+import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/persistence/window_state_repository.dart';
 import 'package:window_manager/window_manager.dart';
 
 bool get supportsWindowCustomization =>
     !kIsWeb && !Platform.isAndroid && !Platform.isIOS;
+
+final _log = Logger('senpwai.ui.window_manager');
 
 class WindowManager with WindowListener {
   static WindowManager? _instance;
@@ -20,6 +24,7 @@ class WindowManager with WindowListener {
   bool _savingBounds = false;
   bool _saveAgain = false;
   WindowStateRepository? _stateRepository;
+  Future<void> Function()? _closeHandler;
 
   static WindowManager getInstance() {
     _instance ??= WindowManager();
@@ -34,6 +39,7 @@ class WindowManager with WindowListener {
     _stateRepository = stateRepository;
     await windowManager.ensureInitialized();
     windowManager.addListener(this);
+    await windowManager.setPreventClose(true);
     final savedBounds = await stateRepository.load();
     final restoredBounds = await _restorableBounds(savedBounds);
     final windowOptions = WindowOptions(
@@ -69,6 +75,33 @@ class WindowManager with WindowListener {
     if (!supportsWindowCustomization) return;
     await windowManager.show();
     await windowManager.focus();
+  }
+
+  void setCloseHandler(Future<void> Function() handler) {
+    _closeHandler = handler;
+    _log.info('Close handler installed');
+  }
+
+  @override
+  void onWindowClose() {
+    final closeHandler = _closeHandler;
+    _log.infoWithMetadata(
+      'Native window close event received',
+      metadata: {'hasCloseHandler': closeHandler != null},
+    );
+    if (closeHandler != null) {
+      unawaited(closeHandler());
+    } else {
+      _log.warning('Close was prevented but no close handler is installed');
+    }
+  }
+
+  @override
+  void onWindowEvent(String eventName) {
+    _log.infoWithMetadata(
+      'Native window event received',
+      metadata: {'event': eventName},
+    );
   }
 
   @override

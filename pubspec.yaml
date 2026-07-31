@@ -58,6 +58,7 @@ dependencies:
     flutter_riverpod: ^3.0.3
     crypto: ^3.0.6
     window_manager: ^0.5.1
+    tray_manager: ^0.5.3
     launch_at_startup: ^0.5.1
     screen_retriever: ^0.2.0
     flutter_native_splash: ^2.4.7
