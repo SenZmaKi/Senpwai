@@ -19,6 +19,7 @@ Future<void> initApp() async {
   setupLogger();
   _configureErrorHandling();
   await AppPersistence.initialize();
+  configureFileLogging(AppPersistence.paths.logsDirectory);
   await AppNotificationService.instance.initialize();
   await AppNotificationService.instance.configurePresentation(
     navigatorKey: App.navigatorKey,

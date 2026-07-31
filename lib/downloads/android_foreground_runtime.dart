@@ -12,6 +12,7 @@ import 'package:senpwai/notifications/app_notification_service.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/user_agents.dart';
+import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_formatters.dart';
 
 typedef _CommandPayload = Map<String, Object?>;
@@ -390,6 +391,8 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     DartPluginRegistrant.ensureInitialized();
     setupLogger();
+    final paths = await AppPaths.initialize();
+    configureFileLogging(paths.logsDirectory);
     _log.infoWithMetadata(
       'Download foreground task started',
       metadata: {

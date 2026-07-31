@@ -7,6 +7,7 @@ import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/runtime_codec.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/persistence/app_paths.dart';
 
 typedef _CommandPayload = Map<String, Object?>;
 
@@ -293,6 +294,8 @@ class DownloadIsolateRuntime implements DownloadRuntime {
 Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
   DartPluginRegistrant.ensureInitialized();
   setupLogger();
+  final paths = await AppPaths.initialize();
+  configureFileLogging(paths.logsDirectory);
 
   final mainPort = config['sendPort'] as SendPort;
   final commandPort = ReceivePort();

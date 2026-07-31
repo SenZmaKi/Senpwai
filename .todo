@@ -1,5 +1,4 @@
 # Features
-- Save logs to file
 - Dialog to disable source if cf bypass fails 3 times
 - Domain repository
 - More in navbar in mobile to reduce clutter
