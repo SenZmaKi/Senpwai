@@ -5,9 +5,6 @@ on:
     branches: [master, v3.0.0]
     paths:
       - source-directory/**
-      - tool/sign_source_directory.dart
-      - pubspec.yaml
-      - pubspec.lock
       - .github/workflows/deploy-source-directory.yml
   workflow_dispatch:
 
@@ -28,16 +25,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: dart-lang/setup-dart@v1
         with:
-          channel: stable
-      - run: flutter pub get
+          sdk: stable
+      - run: dart pub get
+        working-directory: source-directory/signer
       - run: |
-          dart run tool/sign_source_directory.dart \
-            --input source-directory/source_directory.payload.json \
-            --output site/source-directory.json
+          dart run bin/sign.dart \
+            --input ../source_directory.payload.json \
+            --output ../../site/source-directory.json
         env:
           SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
+        working-directory: source-directory/signer
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -13,7 +13,9 @@ The initial signing key has been provisioned in the repository Actions secret
 rotate that key, generate a replacement locally:
 
 ```sh
-dart run tool/sign_source_directory.dart --generate-key --private-key-output /secure/path/senpwai-source-directory.key
+cd source-directory/signer
+dart pub get
+dart run bin/sign.dart --generate-key --private-key-output /secure/path/senpwai-source-directory.key
 ```
 
 Put the printed public key in `SourceDirectory._publicKeyBase64`, then replace
@@ -24,5 +26,6 @@ signs and publishes this payload whenever it changes on `master`.
 To test a signed directory locally, set the same environment variable and run:
 
 ```sh
-dart run tool/sign_source_directory.dart --input source-directory/source_directory.payload.json --output /tmp/source-directory.json
+cd source-directory/signer
+dart run bin/sign.dart --input ../source_directory.payload.json --output /tmp/source-directory.json
 ```

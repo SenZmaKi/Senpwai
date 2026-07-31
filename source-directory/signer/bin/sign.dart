@@ -42,9 +42,9 @@ Future<void> main(List<String> arguments) async {
     'payload': base64UrlEncode(payload).replaceAll('=', ''),
     'signature': base64.encode(signature.bytes),
   };
-  await File(
-    output,
-  ).writeAsString(const JsonEncoder.withIndent('  ').convert(envelope));
+  await File(output).writeAsString(
+    const JsonEncoder.withIndent('  ').convert(envelope),
+  );
 }
 
 String? _argument(List<String> arguments, String name) {
@@ -57,8 +57,8 @@ String? _argument(List<String> arguments, String name) {
 Never usage(String message) {
   stderr.writeln(message);
   stderr.writeln(
-    'Usage: dart run tool/sign_source_directory.dart '
-    '--input <payload.json> --output <source-directory.json>',
+    'Usage: dart run bin/sign.dart --input <payload.json> '
+    '--output <source-directory.json>',
   );
   exitCode = 64;
   throw ArgumentError(message);

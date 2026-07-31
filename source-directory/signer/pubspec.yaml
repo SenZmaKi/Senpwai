@@ -1,0 +1,8 @@
+name: senpwai_source_directory_signer
+publish_to: none
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  cryptography: ^2.7.0
