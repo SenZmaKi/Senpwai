@@ -9,6 +9,7 @@ import 'package:senpwai/shared/net/download/download_config.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
+import 'package:senpwai/shared/persistence/secure_token_store.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 import 'package:senpwai/ui/shared/launch_at_startup_manager.dart';
@@ -328,16 +329,25 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     String? proxyUsername,
     String? proxyPassword,
   }) {
-    return _commit(
-      state.copyWith(
-        torrent: state.torrent.copyWith(
-          proxyMode: proxyMode,
-          proxyHost: proxyHost,
-          proxyPort: proxyPort?.clamp(0, 65535).toInt(),
-          proxyUsername: proxyUsername,
-          proxyPassword: proxyPassword,
-        ),
-      ),
+    final nextProxy = state.torrent.copyWith(
+      proxyMode: proxyMode,
+      proxyHost: proxyHost,
+      proxyPort: proxyPort?.clamp(0, 65535).toInt(),
+      proxyUsername: proxyUsername,
+      proxyPassword: proxyPassword,
+    );
+    final persistProxy = AppPersistence.secureTokenStore
+        .writeTorrentProxyConfiguration(
+          SecureTorrentProxyConfiguration(
+            mode: nextProxy.proxyMode.name,
+            host: nextProxy.proxyHost,
+            port: nextProxy.proxyPort,
+            username: nextProxy.proxyUsername,
+            password: nextProxy.proxyPassword,
+          ),
+        );
+    return persistProxy.then(
+      (_) => _commit(state.copyWith(torrent: nextProxy)),
     );
   }
 

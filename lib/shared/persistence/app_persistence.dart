@@ -121,10 +121,25 @@ class AppPersistence {
     final loadedTrackedAnime = await trackingRepository.load();
     final cfStore = CfBypassSessionStore(file: initializedPaths.cfSessionsFile);
     const tokenStore = SecureTokenStore();
+    final proxyConfiguration = await tokenStore.readTorrentProxyConfiguration();
+    final settings = proxyConfiguration == null
+        ? loadedSettings
+        : loadedSettings.copyWith(
+            torrent: loadedSettings.torrent.copyWith(
+              proxyMode: TorrentProxyMode.values.firstWhere(
+                (mode) => mode.name == proxyConfiguration.mode,
+                orElse: () => TorrentProxyMode.none,
+              ),
+              proxyHost: proxyConfiguration.host,
+              proxyPort: proxyConfiguration.port,
+              proxyUsername: proxyConfiguration.username,
+              proxyPassword: proxyConfiguration.password,
+            ),
+          );
 
     _paths = initializedPaths;
     _settingsRepository = settingsRepository;
-    _settings = loadedSettings;
+    _settings = settings;
     _trackingRepository = trackingRepository;
     _trackedAnime = loadedTrackedAnime;
     _cfBypassSessionStore = cfStore;
@@ -132,15 +147,15 @@ class AppPersistence {
     _windowStateRepository = windowStateRepository;
 
     DownloadConfig.getInstance().updateMaxBytesPerSecond(
-      loadedSettings.downloads.maxDownloadBytesPerSecond.toDouble(),
+      settings.downloads.maxDownloadBytesPerSecond.toDouble(),
     );
     NetConfig.initialize(paths: initializedPaths);
     NetConfig.getInstance().updateCacheMaxStale(
-      loadedSettings.storage.httpCacheMaxAge,
+      settings.storage.httpCacheMaxAge,
     );
     AppImageCache.initialize(
       initializedPaths,
-      maxSizeBytes: loadedSettings.storage.imageCacheMaxBytes,
+      maxSizeBytes: settings.storage.imageCacheMaxBytes,
     );
     await GlobalDio.initialize(
       paths: initializedPaths,

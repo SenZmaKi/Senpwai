@@ -1,6 +1,7 @@
 # Features
 - Save logs to file
 - Dialog to disable source if cf bypass fails 3 times
+- Consider finding a solution to cf bypass tokens being bound to an IP Address/Network??
 - More in navbar in mobile to reduce clutter
 
 # Bugs

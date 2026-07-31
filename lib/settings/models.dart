@@ -559,15 +559,6 @@ class TorrentPreferences {
         enableLsd: _boolValue(json['enableLsd'], true),
         enableUpnp: _boolValue(json['enableUpnp'], true),
         enableNatPmp: _boolValue(json['enableNatPmp'], true),
-        proxyMode: _enumValue(
-          TorrentProxyMode.values,
-          json['proxyMode'],
-          TorrentProxyMode.none,
-        ),
-        proxyHost: _stringValue(json['proxyHost'], ''),
-        proxyPort: _portValue(json['proxyPort'], 0),
-        proxyUsername: _stringValue(json['proxyUsername'], ''),
-        proxyPassword: _stringValue(json['proxyPassword'], ''),
       );
 
   Map<String, dynamic> toJson() => {
@@ -589,11 +580,6 @@ class TorrentPreferences {
     'enableLsd': enableLsd,
     'enableUpnp': enableUpnp,
     'enableNatPmp': enableNatPmp,
-    'proxyMode': proxyMode.name,
-    'proxyHost': proxyHost,
-    'proxyPort': proxyPort,
-    'proxyUsername': proxyUsername,
-    'proxyPassword': proxyPassword,
   };
 
   TorrentPreferences copyWith({
