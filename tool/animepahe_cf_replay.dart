@@ -11,6 +11,7 @@ import 'package:dio/io.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:dotenv/dotenv.dart' as dotenv;
+import 'package:senpwai/shared/net/http2_preferred_adapter.dart';
 
 const _skipCookieManagerExtraKey = 'skipCookieManager';
 
@@ -22,26 +23,36 @@ Future<void> main(List<String> args) async {
   }
 
   final replay = AnimePaheReplay(options);
-  await replay.seed();
+  try {
+    await replay.seed();
 
-  print('AnimePahe CF replay');
-  print('Host: ${options.host}');
-  print('Queries: ${options.queries.join(' -> ')}');
-  print('Seeded UA: ${replay.hasUserAgent ? 'yes' : 'no'}');
-  print('Seeded cookies: ${replay.seededCookieNames.join(', ')}');
-  print('');
-
-  for (final query in options.queries) {
-    final result = await replay.search(query);
-    result.printSummary();
+    print('AnimePahe CF replay');
+    print('Host: ${options.host}');
+    print('Queries: ${options.queries.join(' -> ')}');
+    print('Seeded UA: ${replay.hasUserAgent ? 'yes' : 'no'}');
+    print('Seeded cookies: ${replay.seededCookieNames.join(', ')}');
     print('');
-    if (result.detection.isProtected && options.stopOnChallenge) {
-      print(
-        'Stopping because this request returned ${result.detection.kind.name}. '
-        'Run with --continue-on-challenge to replay the remaining queries.',
-      );
-      break;
+
+    if (options.traceEgress) {
+      final trace = await replay.traceEgress();
+      trace.printSummary();
+      print('');
     }
+
+    for (final query in options.queries) {
+      final result = await replay.search(query);
+      result.printSummary();
+      print('');
+      if (result.detection.isProtected && options.stopOnChallenge) {
+        print(
+          'Stopping because this request returned ${result.detection.kind.name}. '
+          'Run with --continue-on-challenge to replay the remaining queries.',
+        );
+        break;
+      }
+    }
+  } finally {
+    replay.close();
   }
 }
 
@@ -76,6 +87,7 @@ class AnimePaheReplay {
         ),
       ),
     );
+    preferHttp2(dio);
   }
 
   bool get hasUserAgent => _userAgent != null && _userAgent!.isNotEmpty;
@@ -197,6 +209,31 @@ class AnimePaheReplay {
     );
   }
 
+  Future<EgressTrace> traceEgress() async {
+    final uri = Uri.https('cloudflare.com', '/cdn-cgi/trace');
+    final response = await dio.getUri<String>(
+      uri,
+      options: Options(
+        responseType: ResponseType.plain,
+        extra: {_skipCookieManagerExtraKey: true, ..._noCacheExtra()},
+      ),
+    );
+    final fields = <String, String>{};
+    for (final line in (response.data ?? '').split('\n')) {
+      final separator = line.indexOf('=');
+      if (separator <= 0) continue;
+      fields[line.substring(0, separator)] = line.substring(separator + 1);
+    }
+    return EgressTrace(
+      statusCode: response.statusCode ?? 0,
+      ip: fields['ip'],
+      colo: fields['colo'],
+      warp: fields['warp'],
+    );
+  }
+
+  void close() => dio.close(force: true);
+
   Future<void> _saveCookieHeader(String header, Uri uri) async {
     final cookies = <Cookie>[];
     for (final entry in _cookiePairsFromHeader(header).entries) {
@@ -276,6 +313,27 @@ class _ReplayCookieManager extends CookieManager {
   }
 }
 
+class EgressTrace {
+  final int statusCode;
+  final String? ip;
+  final String? colo;
+  final String? warp;
+
+  const EgressTrace({
+    required this.statusCode,
+    required this.ip,
+    required this.colo,
+    required this.warp,
+  });
+
+  void printSummary() {
+    print('Egress trace: status=$statusCode');
+    print('Public IP: ${ip ?? '(unavailable)'}');
+    print('Cloudflare colo: ${colo ?? '(unavailable)'}');
+    print('WARP: ${warp ?? '(unavailable)'}');
+  }
+}
+
 class ReplayResult {
   final String query;
   final Uri uri;
@@ -337,6 +395,7 @@ class ReplayOptions {
   final bool noEnv;
   final bool showHelp;
   final bool stopOnChallenge;
+  final bool traceEgress;
   final String? userAgent;
   final String? cookieHeader;
   final List<String> queries;
@@ -347,6 +406,7 @@ class ReplayOptions {
     required this.noEnv,
     required this.showHelp,
     required this.stopOnChallenge,
+    required this.traceEgress,
     required this.userAgent,
     required this.cookieHeader,
     required this.queries,
@@ -367,6 +427,7 @@ Options:
   --no-env                       Do not read ANIMEPAHE_* values from env.
   --user-agent <ua>              Seed a solved browser user-agent.
   --cookie-header <header>       Seed solved Cookie header. Values are not printed.
+  --trace-egress                 Print the current public IP and Cloudflare colo.
   --continue-on-challenge        Continue after a CF challenge response.
   --help                         Show this help.
 
@@ -381,6 +442,7 @@ Env support:
     var noEnv = false;
     var showHelp = false;
     var stopOnChallenge = true;
+    var traceEgress = false;
     String? userAgent;
     String? cookieHeader;
     String? first;
@@ -410,6 +472,8 @@ Env support:
           userAgent = takeValue();
         case '--cookie-header':
           cookieHeader = takeValue();
+        case '--trace-egress':
+          traceEgress = true;
         case '--query':
           queries.add(takeValue());
         case '--first':
@@ -435,6 +499,7 @@ Env support:
       noEnv: noEnv,
       showHelp: showHelp,
       stopOnChallenge: stopOnChallenge,
+      traceEgress: traceEgress,
       userAgent: userAgent,
       cookieHeader: cookieHeader,
       queries: queries,

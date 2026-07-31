@@ -1,7 +1,9 @@
+import 'package:cf_bypass/cf_bypass.dart' hide LoggerExtensions;
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
+import 'package:senpwai/shared/net/cf_egress_identity.dart';
 import 'package:senpwai/shared/net/http2_preferred_adapter.dart';
 import 'package:senpwai/shared/net/interceptors/cf_bypass.dart';
 import 'package:senpwai/shared/net/interceptors/connectivity.dart';
@@ -43,7 +45,15 @@ class GlobalDio {
     final cookieJar = PersistCookieJar(
       storage: FileStorage(paths.networkCookiesDirectory.path),
     );
-    final cfSessions = await cfBypassSessionStore.load();
+    final egressResolver = CfEgressIdentityResolver();
+    final hasProfiles = await cfBypassSessionStore.hasProfiles();
+    final egressIdentity = hasProfiles ? await egressResolver.resolve() : null;
+    final networkKey = egressIdentity?.key;
+    final cfSessions = networkKey == null
+        ? const <String, CfBypassHostSession>{}
+        : await cfBypassSessionStore.loadForNetwork(networkKey);
+    final storedHosts = await cfBypassSessionStore.hosts();
+    await _activateSessions(cookieJar, storedHosts, cfSessions);
     _cookieJar = cookieJar;
     _instance = Dio();
     _cfBypassInterceptor = CfBypassInterceptor(
@@ -51,6 +61,8 @@ class GlobalDio {
       cookieJar: cookieJar,
       sessionStore: cfBypassSessionStore,
       initialSessions: cfSessions,
+      networkKey: networkKey,
+      egressResolver: egressResolver,
     );
     _connectivityInterceptor = ConnectivityInterceptor(_instance!);
     _instance!.interceptors.add(RateLimitInterceptor(_instance!));
@@ -69,6 +81,48 @@ class GlobalDio {
     );
     NetConfig.getInstance().attachToDio(_instance!);
     preferHttp2(_instance!);
+  }
+
+  static Future<void> _activateSessions(
+    CookieJar cookieJar,
+    Set<String> storedHosts,
+    Map<String, CfBypassHostSession> sessions,
+  ) async {
+    for (final host in storedHosts) {
+      final uri = Uri.https(host, '/');
+      await cookieJar.delete(uri, true);
+      final session = sessions[host];
+      if (session == null) continue;
+      await cookieJar.saveFromResponse(uri, [
+        for (final storedCookie in session.cookies) ...[
+          _restoreCookie(storedCookie, fallbackDomain: host),
+          if (CfCookieHelper.isBypassProofCookie(storedCookie.name))
+            _restoreHostRootCookie(storedCookie),
+        ],
+      ]);
+    }
+  }
+
+  static Cookie _restoreCookie(
+    CfBypassStoredCookie storedCookie, {
+    required String fallbackDomain,
+  }) {
+    return Cookie(storedCookie.name, storedCookie.value)
+      ..domain = storedCookie.domain.isEmpty
+          ? fallbackDomain
+          : storedCookie.domain
+      ..path = storedCookie.path
+      ..secure = storedCookie.isSecure ?? false
+      ..httpOnly = storedCookie.isHttpOnly ?? false
+      ..expires = storedCookie.expires;
+  }
+
+  static Cookie _restoreHostRootCookie(CfBypassStoredCookie storedCookie) {
+    return Cookie(storedCookie.name, storedCookie.value)
+      ..path = '/'
+      ..secure = storedCookie.isSecure ?? false
+      ..httpOnly = storedCookie.isHttpOnly ?? false
+      ..expires = storedCookie.expires;
   }
 
   static Dio getInstance() {

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:cf_bypass/cf_bypass.dart' hide LoggerExtensions;
@@ -6,6 +5,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/net/cf_egress_identity.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/persistence/cf_bypass_session_store.dart';
 
@@ -15,6 +15,7 @@ const _cfBypassRetriedExtraKey = 'cfBypassRetried';
 const _cfBypassValidationExtraKey = 'cfBypassValidation';
 const _cfBypassSessionAppliedExtraKey = 'cfBypassSessionApplied';
 const _cfStaleSessionRetriedExtraKey = 'cfStaleSessionRetried';
+const _cfNetworkProfileRetriedExtraKey = 'cfNetworkProfileRetried';
 int _nextInterceptorId = 0;
 
 /// Callback the UI layer provides to solve a CF challenge.
@@ -38,19 +39,24 @@ class CfBypassInterceptor extends Interceptor {
   final Dio dio;
   final CookieJar cookieJar;
   final CfBypassSessionStore sessionStore;
+  final CfEgressIdentityResolver egressResolver;
+  String? _networkKey;
   late final int _interceptorId = ++_nextInterceptorId;
   CfBypassSolver? _solver;
   final Map<String, String> _userAgentsByHost = {};
   final Map<String, Future<CfBypassResult>> _bypassByHost = {};
   final Map<String, Future<void>> _sessionResetByHost = {};
   final Set<String> _bypassedHosts = {};
+  Future<bool>? _networkRefresh;
 
   CfBypassInterceptor({
     required this.dio,
     required this.cookieJar,
     required this.sessionStore,
+    required String? networkKey,
+    required this.egressResolver,
     required Map<String, CfBypassHostSession> initialSessions,
-  }) {
+  }) : _networkKey = networkKey {
     for (final entry in initialSessions.entries) {
       _bypassedHosts.add(entry.key);
       final userAgent = entry.value.userAgent;
@@ -62,6 +68,7 @@ class CfBypassInterceptor extends Interceptor {
       "Created CF bypass interceptor",
       metadata: {
         "interceptorId": _interceptorId,
+        "networkId": _shortNetworkId(networkKey),
         "persistedHosts": initialSessions.keys.toList(),
       },
     );
@@ -80,6 +87,7 @@ class CfBypassInterceptor extends Interceptor {
   void clearRememberedSessions() {
     _userAgentsByHost.clear();
     _bypassedHosts.clear();
+    _networkKey = null;
   }
 
   @override
@@ -167,6 +175,21 @@ class CfBypassInterceptor extends Interceptor {
         ),
       },
     );
+
+    final networkProfileAlreadyRetried =
+        err.requestOptions.extra[_cfNetworkProfileRetriedExtraKey] == true;
+    if (!networkProfileAlreadyRetried &&
+        await _refreshNetworkProfileIfChanged()) {
+      try {
+        final retryResponse = await dio.fetch<dynamic>(
+          _buildNetworkProfileRetryOptions(err.requestOptions),
+        );
+        handler.resolve(retryResponse);
+      } catch (error) {
+        handler.next(error is DioException ? error : err);
+      }
+      return;
+    }
 
     if (detection.kind == CfProtectionKind.blocked) {
       final staleSessionAlreadyRetried =
@@ -267,7 +290,7 @@ class CfBypassInterceptor extends Interceptor {
         metadata: {
           "url": url,
           "interceptorId": _interceptorId,
-          "userAgent": result.userAgent,
+          "hasUserAgent": result.userAgent?.isNotEmpty == true,
           "cookieCount": result.cookies.length,
           "duration": result.duration?.inMilliseconds,
         },
@@ -279,27 +302,7 @@ class CfBypassInterceptor extends Interceptor {
       if (result.userAgent != null) {
         _userAgentsByHost[err.requestOptions.uri.host] = result.userAgent!;
       }
-      unawaited(
-        sessionStore.rememberHost(
-          err.requestOptions.uri.host,
-          userAgent: _userAgentsByHost[err.requestOptions.uri.host],
-        ),
-      );
-      _log.infoWithMetadata(
-        "Remembered CF bypass session",
-        metadata: {
-          "host": err.requestOptions.uri.host,
-          "interceptorId": _interceptorId,
-          "hasUserAgent": _userAgentsByHost.containsKey(
-            err.requestOptions.uri.host,
-          ),
-          "cookieNames": result.cookies.map((cookie) => cookie.name).toList(),
-          "cookieDomains": result.cookies
-              .map((cookie) => cookie.domain.isEmpty ? null : cookie.domain)
-              .toList(),
-          "cookiePaths": result.cookies.map((cookie) => cookie.path).toList(),
-        },
-      );
+      await _rememberSession(err.requestOptions.uri.host, result);
 
       final retryOptions = _buildBypassReplayOptions(
         err.requestOptions,
@@ -428,6 +431,112 @@ class CfBypassInterceptor extends Interceptor {
 
   bool _hasBypassSession(String host) => _bypassedHosts.contains(host);
 
+  Future<void> _rememberSession(String host, CfBypassResult result) async {
+    final networkKey = await _ensureNetworkKey();
+    if (networkKey == null) {
+      _log.warningWithMetadata(
+        "CF bypass session will not persist because network lookup failed",
+        metadata: {"host": host, "interceptorId": _interceptorId},
+      );
+      return;
+    }
+
+    await sessionStore.rememberHost(
+      host,
+      networkKey: networkKey,
+      userAgent: _userAgentsByHost[host],
+      cookies: [
+        for (final cookie in result.cookies)
+          CfBypassStoredCookie(
+            name: cookie.name,
+            value: cookie.value,
+            domain: cookie.domain,
+            path: cookie.path,
+            isSecure: cookie.isSecure,
+            isHttpOnly: cookie.isHttpOnly,
+            expires: cookie.expires,
+          ),
+      ],
+    );
+    _log.infoWithMetadata(
+      "Remembered CF bypass session",
+      metadata: {
+        "host": host,
+        "networkId": _shortNetworkId(networkKey),
+        "interceptorId": _interceptorId,
+        "hasUserAgent": _userAgentsByHost.containsKey(host),
+        "cookieNames": result.cookies.map((cookie) => cookie.name).toList(),
+      },
+    );
+  }
+
+  Future<String?> _ensureNetworkKey() async {
+    final current = _networkKey;
+    if (current != null) return current;
+    final identity = await egressResolver.resolve();
+    _networkKey = identity?.key;
+    return _networkKey;
+  }
+
+  Future<bool> _refreshNetworkProfileIfChanged() {
+    final inFlight = _networkRefresh;
+    if (inFlight != null) return inFlight;
+
+    final refresh = _doRefreshNetworkProfile().whenComplete(
+      () => _networkRefresh = null,
+    );
+    _networkRefresh = refresh;
+    return refresh;
+  }
+
+  Future<bool> _doRefreshNetworkProfile() async {
+    final identity = await egressResolver.resolve(forceRefresh: true);
+    if (identity == null || identity.key == _networkKey) return false;
+
+    final sessions = await sessionStore.loadForNetwork(identity.key);
+    final storedHosts = await sessionStore.hosts();
+    await _activateNetworkSessions(storedHosts, sessions);
+    _networkKey = identity.key;
+    _log.infoWithMetadata(
+      "Activated CF sessions for changed network",
+      metadata: {
+        "interceptorId": _interceptorId,
+        "networkId": _shortNetworkId(identity.key),
+        "persistedHosts": sessions.keys.toList(),
+      },
+    );
+    return true;
+  }
+
+  Future<void> _activateNetworkSessions(
+    Set<String> storedHosts,
+    Map<String, CfBypassHostSession> sessions,
+  ) async {
+    _bypassedHosts.clear();
+    _userAgentsByHost.clear();
+
+    for (final host in storedHosts) {
+      final uri = Uri.https(host, '/');
+      await cookieJar.delete(uri, true);
+      final session = sessions[host];
+      if (session == null) continue;
+
+      final cookies = <Cookie>[
+        for (final storedCookie in session.cookies) ...[
+          _toStoredCookie(storedCookie, fallbackDomain: host),
+          if (CfCookieHelper.isBypassProofCookie(storedCookie.name))
+            _toStoredHostRootCookie(storedCookie),
+        ],
+      ];
+      if (cookies.isNotEmpty) await cookieJar.saveFromResponse(uri, cookies);
+      _bypassedHosts.add(host);
+      final userAgent = session.userAgent;
+      if (userAgent != null && userAgent.isNotEmpty) {
+        _userAgentsByHost[host] = userAgent;
+      }
+    }
+  }
+
   Future<void> _resetHostSession(Uri uri) {
     final host = uri.host;
     final existingReset = _sessionResetByHost[host];
@@ -437,7 +546,8 @@ class CfBypassInterceptor extends Interceptor {
     _userAgentsByHost.remove(host);
     final reset =
         Future.wait([
-              sessionStore.forgetHost(host),
+              if (_networkKey case final networkKey?)
+                sessionStore.forgetHost(host, networkKey: networkKey),
               cookieJar.delete(uri, true),
             ])
             .then<void>((_) {
@@ -516,6 +626,38 @@ class CfBypassInterceptor extends Interceptor {
       ..remove(_cfBypassRetriedExtraKey)
       ..[_cfStaleSessionRetriedExtraKey] = true;
 
+    return requestOptions.copyWith(headers: headers, extra: extra);
+  }
+
+  RequestOptions _buildNetworkProfileRetryOptions(
+    RequestOptions requestOptions,
+  ) {
+    final headers = Map<String, dynamic>.of(requestOptions.headers);
+    _removeHeader(headers, HttpHeaders.cookieHeader);
+    final userAgent = _userAgentsByHost[requestOptions.uri.host];
+    if (userAgent == null) {
+      final defaultUserAgent = _headerValue(
+        dio.options.headers,
+        HttpHeaders.userAgentHeader,
+      );
+      if (defaultUserAgent == null) {
+        _removeHeader(headers, HttpHeaders.userAgentHeader);
+      } else {
+        headers[HttpHeaders.userAgentHeader] = defaultUserAgent;
+      }
+    } else {
+      _applyBypassReplayHeaders(
+        headers,
+        requestOptions.uri,
+        userAgent: userAgent,
+      );
+    }
+
+    final extra = _buildNoCacheExtra(requestOptions.extra)
+      ..remove(_cfBypassSessionAppliedExtraKey)
+      ..remove(_cfBypassRetriedExtraKey)
+      ..remove(_cfStaleSessionRetriedExtraKey)
+      ..[_cfNetworkProfileRetriedExtraKey] = true;
     return requestOptions.copyWith(headers: headers, extra: extra);
   }
 
@@ -601,6 +743,26 @@ class CfBypassInterceptor extends Interceptor {
       ..expires = cookie.expires;
   }
 
+  Cookie _toStoredCookie(
+    CfBypassStoredCookie cookie, {
+    required String fallbackDomain,
+  }) {
+    return Cookie(cookie.name, cookie.value)
+      ..domain = cookie.domain.isNotEmpty ? cookie.domain : fallbackDomain
+      ..path = cookie.path
+      ..secure = cookie.isSecure ?? false
+      ..httpOnly = cookie.isHttpOnly ?? false
+      ..expires = cookie.expires;
+  }
+
+  Cookie _toStoredHostRootCookie(CfBypassStoredCookie cookie) {
+    return Cookie(cookie.name, cookie.value)
+      ..path = '/'
+      ..secure = cookie.isSecure ?? false
+      ..httpOnly = cookie.isHttpOnly ?? false
+      ..expires = cookie.expires;
+  }
+
   Map<String, String?> _cookieScope(Cookie cookie) {
     return {"name": cookie.name, "domain": cookie.domain, "path": cookie.path};
   }
@@ -624,5 +786,10 @@ class CfBypassInterceptor extends Interceptor {
     );
     headers.putIfAbsent("Accept-Language", () => "en-US,en;q=0.9");
     headers.putIfAbsent("Referer", () => "${uri.scheme}://${uri.host}/");
+  }
+
+  static String? _shortNetworkId(String? networkKey) {
+    if (networkKey == null) return null;
+    return networkKey.length <= 12 ? networkKey : networkKey.substring(0, 12);
   }
 }
