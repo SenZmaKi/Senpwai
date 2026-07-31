@@ -12,6 +12,8 @@ class AppPaths {
   final Directory networkCookiesDirectory;
   final Directory networkDioCacheDirectory;
   final File cfSessionsFile;
+  final File sourceDirectoryFile;
+  final File sourceDirectoryFetchStateFile;
   final Directory cacheDirectory;
   final Directory stateDirectory;
   final File windowStateFile;
@@ -29,6 +31,8 @@ class AppPaths {
     required this.networkCookiesDirectory,
     required this.networkDioCacheDirectory,
     required this.cfSessionsFile,
+    required this.sourceDirectoryFile,
+    required this.sourceDirectoryFetchStateFile,
     required this.cacheDirectory,
     required this.stateDirectory,
     required this.windowStateFile,
@@ -83,6 +87,12 @@ class AppPaths {
       networkDioCacheDirectory: networkDioCacheDirectory,
       cfSessionsFile: File(
         path.join(networkDirectory.path, 'cf_sessions.json'),
+      ),
+      sourceDirectoryFile: File(
+        path.join(networkDirectory.path, 'source_directory.json'),
+      ),
+      sourceDirectoryFetchStateFile: File(
+        path.join(networkDirectory.path, 'source_directory_fetch_state.json'),
       ),
       cacheDirectory: cacheDirectory,
       stateDirectory: stateDirectory,

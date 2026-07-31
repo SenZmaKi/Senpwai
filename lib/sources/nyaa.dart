@@ -3,6 +3,7 @@ import 'package:html/dom.dart';
 import 'package:html/parser.dart' show parse;
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:senpwai/shared/shared.dart' as shared;
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/sources/shared/shared.dart';
@@ -21,7 +22,7 @@ class SearchParams {
 }
 
 class Constants {
-  static const baseUrl = "https://nyaa.si";
+  static String get baseUrl => SourceDirectory.instance.nyaa.baseUrl;
   static const resultsPerPage = 75;
 }
 

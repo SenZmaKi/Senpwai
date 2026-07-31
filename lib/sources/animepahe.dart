@@ -4,6 +4,7 @@ import 'package:logging/logging.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:html/dom.dart' as html;
 import 'package:senpwai/shared/shared.dart' as shared;
 import 'package:senpwai/shared/log.dart';
@@ -64,16 +65,18 @@ class AnimeResult {
 }
 
 class Constants {
-  static const paheDomain = "animepahe.pw";
-  static const paheHome = "https://$paheDomain";
-  static const apiEntryPoint = "$paheHome/api?m=";
+  static String get paheDomain => Uri.parse(paheHome).host;
+  static String get paheHome => SourceDirectory.instance.animePahe.baseUrl;
+  static String get apiEntryPoint =>
+      SourceDirectory.instance.animePahe.apiEntryPoint!;
   static const englishSuffix = "eng";
 
   static final estimatedSizeRegex = RegExp(r"\b(\d+)MB\b");
   // When you change this you also have to change the regex below
-  static final kwikDomain = "kwik.cx";
-  static final kwikHome = "https://$kwikDomain";
-  static final kwikLinkRegex = RegExp(r"""https?://kwik\.cx/f/([^\"']+)""");
+  static String get kwikDomain => Uri.parse(kwikHome).host;
+  static String get kwikHome => SourceDirectory.instance.kwik.baseUrl;
+  static RegExp get kwikLinkRegex =>
+      RegExp('https?://${RegExp.escape(kwikDomain)}/f/([^\\"\']+)');
   static final kwikParamRegex = RegExp(
     r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""",
   );

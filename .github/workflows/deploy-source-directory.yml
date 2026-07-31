@@ -1,0 +1,46 @@
+name: Deploy source directory
+
+on:
+  push:
+    branches: [master, v3.0.0]
+    paths:
+      - source-directory/**
+      - tool/sign_source_directory.dart
+      - pubspec.yaml
+      - pubspec.lock
+      - .github/workflows/deploy-source-directory.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: |
+          dart run tool/sign_source_directory.dart \
+            --input source-directory/source_directory.payload.json \
+            --output site/source-directory.json
+        env:
+          SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

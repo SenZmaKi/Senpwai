@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/source_directory/source_directory.dart';
 
 const skipCookieManagerExtraKey = 'skipCookieManager';
 
@@ -80,8 +81,11 @@ class AppCookieManager extends CookieManager {
     Map<String, dynamic>? extra,
   }) {
     final host = options.uri.host;
-    if (!host.contains('animepahe') &&
-        !host.contains('kwik') &&
+    final cookieSourceHosts = {
+      ...SourceDirectory.instance.animePahe.allowedHosts,
+      ...SourceDirectory.instance.kwik.allowedHosts,
+    };
+    if (!cookieSourceHosts.contains(host) &&
         options.extra[skipCookieManagerExtraKey] != true) {
       return;
     }

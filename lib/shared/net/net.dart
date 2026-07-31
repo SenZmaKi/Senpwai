@@ -13,6 +13,7 @@ import 'package:senpwai/shared/net/interceptors/rate_limit.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/shared/persistence/cf_bypass_session_store.dart';
+import 'package:senpwai/shared/source_directory/source_directory.dart';
 
 class GlobalDio {
   GlobalDio._();
@@ -66,9 +67,14 @@ class GlobalDio {
     );
     _connectivityInterceptor = ConnectivityInterceptor(_instance!);
     _instance!.interceptors.add(RateLimitInterceptor(_instance!));
-    // Empirically: nyaa.si returns HTTP 429 at ~7 concurrent requests.
-    // Cap at 5 to leave comfortable headroom.
-    _instance!.interceptors.add(ConcurrencyInterceptor({'nyaa.si': 5}));
+    // Nyaa returns HTTP 429 at roughly seven concurrent requests. The
+    // directory keeps the cap aligned if its host changes.
+    _instance!.interceptors.add(
+      ConcurrencyInterceptor({
+        for (final host in SourceDirectory.instance.nyaa.allowedHosts)
+          host: SourceDirectory.instance.nyaa.maxConcurrentRequests ?? 5,
+      }),
+    );
     _instance!.interceptors.add(_cfBypassInterceptor!);
     _instance!.interceptors.add(_connectivityInterceptor!);
     _instance!.interceptors.add(AppCookieManager(cookieJar));

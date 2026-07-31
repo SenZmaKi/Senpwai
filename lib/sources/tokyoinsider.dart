@@ -10,6 +10,7 @@ import 'package:logging/logging.dart';
 import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:senpwai/shared/log.dart';
 
 final log = Logger("senpwai.anime.sources.tokyoinsider");
@@ -24,7 +25,7 @@ List<Element> _parseEncodedFileRows(Document htmlPage) =>
     );
 
 class Constants {
-  static const baseUrl = "https://www.tokyoinsider.com";
+  static String get baseUrl => SourceDirectory.instance.tokyoInsider.baseUrl;
 }
 
 String _resolveUrl(String href) =>

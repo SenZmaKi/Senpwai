@@ -8,6 +8,7 @@ import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/shared/persistence/cf_bypass_session_store.dart';
 import 'package:senpwai/shared/persistence/secure_token_store.dart';
+import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:senpwai/shared/persistence/window_state_repository.dart';
 import 'package:senpwai/tracking/models.dart';
 import 'package:senpwai/tracking/repository.dart';
@@ -153,6 +154,7 @@ class AppPersistence {
       initializedPaths,
       maxSizeBytes: settings.storage.imageCacheMaxBytes,
     );
+    await SourceDirectory.initialize(paths: initializedPaths);
     await GlobalDio.initialize(
       paths: initializedPaths,
       cfBypassSessionStore: cfStore,

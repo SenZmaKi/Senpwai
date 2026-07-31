@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "issuedAt": "2026-07-31T00:00:00Z",
+  "expiresAt": "2027-07-31T00:00:00Z",
+  "sources": {
+    "animepahe": {
+      "baseUrl": "https://animepahe.pw",
+      "apiEntryPoint": "https://animepahe.pw/api?m=",
+      "allowedHosts": ["animepahe.pw"]
+    },
+    "kwik": {
+      "baseUrl": "https://kwik.cx",
+      "allowedHosts": ["kwik.cx"]
+    },
+    "nyaa": {
+      "baseUrl": "https://nyaa.si",
+      "allowedHosts": ["nyaa.si"],
+      "maxConcurrentRequests": 5
+    },
+    "tokyoinsider": {
+      "baseUrl": "https://www.tokyoinsider.com",
+      "allowedHosts": ["www.tokyoinsider.com"]
+    }
+  }
+}
