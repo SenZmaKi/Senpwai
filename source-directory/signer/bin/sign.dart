@@ -42,9 +42,9 @@ Future<void> main(List<String> arguments) async {
     'payload': base64UrlEncode(payload).replaceAll('=', ''),
     'signature': base64.encode(signature.bytes),
   };
-  await File(output).writeAsString(
-    const JsonEncoder.withIndent('  ').convert(envelope),
-  );
+  await File(
+    output,
+  ).writeAsString(const JsonEncoder.withIndent('  ').convert(envelope));
 }
 
 String? _argument(List<String> arguments, String name) {

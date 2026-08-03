@@ -302,21 +302,24 @@ class CfBypassInterceptor extends Interceptor {
           "hasUserAgent": result.userAgent?.isNotEmpty == true,
           "cookieCount": result.cookies.length,
           "duration": result.duration?.inMilliseconds,
+          "resolvedUrl": result.finalUrl,
         },
       );
 
-      await _applyCookies(result, err.requestOptions.uri);
-      _bypassedHosts.add(err.requestOptions.uri.host);
+      final sessionUri = _resolvedSessionUri(result, err.requestOptions.uri);
+      await _applyCookies(result, sessionUri);
+      _bypassedHosts.add(sessionUri.host);
 
       if (result.userAgent != null) {
-        _userAgentsByHost[err.requestOptions.uri.host] = result.userAgent!;
+        _userAgentsByHost[sessionUri.host] = result.userAgent!;
       }
-      await _rememberSession(err.requestOptions.uri.host, result);
+      await _rememberSession(sessionUri.host, result);
 
       final retryOptions = _buildBypassReplayOptions(
         err.requestOptions,
         userAgent: result.userAgent,
         validation: false,
+        targetUri: _resolvedReplayUri(result, err.requestOptions.uri),
         extra: {_cfBypassRetriedExtraKey: true},
       );
 
@@ -376,12 +379,14 @@ class CfBypassInterceptor extends Interceptor {
   ) async {
     if (!result.success) return false;
 
-    await _applyCookies(result, requestOptions.uri);
+    final sessionUri = _resolvedSessionUri(result, requestOptions.uri);
+    await _applyCookies(result, sessionUri);
 
     final validationOptions = _buildBypassReplayOptions(
       requestOptions,
       userAgent: result.userAgent,
       validation: true,
+      targetUri: _resolvedReplayUri(result, requestOptions.uri),
     );
 
     try {
@@ -413,6 +418,8 @@ class CfBypassInterceptor extends Interceptor {
             : "CF bypass validation failed",
         metadata: {
           "url": requestOptions.uri.toString(),
+          "resolvedUrl": sessionUri.toString(),
+          "validationUrl": validationOptions.uri.toString(),
           "interceptorId": _interceptorId,
           "statusCode": statusCode,
           "kind": detection.kind.name,
@@ -437,6 +444,34 @@ class CfBypassInterceptor extends Interceptor {
 
   bool _isValidationRequest(RequestOptions options) =>
       options.extra[_cfBypassValidationExtraKey] == true;
+
+  Uri _resolvedSessionUri(CfBypassResult result, Uri fallback) {
+    final resolved = Uri.tryParse(result.finalUrl);
+    if (resolved == null ||
+        resolved.host.isEmpty ||
+        (resolved.scheme != 'http' && resolved.scheme != 'https')) {
+      _log.warningWithMetadata(
+        "CF bypass returned an invalid resolved URL; using request URL",
+        metadata: {
+          "finalUrl": result.finalUrl,
+          "requestUrl": fallback.toString(),
+          "interceptorId": _interceptorId,
+        },
+      );
+      return fallback;
+    }
+    return resolved;
+  }
+
+  Uri _resolvedReplayUri(CfBypassResult result, Uri requestUri) {
+    final resolved = _resolvedSessionUri(result, requestUri);
+    if (resolved.host == requestUri.host) return requestUri;
+    return resolved.replace(
+      path: requestUri.path,
+      query: requestUri.hasQuery ? requestUri.query : null,
+      fragment: '',
+    );
+  }
 
   bool _hasBypassSession(String host) => _bypassedHosts.contains(host);
 
@@ -530,12 +565,9 @@ class CfBypassInterceptor extends Interceptor {
       final session = sessions[host];
       if (session == null) continue;
 
-      final cookies = <Cookie>[
-        for (final storedCookie in session.cookies) ...[
+      final cookies = [
+        for (final storedCookie in session.cookies)
           _toStoredCookie(storedCookie, fallbackDomain: host),
-          if (CfCookieHelper.isBypassProofCookie(storedCookie.name))
-            _toStoredHostRootCookie(storedCookie),
-        ],
       ];
       if (cookies.isNotEmpty) await cookieJar.saveFromResponse(uri, cookies);
       _bypassedHosts.add(host);
@@ -682,15 +714,13 @@ class CfBypassInterceptor extends Interceptor {
     RequestOptions requestOptions, {
     required String? userAgent,
     required bool validation,
+    Uri? targetUri,
     Map<String, dynamic> extra = const {},
   }) {
+    final replayUri = targetUri ?? requestOptions.uri;
     final headers = Map<String, dynamic>.of(requestOptions.headers);
     _removeHeader(headers, HttpHeaders.cookieHeader);
-    _applyBypassReplayHeaders(
-      headers,
-      requestOptions.uri,
-      userAgent: userAgent,
-    );
+    _applyBypassReplayHeaders(headers, replayUri, userAgent: userAgent);
 
     final replayExtra = validation
         ? _buildValidationExtra(requestOptions.extra)
@@ -698,6 +728,9 @@ class CfBypassInterceptor extends Interceptor {
     replayExtra.addAll(extra);
 
     return requestOptions.copyWith(
+      baseUrl: '${replayUri.scheme}://${replayUri.authority}',
+      path: replayUri.path,
+      queryParameters: replayUri.queryParametersAll,
       headers: headers,
       extra: replayExtra,
       responseType: validation
@@ -712,12 +745,9 @@ class CfBypassInterceptor extends Interceptor {
 
   Future<void> _applyCookies(CfBypassResult result, Uri requestUri) async {
     final host = requestUri.host;
-    final cookies = <Cookie>[
-      for (final cookie in result.cookies) ...[
+    final cookies = [
+      for (final cookie in result.cookies)
         _toCookie(cookie, fallbackDomain: host),
-        if (CfCookieHelper.isBypassProofCookie(cookie.name))
-          _toHostRootCookie(cookie),
-      ],
     ];
 
     if (cookies.isNotEmpty) {
@@ -744,14 +774,6 @@ class CfBypassInterceptor extends Interceptor {
       ..expires = cookie.expires;
   }
 
-  Cookie _toHostRootCookie(CfBrowserCookie cookie) {
-    return Cookie(cookie.name, cookie.value)
-      ..path = '/'
-      ..secure = cookie.isSecure ?? false
-      ..httpOnly = cookie.isHttpOnly ?? false
-      ..expires = cookie.expires;
-  }
-
   Cookie _toStoredCookie(
     CfBypassStoredCookie cookie, {
     required String fallbackDomain,
@@ -759,14 +781,6 @@ class CfBypassInterceptor extends Interceptor {
     return Cookie(cookie.name, cookie.value)
       ..domain = cookie.domain.isNotEmpty ? cookie.domain : fallbackDomain
       ..path = cookie.path
-      ..secure = cookie.isSecure ?? false
-      ..httpOnly = cookie.isHttpOnly ?? false
-      ..expires = cookie.expires;
-  }
-
-  Cookie _toStoredHostRootCookie(CfBypassStoredCookie cookie) {
-    return Cookie(cookie.name, cookie.value)
-      ..path = '/'
       ..secure = cookie.isSecure ?? false
       ..httpOnly = cookie.isHttpOnly ?? false
       ..expires = cookie.expires;

@@ -62,6 +62,7 @@ class CfBypassCoordinator extends ChangeNotifier {
         CfBypassResult(
           success: false,
           url: item.challenge.url,
+          finalUrl: item.challenge.url,
           error: 'User cancelled CF bypass',
           cookies: const [],
         ),

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/log.dart';
@@ -31,10 +34,28 @@ class AnimepaheMatcher {
           params: animepahe.SearchParams(term: title),
         );
         return (title: title, results: results.items);
-      } catch (e) {
+      } on DioException catch (error) {
         _log.warningWithMetadata(
           "AnimePahe search failed for title candidate",
-          metadata: {"title": title, "error": e.toString()},
+          metadata: {
+            "title": title,
+            "url": error.requestOptions.uri.toString(),
+            "finalUrl": error.response?.realUri.toString(),
+            "statusCode": error.response?.statusCode,
+            "requestCookieNames": _cookieNames(error.requestOptions),
+            "requestHasUserAgent": _hasHeader(
+              error.requestOptions,
+              HttpHeaders.userAgentHeader,
+            ),
+            "responseSetCookieNames": _setCookieNames(error.response),
+            "error": error.toString(),
+          },
+        );
+        return (title: title, results: <animepahe.AnimeResult>[]);
+      } catch (error) {
+        _log.warningWithMetadata(
+          "AnimePahe search failed for title candidate",
+          metadata: {"title": title, "error": error.toString()},
         );
         return (title: title, results: <animepahe.AnimeResult>[]);
       }
@@ -62,5 +83,33 @@ class AnimepaheMatcher {
       },
     );
     return allMatches;
+  }
+
+  List<String> _cookieNames(RequestOptions options) {
+    final cookieHeader = options.headers.entries
+        .where((entry) => entry.key.toLowerCase() == HttpHeaders.cookieHeader)
+        .map((entry) => entry.value.toString())
+        .join('; ');
+    return cookieHeader
+        .split(';')
+        .map((cookie) => cookie.trim())
+        .where((cookie) => cookie.contains('='))
+        .map((cookie) => cookie.substring(0, cookie.indexOf('=')))
+        .toSet()
+        .toList()
+      ..sort();
+  }
+
+  bool _hasHeader(RequestOptions options, String name) => options.headers.keys
+      .any((header) => header.toLowerCase() == name.toLowerCase());
+
+  List<String> _setCookieNames(Response<dynamic>? response) {
+    final headers = response?.headers[HttpHeaders.setCookieHeader] ?? const [];
+    return headers
+        .map((header) => header.split('=').first.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
   }
 }

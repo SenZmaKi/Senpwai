@@ -78,6 +78,7 @@ void _initCfBypassSolver() {
       return CfBypassResult(
         success: false,
         url: challenge.url,
+        finalUrl: challenge.url,
         error: 'No app navigator available',
         cookies: [],
       );

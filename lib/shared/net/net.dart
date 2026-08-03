@@ -1,4 +1,3 @@
-import 'package:cf_bypass/cf_bypass.dart' hide LoggerExtensions;
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -98,11 +97,8 @@ class GlobalDio {
       final session = sessions[host];
       if (session == null) continue;
       await cookieJar.saveFromResponse(uri, [
-        for (final storedCookie in session.cookies) ...[
+        for (final storedCookie in session.cookies)
           _restoreCookie(storedCookie, fallbackDomain: host),
-          if (CfCookieHelper.isBypassProofCookie(storedCookie.name))
-            _restoreHostRootCookie(storedCookie),
-        ],
       ]);
     }
   }
@@ -116,14 +112,6 @@ class GlobalDio {
           ? fallbackDomain
           : storedCookie.domain
       ..path = storedCookie.path
-      ..secure = storedCookie.isSecure ?? false
-      ..httpOnly = storedCookie.isHttpOnly ?? false
-      ..expires = storedCookie.expires;
-  }
-
-  static Cookie _restoreHostRootCookie(CfBypassStoredCookie storedCookie) {
-    return Cookie(storedCookie.name, storedCookie.value)
-      ..path = '/'
       ..secure = storedCookie.isSecure ?? false
       ..httpOnly = storedCookie.isHttpOnly ?? false
       ..expires = storedCookie.expires;
