@@ -546,4 +546,3 @@ class DisabledBadge extends StatelessWidget {
     );
   }
 }
-

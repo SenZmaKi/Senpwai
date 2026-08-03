@@ -44,8 +44,8 @@ class TorrentSettingsSection extends StatelessWidget {
                     mode == LimitMode.unlimited
                         ? 0
                         : (torrent.maxDownloadBytesPerSecond > 0
-                            ? torrent.maxDownloadBytesPerSecond
-                            : megabytes(10)),
+                              ? torrent.maxDownloadBytesPerSecond
+                              : megabytes(10)),
                   ),
                 ),
                 valueField: NumberSettingField(
@@ -73,8 +73,8 @@ class TorrentSettingsSection extends StatelessWidget {
                     mode == LimitMode.unlimited
                         ? 0
                         : (torrent.maxUploadBytesPerSecond > 0
-                            ? torrent.maxUploadBytesPerSecond
-                            : megabytes(10)),
+                              ? torrent.maxUploadBytesPerSecond
+                              : megabytes(10)),
                   ),
                 ),
                 valueField: NumberSettingField(
