@@ -414,6 +414,11 @@ class CustomAnimeFolder {
 
 @immutable
 class SourcePreferences {
+  static const defaultEnabledSources = {
+    AnimeSource.animepahe,
+    AnimeSource.nyaa,
+  };
+
   static const defaultPriority = [
     AnimeSource.animepahe,
     AnimeSource.tokyoinsider,
@@ -426,11 +431,7 @@ class SourcePreferences {
   final bool skipNyaaReviewWhenUnambiguous;
 
   const SourcePreferences({
-    this.enabledSources = const {
-      AnimeSource.animepahe,
-      AnimeSource.tokyoinsider,
-      AnimeSource.nyaa,
-    },
+    this.enabledSources = defaultEnabledSources,
     this.priority = defaultPriority,
     this.nyaaDefaultFilters = const NyaaManualSearchFilters(),
     this.skipNyaaReviewWhenUnambiguous = false,
@@ -440,13 +441,13 @@ class SourcePreferences {
     final enabled = _enumSet(
       AnimeSource.values,
       json['enabledSources'],
-      AnimeSource.values.toSet(),
+      defaultEnabledSources,
     );
     final priority = _normalizedSourcePriority(
       _enumList(AnimeSource.values, json['priority'], defaultPriority),
     );
     return SourcePreferences(
-      enabledSources: enabled.isEmpty ? AnimeSource.values.toSet() : enabled,
+      enabledSources: enabled.isEmpty ? defaultEnabledSources : enabled,
       priority: priority,
       nyaaDefaultFilters: nyaaFiltersFromJson(
         _mapValue(json['nyaaDefaultFilters']),

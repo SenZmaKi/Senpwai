@@ -15,7 +15,10 @@ void main() {
       expect(settings.content.showAdultContent, isFalse);
       expect(settings.content.defaultResolution, Resolution.res1080p);
       expect(settings.content.defaultAudioLanguage, Language.japanese);
-      expect(settings.sources.enabledSources, AnimeSource.values.toSet());
+      expect(settings.sources.enabledSources, {
+        AnimeSource.animepahe,
+        AnimeSource.nyaa,
+      });
       expect(settings.sources.priority.first, AnimeSource.animepahe);
       expect(settings.storage.imageCacheMaxBytes, 50 * 1024 * 1024);
       expect(settings.anilist.trackerCheckIntervalHours, 1);
