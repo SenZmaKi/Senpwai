@@ -239,54 +239,121 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
     }
 
     final theme = Theme.of(context);
-    final content = Opacity(
-      opacity: enabled ? 1.0 : 0.45,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: enabled
-                  ? theme.colorScheme.onSurface.withValues(alpha: 0.7)
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.35),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 460;
+
+        Widget buildTileContent() {
+          if (isCompact && trailing != null) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.55,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          icon,
+                          size: 20,
+                          color: enabled
+                              ? theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
+                                )
+                              : theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.35,
+                                ),
+                        ),
                       ),
-                      fontSize: 12,
-                    ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.55,
+                                ),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 10),
+                  Align(alignment: Alignment.centerRight, child: trailing!),
                 ],
               ),
-            ),
-            if (trailing != null) ...[const SizedBox(width: 12), trailing!],
-          ],
-        ),
-      ),
-    );
+            );
+          }
 
-    return MouseRegion(
-      cursor: enabled && onTap != null
-          ? SystemMouseCursors.click
-          : SystemMouseCursors.basic,
-      child: InkWell(onTap: enabled ? onTap : null, child: content),
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: enabled
+                      ? theme.colorScheme.onSurface.withValues(alpha: 0.7)
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.55,
+                          ),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+              ],
+            ),
+          );
+        }
+
+        final content = Opacity(
+          opacity: enabled ? 1.0 : 0.45,
+          child: buildTileContent(),
+        );
+
+        return MouseRegion(
+          cursor: enabled && onTap != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: InkWell(onTap: enabled ? onTap : null, child: content),
+        );
+      },
     );
   }
 }

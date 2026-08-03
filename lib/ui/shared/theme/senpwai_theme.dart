@@ -106,23 +106,23 @@ class SenpwaiTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: c.surfaceVariant,
+        fillColor: c.surfaceVariant.withValues(alpha: 0.4),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(s.inputRadius),
-          borderSide: BorderSide(color: c.primary.withValues(alpha: 0.3)),
+          borderSide: BorderSide(color: c.primary.withValues(alpha: 0.2)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(s.inputRadius),
-          borderSide: BorderSide(color: c.primary.withValues(alpha: 0.3)),
+          borderSide: BorderSide(color: c.primary.withValues(alpha: 0.2)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(s.inputRadius),
-          borderSide: BorderSide(color: c.primary, width: 2),
+          borderSide: BorderSide(color: c.primary, width: 1.5),
         ),
         hintStyle: bodyFont(color: c.onSurface.withValues(alpha: 0.4)),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
+          horizontal: 14,
+          vertical: 10,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -209,6 +209,7 @@ class SenpwaiTheme {
               borderRadius: BorderRadius.circular(s.buttonRadius),
             ),
           ),
+          mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
         ),
       ),
       navigationRailTheme: NavigationRailThemeData(
@@ -245,10 +246,10 @@ class SenpwaiTheme {
       dropdownMenuTheme: DropdownMenuThemeData(
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: c.surfaceVariant,
+          fillColor: c.surfaceVariant.withValues(alpha: 0.4),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(s.inputRadius),
-            borderSide: BorderSide(color: c.primary.withValues(alpha: 0.3)),
+            borderSide: BorderSide(color: c.primary.withValues(alpha: 0.2)),
           ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
@@ -257,14 +258,14 @@ class SenpwaiTheme {
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: c.surfaceVariant,
+        backgroundColor: c.surfaceVariant.withValues(alpha: 0.4),
         selectedColor: c.primary.withValues(alpha: 0.2),
         labelStyle: bodyFont(fontSize: t.bodySmallSize),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(s.cardRadius),
-          side: BorderSide(color: c.primary.withValues(alpha: 0.3)),
+          side: BorderSide(color: c.primary.withValues(alpha: 0.2)),
         ),
-        side: BorderSide(color: c.primary.withValues(alpha: 0.3)),
+        side: BorderSide(color: c.primary.withValues(alpha: 0.2)),
       ),
       checkboxTheme: CheckboxThemeData(
         checkColor: WidgetStateProperty.all(c.onPrimary),
@@ -276,6 +277,7 @@ class SenpwaiTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(s.inputRadius / 2),
         ),
+        mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
       ),
       listTileTheme: ListTileThemeData(
         iconColor: c.onSurface.withValues(alpha: 0.72),
@@ -288,6 +290,7 @@ class SenpwaiTheme {
         ),
       ),
       switchTheme: SwitchThemeData(
+        mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled) &&
               states.contains(WidgetState.selected)) {

@@ -12,8 +12,10 @@ final _log = Logger('senpwai.settings.repository');
 
 class AppSettingsRepository {
   final File file;
+  Future<void> _saveTail = Future.value();
+  int _temporaryFileSequence = 0;
 
-  const AppSettingsRepository({required this.file});
+  AppSettingsRepository({required this.file});
 
   Future<AppSettings> load() async {
     if (!await file.exists()) {
@@ -50,14 +52,24 @@ class AppSettingsRepository {
     }
   }
 
-  Future<void> save(AppSettings settings) async {
+  /// Serializes writes so rapid settings changes cannot race over the same
+  /// destination or temporary file.
+  Future<void> save(AppSettings settings) {
+    final operation = _saveTail
+        .catchError((Object _) {})
+        .then((_) => _writeAtomically(settings));
+    // A failed write must not prevent a later settings change from persisting.
+    _saveTail = operation.catchError((Object _) {});
+    return operation;
+  }
+
+  Future<void> _writeAtomically(AppSettings settings) async {
     await file.parent.create(recursive: true);
-    final tempFile = File('${file.path}.tmp');
+    final tempFile = File('${file.path}.${_temporaryFileSequence++}.tmp');
     const encoder = JsonEncoder.withIndent('  ');
     await tempFile.writeAsString('${encoder.convert(settings.toJson())}\n');
-    if (await file.exists()) {
-      await file.delete();
-    }
+    // On macOS, rename replaces an existing file atomically.  Do not delete
+    // the destination first: that creates a missing-file window for readers.
     await tempFile.rename(file.path);
   }
 
