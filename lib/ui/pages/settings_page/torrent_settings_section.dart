@@ -36,12 +36,26 @@ class TorrentSettingsSection extends StatelessWidget {
               title: 'Torrent Download Limit',
               subtitle: formatSpeedLimit(torrent.maxDownloadBytesPerSecond),
               searchQuery: searchQuery,
-              trailing: NumberSettingField(
-                value: _bytesToMegabytes(torrent.maxDownloadBytesPerSecond),
-                unit: 'MB/s',
-                onSubmitted: (value) => unawaited(
+              trailing: LimitSettingControl(
+                mode: _speedLimitMode(torrent.maxDownloadBytesPerSecond),
+                allowsDisabled: false,
+                onModeChanged: (mode) => unawaited(
                   notifier.setTorrentMaxDownloadBytesPerSecond(
-                    megabytes(value),
+                    mode == LimitMode.unlimited
+                        ? 0
+                        : (torrent.maxDownloadBytesPerSecond > 0
+                            ? torrent.maxDownloadBytesPerSecond
+                            : megabytes(10)),
+                  ),
+                ),
+                valueField: NumberSettingField(
+                  value: _bytesToMegabytes(torrent.maxDownloadBytesPerSecond),
+                  unit: 'MB/s',
+                  min: 1,
+                  onSubmitted: (value) => unawaited(
+                    notifier.setTorrentMaxDownloadBytesPerSecond(
+                      megabytes(value),
+                    ),
                   ),
                 ),
               ),
@@ -51,39 +65,85 @@ class TorrentSettingsSection extends StatelessWidget {
               title: 'Torrent Upload Limit',
               subtitle: formatSpeedLimit(torrent.maxUploadBytesPerSecond),
               searchQuery: searchQuery,
-              trailing: NumberSettingField(
-                value: _bytesToMegabytes(torrent.maxUploadBytesPerSecond),
-                unit: 'MB/s',
-                onSubmitted: (value) => unawaited(
-                  notifier.setTorrentMaxUploadBytesPerSecond(megabytes(value)),
+              trailing: LimitSettingControl(
+                mode: _speedLimitMode(torrent.maxUploadBytesPerSecond),
+                allowsDisabled: false,
+                onModeChanged: (mode) => unawaited(
+                  notifier.setTorrentMaxUploadBytesPerSecond(
+                    mode == LimitMode.unlimited
+                        ? 0
+                        : (torrent.maxUploadBytesPerSecond > 0
+                            ? torrent.maxUploadBytesPerSecond
+                            : megabytes(10)),
+                  ),
+                ),
+                valueField: NumberSettingField(
+                  value: _bytesToMegabytes(torrent.maxUploadBytesPerSecond),
+                  unit: 'MB/s',
+                  min: 1,
+                  onSubmitted: (value) => unawaited(
+                    notifier.setTorrentMaxUploadBytesPerSecond(
+                      megabytes(value),
+                    ),
+                  ),
                 ),
               ),
             ),
             SettingsTile(
               icon: Icons.low_priority_rounded,
               title: 'Active Torrent Downloads',
-              subtitle: 'Start this many torrent episodes at once',
+              subtitle: _queueLimitSubtitle(
+                torrent.maxActiveDownloads,
+                'downloads',
+              ),
               searchQuery: searchQuery,
-              trailing: NumberSettingField(
-                value: torrent.maxActiveDownloads,
-                unit: 'active',
-                min: 1,
-                onSubmitted: (value) => unawaited(
-                  notifier.setTorrentLimits(maxActiveDownloads: value),
+              trailing: LimitSettingControl(
+                mode: _queueLimitMode(torrent.maxActiveDownloads),
+                onModeChanged: (mode) => unawaited(
+                  notifier.setTorrentLimits(
+                    maxActiveDownloads: _queueLimitForMode(
+                      mode,
+                      torrent.maxActiveDownloads,
+                    ),
+                  ),
+                ),
+                valueField: NumberSettingField(
+                  value: torrent.maxActiveDownloads > 0
+                      ? torrent.maxActiveDownloads
+                      : 1,
+                  unit: 'active',
+                  min: 1,
+                  onSubmitted: (value) => unawaited(
+                    notifier.setTorrentLimits(maxActiveDownloads: value),
+                  ),
                 ),
               ),
             ),
             SettingsTile(
               icon: Icons.upload_file_rounded,
               title: 'Active Seeds',
-              subtitle: 'Maximum active seeding torrents',
+              subtitle: _queueLimitSubtitle(torrent.maxActiveSeeds, 'seeds'),
               searchQuery: searchQuery,
-              trailing: NumberSettingField(
-                value: torrent.maxActiveSeeds,
-                unit: 'seeds',
-                min: 1,
-                onSubmitted: (value) =>
-                    unawaited(notifier.setTorrentLimits(maxActiveSeeds: value)),
+              trailing: LimitSettingControl(
+                mode: _queueLimitMode(torrent.maxActiveSeeds),
+                onModeChanged: (mode) => unawaited(
+                  notifier.setTorrentLimits(
+                    maxActiveSeeds: _queueLimitForMode(
+                      mode,
+                      torrent.maxActiveSeeds,
+                    ),
+                  ),
+                ),
+                valueField: NumberSettingField(
+                  value: torrent.maxActiveSeeds > 0
+                      ? torrent.maxActiveSeeds
+                      : 1,
+                  unit: 'seeds',
+                  min: 1,
+                  onSubmitted: (value) => unawaited(
+                    notifier.setTorrentLimits(maxActiveSeeds: value),
+                  ),
+                ),
               ),
             ),
           ],
@@ -91,15 +151,31 @@ class TorrentSettingsSection extends StatelessWidget {
         SettingsGroupCard(
           title: 'Seeding Rules',
           icon: Icons.share_rounded,
-          description: 'Ratio and duration criteria before seeding stops',
+          description: 'Choose whether completed torrents keep seeding',
           searchQuery: searchQuery,
           children: [
+            SettingsTile(
+              icon: Icons.flag_outlined,
+              title: 'After Download Completes',
+              subtitle: _seedingModeSubtitle(torrent.seedingMode),
+              searchQuery: searchQuery,
+              trailing: SettingsDropdown<TorrentSeedingMode>(
+                value: torrent.seedingMode,
+                items: [
+                  for (final mode in TorrentSeedingMode.values)
+                    DropdownMenuItem(value: mode, child: Text(mode.label)),
+                ],
+                onChanged: (mode) =>
+                    unawaited(notifier.setTorrentSeedingMode(mode)),
+              ),
+            ),
             SettingsTile(
               icon: Icons.share_rounded,
               title: 'Seed Ratio',
               subtitle:
                   '${_formatSeedRatio(torrent.seedRatioLimit)}x upload before stopping',
               searchQuery: searchQuery,
+              enabled: torrent.seedingMode == TorrentSeedingMode.untilTarget,
               trailing: DecimalSettingField(
                 value: torrent.seedRatioLimit / 100,
                 unit: 'x',
@@ -116,6 +192,7 @@ class TorrentSettingsSection extends StatelessWidget {
               title: 'Seed Time',
               subtitle: _minutesSubtitle(torrent.seedTimeLimitMinutes),
               searchQuery: searchQuery,
+              enabled: torrent.seedingMode == TorrentSeedingMode.untilTarget,
               trailing: NumberSettingField(
                 value: torrent.seedTimeLimitMinutes,
                 unit: 'min',
@@ -277,6 +354,34 @@ String _minutesSubtitle(int minutes) {
   final hours = minutes / 60;
   return '${hours.toStringAsFixed(hours.truncateToDouble() == hours ? 0 : 1)} hours';
 }
+
+LimitMode _speedLimitMode(int value) =>
+    value == 0 ? LimitMode.unlimited : LimitMode.limited;
+
+LimitMode _queueLimitMode(int value) => switch (value) {
+  -1 => LimitMode.unlimited,
+  0 => LimitMode.disabled,
+  _ => LimitMode.limited,
+};
+
+int _queueLimitForMode(LimitMode mode, [int current = 1]) => switch (mode) {
+  LimitMode.disabled => 0,
+  LimitMode.limited => current > 0 ? current : 1,
+  LimitMode.unlimited => -1,
+};
+
+String _queueLimitSubtitle(int value, String item) => switch (value) {
+  -1 => 'Unlimited $item',
+  0 => '$item disabled',
+  _ => 'Up to $value active $item',
+};
+
+String _seedingModeSubtitle(TorrentSeedingMode mode) => switch (mode) {
+  TorrentSeedingMode.disabled => 'Stop when the download finishes',
+  TorrentSeedingMode.untilTarget =>
+    'Stop when the ratio and time targets are met',
+  TorrentSeedingMode.indefinitely => 'Keep sharing until you stop it',
+};
 
 String _encryptionSubtitle(TorrentEncryptionMode mode) {
   return switch (mode) {

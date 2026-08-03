@@ -288,13 +288,13 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
         torrent: state.torrent.copyWith(
           maxActiveDownloads: maxActiveDownloads == null
               ? null
-              : maxActiveDownloads < 1
-              ? 1
+              : maxActiveDownloads < -1
+              ? -1
               : maxActiveDownloads,
           maxActiveSeeds: maxActiveSeeds == null
               ? null
-              : maxActiveSeeds < 1
-              ? 1
+              : maxActiveSeeds < -1
+              ? -1
               : maxActiveSeeds,
           maxConnections: maxConnections == null
               ? null
@@ -314,6 +314,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           torrentPort: torrentPort?.clamp(0, 65535).toInt(),
         ),
       ),
+    );
+  }
+
+  Future<void> setTorrentSeedingMode(TorrentSeedingMode mode) {
+    return _commit(
+      state.copyWith(torrent: state.torrent.copyWith(seedingMode: mode)),
     );
   }
 

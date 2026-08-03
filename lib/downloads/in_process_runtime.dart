@@ -920,6 +920,12 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     int totalBytes,
     int totalUploaded,
   ) {
+    if (_torrentSettings.seedingMode == TorrentSeedingMode.disabled) {
+      return true;
+    }
+    if (_torrentSettings.seedingMode == TorrentSeedingMode.indefinitely) {
+      return false;
+    }
     final ratioMet =
         _torrentSettings.seedRatioLimit <= 0 ||
         totalUploaded * 100 >= totalBytes * _torrentSettings.seedRatioLimit;
@@ -937,6 +943,20 @@ class InProcessDownloadRuntime implements DownloadRuntime {
         .where((entry) => entry.value.seedingStartedAt != null)
         .map((entry) => entry.key)
         .toList();
+    if (_torrentSettings.maxActiveSeeds == -1) {
+      for (final id in seedIds) {
+        final torrent = _torrentDownloads[id];
+        final item = _findItem(id);
+        if (torrent == null ||
+            !torrent.pausedForSeedSlot ||
+            item?.status == DownloadQueueStatus.paused) {
+          continue;
+        }
+        torrent.pausedForSeedSlot = false;
+        torrent.handle.resume();
+      }
+      return;
+    }
     var runningSeeds = seedIds.where((id) {
       final torrent = _torrentDownloads[id];
       final item = _findItem(id);
@@ -1112,6 +1132,9 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       !item.status.isTerminal && item.status != DownloadQueueStatus.seeding;
 
   int _torrentSlotsAvailable() {
+    if (_torrentSettings.maxActiveDownloads == -1) {
+      return 1 << 30;
+    }
     final running = state.items.where((item) {
       return item.isTorrent && item.status == DownloadQueueStatus.downloading;
     }).length;

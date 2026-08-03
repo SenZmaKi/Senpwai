@@ -18,15 +18,45 @@ class SettingsDropdown<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return DropdownButton<T>(
-      value: value,
-      underline: const SizedBox.shrink(),
-      style: theme.textTheme.bodySmall,
-      dropdownColor: theme.colorScheme.surfaceContainerHighest,
-      items: items,
-      onChanged: (value) {
-        if (value != null) onChanged(value);
-      },
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.4,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: theme.colorScheme.outline.withValues(alpha: 0.18),
+          ),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<T>(
+            value: value,
+            borderRadius: BorderRadius.circular(10),
+            icon: Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            dropdownColor: theme.colorScheme.surfaceContainerHigh,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.onSurface,
+            ),
+            items: items,
+            onChanged: (value) {
+              if (value != null) onChanged(value);
+            },
+          ),
+        ),
+      ),
     );
   }
 }
@@ -45,6 +75,74 @@ class AsyncSwitch extends StatelessWidget {
         final result = onChanged(value);
         if (result is Future<void>) unawaited(result);
       },
+    );
+  }
+}
+
+enum LimitMode { disabled, limited, unlimited }
+
+class LimitSettingControl extends StatelessWidget {
+  final LimitMode mode;
+  final ValueChanged<LimitMode> onModeChanged;
+  final Widget? valueField;
+  final bool allowsDisabled;
+
+  const LimitSettingControl({
+    super.key,
+    required this.mode,
+    required this.onModeChanged,
+    this.valueField,
+    this.allowsDisabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        SettingsDropdown<LimitMode>(
+          value: mode,
+          items: [
+            const DropdownMenuItem(
+              value: LimitMode.unlimited,
+              child: Text('Unlimited'),
+            ),
+            const DropdownMenuItem(
+              value: LimitMode.limited,
+              child: Text('Custom Limit'),
+            ),
+            if (allowsDisabled)
+              const DropdownMenuItem(
+                value: LimitMode.disabled,
+                child: Text('Disabled'),
+              ),
+          ],
+          onChanged: onModeChanged,
+        ),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SizeTransition(
+              sizeFactor: animation,
+              axis: Axis.horizontal,
+              axisAlignment: -1.0,
+              child: child,
+            ),
+          ),
+          child: mode == LimitMode.limited && valueField != null
+              ? KeyedSubtree(
+                  key: const ValueKey('limit_value_field'),
+                  child: valueField!,
+                )
+              : const SizedBox.shrink(key: ValueKey('limit_value_empty')),
+        ),
+      ],
     );
   }
 }
@@ -76,12 +174,22 @@ class NumberSettingField extends StatefulWidget {
 class _NumberSettingFieldState extends State<NumberSettingField> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
+  bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.value.toString());
-    _focusNode = FocusNode()..addListener(_commitWhenBlurred);
+    _focusNode = FocusNode()..addListener(_handleFocusChange);
+  }
+
+  void _handleFocusChange() {
+    if (mounted) {
+      setState(() {
+        _isFocused = _focusNode.hasFocus;
+      });
+    }
+    if (!_focusNode.hasFocus) _commit();
   }
 
   @override
@@ -95,7 +203,7 @@ class _NumberSettingFieldState extends State<NumberSettingField> {
 
   @override
   void dispose() {
-    _focusNode.removeListener(_commitWhenBlurred);
+    _focusNode.removeListener(_handleFocusChange);
     _focusNode.dispose();
     _controller.dispose();
     super.dispose();
@@ -104,45 +212,69 @@ class _NumberSettingFieldState extends State<NumberSettingField> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return SizedBox(
-      width: 164,
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              focusNode: _focusNode,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.end,
-              inputFormatters: [
-                if (widget.allowNegative)
-                  FilteringTextInputFormatter.allow(RegExp(r'^-?\d*'))
-                else
-                  FilteringTextInputFormatter.digitsOnly,
-              ],
-              decoration: const InputDecoration(isDense: true),
-              onSubmitted: (_) => _commit(),
-            ),
+      width: 104,
+      height: 34,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: isDark ? 0.4 : 0.6,
           ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 62,
-            child: Text(
-              widget.unit,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _isFocused
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outline.withValues(alpha: 0.2),
+            width: _isFocused ? 1.5 : 1.0,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+                inputFormatters: [
+                  if (widget.allowNegative)
+                    FilteringTextInputFormatter.allow(RegExp(r'^-?\d*'))
+                  else
+                    FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: const InputDecoration(
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                  border: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                ),
+                onSubmitted: (_) => _commit(),
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 4),
+            Text(
+              widget.unit,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+          ],
+        ),
       ),
     );
-  }
-
-  void _commitWhenBlurred() {
-    if (!_focusNode.hasFocus) _commit();
   }
 
   void _commit() {
@@ -180,12 +312,22 @@ class DecimalSettingField extends StatefulWidget {
 class _DecimalSettingFieldState extends State<DecimalSettingField> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
+  bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: _format(widget.value));
-    _focusNode = FocusNode()..addListener(_commitWhenBlurred);
+    _focusNode = FocusNode()..addListener(_handleFocusChange);
+  }
+
+  void _handleFocusChange() {
+    if (mounted) {
+      setState(() {
+        _isFocused = _focusNode.hasFocus;
+      });
+    }
+    if (!_focusNode.hasFocus) _commit();
   }
 
   @override
@@ -198,7 +340,7 @@ class _DecimalSettingFieldState extends State<DecimalSettingField> {
 
   @override
   void dispose() {
-    _focusNode.removeListener(_commitWhenBlurred);
+    _focusNode.removeListener(_handleFocusChange);
     _focusNode.dispose();
     _controller.dispose();
     super.dispose();
@@ -207,44 +349,68 @@ class _DecimalSettingFieldState extends State<DecimalSettingField> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return SizedBox(
-      width: 164,
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              focusNode: _focusNode,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              textAlign: TextAlign.end,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-              ],
-              decoration: const InputDecoration(isDense: true),
-              onSubmitted: (_) => _commit(),
-            ),
+      width: 108,
+      height: 34,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: isDark ? 0.4 : 0.6,
           ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 62,
-            child: Text(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _isFocused
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outline.withValues(alpha: 0.2),
+            width: _isFocused ? 1.5 : 1.0,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                ],
+                decoration: const InputDecoration(
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                  border: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                ),
+                onSubmitted: (_) => _commit(),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
               widget.unit,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
-  }
-
-  void _commitWhenBlurred() {
-    if (!_focusNode.hasFocus) _commit();
   }
 
   void _commit() {
@@ -279,12 +445,22 @@ class TextSettingField extends StatefulWidget {
 class _TextSettingFieldState extends State<TextSettingField> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
+  bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.value);
-    _focusNode = FocusNode()..addListener(_commitWhenBlurred);
+    _focusNode = FocusNode()..addListener(_handleFocusChange);
+  }
+
+  void _handleFocusChange() {
+    if (mounted) {
+      setState(() {
+        _isFocused = _focusNode.hasFocus;
+      });
+    }
+    if (!_focusNode.hasFocus) _commit();
   }
 
   @override
@@ -297,7 +473,7 @@ class _TextSettingFieldState extends State<TextSettingField> {
 
   @override
   void dispose() {
-    _focusNode.removeListener(_commitWhenBlurred);
+    _focusNode.removeListener(_handleFocusChange);
     _focusNode.dispose();
     _controller.dispose();
     super.dispose();
@@ -305,21 +481,50 @@ class _TextSettingFieldState extends State<TextSettingField> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return SizedBox(
-      width: 220,
-      child: TextField(
-        controller: _controller,
-        focusNode: _focusNode,
-        obscureText: widget.obscureText,
-        textAlign: TextAlign.end,
-        decoration: InputDecoration(isDense: true, hintText: widget.hintText),
-        onSubmitted: (_) => _commit(),
+      width: 200,
+      height: 34,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: isDark ? 0.4 : 0.6,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _isFocused
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outline.withValues(alpha: 0.2),
+            width: _isFocused ? 1.5 : 1.0,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: TextField(
+          controller: _controller,
+          focusNode: _focusNode,
+          obscureText: widget.obscureText,
+          textAlign: TextAlign.start,
+          style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: widget.hintText,
+            hintStyle: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 7),
+            border: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+          ),
+          onSubmitted: (_) => _commit(),
+        ),
       ),
     );
-  }
-
-  void _commitWhenBlurred() {
-    if (!_focusNode.hasFocus) _commit();
   }
 
   void _commit() {
@@ -341,3 +546,4 @@ class DisabledBadge extends StatelessWidget {
     );
   }
 }
+

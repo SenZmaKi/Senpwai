@@ -43,6 +43,18 @@ enum TorrentEncryptionMode {
   };
 }
 
+enum TorrentSeedingMode {
+  disabled,
+  untilTarget,
+  indefinitely;
+
+  String get label => switch (this) {
+    TorrentSeedingMode.disabled => 'Don\'t seed',
+    TorrentSeedingMode.untilTarget => 'Seed until target',
+    TorrentSeedingMode.indefinitely => 'Seed indefinitely',
+  };
+}
+
 enum TorrentProxyMode {
   none,
   socks4,
@@ -501,6 +513,7 @@ class TorrentPreferences {
   final int maxConnections;
   final int seedRatioLimit;
   final int seedTimeLimitMinutes;
+  final TorrentSeedingMode seedingMode;
   final int torrentPort;
   final TorrentEncryptionMode encryptionMode;
   final bool anonymousMode;
@@ -526,6 +539,7 @@ class TorrentPreferences {
     this.maxConnections = 200,
     this.seedRatioLimit = 200,
     this.seedTimeLimitMinutes = 24 * 60,
+    this.seedingMode = TorrentSeedingMode.untilTarget,
     this.torrentPort = 6881,
     this.encryptionMode = TorrentEncryptionMode.enabled,
     this.anonymousMode = false,
@@ -554,13 +568,18 @@ class TorrentPreferences {
           json['maxUploadBytesPerSecond'],
           0,
         ),
-        maxActiveDownloads: _positiveIntValue(json['maxActiveDownloads'], 1),
-        maxActiveSeeds: _positiveIntValue(json['maxActiveSeeds'], 5),
+        maxActiveDownloads: _queueLimitValue(json['maxActiveDownloads'], 1),
+        maxActiveSeeds: _queueLimitValue(json['maxActiveSeeds'], 5),
         maxConnections: _positiveIntValue(json['maxConnections'], 200),
         seedRatioLimit: _nonNegativeIntValue(json['seedRatioLimit'], 200),
         seedTimeLimitMinutes: _nonNegativeIntValue(
           json['seedTimeLimitMinutes'],
           24 * 60,
+        ),
+        seedingMode: _enumValue(
+          TorrentSeedingMode.values,
+          json['seedingMode'],
+          TorrentSeedingMode.untilTarget,
         ),
         torrentPort: _portValue(json['torrentPort'], 6881),
         encryptionMode: _enumValue(
@@ -587,6 +606,7 @@ class TorrentPreferences {
     'maxConnections': maxConnections,
     'seedRatioLimit': seedRatioLimit,
     'seedTimeLimitMinutes': seedTimeLimitMinutes,
+    'seedingMode': seedingMode.name,
     'torrentPort': torrentPort,
     'encryptionMode': encryptionMode.name,
     'anonymousMode': anonymousMode,
@@ -608,6 +628,7 @@ class TorrentPreferences {
     int? maxConnections,
     int? seedRatioLimit,
     int? seedTimeLimitMinutes,
+    TorrentSeedingMode? seedingMode,
     int? torrentPort,
     TorrentEncryptionMode? encryptionMode,
     bool? anonymousMode,
@@ -635,6 +656,7 @@ class TorrentPreferences {
       maxConnections: maxConnections ?? this.maxConnections,
       seedRatioLimit: seedRatioLimit ?? this.seedRatioLimit,
       seedTimeLimitMinutes: seedTimeLimitMinutes ?? this.seedTimeLimitMinutes,
+      seedingMode: seedingMode ?? this.seedingMode,
       torrentPort: torrentPort ?? this.torrentPort,
       encryptionMode: encryptionMode ?? this.encryptionMode,
       anonymousMode: anonymousMode ?? this.anonymousMode,
@@ -915,6 +937,11 @@ int _nonNegativeIntValue(Object? value, int fallback) {
 int _positiveIntValue(Object? value, int fallback) {
   final parsed = _intValue(value, fallback);
   return parsed <= 0 ? fallback : parsed;
+}
+
+int _queueLimitValue(Object? value, int fallback) {
+  final parsed = value is num ? value.toInt() : fallback;
+  return parsed < -1 ? fallback : parsed;
 }
 
 int _portValue(Object? value, int fallback) {

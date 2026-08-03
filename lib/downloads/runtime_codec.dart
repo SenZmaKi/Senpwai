@@ -240,6 +240,7 @@ class DownloadRuntimeCodec {
     'maxConnections': settings.maxConnections,
     'seedRatioLimit': settings.seedRatioLimit,
     'seedTimeLimitMinutes': settings.seedTimeLimitMinutes,
+    'seedingMode': settings.seedingMode.name,
     'torrentPort': settings.torrentPort,
     'encryptionMode': settings.encryptionMode.name,
     'anonymousMode': settings.anonymousMode,
@@ -262,13 +263,18 @@ class DownloadRuntimeCodec {
     return TorrentPreferences(
       maxDownloadBytesPerSecond: _int(map['maxDownloadBytesPerSecond']),
       maxUploadBytesPerSecond: _int(map['maxUploadBytesPerSecond']),
-      maxActiveDownloads: _positiveInt(map['maxActiveDownloads'], 1),
-      maxActiveSeeds: _positiveInt(map['maxActiveSeeds'], 5),
+      maxActiveDownloads: _queueLimit(map['maxActiveDownloads'], 1),
+      maxActiveSeeds: _queueLimit(map['maxActiveSeeds'], 5),
       maxConnections: _positiveInt(map['maxConnections'], 200),
       seedRatioLimit: _nonNegativeInt(map['seedRatioLimit'], 200),
       seedTimeLimitMinutes: _nonNegativeInt(
         map['seedTimeLimitMinutes'],
         24 * 60,
+      ),
+      seedingMode: _enum(
+        TorrentSeedingMode.values,
+        map['seedingMode'],
+        TorrentSeedingMode.untilTarget,
       ),
       torrentPort: _port(map['torrentPort'], 6881),
       encryptionMode: _enum(
@@ -317,6 +323,11 @@ double _double(Object? value) => value is num ? value.toDouble() : 0;
 int _nonNegativeInt(Object? value, int fallback) {
   final parsed = value is int ? value : fallback;
   return parsed < 0 ? fallback : parsed;
+}
+
+int _queueLimit(Object? value, int fallback) {
+  final parsed = _int(value);
+  return parsed < -1 ? fallback : parsed;
 }
 
 int _positiveInt(Object? value, int fallback) {
