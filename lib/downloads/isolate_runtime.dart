@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
 
@@ -13,6 +14,7 @@ typedef _CommandPayload = Map<String, Object?>;
 
 class DownloadIsolateRuntime implements DownloadRuntime {
   final DownloadRuntimeErrorHandler onError;
+  final String appDataRootPath;
   final _stateController = StreamController<DownloadManagerState>.broadcast();
   final _pendingRequests = <String, Completer<Object?>>{};
 
@@ -31,6 +33,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
     required int initialMaxDownloadBytesPerSecond,
     required String downloadUserAgent,
     required TorrentPreferences initialTorrentSettings,
+    required this.appDataRootPath,
     required this.onError,
   }) : _maxDownloadBytesPerSecond = initialMaxDownloadBytesPerSecond,
        _downloadUserAgent = downloadUserAgent,
@@ -189,8 +192,12 @@ class DownloadIsolateRuntime implements DownloadRuntime {
 
   Future<void> _ensureReady() {
     final ready = _ready;
-    if (ready != null) return ready.future;
-    return _start();
+    return (ready?.future ?? _start()).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw TimeoutException(
+        'Timed out while starting the download engine.',
+      ),
+    );
   }
 
   Future<void> _start() {
@@ -216,6 +223,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
         ),
         'maxDownloadBytesPerSecond': _maxDownloadBytesPerSecond,
         'downloadUserAgent': _downloadUserAgent,
+        'appDataRootPath': appDataRootPath,
       });
     } on Object catch (error, stackTrace) {
       if (!ready.isCompleted) ready.completeError(error, stackTrace);
@@ -271,6 +279,14 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   }
 
   void _handleIsolateFailure(Object error, StackTrace stackTrace) {
+    // A failure before the isolate sends its ready message used to leave
+    // [_ready] unresolved. Any preview submission then waited forever at
+    // “Queueing downloads” in [_sendCommand]. Complete the startup handshake
+    // as an error so the submission can show the actual engine failure.
+    final ready = _ready;
+    if (ready != null && !ready.isCompleted) {
+      ready.completeError(error, stackTrace);
+    }
     for (final completer in _pendingRequests.values) {
       if (!completer.isCompleted) {
         completer.completeError(error, stackTrace);
@@ -294,7 +310,14 @@ class DownloadIsolateRuntime implements DownloadRuntime {
 Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
   DartPluginRegistrant.ensureInitialized();
   setupLogger();
-  final paths = await AppPaths.initialize();
+  final appDataRootPath = _string(config['appDataRootPath']);
+  if (appDataRootPath.isEmpty) {
+    throw StateError('Download isolate app data path is missing.');
+  }
+  // path_provider can remain pending when invoked from a background isolate
+  // on macOS. The main isolate has already resolved this application path, so
+  // use the explicit root and keep download-engine startup plugin-free.
+  final paths = await AppPaths.fromRootDirectory(Directory(appDataRootPath));
   configureFileLogging(paths.logsDirectory);
 
   final mainPort = config['sendPort'] as SendPort;

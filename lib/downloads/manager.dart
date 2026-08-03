@@ -9,6 +9,7 @@ import 'package:senpwai/downloads/isolate_runtime.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/ui/components/app.dart';
 import 'package:senpwai/ui/components/toast.dart';
 
@@ -38,6 +39,7 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
                 settings.downloads.maxDownloadBytesPerSecond,
             downloadUserAgent: _downloadUserAgent,
             initialTorrentSettings: settings.torrent,
+            appDataRootPath: AppPersistence.paths.rootDirectory.path,
             onError: _showGlobalError,
           );
     _stateSubscription = _runtime.stateStream.listen((next) {
