@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/downloads/manager.dart';
@@ -93,6 +94,7 @@ class _AppRootState extends ConsumerState<_AppRoot> {
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
     final settings = ref.read(AppSettingsNotifier.provider);
     ref
         .read(AnilistNotifier.provider.notifier)
@@ -106,6 +108,7 @@ class _AppRootState extends ConsumerState<_AppRoot> {
       DesktopTrayController.instance.initialize(
         onCheckTrackedAnime: () =>
             ref.read(TrackingNotifier.provider.notifier).checkNow(),
+        closeToTray: settings.window.closeToTray,
       ),
     );
     if (kDebugMode) {
@@ -124,6 +127,20 @@ class _AppRootState extends ConsumerState<_AppRoot> {
         ),
       );
     });
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
+    super.dispose();
+  }
+
+  bool _handleHardwareKey(KeyEvent event) {
+    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.f11) {
+      return false;
+    }
+    unawaited(WindowManager.getInstance().toggleFullScreen());
+    return true;
   }
 
   Future<void> _handleLogin() async {
@@ -149,6 +166,13 @@ class _AppRootState extends ConsumerState<_AppRoot> {
       ),
       (_, alwaysOnTop) =>
           unawaited(WindowManager.getInstance().applyAlwaysOnTop(alwaysOnTop)),
+    );
+    ref.listen(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.window.closeToTray,
+      ),
+      (_, closeToTray) =>
+          unawaited(DesktopTrayController.instance.setCloseToTray(closeToTray)),
     );
     ref.listen(AppSettingsNotifier.provider, (_, settings) {
       ref

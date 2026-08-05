@@ -94,6 +94,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setWindowCloseToTray(bool closeToTray) {
+    return _commit(
+      state.copyWith(window: state.window.copyWith(closeToTray: closeToTray)),
+    );
+  }
+
   Future<void> setWindowStartMaximized(bool startMaximized) {
     return _commit(
       state.copyWith(

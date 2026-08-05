@@ -25,6 +25,7 @@ class DesktopTrayController with TrayListener {
 
   Future<void> initialize({
     required Future<void> Function() onCheckTrackedAnime,
+    required bool closeToTray,
   }) async {
     if (!supportsWindowCustomization) {
       _log.info('Tray initialization skipped: unsupported platform');
@@ -42,9 +43,12 @@ class DesktopTrayController with TrayListener {
       await trayManager.setIcon(_iconPath);
       await trayManager.setToolTip('Senpwai');
       await _setContextMenu(isWindowVisible: await windowManager.isVisible());
-      WindowManager.getInstance().setCloseHandler(_hideWindow);
+      await setCloseToTray(closeToTray);
       _initialized = true;
-      _log.info('Tray initialized and close-to-tray handler installed');
+      _log.infoWithMetadata(
+        'Tray initialized',
+        metadata: {'closeToTray': closeToTray},
+      );
     } on Object catch (error, stackTrace) {
       trayManager.removeListener(this);
       _log.severeWithMetadata(
@@ -53,6 +57,13 @@ class DesktopTrayController with TrayListener {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  Future<void> setCloseToTray(bool enabled) {
+    return WindowManager.getInstance().configureCloseToTray(
+      enabled: enabled,
+      onClose: _hideWindow,
+    );
   }
 
   String get _iconPath => Platform.isWindows

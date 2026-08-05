@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:senpwai/settings/models.dart';
@@ -23,6 +23,7 @@ class WindowManager with WindowListener {
   bool _ready = false;
   bool _savingBounds = false;
   bool _saveAgain = false;
+  bool _mobileFullScreen = false;
   WindowStateRepository? _stateRepository;
   Future<void> Function()? _closeHandler;
 
@@ -39,7 +40,9 @@ class WindowManager with WindowListener {
     _stateRepository = stateRepository;
     await windowManager.ensureInitialized();
     windowManager.addListener(this);
-    await windowManager.setPreventClose(true);
+    // The tray controller enables close prevention only after it has created
+    // a reachable tray icon and installed the close handler.
+    await windowManager.setPreventClose(false);
     final savedBounds = await stateRepository.load();
     final restoredBounds = await _restorableBounds(savedBounds);
     final windowOptions = WindowOptions(
@@ -71,15 +74,38 @@ class WindowManager with WindowListener {
     await windowManager.setAlwaysOnTop(alwaysOnTop);
   }
 
+  Future<void> toggleFullScreen() async {
+    if (supportsWindowCustomization) {
+      await windowManager.setFullScreen(!(await windowManager.isFullScreen()));
+      return;
+    }
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
+
+    _mobileFullScreen = !_mobileFullScreen;
+    await SystemChrome.setEnabledSystemUIMode(
+      _mobileFullScreen
+          ? SystemUiMode.immersiveSticky
+          : SystemUiMode.edgeToEdge,
+    );
+  }
+
   Future<void> focus() async {
     if (!supportsWindowCustomization) return;
     await windowManager.show();
     await windowManager.focus();
   }
 
-  void setCloseHandler(Future<void> Function() handler) {
-    _closeHandler = handler;
-    _log.info('Close handler installed');
+  Future<void> configureCloseToTray({
+    required bool enabled,
+    required Future<void> Function() onClose,
+  }) async {
+    if (!supportsWindowCustomization) return;
+    _closeHandler = enabled ? onClose : null;
+    await windowManager.setPreventClose(enabled);
+    _log.infoWithMetadata(
+      'Close-to-tray behavior configured',
+      metadata: {'enabled': enabled},
+    );
   }
 
   @override
@@ -92,7 +118,7 @@ class WindowManager with WindowListener {
     if (closeHandler != null) {
       unawaited(closeHandler());
     } else {
-      _log.warning('Close was prevented but no close handler is installed');
+      _log.info('Native close is not configured to hide the window');
     }
   }
 

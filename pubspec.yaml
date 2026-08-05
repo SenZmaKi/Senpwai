@@ -65,7 +65,8 @@ dependencies:
     flutter_native_splash: ^2.4.7
     async: ^2.13.0
     cf_bypass:
-        path: ../cf_bypass
+        git:
+            url: https://github.com/SenZmaKi/cf_bypass
     file_picker: ^9.2.1
     dotenv: ^4.2.0
     external_path: ^2.2.0
@@ -76,7 +77,8 @@ dependencies:
     file: ^7.0.1
     flutter_local_notifications: ^22.0.1
     flutter_foreground_task:
-        path: ../flutter_foreground_task_progress
+        git:
+            url: https://github.com/SenZmaKi/flutter_foreground_task_progress
     windows_taskbar: ^1.1.2
     dio_http2_adapter: ^2.8.0
 

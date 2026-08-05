@@ -27,6 +27,7 @@ class WindowSettings extends StatelessWidget {
         'desktop window launch startup',
         'launch at login automatically open when computer starts',
         'always on top',
+        'close minimize hide system tray notification area',
         'open maximized',
         'open full screen fullscreen',
       ],
@@ -51,6 +52,17 @@ class WindowSettings extends StatelessWidget {
           trailing: AsyncSwitch(
             value: preferences.alwaysOnTop,
             onChanged: notifier.setWindowAlwaysOnTop,
+          ),
+        ),
+        SettingsTile(
+          icon: Icons.move_to_inbox_outlined,
+          title: 'Close to system tray',
+          subtitle: 'Keep Senpwai running when the window is closed',
+          keywords: 'desktop window close minimize hide tray notification area',
+          searchQuery: searchQuery,
+          trailing: AsyncSwitch(
+            value: preferences.closeToTray,
+            onChanged: notifier.setWindowCloseToTray,
           ),
         ),
         SettingsTile(
