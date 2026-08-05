@@ -19,6 +19,7 @@ import 'package:senpwai/ui/pages/home_page.dart';
 import 'package:senpwai/ui/pages/search_page/search_page.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_page.dart';
 import 'package:senpwai/ui/components/app_shell.dart';
+import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:toastification/toastification.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
 import 'package:senpwai/ui/shared/desktop_tray_controller.dart';
@@ -90,6 +91,13 @@ class _AppRootState extends ConsumerState<_AppRoot> {
   static const _seedMockDownloads = bool.fromEnvironment(
     'SENPWAI_MOCK_DOWNLOADS',
   );
+  bool _isSettingsCategoryOpen = false;
+
+  void _setSettingsCategoryOpen(bool isOpen) {
+    if (_isSettingsCategoryOpen != isOpen) {
+      setState(() => _isSettingsCategoryOpen = isOpen);
+    }
+  }
 
   @override
   void initState() {
@@ -198,24 +206,35 @@ class _AppRootState extends ConsumerState<_AppRoot> {
     );
     final anilist = ref.watch(AnilistNotifier.provider);
     final currentPage = ref.watch(AppPageNotifier.provider);
+    final usesBottomNavigation = !useVerticalNav(context);
     ref.watch(TrackingScheduler.provider);
     AppErrorDiagnostics.currentPage = currentPage.name;
 
-    return AppShell(
-      currentIndex: currentPage.index,
-      onDestinationChanged: (i) =>
-          ref.read(AppPageNotifier.provider.notifier).setIndex(i),
-      viewer: anilist.viewer,
-      isAuthLoading: anilist.isAuthLoading,
-      onAvatarTap: _handleLogin,
-      body: IndexedStack(
-        index: currentPage.index,
-        children: [
-          HomePage(onLoginTap: _handleLogin),
-          const SearchPage(),
-          const DownloadsPage(),
-          const SettingsPage(),
-        ],
+    return PopScope(
+      canPop: !usesBottomNavigation || currentPage == AppPage.home,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop &&
+            currentPage != AppPage.home &&
+            (currentPage != AppPage.settings || !_isSettingsCategoryOpen)) {
+          ref.read(AppPageNotifier.provider.notifier).setPage(AppPage.home);
+        }
+      },
+      child: AppShell(
+        currentIndex: currentPage.index,
+        onDestinationChanged: (i) =>
+            ref.read(AppPageNotifier.provider.notifier).setIndex(i),
+        viewer: anilist.viewer,
+        isAuthLoading: anilist.isAuthLoading,
+        onAvatarTap: _handleLogin,
+        body: IndexedStack(
+          index: currentPage.index,
+          children: [
+            HomePage(onLoginTap: _handleLogin),
+            const SearchPage(),
+            const DownloadsPage(),
+            SettingsPage(onMobileCategoryChanged: _setSettingsCategoryOpen),
+          ],
+        ),
       ),
     );
   }

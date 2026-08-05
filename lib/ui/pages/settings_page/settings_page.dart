@@ -13,7 +13,9 @@ import 'package:senpwai/ui/pages/settings_page/tracking_settings_section.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
-  const SettingsPage({super.key});
+  final ValueChanged<bool>? onMobileCategoryChanged;
+
+  const SettingsPage({super.key, this.onMobileCategoryChanged});
 
   @override
   ConsumerState<SettingsPage> createState() => _SettingsPageState();
@@ -25,6 +27,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
+  void _setMobileCategory(SettingsCategory? category) {
+    setState(() => _mobileCategory = category);
+    widget.onMobileCategoryChanged?.call(category != null);
+  }
 
   @override
   void dispose() {
@@ -39,14 +46,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final isWide = MediaQuery.of(context).size.width >= 800;
     final pad = horizontalPadding(context);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(pad, 16, pad, 16),
-          child: isWide
-              ? _buildDesktopLayout(context, settings, notifier)
-              : _buildMobileLayout(context, settings, notifier),
+    return PopScope(
+      canPop: isWide || _mobileCategory == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _mobileCategory != null) {
+          setState(() => _mobileCategory = null);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) widget.onMobileCategoryChanged?.call(false);
+          });
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(pad, 16, pad, 16),
+            child: isWide
+                ? _buildDesktopLayout(context, settings, notifier)
+                : _buildMobileLayout(context, settings, notifier),
+          ),
         ),
       ),
     );
@@ -124,7 +142,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 child: IconButton(
                   icon: const Icon(Icons.arrow_back_rounded),
                   tooltip: 'Back to Settings',
-                  onPressed: () => setState(() => _mobileCategory = null),
+                  onPressed: () => _setMobileCategory(null),
                 ),
               ),
               const SizedBox(width: 8),
@@ -170,7 +188,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           child: SingleChildScrollView(
             child: SettingsCategoryNav(
               isSidebar: false,
-              onSelect: (cat) => setState(() => _mobileCategory = cat),
+              onSelect: _setMobileCategory,
             ),
           ),
         ),
