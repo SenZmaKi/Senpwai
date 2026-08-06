@@ -368,7 +368,7 @@ void startDownloadForegroundTask() {
 }
 
 class _DownloadForegroundTaskHandler extends TaskHandler {
-  static const _minimumNotificationInterval = Duration(milliseconds: 750);
+  static const _minimumNotificationInterval = Duration(seconds: 1);
   static const _runtimeReadyTimeout = Duration(seconds: 5);
   static const _terminalNotificationGrace = Duration(milliseconds: 1200);
 

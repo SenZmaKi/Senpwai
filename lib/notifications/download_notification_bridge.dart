@@ -37,6 +37,7 @@ class _DownloadNotificationBridgeState
   int? _lastTaskbarMode;
   int? _lastTaskbarCompleted;
   int? _lastTaskbarTotal;
+  DateTime? _lastTaskbarProgressUpdate;
 
   @override
   void initState() {
@@ -421,6 +422,15 @@ class _DownloadNotificationBridgeState
       return;
     }
 
+    final now = DateTime.now();
+    final lastUpdate = _lastTaskbarProgressUpdate;
+    if (_lastTaskbarMode == mode &&
+        lastUpdate != null &&
+        now.difference(lastUpdate) < _minimumProgressInterval) {
+      return;
+    }
+    _lastTaskbarProgressUpdate = now;
+
     await WindowsTaskbar.setProgress(completed, totalBytes);
     await WindowsTaskbar.setProgressMode(mode);
     _lastTaskbarMode = mode;
@@ -438,6 +448,7 @@ class _DownloadNotificationBridgeState
     _lastTaskbarMode = mode;
     _lastTaskbarCompleted = null;
     _lastTaskbarTotal = null;
+    _lastTaskbarProgressUpdate = null;
   }
 
   DownloadBatchQueue? _batchById(DownloadManagerState state, String id) {

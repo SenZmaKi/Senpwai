@@ -1,4 +1,5 @@
 # Features
+- Treat seeding as state separate from downloading both in the app actions and in notifications
 - Updates
 - More in navbar in mobile to reduce clutter
 

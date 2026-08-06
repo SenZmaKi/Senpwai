@@ -42,12 +42,17 @@ class AppNotificationService {
   static const _downloadProgressChannelId = 'download_progress';
   static const _downloadEventsChannelId = 'download_events';
   static const _defaultWindowsProgressId = 'download-progress';
+  static const _windowsProgressTitleBinding = 'download-title';
+  static const _windowsProgressBodyBinding = 'download-body';
+  static const _windowsProgressStatusBinding = 'download-status';
+  static const _windowsInitialProgressUpdateDelay = Duration(seconds: 10);
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
   final _actionController =
       StreamController<NotificationActionEvent>.broadcast();
   final List<NotificationActionEvent> _pendingActionEvents = [];
+  final Map<int, DateTime> _windowsProgressShownAt = {};
   _NotificationPresentationObserver? _presentationObserver;
   GlobalKey<NavigatorState>? _navigatorKey;
   bool _initialized = false;
@@ -77,10 +82,11 @@ class AppNotificationService {
       defaultActionName: 'Open Senpwai',
       defaultIcon: AssetsLinuxIcon('images/senpwai-icon.png'),
     );
-    const windows = WindowsInitializationSettings(
+    final windows = WindowsInitializationSettings(
       appName: 'Senpwai',
       appUserModelId: 'Senpwai.Senpwai.App',
       guid: '4e1e4bb4-6c3d-4b70-92f4-c89d77019110',
+      iconPath: _windowsNotificationIconPath,
     );
 
     await _plugin.initialize(
@@ -153,6 +159,53 @@ class AppNotificationService {
     final status = paused ? 'Paused' : 'Downloading';
     final payload = _payload(targetType, targetId);
     final accentColor = _notificationAccentColor();
+
+    if (Platform.isWindows) {
+      final shownAt = _windowsProgressShownAt[id];
+      if (shownAt != null &&
+          DateTime.now().difference(shownAt) <
+              _windowsInitialProgressUpdateDelay) {
+        return;
+      }
+      final progressBar = WindowsProgressBar(
+        id: _defaultWindowsProgressId,
+        status: '{$_windowsProgressStatusBinding}',
+        value: clampedProgress,
+        label: '$percent%',
+      );
+      final bindings = <String, String>{
+        _windowsProgressTitleBinding: title,
+        _windowsProgressBodyBinding: body,
+        _windowsProgressStatusBinding: status,
+        '$_defaultWindowsProgressId-progressValue': clampedProgress.toString(),
+        '$_defaultWindowsProgressId-progressString': '$percent%',
+      };
+      final windows = _plugin
+          .resolvePlatformSpecificImplementation<
+            FlutterLocalNotificationsWindows
+          >();
+      final result = await windows?.updateBindings(id: id, bindings: bindings);
+      if (result == NotificationUpdateResult.success) return;
+      if (shownAt != null && result == NotificationUpdateResult.notFound) {
+        return;
+      }
+      if (shownAt != null) return;
+
+      await _plugin.show(
+        id: id,
+        title: '{$_windowsProgressTitleBinding}',
+        body: '{$_windowsProgressBodyBinding}',
+        notificationDetails: NotificationDetails(
+          windows: WindowsNotificationDetails(
+            progressBars: [progressBar],
+            bindings: bindings,
+          ),
+        ),
+        payload: payload,
+      );
+      _windowsProgressShownAt[id] = DateTime.now();
+      return;
+    }
 
     await _plugin.show(
       id: id,
@@ -244,7 +297,7 @@ class AppNotificationService {
       id: id,
       title: title,
       body: body,
-      notificationDetails: const NotificationDetails(
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           _downloadEventsChannelId,
           'Download updates',
@@ -252,6 +305,7 @@ class AppNotificationService {
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
         ),
+        windows: const WindowsNotificationDetails(),
       ),
       payload: 'downloads',
     );
@@ -259,6 +313,7 @@ class AppNotificationService {
 
   Future<void> cancel(int id) async {
     await initialize();
+    _windowsProgressShownAt.remove(id);
     await _plugin.cancel(id: id);
   }
 
@@ -331,6 +386,15 @@ class AppNotificationService {
         PlatformDispatcher.instance.platformBrightness == Brightness.dark,
     };
     return isDark ? colors.dark.primary : colors.light.primary;
+  }
+
+  String? get _windowsNotificationIconPath {
+    if (!Platform.isWindows) return null;
+    final executableDirectory = File(Platform.resolvedExecutable).parent.path;
+    return '$executableDirectory${Platform.pathSeparator}data'
+        '${Platform.pathSeparator}flutter_assets${Platform.pathSeparator}assets'
+        '${Platform.pathSeparator}images${Platform.pathSeparator}'
+        'senpwai-icon.png';
   }
 
   bool get _fallbackShouldUseToast =>
