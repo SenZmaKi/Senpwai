@@ -347,7 +347,7 @@ class NyaaDownloadPlanner {
         torrentName: candidate.result.filename,
         selectedFileIndices: [matchedFile.entry.index],
         selectedFilePaths: [targetFilePath],
-        renamedFilePaths: {matchedFile.entry.index: targetFilePath},
+        renamedFilePaths: {matchedFile.entry.index: plannedTarget.fileName},
         reviewMetadata: _buildReviewMetadata(
           candidate: candidate,
           episodeNumber: null,
@@ -392,7 +392,7 @@ class NyaaDownloadPlanner {
         final targetFilePath = plannedTarget.filePath;
         selectedFileIndices.add(match.entry.index);
         selectedFilePaths.add(targetFilePath);
-        renamedFilePaths[match.entry.index] = targetFilePath;
+        renamedFilePaths[match.entry.index] = plannedTarget.fileName;
         episodeFileSizes[episodeNumber] = match.entry.size;
       }
       final plan = _BatchTorrentPlan(
@@ -499,7 +499,7 @@ class NyaaDownloadPlanner {
       torrentName: candidate.result.filename,
       selectedFileIndices: [mappedFile.entry.index],
       selectedFilePaths: [targetFilePath],
-      renamedFilePaths: {mappedFile.entry.index: targetFilePath},
+      renamedFilePaths: {mappedFile.entry.index: plannedTarget.fileName},
       reviewMetadata: _buildReviewMetadata(
         candidate: candidate,
         episodeNumber: episodeNumber,

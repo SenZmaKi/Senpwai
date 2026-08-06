@@ -616,9 +616,10 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       final handle = session.addTorrentData(
         torrentData: job.torrentData,
         savePath: job.destinationDirectory,
-        renamedFiles: job.renamedFilePaths.isEmpty
-            ? null
-            : job.renamedFilePaths,
+        renamedFiles: _validatedTorrentRenamePaths(
+          job.renamedFilePaths,
+          savePath: job.destinationDirectory,
+        ),
       );
       handle.unsetFlags(LibtorrentTorrentFlags.autoManaged);
       final priorities = List<int>.filled(handle.getFiles().length, 0);
@@ -1485,6 +1486,42 @@ class _MockItemSpec {
   final bool shouldFail;
 
   const _MockItemSpec(this.title, this.totalBytes, {this.shouldFail = false});
+}
+
+Map<int, String>? _validatedTorrentRenamePaths(
+  Map<int, String> renamedFiles, {
+  required String savePath,
+}) {
+  if (renamedFiles.isEmpty) return null;
+
+  final normalizedSavePath = path.normalize(path.absolute(savePath));
+  return {
+    for (final entry in renamedFiles.entries)
+      entry.key: _relativeTorrentRenamePath(
+        entry.value,
+        savePath: normalizedSavePath,
+      ),
+  };
+}
+
+String _relativeTorrentRenamePath(String filePath, {required String savePath}) {
+  final normalizedPath = path.normalize(filePath);
+  final relativePath = path.isAbsolute(normalizedPath)
+      ? path.relative(normalizedPath, from: savePath)
+      : normalizedPath;
+  final segments = path.split(relativePath);
+  final escapesSaveDirectory = segments.isNotEmpty && segments.first == '..';
+  if (relativePath.isEmpty ||
+      relativePath == '.' ||
+      path.isAbsolute(relativePath) ||
+      escapesSaveDirectory) {
+    throw ArgumentError.value(
+      filePath,
+      'renamedFiles',
+      'Torrent file names must stay within the save directory.',
+    );
+  }
+  return relativePath;
 }
 
 String _formatErrorForCopy(Object error, StackTrace stackTrace) {
