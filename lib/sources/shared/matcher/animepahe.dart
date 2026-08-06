@@ -25,10 +25,6 @@ class AnimepaheMatcher {
     final seenIds = <int>{};
 
     final futures = titleCandidates.map((title) async {
-      _log.infoWithMetadata(
-        "Searching AnimePahe",
-        metadata: {"title": title, "anilistId": anime.id},
-      );
       try {
         final results = await _source.search(
           params: animepahe.SearchParams(term: title),

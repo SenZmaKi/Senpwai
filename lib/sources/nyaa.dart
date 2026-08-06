@@ -6,6 +6,7 @@ import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:senpwai/shared/shared.dart' as shared;
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/performance_trace.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/shared.dart';
 
@@ -64,7 +65,6 @@ class Source {
     required SearchParams params,
   }) async {
     await SourceDirectory.waitForRefresh();
-    log.infoWithMetadata("Searching", metadata: {"params": params});
     final term = params.term;
     final page = params.page;
 
@@ -72,16 +72,20 @@ class Source {
       Constants.baseUrl,
       queryParameters: {"q": term, "s": "seeders", "o": "desc", "p": page},
     );
-    final htmlPage = parseHtml(response.data);
-    final results = _parseSearchResults(htmlPage);
+    final htmlPage = traceSync(
+      'nyaa.parse_html',
+      () => parseHtml(response.data),
+      arguments: {'term': term, 'page': page},
+    );
+    final results = traceSync(
+      'nyaa.parse_results',
+      () => _parseSearchResults(htmlPage),
+      arguments: {'term': term, 'page': page},
+    );
     final pagination = _buildPagination(
       params: params,
       results: results,
       htmlPage: htmlPage,
-    );
-    log.fineWithMetadata(
-      "Search results",
-      metadata: {"pagination": pagination},
     );
     return pagination;
   }
@@ -130,8 +134,13 @@ class Source {
   }
 
   List<AnimeResult> _parseSearchResults(Document htmlPage) {
-    log.infoWithMetadata("Parsing search results", metadata: {});
-    return _animeEnglishTranslatedRows(htmlPage)
+    final malformedReasons = <String, int>{};
+
+    void recordMalformed(String reason) {
+      malformedReasons.update(reason, (count) => count + 1, ifAbsent: () => 1);
+    }
+
+    final results = _animeEnglishTranslatedRows(htmlPage)
         .where(
           (el) =>
               el.querySelector("td > a")?.attributes["title"] ==
@@ -140,34 +149,20 @@ class Source {
         .map<AnimeResult?>((el) {
           final tds = el.querySelectorAll("td");
           if (tds.length < 8) {
-            log.warningWithMetadata(
-              "Skipping malformed Nyaa row",
-              metadata: {"reason": "missing columns", "columns": tds.length},
-            );
+            recordMalformed('missing columns');
             return null;
           }
           // Column 2 (index 1) - Title
           final aTags = tds[1].querySelectorAll("a");
-          log.infoWithMetadata("aTags", metadata: {"aTags": aTags});
           if (aTags.isEmpty) {
-            log.warningWithMetadata(
-              "Skipping malformed Nyaa row",
-              metadata: {"reason": "missing title links"},
-            );
+            recordMalformed('missing title links');
             return null;
           }
           final filename = aTags.last.text;
           // Column 3 (index 2) - Download links
           final downloadLinks = tds[2].querySelectorAll("a");
           if (downloadLinks.length < 2) {
-            log.warningWithMetadata(
-              "Skipping malformed Nyaa row",
-              metadata: {
-                "reason": "missing download links",
-                "links": downloadLinks.length,
-                "filename": filename,
-              },
-            );
+            recordMalformed('missing download links');
             return null;
           }
           final torrentFileResource = downloadLinks[0].attributes["href"];
@@ -176,16 +171,7 @@ class Source {
           if (torrentFileResource == null ||
               magnetUrl == null ||
               dateEpoch == null) {
-            log.warningWithMetadata(
-              "Skipping malformed Nyaa row",
-              metadata: {
-                "reason": "missing required attributes",
-                "hasTorrentFileResource": torrentFileResource != null,
-                "hasMagnetUrl": magnetUrl != null,
-                "hasDateEpoch": dateEpoch != null,
-                "filename": filename,
-              },
-            );
+            recordMalformed('missing required attributes');
             return null;
           }
           final torrentFileUrl = '${Constants.baseUrl}$torrentFileResource';
@@ -225,10 +211,16 @@ class Source {
         })
         .nonNulls
         .toList();
+    if (malformedReasons.isNotEmpty) {
+      log.warningWithMetadata(
+        'Skipped malformed Nyaa rows',
+        metadata: {'reasons': malformedReasons},
+      );
+    }
+    return results;
   }
 
   int _parseSizeBytes(String sizeStr) {
-    log.infoWithMetadata("Parsing size bytes", metadata: {"sizeStr": sizeStr});
     final parts = sizeStr.split(" ");
     final unitName = parts[1];
     final unitToBytes = switch (unitName) {
@@ -244,10 +236,6 @@ class Source {
     };
     final unitQuantity = double.parse(parts[0]);
     final sizeBytes = (unitQuantity * unitToBytes).round();
-    log.fineWithMetadata(
-      "Parsed size bytes",
-      metadata: {"sizeStr": sizeStr, "sizeBytes": sizeBytes},
-    );
     return sizeBytes;
   }
 }

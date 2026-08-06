@@ -333,10 +333,6 @@ class NyaaMatcher {
     : _source = source ?? nyaa.Source.getInstance();
 
   Future<List<nyaa.AnimeResult>> _search(String term, int anilistId) async {
-    _log.infoWithMetadata(
-      "Nyaa search",
-      metadata: {"term": term, "anilistId": anilistId},
-    );
     try {
       final pagination = await _source.search(
         params: nyaa.SearchParams(term: term, page: 1),
@@ -345,7 +341,7 @@ class NyaaMatcher {
     } catch (e) {
       _log.warningWithMetadata(
         "Nyaa search failed",
-        metadata: {"term": term, "error": e.toString()},
+        metadata: {"term": term, "anilistId": anilistId, "error": e.toString()},
       );
       return [];
     }

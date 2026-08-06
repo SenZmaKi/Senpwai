@@ -148,10 +148,6 @@ class AnimeListCache {
   AnimeListCache({required Dio dio}) : _dio = dio;
 
   Future<void> _initializeCache() async {
-    log.infoWithMetadata(
-      !_isInitialized ? "Initializing cache" : "Refreshing cache",
-      metadata: {},
-    );
     final response = await _dio.get("${Constants.baseUrl}/anime/list");
     final htmlPage = parseHtml(response.data);
     final targetElements = htmlPage.querySelectorAll(
@@ -477,12 +473,7 @@ class Source {
 
   Future<List<AnimeResult>> search({required SearchParams params}) async {
     await SourceDirectory.waitForRefresh();
-    log.infoWithMetadata("Searching", metadata: {"params": params});
     final results = await _animeListCache.search(params: params);
-    log.fineWithMetadata(
-      "Searched",
-      metadata: {"params": params, "results": results.length},
-    );
     return results;
   }
 

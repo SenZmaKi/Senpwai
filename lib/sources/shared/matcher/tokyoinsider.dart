@@ -22,10 +22,6 @@ class TokyoinsiderMatcher {
     final seenUrls = <String>{};
 
     final futures = titleCandidates.map((title) async {
-      _log.infoWithMetadata(
-        "Searching TokyoInsider",
-        metadata: {"title": title, "anilistId": anime.id},
-      );
       try {
         final results = await _source.search(
           params: tokyoinsider.SearchParams(term: title),

@@ -196,7 +196,6 @@ class Source {
     required SearchParams params,
   }) async {
     await SourceDirectory.waitForRefresh();
-    log.infoWithMetadata("Searching", metadata: {"params": params});
     final url = apiUrl("search");
     final term = params.term;
     final page = params.page;
@@ -223,10 +222,6 @@ class Source {
       items: items,
       fetchNextPage: fetchNextpage,
       perPage: perPage,
-    );
-    log.fineWithMetadata(
-      "Search results",
-      metadata: {"pagination": pagination},
     );
     return pagination;
   }

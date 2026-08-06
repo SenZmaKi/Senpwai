@@ -9,6 +9,7 @@ import 'package:senpwai/downloads/runtime_codec.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
+import 'package:senpwai/shared/performance_trace.dart';
 
 typedef _CommandPayload = Map<String, Object?>;
 
@@ -23,6 +24,9 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   TorrentPreferences _torrentSettings;
   var _stateSnapshot = const DownloadManagerState();
   var _requestCounter = 0;
+  final _receivedStateRate = TimelineRateCounter(
+    'downloads.main_isolate_state_rate',
+  );
 
   Isolate? _isolate;
   SendPort? _commandPort;
@@ -243,7 +247,19 @@ class DownloadIsolateRuntime implements DownloadRuntime {
         final ready = _ready;
         if (ready != null && !ready.isCompleted) ready.complete();
       case 'state':
-        _publishState(DownloadRuntimeCodec.decodeState(_map(message['state'])));
+        final encodedState = _map(message['state']);
+        final itemCount = _list(encodedState['items']).length;
+        _receivedStateRate.record(
+          units: itemCount,
+          arguments: {'queueItems': itemCount},
+        );
+        _publishState(
+          traceSync(
+            'downloads.decode_state',
+            () => DownloadRuntimeCodec.decodeState(encodedState),
+            arguments: {'queueItems': itemCount},
+          ),
+        );
       case 'response':
         _onResponse(message);
       case 'error':
@@ -318,17 +334,26 @@ Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
   // on macOS. The main isolate has already resolved this application path, so
   // use the explicit root and keep download-engine startup plugin-free.
   final paths = await AppPaths.fromRootDirectory(Directory(appDataRootPath));
-  configureFileLogging(paths.logsDirectory);
+  await configureFileLogging(paths.logsDirectory);
 
   final mainPort = config['sendPort'] as SendPort;
   final commandPort = ReceivePort();
   InProcessDownloadRuntime? runtime;
   StreamSubscription<DownloadManagerState>? stateSubscription;
+  final sentStateRate = TimelineRateCounter('downloads.worker_state_rate');
 
   void sendState(DownloadManagerState state) {
+    sentStateRate.record(
+      units: state.items.length,
+      arguments: {'queueItems': state.items.length},
+    );
     mainPort.send({
       'kind': 'state',
-      'state': DownloadRuntimeCodec.encodeState(state),
+      'state': traceSync(
+        'downloads.encode_state',
+        () => DownloadRuntimeCodec.encodeState(state),
+        arguments: {'queueItems': state.items.length},
+      ),
     });
   }
 
@@ -494,3 +519,5 @@ String _string(Object? value) => value is String ? value : '';
 String? _stringOrNull(Object? value) => value is String ? value : null;
 
 int _int(Object? value) => value is int ? value : 0;
+
+List<Object?> _list(Object? value) => value is List ? value : const [];

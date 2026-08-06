@@ -9,6 +9,7 @@ import 'package:senpwai/downloads/source_resolver/nyaa.dart';
 import 'package:senpwai/downloads/source_resolver/shared.dart';
 import 'package:senpwai/downloads/source_resolver/tokyoinsider.dart';
 import 'package:senpwai/settings/settings.dart';
+import 'package:senpwai/shared/performance_trace.dart';
 
 class ResolvedSourceMatches {
   final SourceMatchState<AnimepaheSourceMatch> animepaheMatch;
@@ -42,21 +43,33 @@ class DownloadSourceResolver {
   Future<ResolvedSourceMatches> resolveAll(AnilistAnimeBase anime) async {
     final results = await Future.wait<dynamic>([
       settings.enabledSources.contains(AnimeSource.animepahe)
-          ? _animepaheResolver.resolve(anime)
+          ? traceAsync(
+              'anime_sources.animepahe',
+              () => _animepaheResolver.resolve(anime),
+              arguments: {'anilistId': anime.id},
+            )
           : Future.value(
               const SourceMatchState<AnimepaheSourceMatch>.failed(
                 'Source disabled',
               ),
             ),
       settings.enabledSources.contains(AnimeSource.tokyoinsider)
-          ? _tokyoinsiderResolver.resolve(anime)
+          ? traceAsync(
+              'anime_sources.tokyoinsider',
+              () => _tokyoinsiderResolver.resolve(anime),
+              arguments: {'anilistId': anime.id},
+            )
           : Future.value(
               const SourceMatchState<TokyoinsiderSourceMatch>.failed(
                 'Source disabled',
               ),
             ),
       settings.enabledSources.contains(AnimeSource.nyaa)
-          ? _nyaaResolver.resolve(anime)
+          ? traceAsync(
+              'anime_sources.nyaa',
+              () => _nyaaResolver.resolve(anime),
+              arguments: {'anilistId': anime.id},
+            )
           : Future.value(
               const SourceMatchState<bool>.failed('Source disabled'),
             ),

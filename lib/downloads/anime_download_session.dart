@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show AppLifecycleState;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +15,9 @@ import 'package:senpwai/downloads/request_coordinator.dart';
 import 'package:senpwai/downloads/source_resolver.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/settings/settings.dart';
+import 'package:senpwai/shared/app_lifecycle.dart';
 import 'package:senpwai/shared/platform_paths.dart';
+import 'package:senpwai/shared/performance_trace.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/tracking/notifier.dart';
 
@@ -178,7 +181,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         AnilistAnimeBase
       >((anime) => AnimeDownloadSessionNotifier._(anime));
 
-  static const _filesystemRefreshInterval = Duration(seconds: 3);
+  static const _filesystemWatchDebounce = Duration(milliseconds: 250);
 
   final AnilistAnimeBase _anime;
   final DownloadSourceResolver? _sourceResolverOverride;
@@ -186,6 +189,10 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   final DownloadTargetPlanner _targetPlanner;
   final AnimeFillerService _fillerService;
   Future<void>? _activeFilesystemRefresh;
+  StreamSubscription<FileSystemEvent>? _filesystemWatchSubscription;
+  Timer? _filesystemWatchDebounceTimer;
+  String? _watchedFolder;
+  var _filesystemWatchGeneration = 0;
   bool _resolvedFolderExisted = false;
   bool? _startEpisodeSelectedByUser;
 
@@ -222,11 +229,19 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         unawaited(_resolveInitialLocation());
       }
     });
-    final filesystemRefreshTimer = Timer.periodic(
-      _filesystemRefreshInterval,
-      (_) => unawaited(_refreshFilesystemState()),
+    ref.listen(
+      AppLifecycleNotifier.provider.select(
+        (lifecycle) => lifecycle == AppLifecycleState.resumed,
+      ),
+      (_, resumed) {
+        if (resumed) unawaited(_refreshAndRestartFilesystemWatch());
+      },
     );
-    ref.onDispose(filesystemRefreshTimer.cancel);
+    ref.onDispose(() {
+      _filesystemWatchGeneration += 1;
+      _filesystemWatchDebounceTimer?.cancel();
+      unawaited(_filesystemWatchSubscription?.cancel());
+    });
     Future.microtask(_initialize);
     return AnimeDownloadSessionState(
       anime: _anime,
@@ -247,7 +262,11 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   }
 
   Future<void> _initialize() async {
-    await Future.wait([_resolveInitialLocation(), _resolveSources()]);
+    await traceAsync(
+      'anime_preview.initialize',
+      () => Future.wait([_resolveInitialLocation(), _resolveSources()]),
+      arguments: {'anilistId': _anime.id},
+    );
   }
 
   Future<void> _resolveInitialLocation({
@@ -284,6 +303,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
           : resolvedStartEpisode,
     );
     _resolvedFolderExisted = folderExists;
+    unawaited(_watchFilesystemFolder(state.downloadFolder));
     if (replaceSelectedFolder && state.downloadFolderSelectedByUser) {
       unawaited(
         ref
@@ -319,6 +339,89 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         _activeFilesystemRefresh = null;
       }
     }
+  }
+
+  Future<void> _watchFilesystemFolder(String? folder) async {
+    final normalizedFolder = folder?.trim();
+    if (normalizedFolder == _watchedFolder &&
+        _filesystemWatchSubscription != null) {
+      return;
+    }
+
+    final generation = ++_filesystemWatchGeneration;
+    _filesystemWatchDebounceTimer?.cancel();
+    await _filesystemWatchSubscription?.cancel();
+    _filesystemWatchSubscription = null;
+    _watchedFolder = normalizedFolder;
+    if (!ref.mounted || normalizedFolder == null || normalizedFolder.isEmpty) {
+      return;
+    }
+
+    final directory = Directory(normalizedFolder);
+    if (!await directory.exists() || !ref.mounted) return;
+    if (generation != _filesystemWatchGeneration) return;
+
+    try {
+      late final StreamSubscription<FileSystemEvent> subscription;
+      subscription = directory.watch().listen(
+        (_) => _scheduleFilesystemRefresh(),
+        onError: (_) => _handleFilesystemWatchError(generation, subscription),
+        onDone: () => _handleFilesystemWatchDone(generation, subscription),
+        cancelOnError: true,
+      );
+      _filesystemWatchSubscription = subscription;
+    } on FileSystemException {
+      // Some virtual or network filesystems do not support watching. The
+      // lifecycle refresh still reconciles the folder when the app resumes.
+    }
+  }
+
+  void _scheduleFilesystemRefresh({
+    bool resolveMissingFolder = false,
+    bool restartWatch = false,
+  }) {
+    _filesystemWatchDebounceTimer?.cancel();
+    _filesystemWatchDebounceTimer = Timer(_filesystemWatchDebounce, () {
+      unawaited(
+        restartWatch
+            ? _refreshAndRestartFilesystemWatch()
+            : _refreshFilesystemState(
+                resolveMissingFolder: resolveMissingFolder,
+              ),
+      );
+    });
+  }
+
+  void _handleFilesystemWatchError(
+    int generation,
+    StreamSubscription<FileSystemEvent> subscription,
+  ) {
+    if (generation != _filesystemWatchGeneration ||
+        !identical(_filesystemWatchSubscription, subscription)) {
+      return;
+    }
+    _filesystemWatchGeneration += 1;
+    _filesystemWatchSubscription = null;
+    _scheduleFilesystemRefresh(resolveMissingFolder: true);
+  }
+
+  void _handleFilesystemWatchDone(
+    int generation,
+    StreamSubscription<FileSystemEvent> subscription,
+  ) {
+    if (generation != _filesystemWatchGeneration ||
+        !identical(_filesystemWatchSubscription, subscription)) {
+      return;
+    }
+    _filesystemWatchSubscription = null;
+    _scheduleFilesystemRefresh(resolveMissingFolder: true, restartWatch: true);
+  }
+
+  Future<void> _refreshAndRestartFilesystemWatch() async {
+    await _refreshFilesystemState(resolveMissingFolder: true);
+    if (!ref.mounted) return;
+    _watchedFolder = null;
+    await _watchFilesystemFolder(state.downloadFolder);
   }
 
   Future<void> _performFilesystemRefresh({
@@ -373,7 +476,11 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         DownloadSourceResolver(
           settings: ref.read(AppSettingsNotifier.provider).sources,
         );
-    final matches = await sourceResolver.resolveAll(_anime);
+    final matches = await traceAsync(
+      'anime_sources.resolve_all',
+      () => sourceResolver.resolveAll(_anime),
+      arguments: {'anilistId': _anime.id},
+    );
     if (!ref.mounted) return;
     final preferredSource = sourceResolver.selectPreferredSource(
       matches: matches,
@@ -432,6 +539,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       ownedEpisodes: ownedEpisodes,
       startEpisode: _recommendedStartEpisode(ownedEpisodes),
     );
+    unawaited(_watchFilesystemFolder(folder));
     unawaited(
       ref
           .read(AppSettingsNotifier.provider.notifier)
@@ -606,17 +714,19 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   }
 
   Future<Set<int>> _ownedEpisodes(String folder) async {
-    final directory = Directory(folder);
-    if (!await directory.exists()) return const {};
-    final episodes = <int>[];
-    await for (final entity in directory.list(followLinks: false)) {
-      if (entity is! File) continue;
-      final fileName = entity.uri.pathSegments.last;
-      if (fileName.contains('[Downloading]')) continue;
-      final episode = anitomy_parser.parseFilename(fileName).episode;
-      if (episode != null && episode > 0) episodes.add(episode);
-    }
-    return episodes.toSet();
+    return traceAsync('anime_preview.scan_owned_episodes', () async {
+      final directory = Directory(folder);
+      if (!await directory.exists()) return const <int>{};
+      final episodes = <int>[];
+      await for (final entity in directory.list(followLinks: false)) {
+        if (entity is! File) continue;
+        final fileName = entity.uri.pathSegments.last;
+        if (fileName.contains('[Downloading]')) continue;
+        final episode = anitomy_parser.parseFilename(fileName).episode;
+        if (episode != null && episode > 0) episodes.add(episode);
+      }
+      return episodes.toSet();
+    }, arguments: {'anilistId': _anime.id});
   }
 
   ({int start, int end}) _parseEpisodeRange({

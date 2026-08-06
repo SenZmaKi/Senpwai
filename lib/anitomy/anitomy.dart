@@ -1,11 +1,8 @@
 import 'package:collection/collection.dart';
-import 'package:logging/logging.dart';
-import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:anitomy_dart/anitomy.dart' as anitomy;
 
 final _ani = anitomy.Anitomy();
-Logger log = Logger("senpwai.anitomy.anitomy");
 
 class AnitomyParseResult {
   int? season;
@@ -42,10 +39,6 @@ T? _parseCategory<T>({
 }) {
   final element = elements.firstWhereOrNull(
     (element) => element.category == category,
-  );
-  log.infoWithMetadata(
-    "Parsed category",
-    metadata: {"element": element, "category": category},
   );
   if (element == null) return null;
   return parser(element.value);
@@ -90,15 +83,10 @@ int? _parseIntElement(
     }
   }
 
-  log.warningWithMetadata(
-    "Could not parse numeric anitomy element",
-    metadata: {"category": category, "value": elementValue},
-  );
   return null;
 }
 
 AnitomyParseResult parseFilename(String filename) {
-  log.infoWithMetadata("Parsing filename", metadata: {"filename": filename});
   _ani.parse(filename);
   final elements = _ani.elements.items.toList();
   final rawSeason = _parseCategory(
@@ -180,10 +168,6 @@ AnitomyParseResult parseFilename(String filename) {
     audioTerms: audioTerms,
     subtitles: subtitles,
     releaseInformation: releaseInformation,
-  );
-  log.fineWithMetadata(
-    "Parsed",
-    metadata: {"filename": filename, "anitomyParseResult": anitomyParseResult},
   );
   return anitomyParseResult;
 }

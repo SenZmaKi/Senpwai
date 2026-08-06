@@ -12,6 +12,7 @@ import 'package:senpwai/notifications/app_notification_service.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/user_agents.dart';
+import 'package:senpwai/shared/performance_trace.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_formatters.dart';
 
@@ -321,7 +322,15 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
     final message = _mapString(data);
     switch (_string(message['kind'])) {
       case 'state':
-        final next = DownloadRuntimeCodec.decodeState(_map(message['state']));
+        final encodedState = _map(message['state']);
+        final next = traceSync(
+          'downloads.decode_state',
+          () => DownloadRuntimeCodec.decodeState(encodedState),
+          arguments: {
+            'queueItems': _list(encodedState['items']).length,
+            'transport': 'android_foreground_task',
+          },
+        );
         _stateSnapshot = next;
         if (!_stateController.isClosed) _stateController.add(next);
       case 'response':
@@ -392,7 +401,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
     DartPluginRegistrant.ensureInitialized();
     setupLogger();
     final paths = await AppPaths.initialize();
-    configureFileLogging(paths.logsDirectory);
+    await configureFileLogging(paths.logsDirectory);
     _log.infoWithMetadata(
       'Download foreground task started',
       metadata: {
@@ -960,7 +969,14 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
   void _sendState(DownloadManagerState state) {
     FlutterForegroundTask.sendDataToMain({
       'kind': 'state',
-      'state': DownloadRuntimeCodec.encodeState(state),
+      'state': traceSync(
+        'downloads.encode_state',
+        () => DownloadRuntimeCodec.encodeState(state),
+        arguments: {
+          'queueItems': state.items.length,
+          'transport': 'android_foreground_task',
+        },
+      ),
     });
   }
 
@@ -1229,6 +1245,8 @@ Map<Object?, Object?> _map(Object? value) {
   if (value is! Map) return const {};
   return {for (final entry in value.entries) entry.key: entry.value};
 }
+
+List<Object?> _list(Object? value) => value is List ? value : const [];
 
 Map<String, Object?> _mapString(Object? value) {
   if (value is! Map) return const {};

@@ -17,7 +17,7 @@ Future<void> setupTestApp() async {
     'senpwai-test-persistence-',
   );
   await AppPersistence.initialize(rootDirectory: _testPersistenceDirectory);
-  configureFileLogging(AppPersistence.paths.logsDirectory);
+  await configureFileLogging(AppPersistence.paths.logsDirectory);
 }
 
 Future<Duration> timeIt({

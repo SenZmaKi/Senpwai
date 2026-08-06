@@ -12,6 +12,7 @@ import 'package:senpwai/shared/net/download/download_config.dart';
 import 'package:senpwai/shared/net/download/download_dio.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
+import 'package:senpwai/shared/performance_trace.dart';
 
 typedef DownloadRuntimeErrorHandler =
     void Function({
@@ -47,6 +48,8 @@ abstract class DownloadRuntime {
 }
 
 class InProcessDownloadRuntime implements DownloadRuntime {
+  static const _progressPublishInterval = Duration(milliseconds: 100);
+
   final DownloadRuntimeErrorHandler onError;
   final Dio _downloadDio;
 
@@ -58,6 +61,9 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   Session? _torrentSession;
   late TorrentPreferences _torrentSettings;
   DownloadManagerState _state = const DownloadManagerState();
+  final _httpProgressRate = TimelineRateCounter('downloads.http_progress_rate');
+  Timer? _progressPublishTimer;
+  bool _progressStateDirty = false;
   int _idCounter = 0;
 
   InProcessDownloadRuntime({
@@ -76,7 +82,25 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
   set state(DownloadManagerState next) {
     _state = next;
-    if (!_stateController.isClosed) _stateController.add(next);
+    _publishStateImmediately();
+  }
+
+  void _publishStateImmediately() {
+    _progressPublishTimer?.cancel();
+    _progressPublishTimer = null;
+    _progressStateDirty = false;
+    if (!_stateController.isClosed) _stateController.add(_state);
+  }
+
+  void _scheduleProgressStatePublication() {
+    _progressStateDirty = true;
+    if (_progressPublishTimer != null || _stateController.isClosed) return;
+    _progressPublishTimer = Timer(_progressPublishInterval, () {
+      _progressPublishTimer = null;
+      if (!_progressStateDirty || _stateController.isClosed) return;
+      _progressStateDirty = false;
+      _stateController.add(_state);
+    });
   }
 
   @override
@@ -326,6 +350,9 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
   @override
   Future<void> dispose() async {
+    _progressPublishTimer?.cancel();
+    _progressPublishTimer = null;
+    _progressStateDirty = false;
     for (final runtime in _httpDownloads.values) {
       unawaited(runtime.dispose());
     }
@@ -452,6 +479,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     );
     final download = Download(params: params, dio: _downloadDio);
     final progressSub = download.state.progressStream.listen((progress) {
+      _httpProgressRate.record(units: progress.bytesDownloaded);
       _updateItem(
         id,
         (item) => item.copyWith(
@@ -462,6 +490,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
               .clamp(0, item.totalBytes),
           bytesPerSecond: download.state.rateTracker.bytesPerSecond,
         ),
+        publishImmediately: false,
       );
     });
     final rateSub = download.state.rateTracker.updateStream.listen((bps) {
@@ -470,7 +499,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
           return item.copyWith(bytesPerSecond: 0);
         }
         return item.copyWith(bytesPerSecond: bps);
-      });
+      }, publishImmediately: false);
     });
     final statusSub = download.state.statusStream.listen((status) async {
       switch (status) {
@@ -1085,14 +1114,20 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
   void _updateItem(
     String id,
-    DownloadQueueItem Function(DownloadQueueItem item) update,
-  ) {
-    state = state.copyWith(
+    DownloadQueueItem Function(DownloadQueueItem item) update, {
+    bool publishImmediately = true,
+  }) {
+    _state = state.copyWith(
       items: [
         for (final item in state.items)
           if (item.id == id) update(item) else item,
       ],
     );
+    if (publishImmediately) {
+      _publishStateImmediately();
+    } else {
+      _scheduleProgressStatePublication();
+    }
   }
 
   void _startPendingDownload(String id, void Function() starter) {
