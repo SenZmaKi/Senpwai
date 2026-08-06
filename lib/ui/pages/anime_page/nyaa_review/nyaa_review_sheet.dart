@@ -47,6 +47,7 @@ class _NyaaReviewSheetState extends ConsumerState<NyaaReviewSheet>
   /// Episode overrides applied by the user via the picker. Wins over the
   /// auto-planned job for that episode number.
   final Map<int, PreparedTorrentDownloadJob> _episodeOverrides = {};
+  final Set<int> _skippedEpisodes = {};
 
   /// Shared filter state across all picker invocations within this sheet.
   late NyaaManualSearchFilters _filters;
@@ -62,10 +63,13 @@ class _NyaaReviewSheetState extends ConsumerState<NyaaReviewSheet>
   @override
   void initState() {
     super.initState();
-    _filters = ref
-        .read(AppSettingsNotifier.provider)
-        .sources
-        .nyaaDefaultFilters;
+    final sourceSettings = ref.read(AppSettingsNotifier.provider).sources;
+    _filters = sourceSettings.nyaaDefaultFilters;
+    if (sourceSettings.skipUnavailableNyaaEpisodes) {
+      _skippedEpisodes.addAll(
+        widget.batch.nyaaEpisodeIssues.map((issue) => issue.episodeNumber),
+      );
+    }
     _countdown = AnimationController(vsync: this, duration: _autoStartDuration)
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed && _countdownActive) {
@@ -89,8 +93,25 @@ class _NyaaReviewSheetState extends ConsumerState<NyaaReviewSheet>
   List<NyaaEpisodeResolutionIssue> get _unresolvedIssues => widget
       .batch
       .nyaaEpisodeIssues
-      .where((i) => !_episodeOverrides.containsKey(i.episodeNumber))
+      .where(
+        (i) =>
+            !_episodeOverrides.containsKey(i.episodeNumber) &&
+            !_skippedEpisodes.contains(i.episodeNumber),
+      )
       .toList();
+
+  void _skipEpisode(int episodeNumber) {
+    _cancelCountdown();
+    setState(() {
+      _episodeOverrides.remove(episodeNumber);
+      _skippedEpisodes.add(episodeNumber);
+    });
+  }
+
+  void _undoSkip(int episodeNumber) {
+    _cancelCountdown();
+    setState(() => _skippedEpisodes.remove(episodeNumber));
+  }
 
   /// Final batch built from initial auto-planned jobs + overrides + any
   /// resolved issues.
@@ -259,7 +280,10 @@ class _NyaaReviewSheetState extends ConsumerState<NyaaReviewSheet>
             candidate: candidate,
           ),
           onResolved: (job) {
-            setState(() => _episodeOverrides[episodeNumber] = job);
+            setState(() {
+              _skippedEpisodes.remove(episodeNumber);
+              _episodeOverrides[episodeNumber] = job;
+            });
             _sheetNavKey.currentState?.pop();
           },
           onClose: () => _sheetNavKey.currentState?.pop(),
@@ -296,12 +320,15 @@ class _NyaaReviewSheetState extends ConsumerState<NyaaReviewSheet>
                     builder: (_) => _ReviewListPage(
                       batch: widget.batch,
                       overrides: _episodeOverrides,
+                      skippedEpisodes: _skippedEpisodes,
                       unresolved: _unresolvedIssues,
                       countdown: _countdown,
                       countdownActive: _countdownActive,
                       onStart: _start,
                       onCancel: _cancel,
                       onSwapEpisode: _openPicker,
+                      onSkipEpisode: _skipEpisode,
+                      onUndoSkip: _undoSkip,
                       scrollController: scrollController,
                     ),
                   );
@@ -318,6 +345,7 @@ class _NyaaReviewSheetState extends ConsumerState<NyaaReviewSheet>
 class _ReviewListPage extends StatelessWidget {
   final PreparedDownloadBatch batch;
   final Map<int, PreparedTorrentDownloadJob> overrides;
+  final Set<int> skippedEpisodes;
   final List<NyaaEpisodeResolutionIssue> unresolved;
   final Animation<double> countdown;
   final bool countdownActive;
@@ -330,17 +358,22 @@ class _ReviewListPage extends StatelessWidget {
     required String? currentTorrentFilename,
   })
   onSwapEpisode;
+  final ValueChanged<int> onSkipEpisode;
+  final ValueChanged<int> onUndoSkip;
   final ScrollController scrollController;
 
   const _ReviewListPage({
     required this.batch,
     required this.overrides,
+    required this.skippedEpisodes,
     required this.unresolved,
     required this.countdown,
     required this.countdownActive,
     required this.onStart,
     required this.onCancel,
     required this.onSwapEpisode,
+    required this.onSkipEpisode,
+    required this.onUndoSkip,
     required this.scrollController,
   });
 
@@ -348,7 +381,8 @@ class _ReviewListPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = _buildItems();
     final totalBytes = items.fold<int>(0, (s, i) => s + i.totalBytes);
-    final canStart = unresolved.isEmpty && batch.jobs.isNotEmpty;
+    final hasDownloads = items.any((item) => item.job != null);
+    final canStart = unresolved.isEmpty;
 
     return Column(
       children: [
@@ -380,6 +414,7 @@ class _ReviewListPage extends StatelessWidget {
                   _Status.auto => EpisodeReviewStatus.autoPlanned,
                   _Status.manual => EpisodeReviewStatus.manuallySwapped,
                   _Status.unresolved => EpisodeReviewStatus.unresolved,
+                  _Status.skipped => EpisodeReviewStatus.skipped,
                 },
                 torrentName: item.job?.torrentName,
                 meta: item.meta,
@@ -393,6 +428,13 @@ class _ReviewListPage extends StatelessWidget {
                         searchConfiguration: item.searchConfiguration,
                         currentTorrentFilename: item.job?.torrentName,
                       ),
+                onSkip: item.issue == null || item.episodeNumber == null
+                    ? null
+                    : () => onSkipEpisode(item.episodeNumber!),
+                onUndoSkip:
+                    item.status != _Status.skipped || item.episodeNumber == null
+                    ? null
+                    : () => onUndoSkip(item.episodeNumber!),
               );
             },
           ),
@@ -401,6 +443,7 @@ class _ReviewListPage extends StatelessWidget {
           countdown: countdown,
           countdownActive: countdownActive,
           canStart: canStart,
+          hasDownloads: hasDownloads,
           unresolvedCount: unresolved.length,
           onStart: onStart,
           onCancel: onCancel,
@@ -447,8 +490,11 @@ class _ReviewListPage extends StatelessWidget {
             job: override,
             animeTitle: override.animeTitle,
             isManual: true,
+            issue: issue,
           ),
         );
+      } else if (skippedEpisodes.contains(issue.episodeNumber)) {
+        items.add(_Item.skipped(issue));
       } else {
         items.add(_Item.unresolved(issue));
       }
@@ -458,7 +504,7 @@ class _ReviewListPage extends StatelessWidget {
   }
 }
 
-enum _Status { auto, manual, unresolved }
+enum _Status { auto, manual, unresolved, skipped }
 
 class _Item {
   final int? episodeNumber;
@@ -492,12 +538,13 @@ class _Item {
     required PreparedTorrentDownloadJob job,
     required String animeTitle,
     required bool isManual,
+    NyaaEpisodeResolutionIssue? issue,
   }) {
     return _Item(
       episodeNumber: episodeNumber,
       episodeLabel: '$episodeNumber',
       job: job,
-      issue: null,
+      issue: issue,
       status: isManual ? _Status.manual : _Status.auto,
       isSwappable: true,
       animeTitle: animeTitle,
@@ -562,6 +609,22 @@ class _Item {
       job: null,
       issue: issue,
       status: _Status.unresolved,
+      isSwappable: true,
+      animeTitle: issue.title,
+      searchConfiguration: issue.searchConfiguration,
+      meta: null,
+      totalBytes: 0,
+      sortKey: issue.episodeNumber,
+    );
+  }
+
+  factory _Item.skipped(NyaaEpisodeResolutionIssue issue) {
+    return _Item(
+      episodeNumber: issue.episodeNumber,
+      episodeLabel: '${issue.episodeNumber}',
+      job: null,
+      issue: issue,
+      status: _Status.skipped,
       isSwappable: true,
       animeTitle: issue.title,
       searchConfiguration: issue.searchConfiguration,
@@ -739,6 +802,7 @@ class _Footer extends StatelessWidget {
   final Animation<double> countdown;
   final bool countdownActive;
   final bool canStart;
+  final bool hasDownloads;
   final int unresolvedCount;
   final VoidCallback onStart;
   final VoidCallback onCancel;
@@ -747,6 +811,7 @@ class _Footer extends StatelessWidget {
     required this.countdown,
     required this.countdownActive,
     required this.canStart,
+    required this.hasDownloads,
     required this.unresolvedCount,
     required this.onStart,
     required this.onCancel,
@@ -788,8 +853,12 @@ class _Footer extends StatelessWidget {
               builder: (context, _) => CountdownStartButton(
                 label: countdownActive
                     ? 'Starting in ${(_autoStartDuration.inSeconds - (countdown.value * _autoStartDuration.inSeconds)).ceil()}s'
-                    : 'Start download',
-                icon: Icons.play_arrow_rounded,
+                    : hasDownloads
+                    ? 'Start download'
+                    : 'Done',
+                icon: hasDownloads
+                    ? Icons.play_arrow_rounded
+                    : Icons.check_rounded,
                 progress: countdownActive ? countdown.value : null,
                 enabled: canStart,
                 onPressed: onStart,

@@ -2,25 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:senpwai/ui/pages/anime_page/nyaa_review/torrent_meta_row.dart';
 import 'package:senpwai/ui/shared/theme/theme_extension.dart';
 
-enum EpisodeReviewStatus { autoPlanned, manuallySwapped, unresolved }
+enum EpisodeReviewStatus { autoPlanned, manuallySwapped, unresolved, skipped }
 
 extension on EpisodeReviewStatus {
   Color color(ThemeData theme) => switch (this) {
     EpisodeReviewStatus.autoPlanned => Colors.green,
     EpisodeReviewStatus.manuallySwapped => theme.colorScheme.primary,
     EpisodeReviewStatus.unresolved => theme.colorScheme.error,
+    EpisodeReviewStatus.skipped => theme.colorScheme.tertiary,
   };
 
   IconData get icon => switch (this) {
     EpisodeReviewStatus.autoPlanned => Icons.auto_awesome_rounded,
     EpisodeReviewStatus.manuallySwapped => Icons.swap_horiz_rounded,
     EpisodeReviewStatus.unresolved => Icons.error_outline_rounded,
+    EpisodeReviewStatus.skipped => Icons.skip_next_rounded,
   };
 
   String get label => switch (this) {
     EpisodeReviewStatus.autoPlanned => 'Auto',
     EpisodeReviewStatus.manuallySwapped => 'Manual',
     EpisodeReviewStatus.unresolved => 'Unresolved',
+    EpisodeReviewStatus.skipped => 'Skipped',
   };
 }
 
@@ -32,6 +35,8 @@ class EpisodeReviewRow extends StatelessWidget {
   final String? unresolvedReason;
   final bool isSwappable;
   final VoidCallback? onTap;
+  final VoidCallback? onSkip;
+  final VoidCallback? onUndoSkip;
 
   const EpisodeReviewRow({
     super.key,
@@ -42,6 +47,8 @@ class EpisodeReviewRow extends StatelessWidget {
     this.unresolvedReason,
     this.isSwappable = true,
     this.onTap,
+    this.onSkip,
+    this.onUndoSkip,
   });
 
   @override
@@ -101,7 +108,10 @@ class EpisodeReviewRow extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          torrentName ?? 'No torrent selected',
+                          torrentName ??
+                              (status == EpisodeReviewStatus.skipped
+                                  ? 'Episode will not be downloaded'
+                                  : 'No torrent selected'),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: torrentName == null
@@ -138,7 +148,11 @@ class EpisodeReviewRow extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (isSwappable)
+                if (status == EpisodeReviewStatus.unresolved)
+                  _UnresolvedActions(onFind: onTap, onSkip: onSkip)
+                else if (status == EpisodeReviewStatus.skipped)
+                  _SkippedActions(onFind: onTap, onUndo: onUndoSkip)
+                else if (isSwappable)
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -158,6 +172,60 @@ class EpisodeReviewRow extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _UnresolvedActions extends StatelessWidget {
+  final VoidCallback? onFind;
+  final VoidCallback? onSkip;
+
+  const _UnresolvedActions({required this.onFind, required this.onSkip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 8, 8),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TextButton.icon(
+            onPressed: onFind,
+            icon: const Icon(Icons.link_rounded, size: 17),
+            label: const Text('Link'),
+          ),
+          TextButton.icon(
+            onPressed: onSkip,
+            icon: const Icon(Icons.skip_next_rounded, size: 17),
+            label: const Text('Skip'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkippedActions extends StatelessWidget {
+  final VoidCallback? onFind;
+  final VoidCallback? onUndo;
+
+  const _SkippedActions({required this.onFind, required this.onUndo});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 8, 8),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TextButton.icon(
+            onPressed: onFind,
+            icon: const Icon(Icons.link_rounded, size: 17),
+            label: const Text('Link'),
+          ),
+          TextButton(onPressed: onUndo, child: const Text('Undo')),
+        ],
       ),
     );
   }

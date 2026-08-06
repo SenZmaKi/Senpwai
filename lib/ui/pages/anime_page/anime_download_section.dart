@@ -462,6 +462,15 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
         }
         reviewedBatch = resolvedBatch;
       }
+      if (reviewedBatch.jobs.isEmpty) {
+        notifier.resetSubmissionStage();
+        AppToast.showInfo(
+          context,
+          title: 'No downloads queued',
+          description: 'All unavailable episodes were skipped.',
+        );
+        return;
+      }
       notifier.setSubmissionStage(DownloadSubmissionStage.queueing);
       final result = await notifier.enqueuePreparedDownloads(reviewedBatch);
       notifier.resetSubmissionStage();

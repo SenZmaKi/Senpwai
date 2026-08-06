@@ -86,6 +86,7 @@ class SourceSettingsSection extends StatelessWidget {
             'Manual Sort Order',
             'Minimum Seeders required',
             'Skip review when no episode needs reconciliation',
+            'Skip unavailable episodes during reconciliation',
           ],
           children: [
             _NyaaDefaultsList(
@@ -126,6 +127,19 @@ class _NyaaDefaultsList extends StatelessWidget {
           trailing: AsyncSwitch(
             value: settings.sources.skipNyaaReviewWhenUnambiguous,
             onChanged: notifier.setSkipNyaaReviewWhenUnambiguous,
+          ),
+        ),
+        SettingsTile(
+          icon: Icons.next_plan_outlined,
+          title: 'Skip Unavailable Episodes',
+          subtitle:
+              'Default unresolved Nyaa episodes to skipped during reconciliation',
+          keywords:
+              'nyaa unavailable missing episode skip reconciliation default',
+          searchQuery: searchQuery,
+          trailing: AsyncSwitch(
+            value: settings.sources.skipUnavailableNyaaEpisodes,
+            onChanged: notifier.setSkipUnavailableNyaaEpisodes,
           ),
         ),
         SettingsTile(

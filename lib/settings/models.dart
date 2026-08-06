@@ -447,12 +447,14 @@ class SourcePreferences {
   final List<AnimeSource> priority;
   final NyaaManualSearchFilters nyaaDefaultFilters;
   final bool skipNyaaReviewWhenUnambiguous;
+  final bool skipUnavailableNyaaEpisodes;
 
   const SourcePreferences({
     this.enabledSources = defaultEnabledSources,
     this.priority = defaultPriority,
     this.nyaaDefaultFilters = const NyaaManualSearchFilters(),
     this.skipNyaaReviewWhenUnambiguous = false,
+    this.skipUnavailableNyaaEpisodes = false,
   });
 
   factory SourcePreferences.fromJson(Map<String, dynamic> json) {
@@ -474,6 +476,10 @@ class SourcePreferences {
         json['skipNyaaReviewWhenUnambiguous'],
         false,
       ),
+      skipUnavailableNyaaEpisodes: _boolValue(
+        json['skipUnavailableNyaaEpisodes'],
+        false,
+      ),
     );
   }
 
@@ -482,6 +488,7 @@ class SourcePreferences {
     'priority': priority.map((source) => source.name).toList(),
     'nyaaDefaultFilters': nyaaFiltersToJson(nyaaDefaultFilters),
     'skipNyaaReviewWhenUnambiguous': skipNyaaReviewWhenUnambiguous,
+    'skipUnavailableNyaaEpisodes': skipUnavailableNyaaEpisodes,
   };
 
   AnimeSource? get preferredEnabledSource {
@@ -496,6 +503,7 @@ class SourcePreferences {
     List<AnimeSource>? priority,
     NyaaManualSearchFilters? nyaaDefaultFilters,
     bool? skipNyaaReviewWhenUnambiguous,
+    bool? skipUnavailableNyaaEpisodes,
   }) {
     final nextEnabled = enabledSources ?? this.enabledSources;
     return SourcePreferences(
@@ -506,6 +514,8 @@ class SourcePreferences {
       nyaaDefaultFilters: nyaaDefaultFilters ?? this.nyaaDefaultFilters,
       skipNyaaReviewWhenUnambiguous:
           skipNyaaReviewWhenUnambiguous ?? this.skipNyaaReviewWhenUnambiguous,
+      skipUnavailableNyaaEpisodes:
+          skipUnavailableNyaaEpisodes ?? this.skipUnavailableNyaaEpisodes,
     );
   }
 }

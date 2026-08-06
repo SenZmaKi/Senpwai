@@ -271,6 +271,14 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setSkipUnavailableNyaaEpisodes(bool value) {
+    return _commit(
+      state.copyWith(
+        sources: state.sources.copyWith(skipUnavailableNyaaEpisodes: value),
+      ),
+    );
+  }
+
   Future<void> setTorrentMaxDownloadBytesPerSecond(int bytes) {
     return _commit(
       state.copyWith(
