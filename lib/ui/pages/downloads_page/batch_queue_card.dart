@@ -29,6 +29,7 @@ class BatchQueueCard extends ConsumerWidget {
     final senpwai = theme.extension<SenpwaiThemeExtension>();
     final notifier = ref.read(DownloadManagerNotifier.provider.notifier);
     final style = DownloadStatusStyle.of(theme, snapshot.status);
+    final isSeeding = snapshot.isSeedingPhase;
     final radius = senpwai?.cardRadius ?? 8;
 
     return Material(
@@ -60,29 +61,58 @@ class BatchQueueCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 16),
+            if (snapshot.canPause)
+              _IconButton(
+                icon: Icons.pause_rounded,
+                tooltip: isSeeding ? 'Pause seeding' : 'Pause batch',
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+                onTap: () => notifier.pauseBatch(snapshot.batch.id),
+              ),
+            if (snapshot.canResume && (isActive || isSeeding))
+              _IconButton(
+                icon: Icons.play_arrow_rounded,
+                tooltip: isSeeding ? 'Resume seeding' : 'Resume batch',
+                color: theme.colorScheme.primary,
+                onTap: () => notifier.resumeBatch(snapshot.batch.id),
+              ),
             if (snapshot.activeCount > 0)
               _IconButton(
                 icon: Icons.close_rounded,
-                tooltip: isActive ? 'Cancel batch' : 'Remove from queue',
+                tooltip: isSeeding
+                    ? 'Stop seeding'
+                    : isActive
+                    ? 'Cancel batch'
+                    : 'Remove from queue',
                 color: theme.colorScheme.error.withValues(alpha: 0.75),
                 onTap: () async {
                   final confirmed = await showConfirmDialog(
                     context,
-                    title: isActive
+                    title: isSeeding
+                        ? 'Stop seeding?'
+                        : isActive
                         ? 'Cancel this batch?'
                         : 'Remove batch from queue?',
-                    message: isActive
+                    message: isSeeding
+                        ? 'This will stop sharing "${snapshot.batch.title}". '
+                              'The downloaded files will not be deleted.'
+                        : isActive
                         ? 'This will stop "${snapshot.batch.title}" and '
                               'discard its remaining downloads. Completed '
                               'files will not be deleted.'
                         : 'This will cancel "${snapshot.batch.title}" and '
                               'discard its remaining downloads. Completed '
                               'files will not be deleted.',
-                    confirmLabel: isActive ? 'Cancel batch' : 'Remove',
-                    cancelLabel: isActive
+                    confirmLabel: isSeeding
+                        ? 'Stop seeding'
+                        : isActive
+                        ? 'Cancel batch'
+                        : 'Remove',
+                    cancelLabel: isSeeding
+                        ? 'Keep seeding'
+                        : isActive
                         ? 'Keep downloading'
                         : 'Keep in queue',
-                    destructive: true,
+                    destructive: !isSeeding,
                   );
                   if (confirmed) notifier.cancelBatch(snapshot.batch.id);
                 },

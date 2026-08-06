@@ -200,7 +200,9 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       _updateItem(
         id,
         (item) => item.copyWith(
-          status: DownloadQueueStatus.downloading,
+          status: torrent.seedingStartedAt != null
+              ? DownloadQueueStatus.seeding
+              : DownloadQueueStatus.downloading,
           clearError: true,
         ),
       );
@@ -272,13 +274,12 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
   @override
   Future<void> pauseBatch(String batchId) async {
-    if (!_isActiveBatch(batchId)) return;
-
     final itemIds = _itemIdsFor(batchId);
     for (final id in itemIds) {
       final item = _findItem(id);
       if (item == null) continue;
-      if (item.status == DownloadQueueStatus.downloading) {
+      if (item.status == DownloadQueueStatus.downloading ||
+          item.status == DownloadQueueStatus.seeding) {
         await pause(id);
       }
     }
@@ -286,13 +287,12 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
   @override
   Future<void> resumeBatch(String batchId) async {
-    if (!_isActiveBatch(batchId)) return;
-
     final itemIds = _itemIdsFor(batchId);
     for (final id in itemIds) {
       final item = _findItem(id);
       if (item == null) continue;
-      if (item.status == DownloadQueueStatus.paused) {
+      if (item.status == DownloadQueueStatus.paused &&
+          (_isActiveBatch(batchId) || item.isSeedingPhase)) {
         await resume(id);
       }
     }
@@ -627,8 +627,10 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
           final selectedFilesDownloaded =
               downloadedBytes >= job.totalBytes && job.totalBytes > 0;
-          if (selectedFilesDownloaded &&
-              activeDownload.seedingStartedAt == null) {
+          final beganSeeding =
+              selectedFilesDownloaded &&
+              activeDownload.seedingStartedAt == null;
+          if (beganSeeding) {
             activeDownload.seedingStartedAt = DateTime.now();
             _reconcileSeedSlots();
           }
@@ -701,6 +703,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
               clearError: true,
             );
           });
+          if (beganSeeding) _maybePromote();
         },
       );
 
@@ -1029,7 +1032,10 @@ class InProcessDownloadRuntime implements DownloadRuntime {
             final item = _findItem(id);
             return item == null || !_blocksQueuePromotion(item);
           });
-      if (!allTerminal) return;
+      if (!allTerminal) {
+        _startPendingItems(active);
+        return;
+      }
       state = state.copyWith(clearActiveBatchId: true);
       _dropTerminalBatches();
     }
@@ -1040,22 +1046,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       });
       if (!hasRunnable) continue;
       state = state.copyWith(activeBatchId: batch.id);
-      var startedPending = false;
-      var torrentSlots = _torrentSlotsAvailable();
-      for (final id in batch.itemIds) {
-        final starter = _pendingStarters.remove(id);
-        if (starter == null) continue;
-        final item = _findItem(id);
-        if (item?.isTorrent == true) {
-          if (torrentSlots <= 0) {
-            _pendingStarters[id] = starter;
-            continue;
-          }
-          torrentSlots -= 1;
-        }
-        startedPending = true;
-        _startPendingDownload(id, starter);
-      }
+      final startedPending = _startPendingItems(batch);
       if (!startedPending) {
         for (final id in batch.itemIds) {
           final item = _findItem(id);
@@ -1070,6 +1061,26 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     if (state.activeBatchId != null) {
       state = state.copyWith(clearActiveBatchId: true);
     }
+  }
+
+  bool _startPendingItems(DownloadBatchQueue batch) {
+    var startedPending = false;
+    var torrentSlots = _torrentSlotsAvailable();
+    for (final id in batch.itemIds) {
+      final starter = _pendingStarters.remove(id);
+      if (starter == null) continue;
+      final item = _findItem(id);
+      if (item?.isTorrent == true) {
+        if (torrentSlots <= 0) {
+          _pendingStarters[id] = starter;
+          continue;
+        }
+        torrentSlots -= 1;
+      }
+      startedPending = true;
+      _startPendingDownload(id, starter);
+    }
+    return startedPending;
   }
 
   void _updateItem(

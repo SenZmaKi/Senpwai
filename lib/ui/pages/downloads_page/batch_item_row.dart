@@ -178,7 +178,7 @@ class _MetricsAndControls extends ConsumerWidget {
     final notifier = ref.read(DownloadManagerNotifier.provider.notifier);
     final pct = (item.progress.clamp(0.0, 1.0) * 100).toStringAsFixed(1);
     final isDownloading = item.status == DownloadQueueStatus.downloading;
-    final isSeeding = item.status == DownloadQueueStatus.seeding;
+    final isSeeding = item.isSeedingPhase;
     final isPaused = item.status == DownloadQueueStatus.paused;
     final showLive = isDownloading && item.bytesPerSecond > 0;
     final speed = showLive ? formatDownloadSpeed(item.bytesPerSecond) : '—';

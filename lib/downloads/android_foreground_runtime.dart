@@ -652,9 +652,17 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
     _BatchNotificationStatus? overrideStatus,
   }) async {
     final activeBatchId = state.activeBatchId;
-    final activeBatch = activeBatchId == null
+    var activeBatch = activeBatchId == null
         ? null
         : _batchById(state, activeBatchId);
+    if (activeBatch == null) {
+      for (final batch in state.batches) {
+        if (_itemsForBatch(state, batch).any((item) => item.isSeedingPhase)) {
+          activeBatch = batch;
+          break;
+        }
+      }
+    }
     final batchItems = activeBatch == null
         ? const <DownloadQueueItem>[]
         : _itemsForBatch(state, activeBatch);
@@ -1051,10 +1059,15 @@ _BatchNotificationStatus _batchNotificationStatus(
   List<DownloadQueueItem> activeItems,
 ) {
   if (activeItems.isEmpty) return _terminalBatchStatus(batchItems);
+  if (activeItems.every((item) => item.isSeedingPhase)) {
+    return activeItems.every(
+          (item) => item.status == DownloadQueueStatus.paused,
+        )
+        ? _BatchNotificationStatus.pausedSeeding
+        : _BatchNotificationStatus.seeding;
+  }
   if (activeItems.any(
-    (item) =>
-        item.status == DownloadQueueStatus.downloading ||
-        item.status == DownloadQueueStatus.seeding,
+    (item) => item.status == DownloadQueueStatus.downloading,
   )) {
     return _BatchNotificationStatus.downloading;
   }
@@ -1139,10 +1152,16 @@ List<NotificationButton> _notificationButtonsForStatus(
   if (status.isTerminal) return const [];
   return [
     NotificationButton(
-      id: status == _BatchNotificationStatus.paused
+      id:
+          status == _BatchNotificationStatus.paused ||
+              status == _BatchNotificationStatus.pausedSeeding
           ? AndroidForegroundDownloadRuntime._actionResume
           : AndroidForegroundDownloadRuntime._actionPause,
-      text: status == _BatchNotificationStatus.paused ? 'Resume' : 'Pause',
+      text:
+          status == _BatchNotificationStatus.paused ||
+              status == _BatchNotificationStatus.pausedSeeding
+          ? 'Resume'
+          : 'Pause',
     ),
     const NotificationButton(
       id: AndroidForegroundDownloadRuntime._actionCancel,
@@ -1243,6 +1262,8 @@ enum _BatchNotificationStatus {
   preparing('Preparing', false),
   queued('Queued', false),
   downloading('Downloading', false),
+  seeding('Seeding', false),
+  pausedSeeding('Seeding paused', false),
   pausing('Pausing', false),
   paused('Paused', false),
   resuming('Resuming', false),

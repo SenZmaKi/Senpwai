@@ -185,19 +185,20 @@ class _BatchControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isSeeding = snapshot.isSeedingPhase;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (snapshot.canPause)
           _CtrlBtn(
             icon: Icons.pause_rounded,
-            tooltip: 'Pause batch',
+            tooltip: isSeeding ? 'Pause seeding' : 'Pause batch',
             onTap: () => notifier.pauseBatch(snapshot.batch.id),
           ),
         if (snapshot.canResume)
           _CtrlBtn(
             icon: Icons.play_arrow_rounded,
-            tooltip: 'Resume batch',
+            tooltip: isSeeding ? 'Resume seeding' : 'Resume batch',
             color: theme.colorScheme.primary,
             onTap: () => notifier.resumeBatch(snapshot.batch.id),
           ),
@@ -205,19 +206,21 @@ class _BatchControls extends StatelessWidget {
         if (snapshot.activeCount > 0)
           _CtrlBtn(
             icon: Icons.close_rounded,
-            tooltip: 'Cancel batch',
+            tooltip: isSeeding ? 'Stop seeding' : 'Cancel batch',
             color: theme.colorScheme.error.withValues(alpha: 0.75),
             onTap: () async {
               final confirmed = await showConfirmDialog(
                 context,
-                title: 'Cancel this batch?',
-                message:
-                    'This will stop "${snapshot.batch.title}" and discard '
-                    'its remaining downloads. Completed files will not be '
-                    'deleted.',
-                confirmLabel: 'Cancel batch',
-                cancelLabel: 'Keep downloading',
-                destructive: true,
+                title: isSeeding ? 'Stop seeding?' : 'Cancel this batch?',
+                message: isSeeding
+                    ? 'This will stop sharing "${snapshot.batch.title}". The '
+                          'downloaded files will not be deleted.'
+                    : 'This will stop "${snapshot.batch.title}" and discard '
+                          'its remaining downloads. Completed files will not '
+                          'be deleted.',
+                confirmLabel: isSeeding ? 'Stop seeding' : 'Cancel batch',
+                cancelLabel: isSeeding ? 'Keep seeding' : 'Keep downloading',
+                destructive: !isSeeding,
               );
               if (confirmed) notifier.cancelBatch(snapshot.batch.id);
             },

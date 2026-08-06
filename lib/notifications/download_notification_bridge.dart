@@ -115,9 +115,18 @@ class _DownloadNotificationBridgeState
     }
 
     final activeBatchId = next.activeBatchId;
-    if (activeBatchId == null) return const {};
-
-    final batch = _batchById(next, activeBatchId);
+    var batch = activeBatchId == null ? null : _batchById(next, activeBatchId);
+    if (batch == null) {
+      for (final candidate in next.batches) {
+        if (_itemsForBatch(
+          next,
+          candidate,
+        ).any((item) => item.isSeedingPhase)) {
+          batch = candidate;
+          break;
+        }
+      }
+    }
     if (batch == null) return const {};
 
     final items = _itemsForBatch(next, batch);
@@ -235,6 +244,9 @@ class _DownloadNotificationBridgeState
     final paused =
         activeItems.isNotEmpty &&
         activeItems.every((item) => item.status == DownloadQueueStatus.paused);
+    final seeding =
+        activeItems.isNotEmpty &&
+        activeItems.every((item) => item.isSeedingPhase);
 
     unawaitedNotification(
       AppNotificationService.instance.showDownloadProgress(
@@ -247,6 +259,7 @@ class _DownloadNotificationBridgeState
           totalBytes: totalBytes,
           bytesPerSecond: bytesPerSecond,
           paused: paused,
+          seeding: seeding,
         ),
         progress: progress,
         paused: paused,
@@ -328,6 +341,7 @@ class _DownloadNotificationBridgeState
     required int totalBytes,
     required double bytesPerSecond,
     required bool paused,
+    required bool seeding,
   }) {
     final activeCount = items.where((item) => !item.status.isTerminal).length;
     final doneCount = items.length - activeCount;
@@ -338,7 +352,11 @@ class _DownloadNotificationBridgeState
         ? '$activeCount active · $doneCount done'
         : '$activeCount active';
     if (paused) {
-      return 'Paused · $countText · $percent% · $downloaded / $total';
+      final label = seeding ? 'Seeding paused' : 'Paused';
+      return '$label · $countText · $percent% · $downloaded / $total';
+    }
+    if (seeding) {
+      return 'Seeding · $countText · $percent% · $downloaded / $total';
     }
     final speed = bytesPerSecond <= 0
         ? 'Starting...'

@@ -22,6 +22,9 @@ class DownloadBatchSnapshot {
       items.where((i) => i.status == DownloadQueueStatus.seeding).length;
   int get pausedCount =>
       items.where((i) => i.status == DownloadQueueStatus.paused).length;
+  int get seedingPhaseCount => items.where((i) => i.isSeedingPhase).length;
+  bool get isSeedingPhase =>
+      activeCount > 0 && seedingPhaseCount == activeCount;
 
   int get totalBytes => items.fold(0, (s, i) => s + i.totalBytes);
   int get downloadedBytes => items.fold(0, (s, i) => s + i.downloadedBytes);

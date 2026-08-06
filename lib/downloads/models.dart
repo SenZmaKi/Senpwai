@@ -283,6 +283,13 @@ class DownloadQueueItem {
 
   bool get isTorrent => source == AnimeSource.nyaa;
 
+  bool get isSeedingPhase =>
+      status == DownloadQueueStatus.seeding ||
+      (status == DownloadQueueStatus.paused &&
+          isTorrent &&
+          totalBytes > 0 &&
+          downloadedBytes >= totalBytes);
+
   double get progress =>
       totalBytes <= 0 ? 0 : downloadedBytes.clamp(0, totalBytes) / totalBytes;
 
