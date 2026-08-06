@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/shared/platform_file_opener.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_formatters.dart';
@@ -188,6 +189,9 @@ class _MetricsAndControls extends ConsumerWidget {
     final upSpeed = showTorrentLive && torrent.uploadBytesPerSecond > 0
         ? formatDownloadSpeed(torrent.uploadBytesPerSecond)
         : '—';
+    final canOpenFile =
+        (item.status == DownloadQueueStatus.completed || item.isSeedingPhase) &&
+        item.filePaths.isNotEmpty;
 
     final mobile = isMobile(context);
     return Row(
@@ -238,6 +242,24 @@ class _MetricsAndControls extends ConsumerWidget {
             ],
           ),
         ),
+        if (canOpenFile)
+          _IconAction(
+            icon: Icons.open_in_new_rounded,
+            tooltip: 'Open downloaded file',
+            color: theme.colorScheme.primary,
+            onTap: () async {
+              final error = await PlatformFileOpener.openFile(
+                item.filePaths.first,
+              );
+              if (error != null && context.mounted) {
+                AppToast.showError(
+                  context,
+                  title: 'Could not open file',
+                  description: error,
+                );
+              }
+            },
+          ),
         if (isDownloading || isSeeding)
           _IconAction(
             icon: Icons.pause_rounded,

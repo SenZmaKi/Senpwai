@@ -41,6 +41,8 @@ dependencies:
     fuzzywuzzy: ^1.2.0
     dio_cache_interceptor: ^4.0.7
     ffi: ^2.1.4
+    open_file: ^4.0.0
+    open_file_manager: ^2.0.1
     url_launcher: ^6.3.1
     app_links: ^6.4.0
     google_fonts: ^6.1.0
@@ -81,6 +83,7 @@ dependencies:
             url: https://github.com/SenZmaKi/flutter_foreground_task_progress
     windows_taskbar: ^1.1.2
     dio_http2_adapter: ^2.8.0
+    http2: ^2.3.1
 
 dev_dependencies:
     flutter_test:

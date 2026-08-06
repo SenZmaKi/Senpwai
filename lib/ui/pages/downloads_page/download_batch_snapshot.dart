@@ -32,6 +32,15 @@ class DownloadBatchSnapshot {
 
   bool get hasTorrentStats => items.any((i) => i.torrentStats != null);
 
+  String? get destinationDirectory {
+    for (final item in items) {
+      if (item.destinationDirectory.trim().isNotEmpty) {
+        return item.destinationDirectory;
+      }
+    }
+    return null;
+  }
+
   double get uploadBytesPerSecond => items.fold(
     0.0,
     (s, i) => s + (i.torrentStats?.uploadBytesPerSecond ?? 0),

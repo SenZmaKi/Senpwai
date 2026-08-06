@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
+import 'package:http2/transport.dart';
 
 /// Prefers HTTP/2 for every request and falls back to the configured adapter.
 ///
@@ -10,6 +11,7 @@ import 'package:dio_http2_adapter/dio_http2_adapter.dart';
 class Http2PreferredAdapter implements HttpClientAdapter {
   final HttpClientAdapter fallbackAdapter;
   late final Http2Adapter _http2Adapter;
+  final Set<String> _http1OnlyOrigins = {};
 
   Http2PreferredAdapter({
     required this.fallbackAdapter,
@@ -26,9 +28,27 @@ class Http2PreferredAdapter implements HttpClientAdapter {
     RequestOptions options,
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
-  ) {
-    return _http2Adapter.fetch(options, requestStream, cancelFuture);
+  ) async {
+    final origin = _origin(options.uri);
+    if (_http1OnlyOrigins.contains(origin)) {
+      return fallbackAdapter.fetch(options, requestStream, cancelFuture);
+    }
+
+    try {
+      return await _http2Adapter.fetch(options, requestStream, cancelFuture);
+    } on TransportConnectionException {
+      if (!_canReplay(options, requestStream)) rethrow;
+
+      _http1OnlyOrigins.add(origin);
+      return fallbackAdapter.fetch(options, null, cancelFuture);
+    }
   }
+
+  bool _canReplay(RequestOptions options, Stream<Uint8List>? requestStream) =>
+      requestStream == null &&
+      (options.method == 'GET' || options.method == 'HEAD');
+
+  String _origin(Uri uri) => '${uri.scheme}://${uri.host}:${uri.port}';
 
   @override
   void close({bool force = false}) {

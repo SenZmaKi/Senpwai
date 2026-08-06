@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/shared/platform_file_opener.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
+import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page/batch_big_progress_bar.dart';
 import 'package:senpwai/ui/pages/downloads_page/batch_metrics_strip.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_batch_snapshot.dart';
@@ -189,6 +191,22 @@ class _BatchControls extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (snapshot.destinationDirectory case final folder?)
+          _CtrlBtn(
+            icon: Icons.folder_open_rounded,
+            tooltip: 'Open batch folder',
+            color: theme.colorScheme.primary,
+            onTap: () async {
+              final error = await PlatformFileOpener.openFolder(folder);
+              if (error != null && context.mounted) {
+                AppToast.showError(
+                  context,
+                  title: 'Could not open folder',
+                  description: error,
+                );
+              }
+            },
+          ),
         if (snapshot.canPause)
           _CtrlBtn(
             icon: Icons.pause_rounded,
