@@ -61,10 +61,6 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
     int page = 1,
     int perPage = 25,
   }) async {
-    _log.infoWithMetadata(
-      "Listing user media list",
-      metadata: {"listStatus": listStatus, "page": page, "perPage": perPage},
-    );
     final token = auth.token;
     if (token == null) {
       throw const AnilistAuthRequiredException();
@@ -112,7 +108,6 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
     AuthenticatedAnimeSearchParams params =
         const AuthenticatedAnimeSearchParams(),
   }) async {
-    _log.infoWithMetadata("Searching AniList", metadata: {"params": params});
     final token = auth.token;
     if (token == null) {
       throw const AnilistAuthRequiredException();
@@ -168,10 +163,6 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
   Future<AnilistAnimeWithListEntry?> getAnimeById({
     required int anilistId,
   }) async {
-    _log.infoWithMetadata(
-      "Fetching AniList anime by ID",
-      metadata: {"anilistId": anilistId},
-    );
     final token = auth.token;
     if (token == null) {
       throw const AnilistAuthRequiredException();
@@ -201,10 +192,6 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
   Future<List<AnilistRelation<AnilistAnimeWithListEntry>>> fetchRelationsById(
     int anilistId,
   ) async {
-    _log.infoWithMetadata(
-      "Fetching AniList relations by ID",
-      metadata: {"anilistId": anilistId},
-    );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: true),
       variables: {"id": anilistId, "isAdult": contentSettings.isAdultQueryValue}
@@ -239,10 +226,6 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
 
   Future<List<AnilistRecommendation<AnilistAnimeWithListEntry>>>
   fetchRecommendationsById(int anilistId) async {
-    _log.infoWithMetadata(
-      "Fetching AniList recommendations by ID",
-      metadata: {"anilistId": anilistId},
-    );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: true),
       variables: {"id": anilistId, "isAdult": contentSettings.isAdultQueryValue}
@@ -281,10 +264,6 @@ class AnilistAuthenticatedClient extends AnilistClientBase {
     final now = DateTime.now();
     final season = AnilistSeasonExtension.inferFromDate(now);
     final seasonYear = now.year;
-    _log.infoWithMetadata(
-      "Fetching AniList trending season",
-      metadata: {"season": season, "seasonYear": seasonYear},
-    );
     final token = auth.token;
     if (token == null) {
       throw const AnilistAuthRequiredException();

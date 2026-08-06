@@ -27,9 +27,6 @@ class ConnectivityInterceptor extends Interceptor {
 
   void setOfflineNetworkErrorCallback(OfflineNetworkErrorCallback? callback) {
     _onOfflineNetworkError = callback;
-    _log.info(
-      "Offline network error callback ${callback == null ? 'cleared' : 'set'}",
-    );
   }
 
   @override

@@ -19,7 +19,6 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
   Future<Pagination<List<AnilistAnime>>> searchAnime({
     AnimeSearchParams params = const AnimeSearchParams(),
   }) async {
-    _log.infoWithMetadata("Searching AniList", metadata: {"params": params});
     if (params.listStatus != null) {
       throw const AnilistAuthRequiredException();
     }
@@ -64,10 +63,6 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
   }
 
   Future<AnilistAnime?> getAnimeById(int anilistId) async {
-    _log.infoWithMetadata(
-      "Fetching AniList anime by ID",
-      metadata: {"anilistId": anilistId},
-    );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: false),
       variables: {"id": anilistId, "isAdult": contentSettings.isAdultQueryValue}
@@ -91,10 +86,6 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
   Future<List<AnilistRelation<AnilistAnime>>> fetchRelationsById(
     int anilistId,
   ) async {
-    _log.infoWithMetadata(
-      "Fetching AniList relations by ID",
-      metadata: {"anilistId": anilistId},
-    );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: false),
       variables: {"id": anilistId, "isAdult": contentSettings.isAdultQueryValue}
@@ -126,10 +117,6 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
   Future<List<AnilistRecommendation<AnilistAnime>>> fetchRecommendationsById(
     int anilistId,
   ) async {
-    _log.infoWithMetadata(
-      "Fetching AniList recommendations by ID",
-      metadata: {"anilistId": anilistId},
-    );
     final data = await _graphql.postGraphQL(
       query: mediaByIdQuery(includeListEntry: false),
       variables: {"id": anilistId, "isAdult": contentSettings.isAdultQueryValue}
@@ -164,10 +151,6 @@ class AnilistUnauthenticatedClient extends AnilistClientBase {
     final now = DateTime.now();
     final season = AnilistSeasonExtension.inferFromDate(now);
     final seasonYear = now.year;
-    _log.infoWithMetadata(
-      "Fetching AniList trending season",
-      metadata: {"season": season, "seasonYear": seasonYear},
-    );
 
     final data = await _graphql.postGraphQL(
       query: trendingQuery(includeListEntry: false),

@@ -65,24 +65,12 @@ class CfBypassInterceptor extends Interceptor {
         _userAgentsByHost[entry.key] = userAgent;
       }
     }
-    _log.infoWithMetadata(
-      "Created CF bypass interceptor",
-      metadata: {
-        "interceptorId": _interceptorId,
-        "networkId": _shortNetworkId(networkKey),
-        "persistedHosts": initialSessions.keys.toList(),
-      },
-    );
   }
 
   /// Sets the solver callback. Typically called by the UI layer once
   /// it has a navigation context to show the [CfWebView].
   void setSolver(CfBypassSolver? solver) {
     _solver = solver;
-    _log.infoWithMetadata(
-      "CF bypass solver ${solver != null ? 'set' : 'cleared'}",
-      metadata: {"interceptorId": _interceptorId},
-    );
   }
 
   void clearRememberedSessions() {
@@ -108,20 +96,6 @@ class CfBypassInterceptor extends Interceptor {
         options.headers,
         options.uri,
         userAgent: userAgent,
-      );
-    }
-    if (isValidationRequest) {
-      _log.infoWithMetadata(
-        "CF request session state before cookie manager",
-        metadata: {
-          "url": options.uri.toString(),
-          "interceptorId": _interceptorId,
-          "host": options.uri.host,
-          "isValidation": isValidationRequest,
-          "hasBypassSession": _hasBypassSession(options.uri.host),
-          "hasRememberedUserAgent": userAgent != null,
-          "cookieNames": _cookieNamesFromHeaders(options.headers),
-        },
       );
     }
     handler.next(options);
@@ -168,20 +142,12 @@ class CfBypassInterceptor extends Interceptor {
       return;
     }
 
-    _log.infoWithMetadata(
-      "CloudFlare protection detected",
+    _log.warningWithMetadata(
+      'Cloudflare protection detected',
       metadata: {
-        "url": url,
-        "interceptorId": _interceptorId,
-        "kind": detection.kind.name,
-        "indicators": detection.matchedIndicators,
-        "hasBypassSession": _hasBypassSession(err.requestOptions.uri.host),
-        "requestCookieNames": _cookieNamesFromHeaders(
-          err.requestOptions.headers,
-        ),
-        "requestHasUserAgent": err.requestOptions.headers.containsKey(
-          "User-Agent",
-        ),
+        'host': err.requestOptions.uri.host,
+        'kind': detection.kind.name,
+        'hasBypassSession': _hasBypassSession(err.requestOptions.uri.host),
       },
     );
 
@@ -297,12 +263,9 @@ class CfBypassInterceptor extends Interceptor {
       _log.infoWithMetadata(
         "CF bypass succeeded",
         metadata: {
-          "url": url,
-          "interceptorId": _interceptorId,
-          "hasUserAgent": result.userAgent?.isNotEmpty == true,
-          "cookieCount": result.cookies.length,
-          "duration": result.duration?.inMilliseconds,
-          "resolvedUrl": result.finalUrl,
+          'host': err.requestOptions.uri.host,
+          'cookieCount': result.cookies.length,
+          'durationMs': result.duration?.inMilliseconds,
         },
       );
 
@@ -343,10 +306,6 @@ class CfBypassInterceptor extends Interceptor {
   ) {
     final existingBypass = _bypassByHost[host];
     if (existingBypass != null) {
-      _log.infoWithMetadata(
-        "Waiting for in-flight CF bypass",
-        metadata: {"host": host, "url": url, "interceptorId": _interceptorId},
-      );
       return existingBypass;
     }
 
@@ -354,11 +313,6 @@ class CfBypassInterceptor extends Interceptor {
     if (solver == null) {
       throw StateError("CF bypass solver is not set");
     }
-
-    _log.infoWithMetadata(
-      "Initiating CF bypass solve",
-      metadata: {"host": host, "url": url, "interceptorId": _interceptorId},
-    );
 
     final bypass =
         solver(
@@ -412,21 +366,6 @@ class CfBypassInterceptor extends Interceptor {
           statusCode < 400 &&
           detection.kind == CfProtectionKind.none;
 
-      _log.infoWithMetadata(
-        verified
-            ? "CF bypass validation passed"
-            : "CF bypass validation failed",
-        metadata: {
-          "url": requestOptions.uri.toString(),
-          "resolvedUrl": sessionUri.toString(),
-          "validationUrl": validationOptions.uri.toString(),
-          "interceptorId": _interceptorId,
-          "statusCode": statusCode,
-          "kind": detection.kind.name,
-          "indicators": detection.matchedIndicators,
-          "cookieNames": _cookieNamesFromHeaders(validationOptions.headers),
-        },
-      );
       return verified;
     } catch (e, stack) {
       _log.warningWithMetadata(
@@ -502,16 +441,6 @@ class CfBypassInterceptor extends Interceptor {
           ),
       ],
     );
-    _log.infoWithMetadata(
-      "Remembered CF bypass session",
-      metadata: {
-        "host": host,
-        "networkId": _shortNetworkId(networkKey),
-        "interceptorId": _interceptorId,
-        "hasUserAgent": _userAgentsByHost.containsKey(host),
-        "cookieNames": result.cookies.map((cookie) => cookie.name).toList(),
-      },
-    );
   }
 
   Future<String?> _ensureNetworkKey() async {
@@ -541,14 +470,6 @@ class CfBypassInterceptor extends Interceptor {
     final storedHosts = await sessionStore.hosts();
     await _activateNetworkSessions(storedHosts, sessions);
     _networkKey = identity.key;
-    _log.infoWithMetadata(
-      "Activated CF sessions for changed network",
-      metadata: {
-        "interceptorId": _interceptorId,
-        "networkId": _shortNetworkId(identity.key),
-        "persistedHosts": sessions.keys.toList(),
-      },
-    );
     return true;
   }
 
@@ -587,52 +508,14 @@ class CfBypassInterceptor extends Interceptor {
     _userAgentsByHost.remove(host);
     final reset =
         Future.wait([
-              if (_networkKey case final networkKey?)
-                sessionStore.forgetHost(host, networkKey: networkKey),
-              cookieJar.delete(uri, true),
-            ])
-            .then<void>((_) {
-              _log.infoWithMetadata(
-                "Cleared rejected CF bypass session",
-                metadata: {"host": host, "interceptorId": _interceptorId},
-              );
-            })
-            .whenComplete(() {
-              _sessionResetByHost.remove(host);
-            });
+          if (_networkKey case final networkKey?)
+            sessionStore.forgetHost(host, networkKey: networkKey),
+          cookieJar.delete(uri, true),
+        ]).then<void>((_) {}).whenComplete(() {
+          _sessionResetByHost.remove(host);
+        });
     _sessionResetByHost[host] = reset;
     return reset;
-  }
-
-  List<String> _cookieNamesFromHeaders(Map<String, dynamic> headers) {
-    for (final entry in headers.entries) {
-      if (entry.key.toLowerCase() == HttpHeaders.cookieHeader) {
-        return _cookieNamesFromHeaderValue(entry.value);
-      }
-    }
-    return const [];
-  }
-
-  List<String> _cookieNamesFromHeaderValue(Object? headerValue) {
-    if (headerValue == null) return const [];
-    final text = headerValue is Iterable
-        ? headerValue.map((value) => value.toString()).join('; ')
-        : headerValue.toString();
-    return _cookiePairsFromHeaderText(text).keys.toList()..sort();
-  }
-
-  Map<String, String> _cookiePairsFromHeaderText(String text) {
-    final pairs = <String, String>{};
-    for (final part in text.split(';')) {
-      final trimmed = part.trim();
-      final eqIdx = trimmed.indexOf('=');
-      if (eqIdx <= 0) continue;
-      final name = trimmed.substring(0, eqIdx).trim();
-      final value = trimmed.substring(eqIdx + 1).trim();
-      if (name.isEmpty) continue;
-      pairs[name] = value;
-    }
-    return pairs;
   }
 
   Map<String, dynamic> _buildValidationExtra(Map<String, dynamic> extra) {
@@ -752,16 +635,6 @@ class CfBypassInterceptor extends Interceptor {
 
     if (cookies.isNotEmpty) {
       await cookieJar.saveFromResponse(requestUri, cookies);
-      final savedCookies = await cookieJar.loadForRequest(requestUri);
-      _log.fineWithMetadata(
-        "Saved CF bypass cookies to jar",
-        metadata: {
-          "host": host,
-          "interceptorId": _interceptorId,
-          "cookies": cookies.map(_cookieScope).toList(),
-          "loadableCookies": savedCookies.map(_cookieScope).toList(),
-        },
-      );
     }
   }
 
@@ -786,10 +659,6 @@ class CfBypassInterceptor extends Interceptor {
       ..expires = cookie.expires;
   }
 
-  Map<String, String?> _cookieScope(Cookie cookie) {
-    return {"name": cookie.name, "domain": cookie.domain, "path": cookie.path};
-  }
-
   void _removeHeader(Map<String, dynamic> headers, String name) {
     final lowerName = name.toLowerCase();
     headers.removeWhere((key, _) => key.toLowerCase() == lowerName);
@@ -809,10 +678,5 @@ class CfBypassInterceptor extends Interceptor {
     );
     headers.putIfAbsent("Accept-Language", () => "en-US,en;q=0.9");
     headers.putIfAbsent("Referer", () => "${uri.scheme}://${uri.host}/");
-  }
-
-  static String? _shortNetworkId(String? networkKey) {
-    if (networkKey == null) return null;
-    return networkKey.length <= 12 ? networkKey : networkKey.substring(0, 12);
   }
 }

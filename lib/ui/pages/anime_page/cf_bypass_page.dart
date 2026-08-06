@@ -210,13 +210,6 @@ class _CfBypassPageState extends State<CfBypassPage> {
               clearAllDataOnInit: true,
               clearCfCookiesOnInit: true,
               onSuccess: (result) async {
-                _log.infoWithMetadata(
-                  "CF bypass candidate captured",
-                  metadata: {
-                    "url": activeUrl,
-                    "cookieCount": result.cookies.length,
-                  },
-                );
                 setState(() {
                   _status = CfBypassSolveStatus.verifying;
                   _statusMessage = 'Verifying captured clearance...';
@@ -259,13 +252,6 @@ class _CfBypassPageState extends State<CfBypassPage> {
                   return CfWebViewSuccessDecision.reject;
                 }
 
-                _log.infoWithMetadata(
-                  "CF bypass verified",
-                  metadata: {
-                    "url": activeUrl,
-                    "cookieCount": result.cookies.length,
-                  },
-                );
                 _addEvent('Bypass verified');
                 setState(() {
                   _status = CfBypassSolveStatus.success;

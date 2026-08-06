@@ -129,8 +129,6 @@ class Download {
     var currentOffset = startOffsetBytes;
     var remainingBytes = lengthBytes;
 
-    log.fine("Part $partNumber: Initializing at offset $currentOffset");
-
     while (remainingBytes > 0 && !state.isTerminal) {
       try {
         final processedCount = await _runDownloadIteration(
@@ -157,7 +155,6 @@ class Download {
   }
 
   Future<void> _waitForResume(int partNumber) async {
-    log.fine("Part $partNumber: Paused, waiting for resume signal.");
     final status = await state.waitTillStatus(
       statuses: [
         DownloadStatus.downloading,
@@ -309,7 +306,6 @@ class Download {
 
   Future<void> startAndWait() {
     if (_downloadFuture != null) {
-      log.fine("startAndWait() noop: already started");
       return _downloadFuture!;
     }
     _downloadFuture = _internalStartAndWait();
@@ -318,9 +314,6 @@ class Download {
 
   Future<void> _internalStartAndWait() async {
     state.updateToDownloading();
-
-    log.infoWithMetadata("Starting download", metadata: {"params": params});
-    final stopWatch = Stopwatch()..start();
 
     try {
       await _prepareTargetFile();
@@ -352,15 +345,9 @@ class Download {
     } catch (e, st) {
       log.severeWithMetadata("Download failed", error: e, stackTrace: st);
       state.finalize(DownloadStatus.failed);
-    } finally {
-      stopWatch.stop();
-    }
+    } finally {}
 
     await _cleanup();
-    log.infoWithMetadata(
-      "Download finished",
-      metadata: {"status": state.status, "elapsed": stopWatch.elapsed},
-    );
   }
 
   Future<void> _prepareTargetFile() async {

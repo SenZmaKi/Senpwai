@@ -226,10 +226,6 @@ class CfBypassSessionStore {
       if (version != currentStoreVersion) {
         _profilesByHost = {};
         await _save(_profilesByHost!);
-        _log.infoWithMetadata(
-          'Discarded a pre-production CF bypass session store',
-          metadata: {'previousVersion': version},
-        );
         return _profilesByHost!;
       }
       _profilesByHost = {

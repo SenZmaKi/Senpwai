@@ -3,17 +3,13 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:logging/logging.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:senpwai/settings/models.dart';
-import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/persistence/window_state_repository.dart';
 import 'package:window_manager/window_manager.dart';
 
 bool get supportsWindowCustomization =>
     !kIsWeb && !Platform.isAndroid && !Platform.isIOS;
-
-final _log = Logger('senpwai.ui.window_manager');
 
 class WindowManager with WindowListener {
   static WindowManager? _instance;
@@ -102,32 +98,14 @@ class WindowManager with WindowListener {
     if (!supportsWindowCustomization) return;
     _closeHandler = enabled ? onClose : null;
     await windowManager.setPreventClose(enabled);
-    _log.infoWithMetadata(
-      'Close-to-tray behavior configured',
-      metadata: {'enabled': enabled},
-    );
   }
 
   @override
   void onWindowClose() {
     final closeHandler = _closeHandler;
-    _log.infoWithMetadata(
-      'Native window close event received',
-      metadata: {'hasCloseHandler': closeHandler != null},
-    );
     if (closeHandler != null) {
       unawaited(closeHandler());
-    } else {
-      _log.info('Native close is not configured to hide the window');
     }
-  }
-
-  @override
-  void onWindowEvent(String eventName) {
-    _log.infoWithMetadata(
-      'Native window event received',
-      metadata: {'event': eventName},
-    );
   }
 
   @override

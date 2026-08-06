@@ -293,16 +293,6 @@ class Source {
     required int endEpisode,
     required List<EpisodeSession> episodeSessions,
   }) {
-    log.infoWithMetadata(
-      "Finding episode sessions within range",
-      metadata: {
-        "animeSession": animeSession,
-        "firstEpisode": firstEpisode,
-        "startEpisode": startEpisode,
-        "endEpisode": endEpisode,
-        "episodeSessions": episodeSessions,
-      },
-    );
     int? startIdx;
     int? endIdx;
 
@@ -408,17 +398,6 @@ class Source {
     required Language audioLanguage,
     required List<DownloadLink> downloadLinks,
   }) {
-    log.infoWithMetadata(
-      "Finding best download link match",
-      metadata: {
-        "animeTitle": animeTitle,
-        "episodeNumber": episodeNumber,
-        "resolution": resolution,
-        "audioLanguage": audioLanguage,
-        "downloadLinks": downloadLinks,
-      },
-    );
-
     final audioLanguageMatches = downloadLinks
         .where((link) => link.audioLanguage == audioLanguage)
         .toSet();
@@ -453,14 +432,6 @@ class Source {
     required EpisodeSession episodeSession,
   }) async {
     await SourceDirectory.waitForRefresh();
-    log.infoWithMetadata(
-      "Fetching download links",
-      metadata: {
-        "animeTitle": animeTitle,
-        "animeSession": animeSession,
-        "episodeSession": episodeSession,
-      },
-    );
     final episodePageUrl = Constants.buildEpisodePageUrl(
       animeSession,
       episodeSession.session,
@@ -574,11 +545,6 @@ class Source {
     required String kwikPageLink,
     required DownloadLink downloadLink,
   }) async {
-    log.infoWithMetadata(
-      "Fetching direct download link from kwik page link",
-      metadata: {"downloadLink": downloadLink, "kwikPageLink": kwikPageLink},
-    );
-
     final response = await _dio.get<String>(
       kwikPageLink,
       options: Options(
@@ -599,18 +565,10 @@ class Source {
       );
     }
 
-    log.infoWithMetadata(
-      "Extracting and decrypting kwik form",
-      metadata: {"kwikPageLink": kwikPageLink},
-    );
     final formHtml = _extractAndDecryptKwikForm(htmlPageText);
     log.fineWithMetadata(
       "Extracted and decrypted kwik form",
       metadata: {"kwikPageLink": kwikPageLink, "formHtml": formHtml},
-    );
-    log.infoWithMetadata(
-      "Extracting post url and token from kwik form",
-      metadata: {"kwikPageLink": kwikPageLink},
     );
     final (postUrl, token) = _extractPostUrlAndToken(formHtml);
     log.fineWithMetadata(
@@ -667,10 +625,6 @@ class Source {
     required DownloadLink downloadLink,
   }) async {
     await SourceDirectory.waitForRefresh();
-    log.infoWithMetadata(
-      "Fetching direct download link",
-      metadata: {"downloadLink": downloadLink},
-    );
     final response = await _dio.get<String>(downloadLink.url);
     final htmlPageText = response.data;
     if (htmlPageText == null) {

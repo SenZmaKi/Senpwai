@@ -79,14 +79,6 @@ class CfEgressIdentityResolver {
         warp: fields['warp'],
       );
       _cached = identity;
-      _log.infoWithMetadata(
-        'Resolved CF-facing network identity',
-        metadata: {
-          'networkId': identity.key.substring(0, 12),
-          'colo': identity.colo,
-          'warp': identity.warp,
-        },
-      );
       return identity;
     } catch (error, stackTrace) {
       _log.warningWithMetadata(

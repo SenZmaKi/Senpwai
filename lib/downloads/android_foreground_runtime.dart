@@ -170,7 +170,6 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
     if (!Platform.isAndroid || !await FlutterForegroundTask.isRunningService) {
       return;
     }
-    _log.info('Attaching to running Android download foreground service');
     try {
       await _sendCommand(
         'syncState',
@@ -680,10 +679,6 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
         .toList();
 
     if (activeBatch == null || batchItems.isEmpty) {
-      _log.fineWithMetadata(
-        'Download foreground notification has no active batch',
-        metadata: _foregroundStateMetadata(state),
-      );
       await _stopForegroundServiceIfIdle(state);
       return;
     }
@@ -698,14 +693,6 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
     if (!mustProcessImmediately &&
         last != null &&
         now.difference(last) < _minimumNotificationInterval) {
-      _log.fineWithMetadata(
-        'Throttling download foreground progress notification update',
-        metadata: {
-          ..._foregroundStateMetadata(state),
-          'status': status.name,
-          'percent': aggregate.percent,
-        },
-      );
       return;
     }
     _lastNotificationUpdate = now;
@@ -713,18 +700,6 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
 
     _cancelPendingForegroundStop();
     _foregroundNotificationIsTerminal = status.isTerminal;
-    if (status.isTerminal) {
-      _log.infoWithMetadata(
-        'Download foreground notification reached terminal batch state',
-        metadata: {
-          ..._foregroundStateMetadata(state),
-          'status': status.name,
-          'percent': aggregate.percent,
-          'downloadedBytes': aggregate.downloadedBytes,
-          'totalBytes': aggregate.totalBytes,
-        },
-      );
-    }
     await _updateServiceNotification(
       title: activeBatch.title,
       text: _batchProgressBody(batchItems, aggregate, status: status),
@@ -745,39 +720,20 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
 
   Future<void> _stopForegroundServiceIfIdle(DownloadManagerState state) async {
     if (state.batches.isNotEmpty) {
-      _log.fineWithMetadata(
-        'Download foreground service kept alive because queued batches remain',
-        metadata: _foregroundStateMetadata(state),
-      );
       _cancelPendingForegroundStop();
       await _showIdleForegroundNotification();
       return;
     }
     if (_foregroundServiceStopScheduled) {
-      _log.fineWithMetadata(
-        'Download foreground service stop already scheduled',
-        metadata: _foregroundStateMetadata(state),
-      );
       return;
     }
     if (!_foregroundNotificationIsTerminal) {
-      _log.fineWithMetadata(
-        'Download foreground service is idle without a terminal foreground state',
-        metadata: _foregroundStateMetadata(state),
-      );
       await _showIdleForegroundNotification();
       return;
     }
     _foregroundNotificationIsTerminal = false;
     _foregroundServiceStopScheduled = true;
     _idleNotificationTimer?.cancel();
-    _log.infoWithMetadata(
-      'Scheduling download foreground service stop',
-      metadata: {
-        ..._foregroundStateMetadata(state),
-        'graceMs': _terminalNotificationGrace.inMilliseconds,
-      },
-    );
     _idleNotificationTimer = Timer(_terminalNotificationGrace, () {
       unawaited(_stopForegroundService());
     });
@@ -787,11 +743,8 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
     _idleNotificationTimer?.cancel();
     _foregroundServiceStopScheduled = false;
     _lastForegroundStatus = null;
-    _log.info('Stopping download foreground service');
     final result = await FlutterForegroundTask.stopService();
-    if (result case ServiceRequestSuccess()) {
-      _log.info('Download foreground service stop requested successfully');
-    } else if (result case ServiceRequestFailure(:final error)) {
+    if (result case ServiceRequestFailure(:final error)) {
       _log.warningWithMetadata(
         'Failed to stop download foreground service',
         metadata: {'error': '$error'},

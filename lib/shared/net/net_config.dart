@@ -78,21 +78,12 @@ class NetConfig {
       return;
     }
     final allEntries = await cacheStore!.getFromPath(RegExp('.*'));
-    final Map<String, dynamic> entriesMap = allEntries.fold({}, (map, entry) {
-      final key = entry.key.toString();
-      if (map[key] == null) {
-        map[key] = [];
-      }
-      map[key]!.add({
-        "key": entry.key,
-        "url": entry.url,
-        "statusCode": entry.statusCode,
-        "priority": entry.priority,
-        "maxStale": entry.maxStale,
-        "isStaled": entry.isStaled(),
-      });
-      return map;
-    });
-    _log.infoWithMetadata("Cache entries", metadata: {"entries": entriesMap});
+    _log.infoWithMetadata(
+      'Cache summary',
+      metadata: {
+        'entries': allEntries.length,
+        'staleEntries': allEntries.where((entry) => entry.isStaled()).length,
+      },
+    );
   }
 }

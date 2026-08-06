@@ -69,14 +69,6 @@ class AnimeFillerService {
           continue;
         }
         if (page.episodes.isNotEmpty && page.episodes.last > episodeCount) {
-          _log.infoWithMetadata(
-            'Ignored filler list spanning beyond the selected anime entry',
-            metadata: {
-              'anime': anime.title.display,
-              'episodeCount': episodeCount,
-              'lastFillerEpisode': page.episodes.last,
-            },
-          );
           return const {};
         }
         return page.episodes.toSet();

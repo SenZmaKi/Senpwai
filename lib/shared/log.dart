@@ -14,22 +14,26 @@ extension LoggerExtensions on Logger {
     StackTrace? stackTrace,
     Map<String, dynamic>? metadata,
   }) {
+    if (!isLoggable(Level.SEVERE)) return;
     final msg =
         "$message (error: $error, stacktrace: $stackTrace, metadata: $metadata)";
     severe(msg);
   }
 
   void fineWithMetadata(Object? message, {Map<String, dynamic>? metadata}) {
+    if (!isLoggable(Level.FINE)) return;
     final msg = "$message (metadata: $metadata)";
     fine(msg);
   }
 
   void infoWithMetadata(Object? message, {Map<String, dynamic>? metadata}) {
+    if (!isLoggable(Level.INFO)) return;
     final msg = "$message (metadata: $metadata)";
     info(msg);
   }
 
   void warningWithMetadata(Object? message, {Map<String, dynamic>? metadata}) {
+    if (!isLoggable(Level.WARNING)) return;
     final msg = "$message (metadata: $metadata)";
     warning(msg);
   }
@@ -152,7 +156,9 @@ class _AsyncLogWriter {
 void setupLogger() {
   if (_isLoggerConfigured) return;
   _isLoggerConfigured = true;
-  Logger.root.level = Level.ALL;
+  // Fine-grained call-by-call traces are better represented by DevTools
+  // timeline spans. Keep production logs focused on actionable failures.
+  Logger.root.level = kDebugMode ? Level.INFO : Level.WARNING;
   Logger.root.onRecord.listen((record) {
     final color = _getColorForLevel(record.level);
     const reset = '\x1B[0m';

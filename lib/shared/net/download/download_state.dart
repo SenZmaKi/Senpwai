@@ -2,10 +2,6 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:senpwai/shared/net/download/download_rate_tracker.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
-import 'package:senpwai/shared/log.dart';
-import 'package:logging/logging.dart';
-
-final log = Logger("senpwai.shared.net.download.download_state");
 
 enum DownloadStatus { idle, downloading, paused, cancelled, completed, failed }
 
@@ -120,10 +116,8 @@ class DownloadState {
 
   void pause() {
     if (status != DownloadStatus.downloading) {
-      log.fine("pause() noop: status=$status");
       return;
     }
-    log.infoWithMetadata("Pausing download", metadata: {"params": params});
     rateTracker.pause();
     // Update status BEFORE cancelling so the iteration loop sees `isPaused`
     // when it catches the DioException and waits for resume instead of failing.
@@ -137,10 +131,8 @@ class DownloadState {
 
   void resume() {
     if (status != DownloadStatus.paused) {
-      log.fine("resume() noop: status=$status");
       return;
     }
-    log.infoWithMetadata("Resuming download", metadata: {"params": params});
     rateTracker.resume();
     _updateStatus(DownloadStatus.downloading);
   }
@@ -154,10 +146,8 @@ class DownloadState {
 
   Future<void> cancel() async {
     if (isTerminal || status == DownloadStatus.idle) {
-      log.fine("cancel() noop: status=$status");
       return;
     }
-    log.infoWithMetadata("Cancelling download", metadata: {"params": params});
     for (final token in _iterationTokens.values) {
       if (!token.isCancelled) token.cancel(cancelReason);
     }

@@ -111,10 +111,6 @@ class AnilistAuthenticatorClient {
 
   Future<void> openAuthenticationPage() async {
     final url = _buildAuthorizationUrl();
-    _log.infoWithMetadata(
-      "Opening AniList auth URL",
-      metadata: {"url": url.toString()},
-    );
     if (kIsWeb) {
       final ok = await launchUrl(url, webOnlyWindowName: "_self");
       if (!ok) {
@@ -140,10 +136,6 @@ class AnilistAuthenticatorClient {
 
     final subscription = appLinks.uriLinkStream.listen(
       (uri) {
-        _log.infoWithMetadata(
-          "Received URI",
-          metadata: {"uri": uri.toString()},
-        );
         // Ensure we match your redirect: senpwai://auth
         if (uri.scheme == "senpwai" && uri.host == "auth") {
           if (!completer.isCompleted) completer.complete(uri);

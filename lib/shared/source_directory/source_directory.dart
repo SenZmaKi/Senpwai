@@ -105,10 +105,6 @@ class SourceDirectory {
     if (cached != null) {
       _instance = cached;
       _hadCachedDirectory = true;
-      _log.infoWithMetadata(
-        'Using cached source directory',
-        metadata: {'version': cached.version, 'expiresAt': cached.expiresAt},
-      );
     }
     _refreshFuture ??= _refresh(repository);
     unawaited(_refreshFuture!);
@@ -118,7 +114,6 @@ class SourceDirectory {
     try {
       final result = await repository.fetchRemote();
       if (result.directory == null) {
-        _log.fine('Source directory has not changed.');
         return;
       }
       final didChange = _instance.version != result.directory!.version;
@@ -135,12 +130,11 @@ class SourceDirectory {
           'expiresAt': result.directory!.expiresAt,
         },
       );
-    } catch (error, stackTrace) {
+    } catch (error) {
       _log.warningWithMetadata(
         'Could not refresh source directory; retaining the last valid directory',
         metadata: {'error': error.toString()},
       );
-      _log.fine('Source directory refresh stack trace: $stackTrace');
     }
   }
 

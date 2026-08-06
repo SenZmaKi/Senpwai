@@ -1,11 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:logging/logging.dart';
-import 'package:senpwai/shared/log.dart';
-
-final _log = Logger("senpwai.shared.net.connectivity");
-
 const _connectivityProbeTimeout = Duration(seconds: 3);
 const _dnsProbeHost = 'cloudflare.com';
 const _httpProbeUris = [
@@ -25,11 +20,7 @@ Future<bool> hasValidInternetConnection({
       _dnsProbeHost,
     ).timeout(timeout);
     if (addresses.isEmpty) return false;
-  } on Object catch (error, stack) {
-    _log.fineWithMetadata(
-      "Internet DNS probe failed",
-      metadata: {"error": error.toString(), "stack": stack.toString()},
-    );
+  } on Object catch (_) {
     return false;
   }
 
@@ -49,15 +40,7 @@ Future<bool> _canReach(Uri uri, Duration timeout) async {
     final response = await request.close().timeout(timeout);
     unawaited(response.drain<void>());
     return true;
-  } on Object catch (error, stack) {
-    _log.fineWithMetadata(
-      "Internet HTTP probe failed",
-      metadata: {
-        "url": uri.toString(),
-        "error": error.toString(),
-        "stack": stack.toString(),
-      },
-    );
+  } on Object catch (_) {
     return false;
   } finally {
     client.close(force: true);

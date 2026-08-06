@@ -482,10 +482,6 @@ class Source {
     required String animeTitle,
   }) async {
     await SourceDirectory.waitForRefresh();
-    log.infoWithMetadata(
-      "Fetching episode pages",
-      metadata: {"animeTitle": animeTitle, "animeUrl": animeUrl},
-    );
     final response = await _dio.get(animeUrl);
     final htmlPage = parseHtml(response.data);
     final encodedElements = _parseEncodedDownloadRows(htmlPage);
@@ -539,10 +535,6 @@ class Source {
     required EpisodePage episodePage,
   }) async {
     await SourceDirectory.waitForRefresh();
-    log.infoWithMetadata(
-      "Fetching episode download links",
-      metadata: {"episodePage": episodePage},
-    );
     final response = await _dio.get(episodePage.url);
     final htmlPage = parseHtml(response.data);
     final encodedElements = _parseEncodedFileRows(htmlPage);

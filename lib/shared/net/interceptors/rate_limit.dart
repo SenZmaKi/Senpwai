@@ -82,19 +82,15 @@ class RateLimitInterceptor extends Interceptor {
       if (delay.inMicroseconds <= 0) {
         delay = const Duration(seconds: 2);
       }
-      _log.infoWithMetadata(
-        "Rate-Limited retrying after delay",
-        metadata: {"host": host, "delay": delay.inSeconds, "url": uri},
+      _log.warningWithMetadata(
+        'Rate limited; retrying request',
+        metadata: {'host': host, 'delaySeconds': delay.inSeconds},
       );
 
       _blockedUntil[host] = _now().add(delay);
 
       await Future<void>.delayed(delay);
 
-      _log.infoWithMetadata(
-        "Rate-Limit retry",
-        metadata: {"host": host, "delay": delay.inSeconds, "url": uri},
-      );
       try {
         final retryResponse = await dio.fetch<dynamic>(err.requestOptions);
         handler.resolve(retryResponse);

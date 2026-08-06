@@ -1,18 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
-import 'package:logging/logging.dart';
 import 'package:senpwai/anilist/constants.dart' as constants;
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/exceptions.dart';
 import 'package:senpwai/anilist/models.dart';
-import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/anitomy/anitomy.dart';
-
-final _log = Logger("senpwai.anilist.client");
 
 const _mediaCoreFields = r'''
   id
@@ -53,10 +49,6 @@ class AnilistGraphqlClient {
     Map<String, dynamic>? variables,
     String? accessToken,
   }) async {
-    _log.infoWithMetadata(
-      "Posting GraphQL request",
-      metadata: {"variables": variables},
-    );
     final Response<Map<String, dynamic>> response;
     try {
       response = await _dio.post<Map<String, dynamic>>(

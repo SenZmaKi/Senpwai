@@ -27,28 +27,17 @@ class DesktopTrayController with TrayListener {
     required Future<void> Function() onCheckTrackedAnime,
     required bool closeToTray,
   }) async {
-    if (!supportsWindowCustomization) {
-      _log.info('Tray initialization skipped: unsupported platform');
-      return;
-    }
+    if (!supportsWindowCustomization) return;
     _checkTrackedAnime = onCheckTrackedAnime;
-    if (_initialized) {
-      _log.info('Tray initialization skipped: already initialized');
-      return;
-    }
+    if (_initialized) return;
 
     try {
-      _log.infoWithMetadata('Initializing tray', metadata: {'icon': _iconPath});
       trayManager.addListener(this);
       await trayManager.setIcon(_iconPath);
       await trayManager.setToolTip('Senpwai');
       await _setContextMenu(isWindowVisible: await windowManager.isVisible());
       await setCloseToTray(closeToTray);
       _initialized = true;
-      _log.infoWithMetadata(
-        'Tray initialized',
-        metadata: {'closeToTray': closeToTray},
-      );
     } on Object catch (error, stackTrace) {
       trayManager.removeListener(this);
       _log.severeWithMetadata(
@@ -83,21 +72,10 @@ class DesktopTrayController with TrayListener {
   }
 
   Future<void> _hideWindow() async {
-    if (_quitting) {
-      _log.info('Ignoring hide request: explicit quit is in progress');
-      return;
-    }
+    if (_quitting) return;
     try {
-      _log.infoWithMetadata(
-        'Hiding window to tray',
-        metadata: {'visibleBefore': await windowManager.isVisible()},
-      );
       await windowManager.hide();
       await _setContextMenu(isWindowVisible: false);
-      _log.infoWithMetadata(
-        'Window hidden to tray',
-        metadata: {'visibleAfter': await windowManager.isVisible()},
-      );
     } on Object catch (error, stackTrace) {
       _log.severeWithMetadata(
         'Failed to hide window to tray',
@@ -110,10 +88,6 @@ class DesktopTrayController with TrayListener {
   Future<void> _toggleWindowVisibility() async {
     try {
       final visible = await windowManager.isVisible();
-      _log.infoWithMetadata(
-        'Toggling tray window visibility',
-        metadata: {'visibleBefore': visible},
-      );
       if (visible) {
         await _hideWindow();
       } else {
@@ -130,13 +104,8 @@ class DesktopTrayController with TrayListener {
 
   Future<void> _showWindow() async {
     try {
-      _log.info('Showing and focusing window from tray');
       await WindowManager.getInstance().focus();
       await _setContextMenu(isWindowVisible: true);
-      _log.infoWithMetadata(
-        'Window shown from tray',
-        metadata: {'visibleAfter': await windowManager.isVisible()},
-      );
     } on Object catch (error, stackTrace) {
       _log.severeWithMetadata(
         'Failed to show window from tray',
@@ -183,7 +152,6 @@ class DesktopTrayController with TrayListener {
     }
     try {
       await checkTrackedAnime();
-      _log.info('Tracked-anime check request completed');
     } on Object catch (error, stackTrace) {
       _log.severeWithMetadata(
         'Tracked-anime check from tray failed',
@@ -195,22 +163,16 @@ class DesktopTrayController with TrayListener {
 
   @override
   void onTrayIconMouseDown() {
-    _log.info('Tray icon primary click received');
     unawaited(_toggleWindowVisibility());
   }
 
   @override
   void onTrayIconRightMouseDown() {
-    _log.info('Tray icon secondary click received; opening context menu');
     unawaited(_showContextMenu());
   }
 
   @override
   void onTrayMenuItemClick(MenuItem menuItem) {
-    _log.infoWithMetadata(
-      'Tray menu item clicked',
-      metadata: {'key': menuItem.key, 'label': menuItem.label},
-    );
     switch (menuItem.key) {
       case _showWindowKey:
         unawaited(_toggleWindowVisibility());
@@ -225,18 +187,11 @@ class DesktopTrayController with TrayListener {
   }
 
   Future<void> _quit() async {
-    if (_quitting) {
-      _log.info('Ignoring duplicate explicit quit request');
-      return;
-    }
+    if (_quitting) return;
     _quitting = true;
     try {
-      _log.info('Explicit quit requested from tray menu');
       await trayManager.destroy();
       await windowManager.setPreventClose(false);
-      _log.info(
-        'Tray destroyed and close prevention disabled; destroying window',
-      );
       await windowManager.destroy();
     } on Object catch (error, stackTrace) {
       _log.severeWithMetadata(
