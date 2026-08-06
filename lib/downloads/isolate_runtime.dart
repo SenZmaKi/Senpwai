@@ -20,6 +20,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   final _pendingRequests = <String, Completer<Object?>>{};
 
   int _maxDownloadBytesPerSecond;
+  int _maxActiveHttpDownloads;
   String _downloadUserAgent;
   TorrentPreferences _torrentSettings;
   var _stateSnapshot = const DownloadManagerState();
@@ -35,11 +36,13 @@ class DownloadIsolateRuntime implements DownloadRuntime {
 
   DownloadIsolateRuntime({
     required int initialMaxDownloadBytesPerSecond,
+    required int initialMaxActiveHttpDownloads,
     required String downloadUserAgent,
     required TorrentPreferences initialTorrentSettings,
     required this.appDataRootPath,
     required this.onError,
   }) : _maxDownloadBytesPerSecond = initialMaxDownloadBytesPerSecond,
+       _maxActiveHttpDownloads = initialMaxActiveHttpDownloads,
        _downloadUserAgent = downloadUserAgent,
        _torrentSettings = initialTorrentSettings {
     unawaited(_start().catchError((_) {}));
@@ -128,13 +131,16 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   @override
   void updateHttpDownloadSettings({
     required int maxBytesPerSecond,
+    required int maxActiveDownloads,
     required String userAgent,
   }) {
     _maxDownloadBytesPerSecond = maxBytesPerSecond;
+    _maxActiveHttpDownloads = maxActiveDownloads;
     _downloadUserAgent = userAgent;
     unawaited(
       _sendVoidCommand('updateHttpDownloadSettings', {
         'maxBytesPerSecond': maxBytesPerSecond,
+        'maxActiveDownloads': maxActiveDownloads,
         'userAgent': userAgent,
       }),
     );
@@ -226,6 +232,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
           _torrentSettings,
         ),
         'maxDownloadBytesPerSecond': _maxDownloadBytesPerSecond,
+        'maxActiveHttpDownloads': _maxActiveHttpDownloads,
         'downloadUserAgent': _downloadUserAgent,
         'appDataRootPath': appDataRootPath,
       });
@@ -380,6 +387,10 @@ Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
       initialMaxDownloadBytesPerSecond: _int(
         config['maxDownloadBytesPerSecond'],
       ),
+      initialMaxActiveHttpDownloads: _queueLimit(
+        config['maxActiveHttpDownloads'],
+        1,
+      ),
       initialTorrentSettings: DownloadRuntimeCodec.decodeTorrentSettings(
         _map(config['settings']),
       ),
@@ -475,6 +486,7 @@ Future<void> _handleDownloadCommand(
       case 'updateHttpDownloadSettings':
         runtime.updateHttpDownloadSettings(
           maxBytesPerSecond: _int(payload['maxBytesPerSecond']),
+          maxActiveDownloads: _queueLimit(payload['maxActiveDownloads'], 1),
           userAgent: _string(payload['userAgent']),
         );
         result = null;
@@ -519,5 +531,10 @@ String _string(Object? value) => value is String ? value : '';
 String? _stringOrNull(Object? value) => value is String ? value : null;
 
 int _int(Object? value) => value is int ? value : 0;
+
+int _queueLimit(Object? value, int fallback) {
+  if (value is! int || value < -1) return fallback;
+  return value;
+}
 
 List<Object?> _list(Object? value) => value is List ? value : const [];

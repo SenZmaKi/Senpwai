@@ -145,6 +145,7 @@ class SettingsSearchResults extends ConsumerWidget {
       'Anime Library Folders add remove reorder',
       ...settings.downloads.effectiveRootDirectories,
       'HTTP Download Limit ${settings.downloads.maxDownloadBytesPerSecond}',
+      'Active HTTP Downloads maximum parallel downloads ${settings.downloads.maxActiveDownloads}',
       'Bandwidth Queue Limits upload download speeds maximum parallel downloads',
       'Torrent Download Limit ${torrent.maxDownloadBytesPerSecond}',
       'Torrent Upload Limit ${torrent.maxUploadBytesPerSecond}',

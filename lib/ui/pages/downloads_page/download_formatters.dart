@@ -1,5 +1,9 @@
 import 'package:senpwai/downloads/models.dart';
 
+String formatDownloadTitle(String title) {
+  return title.replaceFirst(RegExp(r' \(\d+\)(?=(?:\.[^.]*)?$)'), '');
+}
+
 String formatDownloadBytes(num bytes) {
   if (bytes >= 1024 * 1024 * 1024) {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';

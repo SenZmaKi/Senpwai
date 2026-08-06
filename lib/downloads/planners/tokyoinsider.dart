@@ -53,8 +53,7 @@ class TokyoInsiderDownloadPlanner {
       for (final episode in requestedEpisodes) pagesByEpisode[episode]!,
     ];
     final jobs = <PreparedDownloadJob>[];
-    for (var index = 0; index < selectedPages.length; index++) {
-      final episodePage = selectedPages[index];
+    for (final episodePage in selectedPages) {
       final downloadLinks = await _source.fetchEpisodeDownloadLinks(
         episodePage: episodePage,
       );
@@ -81,7 +80,6 @@ class TokyoInsiderDownloadPlanner {
         episodeNumber: selectedLink.episodeNumber,
         sourceFileName: selectedLink.filename,
         resolvedUrl: resolvedTarget.resolvedUrl,
-        dedupeSuffix: index == 0 ? null : '(${index + 1})',
       );
       jobs.add(
         PreparedHttpDownloadJob(

@@ -28,6 +28,10 @@ class DownloadNotificationBridge extends ConsumerStatefulWidget {
 class _DownloadNotificationBridgeState
     extends ConsumerState<DownloadNotificationBridge> {
   static const _minimumProgressInterval = Duration(seconds: 1);
+  // windows_taskbar's native plugin decodes progress values as int32_t. Sending
+  // byte counts for downloads larger than 2 GiB makes the method channel encode
+  // them as int64_t, which causes the plugin to terminate the process.
+  static const _taskbarProgressTotal = 10000;
 
   final Map<String, DateTime> _lastProgressUpdates = {};
   final Map<String, DownloadQueueStatus> _lastItemStatuses = {};
@@ -433,10 +437,14 @@ class _DownloadNotificationBridgeState
       return;
     }
 
-    final completed = downloadedBytes.clamp(0, totalBytes);
+    final completed =
+        (downloadedBytes.clamp(0, totalBytes) /
+                totalBytes *
+                _taskbarProgressTotal)
+            .round();
     if (_lastTaskbarMode == mode &&
         _lastTaskbarCompleted == completed &&
-        _lastTaskbarTotal == totalBytes) {
+        _lastTaskbarTotal == _taskbarProgressTotal) {
       return;
     }
 
@@ -449,11 +457,11 @@ class _DownloadNotificationBridgeState
     }
     _lastTaskbarProgressUpdate = now;
 
-    await WindowsTaskbar.setProgress(completed, totalBytes);
+    await WindowsTaskbar.setProgress(completed, _taskbarProgressTotal);
     await WindowsTaskbar.setProgressMode(mode);
     _lastTaskbarMode = mode;
     _lastTaskbarCompleted = completed;
-    _lastTaskbarTotal = totalBytes;
+    _lastTaskbarTotal = _taskbarProgressTotal;
   }
 
   Future<void> _setWindowsTaskbarMode(int mode) async {

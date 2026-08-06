@@ -40,6 +40,7 @@ abstract class DownloadRuntime {
   void seedMockDownloads();
   void updateHttpDownloadSettings({
     required int maxBytesPerSecond,
+    required int maxActiveDownloads,
     required String userAgent,
   });
   void updateTorrentSettings(TorrentPreferences settings);
@@ -60,6 +61,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   final _stateController = StreamController<DownloadManagerState>.broadcast();
   Session? _torrentSession;
   late TorrentPreferences _torrentSettings;
+  int _maxActiveHttpDownloads;
   DownloadManagerState _state = const DownloadManagerState();
   final _httpProgressRate = TimelineRateCounter('downloads.http_progress_rate');
   Timer? _progressPublishTimer;
@@ -69,9 +71,11 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   InProcessDownloadRuntime({
     required String downloadUserAgent,
     required int initialMaxDownloadBytesPerSecond,
+    required int initialMaxActiveHttpDownloads,
     required TorrentPreferences initialTorrentSettings,
     required this.onError,
   }) : _downloadDio = createDownloadDio(userAgent: downloadUserAgent),
+       _maxActiveHttpDownloads = initialMaxActiveHttpDownloads,
        _torrentSettings = initialTorrentSettings {
     DownloadConfig.getInstance().updateMaxBytesPerSecond(
       initialMaxDownloadBytesPerSecond.toDouble(),
@@ -206,6 +210,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
     final http = _httpDownloads[id];
     if (http != null) {
+      if (_httpSlotsAvailable() <= 0) return;
       http.download.state.resume();
       _updateItem(
         id,
@@ -219,6 +224,9 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
     final torrent = _torrentDownloads[id];
     if (torrent != null) {
+      if (torrent.seedingStartedAt == null && _torrentSlotsAvailable() <= 0) {
+        return;
+      }
       torrent.pausedForSeedSlot = false;
       torrent.handle.resume();
       _updateItem(
@@ -515,7 +523,9 @@ class InProcessDownloadRuntime implements DownloadRuntime {
           _updateItem(
             id,
             (item) => item.copyWith(
-              status: DownloadQueueStatus.paused,
+              status: _httpDownloads[id]?.pausedForQueueSlot == true
+                  ? DownloadQueueStatus.queued
+                  : DownloadQueueStatus.paused,
               bytesPerSecond: 0,
             ),
           );
@@ -695,6 +705,15 @@ class InProcessDownloadRuntime implements DownloadRuntime {
           }
 
           _updateItem(id, (item) {
+            if (activeDownload.pausedForDownloadSlot) {
+              return item.copyWith(
+                status: DownloadQueueStatus.queued,
+                bytesPerSecond: 0,
+                downloadedBytes: downloadedBytes,
+                torrentStats: liveStats,
+                clearError: true,
+              );
+            }
             // Libtorrent emits paused-status events from the moment the
             // torrent is added — before the queue's starter callback ever
             // runs handle.resume(). Don't let those early events flip a
@@ -885,12 +904,16 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   @override
   void updateHttpDownloadSettings({
     required int maxBytesPerSecond,
+    required int maxActiveDownloads,
     required String userAgent,
   }) {
     DownloadConfig.getInstance().updateMaxBytesPerSecond(
       maxBytesPerSecond.toDouble(),
     );
+    _maxActiveHttpDownloads = maxActiveDownloads;
     _downloadDio.options.headers['User-Agent'] = userAgent;
+    _reconcileActiveDownloadLimits();
+    _maybePromote();
   }
 
   @override
@@ -900,6 +923,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     if (session != null) {
       _applyTorrentSettings(session, settings);
     }
+    _reconcileActiveDownloadLimits();
     _reconcileSeedSlots();
     _maybePromote();
   }
@@ -1025,6 +1049,68 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     }
   }
 
+  void _reconcileActiveDownloadLimits() {
+    _requeueExcessHttpDownloads();
+    _requeueExcessTorrentDownloads();
+  }
+
+  void _requeueExcessHttpDownloads() {
+    if (_maxActiveHttpDownloads == -1) return;
+    final runningIds = state.items
+        .where(
+          (item) =>
+              !item.isTorrent && item.status == DownloadQueueStatus.downloading,
+        )
+        .map((item) => item.id)
+        .toList();
+    for (final id in runningIds.skip(_maxActiveHttpDownloads)) {
+      final runtime = _httpDownloads[id];
+      if (runtime == null) continue;
+      runtime.pausedForQueueSlot = true;
+      _updateItem(
+        id,
+        (item) => item.copyWith(
+          status: DownloadQueueStatus.queued,
+          bytesPerSecond: 0,
+        ),
+      );
+      runtime.download.state.pause();
+      _pendingStarters[id] = () {
+        runtime.pausedForQueueSlot = false;
+        runtime.download.state.resume();
+      };
+    }
+  }
+
+  void _requeueExcessTorrentDownloads() {
+    if (_torrentSettings.maxActiveDownloads == -1) return;
+    final runningIds = state.items
+        .where(
+          (item) =>
+              item.isTorrent && item.status == DownloadQueueStatus.downloading,
+        )
+        .map((item) => item.id)
+        .toList();
+    for (final id in runningIds.skip(_torrentSettings.maxActiveDownloads)) {
+      final runtime = _torrentDownloads[id];
+      if (runtime == null || runtime.seedingStartedAt != null) continue;
+      runtime.pausedForDownloadSlot = true;
+      _updateItem(
+        id,
+        (item) => item.copyWith(
+          status: DownloadQueueStatus.queued,
+          bytesPerSecond: 0,
+        ),
+      );
+      runtime.handle.pause();
+      _pendingStarters[id] = () {
+        runtime.pausedForDownloadSlot = false;
+        runtime.handle.resume();
+        _nudgeTorrentDiscovery(runtime.handle);
+      };
+    }
+  }
+
   String _nextBatchId() {
     _idCounter += 1;
     return 'batch-${DateTime.now().microsecondsSinceEpoch}-$_idCounter';
@@ -1095,17 +1181,25 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
   bool _startPendingItems(DownloadBatchQueue batch) {
     var startedPending = false;
+    var httpSlots = _httpSlotsAvailable();
     var torrentSlots = _torrentSlotsAvailable();
     for (final id in batch.itemIds) {
       final starter = _pendingStarters.remove(id);
       if (starter == null) continue;
       final item = _findItem(id);
-      if (item?.isTorrent == true) {
+      if (item == null) continue;
+      if (item.isTorrent) {
         if (torrentSlots <= 0) {
           _pendingStarters[id] = starter;
           continue;
         }
         torrentSlots -= 1;
+      } else {
+        if (httpSlots <= 0) {
+          _pendingStarters[id] = starter;
+          continue;
+        }
+        httpSlots -= 1;
       }
       startedPending = true;
       _startPendingDownload(id, starter);
@@ -1132,6 +1226,12 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   }
 
   void _startPendingDownload(String id, void Function() starter) {
+    _updateItem(
+      id,
+      (item) => item.status == DownloadQueueStatus.queued
+          ? item.copyWith(status: DownloadQueueStatus.downloading)
+          : item,
+    );
     Timer.run(() {
       final item = _findItem(id);
       if (item == null || item.status.isTerminal) return;
@@ -1186,6 +1286,14 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       return item.isTorrent && item.status == DownloadQueueStatus.downloading;
     }).length;
     return _torrentSettings.maxActiveDownloads - running;
+  }
+
+  int _httpSlotsAvailable() {
+    if (_maxActiveHttpDownloads == -1) return 1 << 30;
+    final running = state.items.where((item) {
+      return !item.isTorrent && item.status == DownloadQueueStatus.downloading;
+    }).length;
+    return _maxActiveHttpDownloads - running;
   }
 
   bool _canPauseItem(String id) {
@@ -1438,8 +1546,9 @@ class _ActiveHttpDownload {
   final StreamSubscription<DownloadProgress> progressSub;
   final StreamSubscription<double> rateSub;
   final StreamSubscription<DownloadStatus> statusSub;
+  bool pausedForQueueSlot = false;
 
-  const _ActiveHttpDownload({
+  _ActiveHttpDownload({
     required this.download,
     required this.progressSub,
     required this.rateSub,
@@ -1458,6 +1567,7 @@ class _ActiveTorrentDownload {
   final StreamSubscription<TorrentStatus> subscription;
   DateTime? seedingStartedAt;
   bool pausedForSeedSlot = false;
+  bool pausedForDownloadSlot = false;
 
   _ActiveTorrentDownload({required this.handle, required this.subscription});
 }

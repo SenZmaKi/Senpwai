@@ -81,7 +81,7 @@ class _Heading extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                item.displayTitle,
+                formatDownloadTitle(item.displayTitle),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style:
@@ -261,9 +261,9 @@ class _MetricsAndControls extends ConsumerWidget {
                 context,
                 title: isSeeding ? 'Stop seeding?' : 'Cancel this download?',
                 message: isSeeding
-                    ? 'This will stop sharing "${item.displayTitle}". The '
+                    ? 'This will stop sharing "${formatDownloadTitle(item.displayTitle)}". The '
                           'downloaded files will not be deleted.'
-                    : 'This will stop "${item.displayTitle}" and discard its '
+                    : 'This will stop "${formatDownloadTitle(item.displayTitle)}" and discard its '
                           'remaining download progress.',
                 confirmLabel: isSeeding ? 'Stop seeding' : 'Cancel download',
                 cancelLabel: isSeeding ? 'Keep seeding' : 'Keep downloading',

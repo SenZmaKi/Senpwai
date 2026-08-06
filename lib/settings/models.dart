@@ -339,6 +339,7 @@ class DownloadPreferences {
   final List<String> rootDirectories;
   final List<CustomAnimeFolder> customAnimeFolders;
   final int maxDownloadBytesPerSecond;
+  final int maxActiveDownloads;
   final bool skipFillers;
 
   const DownloadPreferences({
@@ -346,6 +347,7 @@ class DownloadPreferences {
     this.rootDirectories = const [],
     this.customAnimeFolders = const [],
     this.maxDownloadBytesPerSecond = 0,
+    this.maxActiveDownloads = 1,
     this.skipFillers = false,
   });
 
@@ -365,6 +367,7 @@ class DownloadPreferences {
         json['maxDownloadBytesPerSecond'],
         0,
       ),
+      maxActiveDownloads: _queueLimitValue(json['maxActiveDownloads'], 1),
       skipFillers: _boolValue(json['skipFillers'], false),
     );
   }
@@ -376,6 +379,7 @@ class DownloadPreferences {
         .map((folder) => folder.toJson())
         .toList(),
     'maxDownloadBytesPerSecond': maxDownloadBytesPerSecond,
+    'maxActiveDownloads': maxActiveDownloads,
     'skipFillers': skipFillers,
   };
 
@@ -389,6 +393,7 @@ class DownloadPreferences {
     List<String>? rootDirectories,
     List<CustomAnimeFolder>? customAnimeFolders,
     int? maxDownloadBytesPerSecond,
+    int? maxActiveDownloads,
     bool? skipFillers,
     bool clearDefaultRootDirectory = false,
   }) {
@@ -403,6 +408,7 @@ class DownloadPreferences {
       customAnimeFolders: customAnimeFolders ?? this.customAnimeFolders,
       maxDownloadBytesPerSecond:
           maxDownloadBytesPerSecond ?? this.maxDownloadBytesPerSecond,
+      maxActiveDownloads: maxActiveDownloads ?? this.maxActiveDownloads,
       skipFillers: skipFillers ?? this.skipFillers,
     );
   }

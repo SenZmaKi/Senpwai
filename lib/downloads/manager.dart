@@ -29,6 +29,8 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
         ? AndroidForegroundDownloadRuntime(
             initialMaxDownloadBytesPerSecond:
                 settings.downloads.maxDownloadBytesPerSecond,
+            initialMaxActiveHttpDownloads:
+                settings.downloads.maxActiveDownloads,
             downloadUserAgent: _downloadUserAgent,
             initialTorrentSettings: settings.torrent,
             initialNotificationSettings: settings.notifications,
@@ -37,6 +39,8 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
         : DownloadIsolateRuntime(
             initialMaxDownloadBytesPerSecond:
                 settings.downloads.maxDownloadBytesPerSecond,
+            initialMaxActiveHttpDownloads:
+                settings.downloads.maxActiveDownloads,
             downloadUserAgent: _downloadUserAgent,
             initialTorrentSettings: settings.torrent,
             appDataRootPath: AppPersistence.paths.rootDirectory.path,
@@ -53,11 +57,15 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
     });
     ref.listen(
       AppSettingsNotifier.provider.select(
-        (s) => s.downloads.maxDownloadBytesPerSecond,
+        (s) => (
+          maxBytesPerSecond: s.downloads.maxDownloadBytesPerSecond,
+          maxActiveDownloads: s.downloads.maxActiveDownloads,
+        ),
       ),
       (_, next) {
         _runtime.updateHttpDownloadSettings(
-          maxBytesPerSecond: next,
+          maxBytesPerSecond: next.maxBytesPerSecond,
+          maxActiveDownloads: next.maxActiveDownloads,
           userAgent: _downloadUserAgent,
         );
       },

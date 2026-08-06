@@ -226,6 +226,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setHttpMaxActiveDownloads(int limit) {
+    return _commit(
+      state.copyWith(
+        downloads: state.downloads.copyWith(
+          maxActiveDownloads: limit < -1 ? -1 : limit,
+        ),
+      ),
+    );
+  }
+
   Future<void> setSkipFillers(bool skip) {
     return _commit(
       state.copyWith(downloads: state.downloads.copyWith(skipFillers: skip)),

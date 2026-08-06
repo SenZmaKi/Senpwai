@@ -32,6 +32,7 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
   final _stateController = StreamController<DownloadManagerState>.broadcast();
   final _pendingRequests = <String, Completer<Object?>>{};
   int _maxDownloadBytesPerSecond;
+  int _maxActiveHttpDownloads;
   String _downloadUserAgent;
   TorrentPreferences _torrentSettings;
   NotificationPreferences _notificationSettings;
@@ -42,11 +43,13 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
 
   AndroidForegroundDownloadRuntime({
     required int initialMaxDownloadBytesPerSecond,
+    required int initialMaxActiveHttpDownloads,
     required String downloadUserAgent,
     required TorrentPreferences initialTorrentSettings,
     required NotificationPreferences initialNotificationSettings,
     required this.onError,
   }) : _maxDownloadBytesPerSecond = initialMaxDownloadBytesPerSecond,
+       _maxActiveHttpDownloads = initialMaxActiveHttpDownloads,
        _downloadUserAgent = downloadUserAgent,
        _torrentSettings = initialTorrentSettings,
        _notificationSettings = initialNotificationSettings {
@@ -140,9 +143,11 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
   @override
   void updateHttpDownloadSettings({
     required int maxBytesPerSecond,
+    required int maxActiveDownloads,
     required String userAgent,
   }) {
     _maxDownloadBytesPerSecond = maxBytesPerSecond;
+    _maxActiveHttpDownloads = maxActiveDownloads;
     _downloadUserAgent = userAgent;
     unawaited(_sendSettingsIfRunning());
   }
@@ -189,6 +194,7 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
   void _sendCurrentSettings() {
     _sendUntrackedCommand('updateHttpDownloadSettings', {
       'maxBytesPerSecond': _maxDownloadBytesPerSecond,
+      'maxActiveDownloads': _maxActiveHttpDownloads,
       'userAgent': _downloadUserAgent,
     });
     _sendUntrackedCommand('updateTorrentSettings', {
@@ -419,6 +425,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
     _runtime = InProcessDownloadRuntime(
       downloadUserAgent: getRandomUserAgent(),
       initialMaxDownloadBytesPerSecond: 0,
+      initialMaxActiveHttpDownloads: 1,
       initialTorrentSettings: const TorrentPreferences(),
       onError: _sendError,
     );
@@ -591,6 +598,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
         case 'updateHttpDownloadSettings':
           runtime.updateHttpDownloadSettings(
             maxBytesPerSecond: _int(payload['maxBytesPerSecond']),
+            maxActiveDownloads: _queueLimit(payload['maxActiveDownloads'], 1),
             userAgent: _string(payload['userAgent']),
           );
           result = null;
@@ -1214,6 +1222,11 @@ String _string(Object? value) => value is String ? value : '';
 String? _stringOrNull(Object? value) => value is String ? value : null;
 
 int _int(Object? value) => value is int ? value : 0;
+
+int _queueLimit(Object? value, int fallback) {
+  if (value is! int || value < -1) return fallback;
+  return value;
+}
 
 class _AggregateProgress {
   final int percent;

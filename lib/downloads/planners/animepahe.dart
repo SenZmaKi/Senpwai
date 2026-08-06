@@ -76,8 +76,7 @@ class AnimePaheDownloadPlanner {
 
     final notices = <DownloadNotice>[];
     final jobs = <PreparedDownloadJob>[];
-    for (var index = 0; index < selectedSessions.length; index++) {
-      final episodeSession = selectedSessions[index];
+    for (final episodeSession in selectedSessions) {
       final downloadLinks = await _source.fetchDownloadLinks(
         animeTitle: animeMatch.title,
         animeSession: animeMatch.session,
@@ -110,7 +109,6 @@ class AnimePaheDownloadPlanner {
         episodeNumber: directLink.episodeNumber,
         sourceFileName: directLink.filename,
         resolvedUrl: resolvedTarget.resolvedUrl,
-        dedupeSuffix: index == 0 ? null : '(${index + 1})',
       );
       jobs.add(
         PreparedHttpDownloadJob(

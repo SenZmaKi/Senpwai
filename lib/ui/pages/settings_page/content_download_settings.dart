@@ -148,6 +148,34 @@ class ContentDownloadSettings extends StatelessWidget {
                 ),
               ),
             ),
+            SettingsTile(
+              icon: Icons.low_priority_rounded,
+              title: 'Active HTTP Downloads',
+              subtitle: _queueLimitSubtitle(
+                settings.downloads.maxActiveDownloads,
+              ),
+              searchQuery: searchQuery,
+              trailing: LimitSettingControl(
+                mode: _queueLimitMode(settings.downloads.maxActiveDownloads),
+                onModeChanged: (mode) => unawaited(
+                  notifier.setHttpMaxActiveDownloads(
+                    _queueLimitForMode(
+                      mode,
+                      settings.downloads.maxActiveDownloads,
+                    ),
+                  ),
+                ),
+                valueField: NumberSettingField(
+                  value: settings.downloads.maxActiveDownloads > 0
+                      ? settings.downloads.maxActiveDownloads
+                      : 1,
+                  unit: 'active',
+                  min: 1,
+                  onSubmitted: (value) =>
+                      unawaited(notifier.setHttpMaxActiveDownloads(value)),
+                ),
+              ),
+            ),
           ],
         ),
       ],
@@ -156,3 +184,21 @@ class ContentDownloadSettings extends StatelessWidget {
 }
 
 int _bytesToMegabytes(int bytes) => (bytes / (1024 * 1024)).round();
+
+LimitMode _queueLimitMode(int value) => switch (value) {
+  -1 => LimitMode.unlimited,
+  0 => LimitMode.disabled,
+  _ => LimitMode.limited,
+};
+
+int _queueLimitForMode(LimitMode mode, int current) => switch (mode) {
+  LimitMode.disabled => 0,
+  LimitMode.limited => current > 0 ? current : 1,
+  LimitMode.unlimited => -1,
+};
+
+String _queueLimitSubtitle(int value) => switch (value) {
+  -1 => 'Unlimited downloads',
+  0 => 'HTTP downloads disabled',
+  _ => 'Up to $value active downloads',
+};
