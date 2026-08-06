@@ -66,9 +66,21 @@ class DesktopTrayController with TrayListener {
     );
   }
 
-  String get _iconPath => Platform.isWindows
-      ? 'windows/runner/resources/app_icon.ico'
-      : 'assets/images/senpwai-icon.png';
+  String get _iconPath {
+    if (!Platform.isWindows) {
+      return 'assets/images/senpwai-icon.png';
+    }
+
+    return [
+      File(Platform.resolvedExecutable).parent.path,
+      'data',
+      'flutter_assets',
+      'windows',
+      'runner',
+      'resources',
+      'app_icon.ico',
+    ].join(Platform.pathSeparator);
+  }
 
   Future<void> _hideWindow() async {
     if (_quitting) {
