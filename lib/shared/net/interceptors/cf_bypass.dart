@@ -1,9 +1,7 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:cf_bypass/cf_bypass.dart' hide LoggerExtensions;
 import 'package:cookie_jar/cookie_jar.dart';
-import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:senpwai/shared/log.dart';
@@ -147,28 +145,9 @@ class CfBypassInterceptor extends Interceptor {
     _log.warningWithMetadata(
       'Cloudflare protection detected',
       metadata: {
-        'url': url,
         'host': err.requestOptions.uri.host,
-        'statusCode': statusCode,
-        'httpVersion': response.extra[HttpClientAdapter.extraKeyHttpVersion],
         'kind': detection.kind.name,
-        'matchedIndicators': detection.matchedIndicators,
         'hasBypassSession': _hasBypassSession(err.requestOptions.uri.host),
-        'userAgentFingerprint': _fingerprint(
-          _headerValue(
-            err.requestOptions.headers,
-            HttpHeaders.userAgentHeader,
-          )?.toString(),
-        ),
-        'requestCookieNames': _cookieNames(
-          _headerValue(err.requestOptions.headers, HttpHeaders.cookieHeader),
-        ),
-        'requestHeaders': _safeRequestHeaders(err.requestOptions.headers),
-        'responseBodyBytes': body?.length,
-        'responseBodyFingerprint': _fingerprint(body),
-        'server': response.headers.value('server'),
-        'cfMitigated': response.headers.value('cf-mitigated'),
-        'contentType': response.headers.value('content-type'),
       },
     );
 
@@ -224,13 +203,23 @@ class CfBypassInterceptor extends Interceptor {
       }
 
       _log.warningWithMetadata(
-        "CloudFlare hard block — attempting WebView mitigation",
+        "CloudFlare hard block — cannot bypass",
         metadata: {
           "url": url,
           "interceptorId": _interceptorId,
           "cleanRetryAttempted": staleSessionAlreadyRetried,
         },
       );
+      handler.next(
+        DioException(
+          requestOptions: err.requestOptions,
+          response: response,
+          error: detection.exception,
+          type: DioExceptionType.unknown,
+          message: "CloudFlare blocked: ${detection.matchedIndicators}",
+        ),
+      );
+      return;
     }
 
     if (alreadyRetried) {
@@ -246,7 +235,7 @@ class CfBypassInterceptor extends Interceptor {
     }
 
     if (_solver == null) {
-      _log.warning("CF protection detected but no solver set — cannot bypass");
+      _log.warning("CF challenge detected but no solver set — cannot bypass");
       handler.next(err);
       return;
     }
@@ -353,21 +342,6 @@ class CfBypassInterceptor extends Interceptor {
       validation: true,
       targetUri: _resolvedReplayUri(result, requestOptions.uri),
     );
-    final storedCookieNames = (await cookieJar.loadForRequest(
-      validationOptions.uri,
-    )).map((cookie) => cookie.name).toSet().toList()..sort();
-    final expectedUserAgentFingerprint = _fingerprint(result.userAgent);
-
-    _log.infoWithMetadata(
-      "CF bypass validation request prepared",
-      metadata: {
-        "url": validationOptions.uri.toString(),
-        "interceptorId": _interceptorId,
-        "expectedUserAgentFingerprint": expectedUserAgentFingerprint,
-        "storedCookieNames": storedCookieNames,
-        "requestHeaders": _safeRequestHeaders(validationOptions.headers),
-      },
-    );
 
     try {
       final response = await dio.fetch<dynamic>(validationOptions);
@@ -391,75 +365,14 @@ class CfBypassInterceptor extends Interceptor {
           statusCode >= 200 &&
           statusCode < 400 &&
           detection.kind == CfProtectionKind.none;
-      final outgoingUserAgent = _headerValue(
-        response.requestOptions.headers,
-        HttpHeaders.userAgentHeader,
-      )?.toString();
-
-      _log.infoWithMetadata(
-        "CF bypass validation response received",
-        metadata: {
-          "url": response.realUri.toString(),
-          "interceptorId": _interceptorId,
-          "statusCode": statusCode,
-          "httpVersion": response.extra[HttpClientAdapter.extraKeyHttpVersion],
-          "protectionKind": detection.kind.name,
-          "verified": verified,
-          "expectedUserAgentFingerprint": expectedUserAgentFingerprint,
-          "outgoingUserAgentFingerprint": _fingerprint(outgoingUserAgent),
-          "userAgentMatchesExpected": outgoingUserAgent == result.userAgent,
-          "requestCookieNames": _cookieNames(
-            _headerValue(
-              response.requestOptions.headers,
-              HttpHeaders.cookieHeader,
-            ),
-          ),
-          "requestHeaders": _safeRequestHeaders(
-            response.requestOptions.headers,
-          ),
-          "storedCookieNames": storedCookieNames,
-          "cfMitigated": response.headers.value('cf-mitigated'),
-          "responseBodyBytes": body?.length,
-          "responseBodyFingerprint": _fingerprint(body),
-          "server": response.headers.value('server'),
-          "contentType": response.headers.value('content-type'),
-        },
-      );
 
       return verified;
     } catch (e, stack) {
-      final dioError = e is DioException ? e : null;
-      final failedResponse = dioError?.response;
-      final failedRequest = dioError?.requestOptions ?? validationOptions;
-      final outgoingUserAgent = _headerValue(
-        failedRequest.headers,
-        HttpHeaders.userAgentHeader,
-      )?.toString();
       _log.warningWithMetadata(
         "CF bypass validation request failed",
         metadata: {
           "url": requestOptions.uri.toString(),
           "interceptorId": _interceptorId,
-          "statusCode": failedResponse?.statusCode,
-          "httpVersion":
-              failedResponse?.extra[HttpClientAdapter.extraKeyHttpVersion],
-          "expectedUserAgentFingerprint": expectedUserAgentFingerprint,
-          "outgoingUserAgentFingerprint": _fingerprint(outgoingUserAgent),
-          "userAgentMatchesExpected": outgoingUserAgent == result.userAgent,
-          "requestCookieNames": _cookieNames(
-            _headerValue(failedRequest.headers, HttpHeaders.cookieHeader),
-          ),
-          "requestHeaders": _safeRequestHeaders(failedRequest.headers),
-          "storedCookieNames": storedCookieNames,
-          "cfMitigated": failedResponse?.headers.value('cf-mitigated'),
-          "responseBodyBytes": failedResponse?.data is String
-              ? (failedResponse!.data as String).length
-              : null,
-          "responseBodyFingerprint": failedResponse?.data is String
-              ? _fingerprint(failedResponse!.data as String)
-              : null,
-          "server": failedResponse?.headers.value('server'),
-          "contentType": failedResponse?.headers.value('content-type'),
           "error": e.toString(),
           "stackTrace": stack.toString(),
         },
@@ -678,45 +591,6 @@ class CfBypassInterceptor extends Interceptor {
       if (entry.key.toLowerCase() == lowerName) return entry.value;
     }
     return null;
-  }
-
-  String? _fingerprint(String? value) {
-    if (value == null || value.isEmpty) return null;
-    return sha256.convert(utf8.encode(value)).toString().substring(0, 12);
-  }
-
-  List<String> _cookieNames(Object? headerValue) {
-    if (headerValue == null) return const [];
-    final value = headerValue is Iterable
-        ? headerValue.join(';')
-        : headerValue.toString();
-    final names =
-        value
-            .split(';')
-            .map((part) => part.trim())
-            .where((part) => part.contains('='))
-            .map((part) => part.substring(0, part.indexOf('=')))
-            .where((name) => name.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-    return names;
-  }
-
-  Map<String, String> _safeRequestHeaders(Map<String, dynamic> headers) {
-    const allowedNames = {
-      'accept',
-      'accept-encoding',
-      'accept-language',
-      'content-type',
-      'origin',
-      'referer',
-    };
-    return {
-      for (final entry in headers.entries)
-        if (allowedNames.contains(entry.key.toLowerCase()))
-          entry.key.toLowerCase(): entry.value.toString(),
-    };
   }
 
   RequestOptions _buildBypassReplayOptions(

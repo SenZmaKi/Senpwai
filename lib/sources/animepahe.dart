@@ -548,27 +548,17 @@ class Source {
     required DownloadLink downloadLink,
     required Uri pahePageUri,
   }) async {
-    final kwikHeaders = {
-      'Accept':
-          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Referer': pahePageUri.toString(),
-    };
-    log.infoWithMetadata(
-      "Kwik page request prepared",
-      metadata: {
-        "animeTitle": downloadLink.animeTitle,
-        "episodeNumber": downloadLink.episodeNumber,
-        "paheRequestedUrl": downloadLink.url,
-        "paheFinalUrl": pahePageUri.toString(),
-        "kwikPageLink": kwikPageLink,
-        "requestHeaders": kwikHeaders,
-      },
-    );
-
     final response = await _dio.get<String>(
       kwikPageLink,
-      options: Options(responseType: ResponseType.plain, headers: kwikHeaders),
+      options: Options(
+        responseType: ResponseType.plain,
+        headers: {
+          'Accept':
+              'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': pahePageUri.toString(),
+        },
+      ),
     );
     final htmlPageText = response.data;
     if (htmlPageText == null) {
@@ -577,27 +567,6 @@ class Source {
         metadata: {"kwikPageLink": kwikPageLink},
       );
     }
-    log.infoWithMetadata(
-      "Kwik page response received",
-      metadata: {
-        "animeTitle": downloadLink.animeTitle,
-        "episodeNumber": downloadLink.episodeNumber,
-        "requestedUrl": kwikPageLink,
-        "finalUrl": response.realUri.toString(),
-        "redirects": [
-          for (final redirect in response.redirects)
-            {
-              "statusCode": redirect.statusCode,
-              "method": redirect.method,
-              "location": redirect.location.toString(),
-            },
-        ],
-        "statusCode": response.statusCode,
-        "httpVersion": response.extra[HttpClientAdapter.extraKeyHttpVersion],
-        "requestReferer": response.requestOptions.headers['Referer'],
-        "responseBytes": htmlPageText.length,
-      },
-    );
 
     final formHtml = _extractAndDecryptKwikForm(htmlPageText);
     log.fineWithMetadata(
@@ -678,26 +647,6 @@ class Source {
         },
       );
     }
-    log.infoWithMetadata(
-      "Pahe download page resolved",
-      metadata: {
-        "animeTitle": downloadLink.animeTitle,
-        "episodeNumber": downloadLink.episodeNumber,
-        "requestedUrl": downloadLink.url,
-        "finalUrl": response.realUri.toString(),
-        "redirects": [
-          for (final redirect in response.redirects)
-            {
-              "statusCode": redirect.statusCode,
-              "method": redirect.method,
-              "location": redirect.location.toString(),
-            },
-        ],
-        "statusCode": response.statusCode,
-        "httpVersion": response.extra[HttpClientAdapter.extraKeyHttpVersion],
-        "responseBytes": htmlPageText.length,
-      },
-    );
     final kwikMatch = Constants.kwikLinkRegex.firstMatch(htmlPageText);
     if (kwikMatch == null) {
       throw SourceException(
