@@ -29,6 +29,29 @@ class MainFlutterWindow: NSWindow {
       }
     }
 
+    let terminationChannel = FlutterMethodChannel(
+      name: "senpwai/app_termination", binaryMessenger: flutterViewController.engine.binaryMessenger
+    )
+    (NSApp.delegate as? AppDelegate)?.setTerminationChannel(terminationChannel)
+
+    let windowReopenChannel = FlutterMethodChannel(
+      name: "senpwai/window_reopen", binaryMessenger: flutterViewController.engine.binaryMessenger
+    )
+    (NSApp.delegate as? AppDelegate)?.setWindowReopenChannel(windowReopenChannel)
+
+    FlutterMethodChannel(
+      name: "senpwai/menu_bar_mode", binaryMessenger: flutterViewController.engine.binaryMessenger
+    )
+    .setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
+      guard call.method == "setEnabled",
+            let arguments = call.arguments as? [String: Any],
+            let enabled = arguments["enabled"] as? Bool else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      result(NSApp.setActivationPolicy(enabled ? .accessory : .regular))
+    }
+
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     super.awakeFromNib()

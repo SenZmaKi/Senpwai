@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/downloads/manager.dart';
+import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/notifications/app_notification_service.dart';
 import 'package:senpwai/notifications/download_notification_bridge.dart';
 import 'package:senpwai/settings/settings.dart';
@@ -13,6 +14,7 @@ import 'package:senpwai/tracking/models.dart';
 import 'package:senpwai/tracking/notifier.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
 import 'package:senpwai/ui/shared/app_error_diagnostics.dart';
+import 'package:senpwai/ui/components/desktop_exit_dialog.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page.dart';
 import 'package:senpwai/ui/pages/home_page.dart';
@@ -92,6 +94,7 @@ class _AppRootState extends ConsumerState<_AppRoot> {
     'SENPWAI_MOCK_DOWNLOADS',
   );
   bool _isSettingsCategoryOpen = false;
+  bool _isHandlingDesktopExit = false;
 
   void _setSettingsCategoryOpen(bool isOpen) {
     if (_isSettingsCategoryOpen != isOpen) {
@@ -116,7 +119,7 @@ class _AppRootState extends ConsumerState<_AppRoot> {
       DesktopTrayController.instance.initialize(
         onCheckTrackedAnime: () =>
             ref.read(TrackingNotifier.provider.notifier).checkNow(),
-        closeToTray: settings.window.closeToTray,
+        onExitRequested: _handleDesktopExitRequest,
       ),
     );
     if (kDebugMode) {
@@ -175,13 +178,6 @@ class _AppRootState extends ConsumerState<_AppRoot> {
       (_, alwaysOnTop) =>
           unawaited(WindowManager.getInstance().applyAlwaysOnTop(alwaysOnTop)),
     );
-    ref.listen(
-      AppSettingsNotifier.provider.select(
-        (settings) => settings.window.closeToTray,
-      ),
-      (_, closeToTray) =>
-          unawaited(DesktopTrayController.instance.setCloseToTray(closeToTray)),
-    );
     ref.listen(AppSettingsNotifier.provider, (_, settings) {
       ref
           .read(AnilistNotifier.provider.notifier)
@@ -237,6 +233,72 @@ class _AppRootState extends ConsumerState<_AppRoot> {
         ),
       ),
     );
+  }
+
+  Future<bool> _handleDesktopExitRequest(DesktopExitRequest request) async {
+    if (_isHandlingDesktopExit) return false;
+    final closeToTray = ref
+        .read(AppSettingsNotifier.provider)
+        .window
+        .closeToTray;
+    if (request == DesktopExitRequest.windowClose) {
+      if (closeToTray) {
+        await DesktopTrayController.instance.minimizeToTray();
+      } else {
+        await DesktopTrayController.instance.closeWindow();
+      }
+      return false;
+    }
+
+    final downloadState = ref.read(DownloadManagerNotifier.provider);
+    final activeDownloads = downloadState.items.where(
+      (item) =>
+          item.status == DownloadQueueStatus.preparing ||
+          item.status == DownloadQueueStatus.queued ||
+          item.status == DownloadQueueStatus.downloading,
+    );
+    final activeSeeds = downloadState.items.where(
+      (item) => item.status == DownloadQueueStatus.seeding,
+    );
+
+    if (activeDownloads.isEmpty && activeSeeds.isEmpty) {
+      switch (request) {
+        case DesktopExitRequest.trayQuit:
+          await DesktopTrayController.instance.quitApp();
+          break;
+        case DesktopExitRequest.systemQuit:
+          return true;
+        case DesktopExitRequest.windowClose:
+          return false;
+      }
+      return false;
+    }
+
+    _isHandlingDesktopExit = true;
+    try {
+      if (!mounted) return false;
+      final choice = await showDialog<DesktopExitChoice>(
+        context: context,
+        builder: (context) => DesktopExitDialog(
+          downloadCount: activeDownloads.length,
+          seedCount: activeSeeds.length,
+        ),
+      );
+      switch (choice) {
+        case DesktopExitChoice.quit:
+          if (request == DesktopExitRequest.systemQuit) return true;
+          await DesktopTrayController.instance.quitApp();
+          break;
+        case DesktopExitChoice.minimizeToTray:
+          await DesktopTrayController.instance.minimizeToTray();
+          break;
+        case null:
+          break;
+      }
+    } finally {
+      _isHandlingDesktopExit = false;
+    }
+    return false;
   }
 
   void _handleTrackingEvent(TrackingEvent event) {

@@ -91,13 +91,23 @@ class WindowManager with WindowListener {
     await windowManager.focus();
   }
 
-  Future<void> configureCloseToTray({
-    required bool enabled,
-    required Future<void> Function() onClose,
-  }) async {
+  Future<void> configureCloseHandler(Future<void> Function() onClose) async {
     if (!supportsWindowCustomization) return;
-    _closeHandler = enabled ? onClose : null;
-    await windowManager.setPreventClose(enabled);
+    _closeHandler = onClose;
+    await windowManager.setPreventClose(true);
+  }
+
+  Future<void> closeWindow() async {
+    if (!supportsWindowCustomization) return;
+    final closeHandler = _closeHandler;
+    _closeHandler = null;
+    await windowManager.setPreventClose(false);
+    try {
+      await windowManager.close();
+    } finally {
+      _closeHandler = closeHandler;
+      await windowManager.setPreventClose(closeHandler != null);
+    }
   }
 
   @override

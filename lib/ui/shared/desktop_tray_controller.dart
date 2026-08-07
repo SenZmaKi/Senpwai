@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
@@ -8,6 +9,8 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart' show windowManager;
 
 final _log = Logger('senpwai.ui.desktop_tray');
+
+enum DesktopExitRequest { windowClose, trayQuit, systemQuit }
 
 /// Owns the desktop tray lifecycle and keeps the window reachable after close.
 class DesktopTrayController with TrayListener {
@@ -18,17 +21,22 @@ class DesktopTrayController with TrayListener {
   static const _showWindowKey = 'show_senpwai';
   static const _checkTrackedAnimeKey = 'check_tracked_anime';
   static const _quitKey = 'quit';
+  static const _terminationChannel = MethodChannel('senpwai/app_termination');
+  static const _menuBarModeChannel = MethodChannel('senpwai/menu_bar_mode');
+  static const _windowReopenChannel = MethodChannel('senpwai/window_reopen');
 
   Future<void> Function()? _checkTrackedAnime;
+  Future<bool> Function(DesktopExitRequest request)? _onExitRequested;
   bool _initialized = false;
   bool _quitting = false;
 
   Future<void> initialize({
     required Future<void> Function() onCheckTrackedAnime,
-    required bool closeToTray,
+    required Future<bool> Function(DesktopExitRequest request) onExitRequested,
   }) async {
     if (!supportsWindowCustomization) return;
     _checkTrackedAnime = onCheckTrackedAnime;
+    _onExitRequested = onExitRequested;
     if (_initialized) return;
 
     try {
@@ -36,7 +44,9 @@ class DesktopTrayController with TrayListener {
       await trayManager.setIcon(_iconPath);
       await trayManager.setToolTip('Senpwai');
       await _setContextMenu(isWindowVisible: await windowManager.isVisible());
-      await setCloseToTray(closeToTray);
+      await WindowManager.getInstance().configureCloseHandler(_requestClose);
+      _terminationChannel.setMethodCallHandler(_handleTerminationRequest);
+      _windowReopenChannel.setMethodCallHandler(_handleWindowReopen);
       _initialized = true;
     } on Object catch (error, stackTrace) {
       trayManager.removeListener(this);
@@ -48,11 +58,24 @@ class DesktopTrayController with TrayListener {
     }
   }
 
-  Future<void> setCloseToTray(bool enabled) {
-    return WindowManager.getInstance().configureCloseToTray(
-      enabled: enabled,
-      onClose: _hideWindow,
-    );
+  Future<void> minimizeToTray() => _hideWindow();
+
+  Future<void> closeWindow() => WindowManager.getInstance().closeWindow();
+
+  Future<void> quitApp() async {
+    if (_quitting) return;
+    _quitting = true;
+    try {
+      await trayManager.destroy();
+      await windowManager.setPreventClose(false);
+      await windowManager.destroy();
+    } on Object catch (error, stackTrace) {
+      _log.severeWithMetadata(
+        'Explicit tray quit failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   String get _iconPath {
@@ -75,6 +98,7 @@ class DesktopTrayController with TrayListener {
     if (_quitting) return;
     try {
       await windowManager.hide();
+      await _setMenuBarMode(true);
       await _setContextMenu(isWindowVisible: false);
     } on Object catch (error, stackTrace) {
       _log.severeWithMetadata(
@@ -104,6 +128,7 @@ class DesktopTrayController with TrayListener {
 
   Future<void> _showWindow() async {
     try {
+      await _setMenuBarMode(false);
       await WindowManager.getInstance().focus();
       await _setContextMenu(isWindowVisible: true);
     } on Object catch (error, stackTrace) {
@@ -113,6 +138,13 @@ class DesktopTrayController with TrayListener {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  Future<void> _setMenuBarMode(bool enabled) async {
+    if (!Platform.isMacOS) return;
+    await _menuBarModeChannel.invokeMethod<void>('setEnabled', {
+      'enabled': enabled,
+    });
   }
 
   Future<void> _showContextMenu() async {
@@ -181,24 +213,36 @@ class DesktopTrayController with TrayListener {
         unawaited(_runTrackedAnimeCheck());
         return;
       case _quitKey:
-        unawaited(_quit());
+        unawaited(_requestExit(DesktopExitRequest.trayQuit));
         return;
     }
   }
 
-  Future<void> _quit() async {
-    if (_quitting) return;
-    _quitting = true;
-    try {
-      await trayManager.destroy();
-      await windowManager.setPreventClose(false);
-      await windowManager.destroy();
-    } on Object catch (error, stackTrace) {
-      _log.severeWithMetadata(
-        'Explicit tray quit failed',
-        error: error,
-        stackTrace: stackTrace,
-      );
+  Future<void> _requestClose() async {
+    await _requestExit(DesktopExitRequest.windowClose);
+  }
+
+  Future<bool> _handleTerminationRequest(MethodCall call) async {
+    if (call.method != 'requestQuit') {
+      throw MissingPluginException('Unsupported method: ${call.method}');
     }
+    if (_quitting) return true;
+    return _requestExit(DesktopExitRequest.systemQuit);
+  }
+
+  Future<void> _handleWindowReopen(MethodCall call) async {
+    if (call.method != 'restoreWindow') {
+      throw MissingPluginException('Unsupported method: ${call.method}');
+    }
+    if (!_quitting) await _showWindow();
+  }
+
+  Future<bool> _requestExit(DesktopExitRequest request) async {
+    final onExitRequested = _onExitRequested;
+    if (onExitRequested == null) {
+      await quitApp();
+      return false;
+    }
+    return onExitRequested(request);
   }
 }

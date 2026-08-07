@@ -23,7 +23,7 @@ class WindowSettings extends StatelessWidget {
       icon: Icons.web_asset_rounded,
       description: 'Choose how the app window opens and stays visible',
       searchQuery: searchQuery,
-      searchTerms: const [
+      searchTerms: [
         'desktop window launch startup',
         'launch at login automatically open when computer starts',
         'always on top',
@@ -56,7 +56,7 @@ class WindowSettings extends StatelessWidget {
         ),
         SettingsTile(
           icon: Icons.move_to_inbox_outlined,
-          title: 'Close to system tray',
+          title: 'Minimize to tray',
           subtitle: 'Keep Senpwai running when the window is closed',
           keywords: 'desktop window close minimize hide tray notification area',
           searchQuery: searchQuery,
