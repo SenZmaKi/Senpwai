@@ -1,7 +1,17 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+Future<bool> openAnilistProfile(AnilistViewer viewer) {
+  final profileUrl = Uri.https('anilist.co', '/user/${viewer.id}');
+  return launchUrl(
+    profileUrl,
+    mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+  );
+}
 
 class AnilistStateData {
   final bool isAuthenticated;

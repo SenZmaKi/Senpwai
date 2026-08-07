@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
@@ -44,6 +45,7 @@ class AnilistAccountCard extends ConsumerWidget {
           _ProfileRow(
             name: viewer.name,
             avatarUrl: viewer.avatarUrl,
+            onOpenProfile: () => unawaited(_openProfile(context, viewer)),
             onLogout: () => unawaited(_confirmLogout(context, ref)),
           )
         else
@@ -100,16 +102,29 @@ class AnilistAccountCard extends ConsumerWidget {
       );
     }
   }
+
+  Future<void> _openProfile(BuildContext context, AnilistViewer viewer) async {
+    final opened = await openAnilistProfile(viewer);
+    if (!opened && context.mounted) {
+      AppToast.showError(
+        context,
+        title: 'Could not open AniList profile',
+        description: 'Please try again.',
+      );
+    }
+  }
 }
 
 class _ProfileRow extends StatelessWidget {
   final String name;
   final String? avatarUrl;
+  final VoidCallback onOpenProfile;
   final VoidCallback onLogout;
 
   const _ProfileRow({
     required this.name,
     required this.avatarUrl,
+    required this.onOpenProfile,
     required this.onLogout,
   });
 
@@ -122,18 +137,28 @@ class _ProfileRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            backgroundImage: resolvedAvatarUrl == null
-                ? null
-                : CachedNetworkImageProvider(
-                    resolvedAvatarUrl,
-                    cacheManager: AppImageCache.manager,
-                  ),
-            child: resolvedAvatarUrl == null
-                ? const Icon(Icons.person_outline_rounded)
-                : null,
+          Tooltip(
+            message: 'Open AniList profile',
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: InkWell(
+                onTap: onOpenProfile,
+                customBorder: const CircleBorder(),
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  backgroundImage: resolvedAvatarUrl == null
+                      ? null
+                      : CachedNetworkImageProvider(
+                          resolvedAvatarUrl,
+                          cacheManager: AppImageCache.manager,
+                        ),
+                  child: resolvedAvatarUrl == null
+                      ? const Icon(Icons.person_outline_rounded)
+                      : null,
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(

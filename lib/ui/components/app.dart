@@ -169,6 +169,19 @@ class _AppRootState extends ConsumerState<_AppRoot> {
     }
   }
 
+  Future<void> _handleAvatarTap(AnilistViewer? viewer) async {
+    if (viewer == null) return _handleLogin();
+
+    final opened = await openAnilistProfile(viewer);
+    if (!opened && mounted) {
+      AppToast.showError(
+        context,
+        title: 'Could not open AniList profile',
+        description: 'Please try again.',
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(
@@ -221,7 +234,7 @@ class _AppRootState extends ConsumerState<_AppRoot> {
             ref.read(AppPageNotifier.provider.notifier).setIndex(i),
         viewer: anilist.viewer,
         isAuthLoading: anilist.isAuthLoading,
-        onAvatarTap: _handleLogin,
+        onAvatarTap: () => _handleAvatarTap(anilist.viewer),
         body: IndexedStack(
           index: currentPage.index,
           children: [

@@ -96,13 +96,7 @@ class AppShell extends StatelessWidget {
           ? null
           : NavigationBar(
               selectedIndex: currentIndex,
-              onDestinationSelected: (index) {
-                if (index == _destinations.length) {
-                  onAvatarTap();
-                } else {
-                  onDestinationChanged(index);
-                }
-              },
+              onDestinationSelected: onDestinationChanged,
               destinations: [
                 ..._destinations.map(
                   (d) => NavigationDestination(
@@ -116,13 +110,6 @@ class AppShell extends StatelessWidget {
                     ),
                     label: d.label,
                   ),
-                ),
-                NavigationDestination(
-                  icon: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: _buildAvatarIcon(viewer, isAuthLoading),
-                  ),
-                  label: isAuthLoading ? 'Loading' : (viewer?.name ?? 'Login'),
                 ),
               ],
             ),
@@ -175,10 +162,15 @@ class _DesktopRail extends StatelessWidget {
                 onTap: () => onDestinationChanged(index),
               ),
             const Spacer(),
-            _RailTile(
-              iconWidget: _buildAvatarIcon(viewer, isAuthLoading),
-              label: isAuthLoading ? 'Loading' : (viewer?.name ?? 'Login'),
-              onTap: onAvatarTap,
+            Tooltip(
+              message: viewer == null
+                  ? 'Log in to AniList'
+                  : 'Open AniList profile',
+              child: _RailTile(
+                iconWidget: _buildAvatarIcon(viewer, isAuthLoading),
+                label: isAuthLoading ? 'Loading' : (viewer?.name ?? 'Login'),
+                onTap: onAvatarTap,
+              ),
             ),
             const SizedBox(height: 12),
           ],
