@@ -109,6 +109,8 @@ class AnimePaheDownloadPlanner {
         episodeNumber: directLink.episodeNumber,
         sourceFileName: directLink.filename,
         resolvedUrl: resolvedTarget.resolvedUrl,
+        suggestedFileName: resolvedTarget.suggestedFileName,
+        contentType: resolvedTarget.contentType,
       );
       jobs.add(
         PreparedHttpDownloadJob(

@@ -177,11 +177,15 @@ class DownloadTargetPlanner {
     required int episodeNumber,
     required String sourceFileName,
     required String resolvedUrl,
+    String? suggestedFileName,
+    String? contentType,
     String? dedupeSuffix,
   }) {
     final extension = _resolveFileExtension(
       sourceFileName: sourceFileName,
       resolvedUrl: resolvedUrl,
+      suggestedFileName: suggestedFileName,
+      contentType: contentType,
     );
     final episodeLabel = 'Episode ${_formatEpisodeNumber(episodeNumber)}';
     final baseName = dedupeSuffix == null
@@ -199,11 +203,15 @@ class DownloadTargetPlanner {
     required String jobTitle,
     required String sourceFileName,
     required String resolvedUrl,
+    String? suggestedFileName,
+    String? contentType,
     String? dedupeSuffix,
   }) {
     final extension = _resolveFileExtension(
       sourceFileName: sourceFileName,
       resolvedUrl: resolvedUrl,
+      suggestedFileName: suggestedFileName,
+      contentType: contentType,
     );
     final baseName = dedupeSuffix == null
         ? jobTitle
@@ -349,19 +357,35 @@ class DownloadTargetPlanner {
   static String _resolveFileExtension({
     required String sourceFileName,
     required String resolvedUrl,
+    String? suggestedFileName,
+    String? contentType,
   }) {
-    final sourceExtension = path.extension(
-      path.basename(sourceFileName.trim()),
-    );
-    if (sourceExtension.isNotEmpty) {
-      return sourceExtension.toLowerCase();
-    }
+    final suggestedExtension = _fileExtension(suggestedFileName);
+    if (suggestedExtension.isNotEmpty) return suggestedExtension;
+    final sourceExtension = _fileExtension(sourceFileName);
+    if (sourceExtension.isNotEmpty) return sourceExtension;
     final resolvedPath = Uri.tryParse(resolvedUrl)?.path ?? resolvedUrl;
-    final resolvedExtension = path.extension(path.basename(resolvedPath));
-    if (resolvedExtension.isNotEmpty) {
-      return resolvedExtension.toLowerCase();
-    }
-    return '';
+    final resolvedExtension = _fileExtension(resolvedPath);
+    if (resolvedExtension.isNotEmpty) return resolvedExtension;
+    return _extensionForContentType(contentType);
+  }
+
+  static String _fileExtension(String? fileName) {
+    if (fileName == null) return '';
+    final sourceExtension = path.extension(path.basename(fileName.trim()));
+    return sourceExtension.toLowerCase();
+  }
+
+  static String _extensionForContentType(String? contentType) {
+    final mediaType = contentType?.split(';').first.trim().toLowerCase();
+    return switch (mediaType) {
+      'video/mp4' => '.mp4',
+      'video/x-matroska' => '.mkv',
+      'video/webm' => '.webm',
+      'video/quicktime' => '.mov',
+      'video/x-msvideo' => '.avi',
+      _ => '',
+    };
   }
 
   static String _formatEpisodeNumber(int episodeNumber) =>

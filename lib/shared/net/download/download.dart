@@ -78,6 +78,10 @@ class Download {
         resolvedUrl: response.realUri.toString(),
         sizeBytes: sizeBytes,
         supportsRangeRequests: supportsRangeRequests,
+        suggestedFileName: _contentDispositionFilename(
+          response.headers.value('content-disposition'),
+        ),
+        contentType: response.headers.value(Headers.contentTypeHeader),
       );
     } finally {
       await _discardResponseBody(response);
@@ -95,6 +99,26 @@ class Download {
     final match = RegExp(r'/(\d+)$').firstMatch(contentRange);
     final size = match?.group(1);
     return size == null ? null : int.tryParse(size);
+  }
+
+  static String? _contentDispositionFilename(String? contentDisposition) {
+    if (contentDisposition == null) return null;
+    final encodedMatch = RegExp(
+      r"filename\*=UTF-8''([^;]+)",
+      caseSensitive: false,
+    ).firstMatch(contentDisposition);
+    final plainMatch = RegExp(
+      r'filename\s*=\s*(?:"([^"]+)"|([^;\s]+))',
+      caseSensitive: false,
+    ).firstMatch(contentDisposition);
+    final value =
+        encodedMatch?.group(1) ?? plainMatch?.group(1) ?? plainMatch?.group(2);
+    if (value == null || value.trim().isEmpty) return null;
+    try {
+      return Uri.decodeComponent(value.trim());
+    } on ArgumentError {
+      return value.trim();
+    }
   }
 
   static List<({int startOffsetBytes, int lengthBytes})> computePartRanges({

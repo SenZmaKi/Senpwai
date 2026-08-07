@@ -33,6 +33,32 @@ void main() {
     expect(target.fileName, 'Frieren Episode 12');
   });
 
+  test('planEpisodeFile uses the server-suggested filename extension', () {
+    final target = planner.planEpisodeFile(
+      directory: '/downloads',
+      jobTitle: 'Frieren',
+      episodeNumber: 12,
+      sourceFileName: '720p · 180 MB',
+      resolvedUrl: 'https://cdn.example.com/download/12345',
+      suggestedFileName: 'frieren-12.mp4',
+    );
+
+    expect(target.fileName, 'Frieren Episode 12.mp4');
+  });
+
+  test('planEpisodeFile falls back to the video content type', () {
+    final target = planner.planEpisodeFile(
+      directory: '/downloads',
+      jobTitle: 'Frieren',
+      episodeNumber: 12,
+      sourceFileName: '720p · 180 MB',
+      resolvedUrl: 'https://cdn.example.com/download/12345',
+      contentType: 'video/mp4; charset=binary',
+    );
+
+    expect(target.fileName, 'Frieren Episode 12.mp4');
+  });
+
   test('planMovieFile does not add an episode label', () {
     final target = planner.planMovieFile(
       directory: '/downloads',
