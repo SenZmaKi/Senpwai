@@ -134,7 +134,7 @@ class SettingsSearchResults extends ConsumerWidget {
       settings.appearance.bodyFontFamily,
       'Card Layout anime card style Home Search poster landscape table grid list',
       if (supportsWindowCustomization)
-        'Window desktop launch startup login automatically open always on top open maximized full screen fullscreen',
+        'Window Launch at startup Always on top Minimize to tray Open maximized Open in full screen',
       'Media Preferences default resolution audio language title display',
       'Title Language preferred title display automatic fallbacks',
       'Default Resolution initial resolution selected anime pages',
