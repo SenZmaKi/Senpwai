@@ -698,9 +698,11 @@ class AnilistPreferences {
   static const defaultTrackerCheckIntervalHours = 1;
 
   final int trackerCheckIntervalHours;
+  final String accessToken;
 
   const AnilistPreferences({
     this.trackerCheckIntervalHours = defaultTrackerCheckIntervalHours,
+    this.accessToken = '',
   });
 
   factory AnilistPreferences.fromJson(Map<String, dynamic> json) =>
@@ -709,17 +711,22 @@ class AnilistPreferences {
           json['trackerCheckIntervalHours'],
           defaultTrackerCheckIntervalHours,
         ),
+        accessToken: _stringValue(json['accessToken'], ''),
       );
 
   Map<String, dynamic> toJson() => {
     'trackerCheckIntervalHours': trackerCheckIntervalHours,
+    'accessToken': accessToken,
   };
 
-  AnilistPreferences copyWith({int? trackerCheckIntervalHours}) =>
-      AnilistPreferences(
-        trackerCheckIntervalHours:
-            trackerCheckIntervalHours ?? this.trackerCheckIntervalHours,
-      );
+  AnilistPreferences copyWith({
+    int? trackerCheckIntervalHours,
+    String? accessToken,
+  }) => AnilistPreferences(
+    trackerCheckIntervalHours:
+        trackerCheckIntervalHours ?? this.trackerCheckIntervalHours,
+    accessToken: accessToken ?? this.accessToken,
+  );
 }
 
 @immutable

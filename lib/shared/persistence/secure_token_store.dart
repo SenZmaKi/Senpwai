@@ -1,8 +1,11 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:logging/logging.dart';
+import 'package:senpwai/settings/models.dart';
+import 'package:senpwai/settings/repository.dart';
 import 'package:senpwai/shared/log.dart';
 
 final _log = Logger('senpwai.persistence.secure_token_store');
@@ -12,8 +15,11 @@ class SecureTokenStore {
   static const _torrentProxyKey = 'torrent_proxy_configuration';
 
   final FlutterSecureStorage _storage;
+  final AppSettingsRepository? _settingsRepository;
+  final AppSettings Function()? _readSettings;
+  final void Function(AppSettings)? _writeSettings;
 
-  const SecureTokenStore({
+  SecureTokenStore({
     FlutterSecureStorage storage = const FlutterSecureStorage(
       aOptions: AndroidOptions(
         resetOnError: true,
@@ -29,9 +35,39 @@ class SecureTokenStore {
         usesDataProtectionKeychain: false,
       ),
     ),
-  }) : _storage = storage;
+    AppSettingsRepository? settingsRepository,
+    AppSettings Function()? readSettings,
+    void Function(AppSettings)? writeSettings,
+  }) : _storage = storage,
+       _settingsRepository = settingsRepository,
+       _readSettings = readSettings,
+       _writeSettings = writeSettings;
+
+  bool get _usesSettings => kDebugMode;
+
+  AppSettings get _settings {
+    final readSettings = _readSettings;
+    if (readSettings == null) {
+      throw StateError('Development settings storage was not configured.');
+    }
+    return readSettings();
+  }
+
+  Future<void> _saveSettings(AppSettings settings) async {
+    final repository = _settingsRepository;
+    final writeSettings = _writeSettings;
+    if (repository == null || writeSettings == null) {
+      throw StateError('Development settings storage was not configured.');
+    }
+    await repository.save(settings);
+    writeSettings(settings);
+  }
 
   Future<String?> readAnilistToken() async {
+    if (_usesSettings) {
+      final token = _settings.anilist.accessToken;
+      return token.isEmpty ? null : token;
+    }
     try {
       return await _storage.read(key: _anilistTokenKey);
     } on PlatformException catch (error, stackTrace) {
@@ -48,16 +84,42 @@ class SecureTokenStore {
     }
   }
 
-  Future<void> writeAnilistToken(String token) {
+  Future<void> writeAnilistToken(String token) async {
+    if (_usesSettings) {
+      await _saveSettings(
+        _settings.copyWith(
+          anilist: _settings.anilist.copyWith(accessToken: token),
+        ),
+      );
+      return;
+    }
     return _storage.write(key: _anilistTokenKey, value: token);
   }
 
-  Future<void> deleteAnilistToken() {
+  Future<void> deleteAnilistToken() async {
+    if (_usesSettings) {
+      await _saveSettings(
+        _settings.copyWith(
+          anilist: _settings.anilist.copyWith(accessToken: ''),
+        ),
+      );
+      return;
+    }
     return _storage.delete(key: _anilistTokenKey);
   }
 
   Future<SecureTorrentProxyConfiguration?>
   readTorrentProxyConfiguration() async {
+    if (_usesSettings) {
+      final proxy = _settings.torrent;
+      return SecureTorrentProxyConfiguration(
+        mode: proxy.proxyMode.name,
+        host: proxy.proxyHost,
+        port: proxy.proxyPort,
+        username: proxy.proxyUsername,
+        password: proxy.proxyPassword,
+      );
+    }
     try {
       final encoded = await _storage.read(key: _torrentProxyKey);
       if (encoded == null || encoded.isEmpty) return null;
@@ -84,14 +146,29 @@ class SecureTokenStore {
 
   Future<void> writeTorrentProxyConfiguration(
     SecureTorrentProxyConfiguration configuration,
-  ) {
+  ) async {
+    if (_usesSettings) {
+      await _saveSettings(
+        _settings.copyWith(
+          torrent: _settings.torrent.copyWith(
+            proxyMode: TorrentProxyMode.values.byName(configuration.mode),
+            proxyHost: configuration.host,
+            proxyPort: configuration.port,
+            proxyUsername: configuration.username,
+            proxyPassword: configuration.password,
+          ),
+        ),
+      );
+      return;
+    }
     return _storage.write(
       key: _torrentProxyKey,
       value: jsonEncode(configuration.toJson()),
     );
   }
 
-  Future<void> deleteTorrentProxyConfiguration() {
+  Future<void> deleteTorrentProxyConfiguration() async {
+    if (_usesSettings) return;
     return _storage.delete(key: _torrentProxyKey);
   }
 }

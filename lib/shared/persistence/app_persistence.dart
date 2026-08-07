@@ -121,7 +121,11 @@ class AppPersistence {
     );
     final loadedTrackedAnime = await trackingRepository.load();
     final cfStore = CfBypassSessionStore(file: initializedPaths.cfSessionsFile);
-    const tokenStore = SecureTokenStore();
+    final tokenStore = SecureTokenStore(
+      settingsRepository: settingsRepository,
+      readSettings: () => _settings ?? loadedSettings,
+      writeSettings: (settings) => _settings = settings,
+    );
     final proxyConfiguration = await tokenStore.readTorrentProxyConfiguration();
     final settings =
         proxyConfiguration == null ||
