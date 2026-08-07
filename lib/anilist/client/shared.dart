@@ -49,6 +49,12 @@ class AnilistGraphqlClient {
     Map<String, dynamic>? variables,
     String? accessToken,
   }) async {
+    // Authenticated AniList responses can contain the user's current list
+    // status. Always fetch them from AniList so watch lists and status dots do
+    // not lag behind mutations or changes made by another client.
+    final cachePolicy = accessToken == null
+        ? CachePolicy.forceCache
+        : CachePolicy.noCache;
     final Response<Map<String, dynamic>> response;
     try {
       response = await _dio.post<Map<String, dynamic>>(
@@ -59,7 +65,7 @@ class AnilistGraphqlClient {
               ? null
               : {"Authorization": "Bearer $accessToken"},
           extra: NetConfig.getInstance()
-              .buildCacheOptions(allowPostMethod: true)
+              .buildCacheOptions(allowPostMethod: true, policy: cachePolicy)
               .toExtra(),
         ),
       );
