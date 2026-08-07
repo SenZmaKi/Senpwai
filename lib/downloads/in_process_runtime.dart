@@ -667,8 +667,11 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
           final selectedFilesDownloaded =
               downloadedBytes >= job.totalBytes && job.totalBytes > 0;
+          final seedingEnabled =
+              _torrentSettings.seedingMode != TorrentSeedingMode.disabled;
           final beganSeeding =
               selectedFilesDownloaded &&
+              seedingEnabled &&
               activeDownload.seedingStartedAt == null;
           if (beganSeeding) {
             activeDownload.seedingStartedAt = DateTime.now();
@@ -698,6 +701,8 @@ class InProcessDownloadRuntime implements DownloadRuntime {
                 downloadedBytes: job.totalBytes,
                 bytesPerSecond: 0,
                 torrentStats: liveStats,
+                seedingTargetReached:
+                    seedingEnabled && activeDownload.seedingStartedAt != null,
               ),
             );
             _maybePromote();

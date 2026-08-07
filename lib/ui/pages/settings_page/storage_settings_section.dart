@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -95,6 +96,20 @@ class _StorageSettingsSectionState
                   ),
                   enabled: notifications.enabled,
                 ),
+                if (Platform.isWindows)
+                  SettingsTile(
+                    icon: Icons.download_rounded,
+                    title: 'Windows Download Progress Notification',
+                    subtitle:
+                        'Show live progress; taskbar progress stays on either way',
+                    searchQuery: sq,
+                    trailing: AsyncSwitch(
+                      value: notifications.showWindowsProgressNotification,
+                      onChanged: (show) => widget.notifier
+                          .setShowWindowsProgressNotification(show),
+                    ),
+                    enabled: notifications.enabled,
+                  ),
               ],
             ),
             SettingsGroupCard(
@@ -316,7 +331,7 @@ String _notificationsSubtitle(NotificationPreferences notifications) {
 String _downloadNotificationStyleSubtitle(DownloadNotificationStyle style) {
   return switch (style) {
     DownloadNotificationStyle.batchCompletion =>
-      'Show batch progress, then one batch result',
+      'Show one result when a batch finishes',
     DownloadNotificationStyle.episodeCompletion =>
       'Show batch progress, then episode results',
   };

@@ -42,6 +42,7 @@ class DownloadRuntimeCodec {
     'torrentStats': item.torrentStats == null
         ? null
         : encodeTorrentStats(item.torrentStats!),
+    'seedingTargetReached': item.seedingTargetReached,
   };
 
   static DownloadQueueItem decodeItem(Map<Object?, Object?> map) {
@@ -68,6 +69,7 @@ class DownloadRuntimeCodec {
       torrentStats: map['torrentStats'] == null
           ? null
           : decodeTorrentStats(_map(map['torrentStats'])),
+      seedingTargetReached: map['seedingTargetReached'] == true,
     );
   }
 

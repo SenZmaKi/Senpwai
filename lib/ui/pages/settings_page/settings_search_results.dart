@@ -185,7 +185,7 @@ class SettingsSearchResults extends ConsumerWidget {
         if (tracked.preferredSource != null) tracked.preferredSource!.label,
         if (tracked.lastError != null) tracked.lastError!,
       ],
-      'Notifications app status updates download completion alerts',
+      'Notifications app status updates download completion alerts Windows progress notification',
       'System Notifications ${notifications.enabled ? 'enabled' : 'disabled'}',
       'Download Notification Style ${notifications.downloadStyle.label}',
       'Storage Memory Cache manage cache limits clear disk usage',

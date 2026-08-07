@@ -261,6 +261,7 @@ class DownloadQueueItem {
   final DateTime createdAt;
   final List<String> filePaths;
   final TorrentLiveStats? torrentStats;
+  final bool seedingTargetReached;
 
   const DownloadQueueItem({
     required this.id,
@@ -279,6 +280,7 @@ class DownloadQueueItem {
     this.errorDescription,
     this.errorCopyPayload,
     this.torrentStats,
+    this.seedingTargetReached = false,
   });
 
   bool get isTorrent => source == AnimeSource.nyaa;
@@ -304,6 +306,7 @@ class DownloadQueueItem {
     bool clearError = false,
     List<String>? filePaths,
     TorrentLiveStats? torrentStats,
+    bool? seedingTargetReached,
   }) {
     return DownloadQueueItem(
       id: id,
@@ -326,6 +329,7 @@ class DownloadQueueItem {
           ? null
           : (errorCopyPayload ?? this.errorCopyPayload),
       torrentStats: torrentStats ?? this.torrentStats,
+      seedingTargetReached: seedingTargetReached ?? this.seedingTargetReached,
     );
   }
 }

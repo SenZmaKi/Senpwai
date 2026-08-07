@@ -24,6 +24,7 @@ void main() {
       expect(settings.anilist.trackerCheckIntervalHours, 1);
       expect(settings.notifications.enabled, isTrue);
       expect(settings.notifications.permissionDenied, isFalse);
+      expect(settings.notifications.showWindowsProgressNotification, isFalse);
       expect(
         settings.notifications.downloadStyle,
         DownloadNotificationStyle.batchCompletion,
@@ -45,6 +46,7 @@ void main() {
           enabled: false,
           permissionDenied: true,
           downloadStyle: DownloadNotificationStyle.episodeCompletion,
+          showWindowsProgressNotification: true,
         ),
       );
       final json = settings.toJson()..['futureField'] = 'ignored';
@@ -60,6 +62,7 @@ void main() {
       expect(decoded.sources.priority.first, AnimeSource.nyaa);
       expect(decoded.notifications.enabled, isFalse);
       expect(decoded.notifications.permissionDenied, isTrue);
+      expect(decoded.notifications.showWindowsProgressNotification, isTrue);
       expect(
         decoded.notifications.downloadStyle,
         DownloadNotificationStyle.episodeCompletion,

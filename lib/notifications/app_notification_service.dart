@@ -278,7 +278,9 @@ class AppNotificationService {
     UserEventLevel level = UserEventLevel.info,
   }) async {
     final context = _navigatorKey?.currentContext;
+    if (!await notificationsAllowed()) return;
     if (context != null &&
+        context.mounted &&
         (_presentationObserver?.shouldUseToast ?? _fallbackShouldUseToast)) {
       _showToast(context, title: title, body: body, level: level);
       return;

@@ -36,6 +36,7 @@ class _DownloadNotificationBridgeState
   final Map<String, DateTime> _lastProgressUpdates = {};
   final Map<String, DownloadQueueStatus> _lastItemStatuses = {};
   final Set<String> _terminalBatchesNotified = {};
+  final Set<String> _batchesWithDownloadCompletionNotified = {};
   final Set<int> _activeProgressNotificationIds = {};
   StreamSubscription<NotificationActionEvent>? _actionSubscription;
   int? _lastTaskbarMode;
@@ -71,7 +72,10 @@ class _DownloadNotificationBridgeState
       _,
       next,
     ) {
-      if (!next.enabled) _cancelAllProgressNotifications();
+      if (!next.enabled ||
+          (Platform.isWindows && !next.showWindowsProgressNotification)) {
+        _cancelAllProgressNotifications();
+      }
     });
     return widget.child;
   }
@@ -85,23 +89,29 @@ class _DownloadNotificationBridgeState
       AppSettingsNotifier.provider.select((s) => s.notifications),
     );
     if (!notificationSettings.enabled) {
+      _baselineNotificationState(next);
       _cancelAllProgressNotifications();
       return;
     }
     if (Platform.isAndroid) return;
     _handleRemovedItems(next);
-    final desiredProgressIds = switch (notificationSettings.downloadStyle) {
-      DownloadNotificationStyle.batchCompletion => _handleBatchSummary(
-        previous,
-        next,
-        notifyTerminalBatches: true,
-      ),
-      DownloadNotificationStyle.episodeCompletion => _handleBatchSummary(
-        previous,
-        next,
-        notifyTerminalBatches: false,
-      ),
-    };
+    _handleBatchesEnteringSeeding(next);
+    if (notificationSettings.downloadStyle ==
+        DownloadNotificationStyle.batchCompletion) {
+      _handleTerminalBatches(previous, next);
+    }
+    final desiredProgressIds =
+        Platform.isWindows &&
+            !notificationSettings.showWindowsProgressNotification
+        ? const <int>{}
+        : switch (notificationSettings.downloadStyle) {
+            DownloadNotificationStyle.batchCompletion => _handleBatchSummary(
+              next,
+            ),
+            DownloadNotificationStyle.episodeCompletion => _handleBatchSummary(
+              next,
+            ),
+          };
     if (notificationSettings.downloadStyle ==
         DownloadNotificationStyle.episodeCompletion) {
       _handleTerminalItems(next);
@@ -109,15 +119,7 @@ class _DownloadNotificationBridgeState
     _cancelObsoleteProgressNotifications(desiredProgressIds);
   }
 
-  Set<int> _handleBatchSummary(
-    DownloadManagerState? previous,
-    DownloadManagerState next, {
-    required bool notifyTerminalBatches,
-  }) {
-    if (notifyTerminalBatches) {
-      _handleTerminalBatches(previous, next);
-    }
-
+  Set<int> _handleBatchSummary(DownloadManagerState next) {
     final activeBatchId = next.activeBatchId;
     var batch = activeBatchId == null ? null : _batchById(next, activeBatchId);
     if (batch == null) {
@@ -154,6 +156,7 @@ class _DownloadNotificationBridgeState
     _lastItemStatuses[item.id] = item.status;
     if (!item.status.isTerminal) return;
     if (previousStatus == item.status) return;
+    if (item.status == DownloadQueueStatus.cancelled) return;
 
     _lastProgressUpdates.remove(item.id);
     final id = _downloadNotificationId(item.id);
@@ -163,6 +166,7 @@ class _DownloadNotificationBridgeState
         id,
         item,
         _batchById(state, item.batchId),
+        seedingTargetReached: item.seedingTargetReached,
       ),
     );
   }
@@ -206,15 +210,48 @@ class _DownloadNotificationBridgeState
           .length;
       final id = _batchNotificationId(batch.id);
       _activeProgressNotificationIds.remove(id);
-      final hasIssue = failed > 0 || cancelled > 0;
+      final hadStartedSeeding = _batchesWithDownloadCompletionNotified.remove(
+        batch.id,
+      );
+      if (failed == 0 && cancelled > 0) continue;
+      final hasIssue = failed > 0;
+      final seedingTargetReached = items.any(
+        (item) => item.seedingTargetReached,
+      );
+      if (hadStartedSeeding && !seedingTargetReached && !hasIssue) continue;
       unawaitedNotification(
         AppNotificationService.instance.showUserEvent(
           id: id,
           title: batch.title,
           body: hasIssue
-              ? '${failed > 0 ? 'Batch finished with errors' : 'Batch cancelled'} · $completed completed · $failed failed · $cancelled cancelled'
+              ? 'Batch finished with errors · $completed completed · $failed failed · $cancelled cancelled'
+              : seedingTargetReached
+              ? 'Seeding target reached'
               : 'Batch completed',
           level: hasIssue ? UserEventLevel.warning : UserEventLevel.info,
+        ),
+      );
+    }
+  }
+
+  void _handleBatchesEnteringSeeding(DownloadManagerState state) {
+    for (final batch in state.batches) {
+      if (_batchesWithDownloadCompletionNotified.contains(batch.id)) continue;
+      final items = _itemsForBatch(state, batch);
+      final seeding = items.where((item) => item.isSeedingPhase).toList();
+      if (seeding.isEmpty || items.length != batch.itemIds.length) continue;
+      if (!items.every(
+        (item) =>
+            item.status == DownloadQueueStatus.completed || item.isSeedingPhase,
+      )) {
+        continue;
+      }
+      _batchesWithDownloadCompletionNotified.add(batch.id);
+      unawaitedNotification(
+        AppNotificationService.instance.showUserEvent(
+          id: _batchDownloadCompletedNotificationId(batch.id),
+          title: batch.title,
+          body: 'Download completed · Seeding in progress',
         ),
       );
     }
@@ -276,29 +313,29 @@ class _DownloadNotificationBridgeState
   Future<void> _replaceProgressWithFinalNotification(
     int id,
     DownloadQueueItem item,
-    DownloadBatchQueue? batch,
-  ) async {
+    DownloadBatchQueue? batch, {
+    required bool seedingTargetReached,
+  }) async {
     await AppNotificationService.instance.cancel(id);
     switch (item.status) {
       case DownloadQueueStatus.completed:
         await AppNotificationService.instance.showDownloadCompleted(
           id: id,
           title: item.displayTitle,
-          body: _terminalEpisodeBody(item, batch),
+          body: _terminalEpisodeBody(
+            item,
+            batch,
+            seedingTargetReached: seedingTargetReached,
+          ),
         );
       case DownloadQueueStatus.failed:
         await AppNotificationService.instance.showDownloadFailed(
           id: id,
           title: item.displayTitle,
-          body: _terminalEpisodeBody(item, batch),
+          body: _terminalEpisodeBody(item, batch, seedingTargetReached: false),
         );
       case DownloadQueueStatus.cancelled:
-        await AppNotificationService.instance.showUserEvent(
-          id: id,
-          title: item.displayTitle,
-          body: _terminalEpisodeBody(item, batch),
-          level: UserEventLevel.warning,
-        );
+        break;
       case DownloadQueueStatus.preparing ||
           DownloadQueueStatus.queued ||
           DownloadQueueStatus.downloading ||
@@ -370,10 +407,12 @@ class _DownloadNotificationBridgeState
 
   String _terminalEpisodeBody(
     DownloadQueueItem item,
-    DownloadBatchQueue? batch,
-  ) {
+    DownloadBatchQueue? batch, {
+    required bool seedingTargetReached,
+  }) {
     final status = switch (item.status) {
-      DownloadQueueStatus.completed => 'Download completed',
+      DownloadQueueStatus.completed =>
+        seedingTargetReached ? 'Seeding target reached' : 'Download completed',
       DownloadQueueStatus.failed => item.errorTitle ?? 'Download failed',
       DownloadQueueStatus.cancelled => 'Download cancelled',
       _ => 'Download updated',
@@ -390,6 +429,24 @@ class _DownloadNotificationBridgeState
 
   void _cancelAllProgressNotifications() {
     _cancelObsoleteProgressNotifications(const {});
+  }
+
+  void _baselineNotificationState(DownloadManagerState state) {
+    _lastItemStatuses
+      ..clear()
+      ..addEntries(state.items.map((item) => MapEntry(item.id, item.status)));
+    for (final batch in state.batches) {
+      final items = _itemsForBatch(state, batch);
+      if (items.isNotEmpty &&
+          items.every(
+            (item) =>
+                item.status == DownloadQueueStatus.completed ||
+                item.isSeedingPhase,
+          ) &&
+          items.any((item) => item.isSeedingPhase)) {
+        _batchesWithDownloadCompletionNotified.add(batch.id);
+      }
+    }
   }
 
   void _cancelObsoleteProgressNotifications(Set<int> desiredIds) {
@@ -500,6 +557,9 @@ class _DownloadNotificationBridgeState
 
   int _batchNotificationId(String batchId) =>
       _stableNotificationId('batch:$batchId');
+
+  int _batchDownloadCompletedNotificationId(String batchId) =>
+      _stableNotificationId('batch-download-completed:$batchId');
 
   int _stableNotificationId(String value) {
     var hash = 0x811c9dc5;

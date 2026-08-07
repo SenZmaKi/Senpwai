@@ -479,6 +479,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       ),
     );
   }
+
+  Future<void> setShowWindowsProgressNotification(bool show) {
+    return _commit(
+      state.copyWith(
+        notifications: state.notifications.copyWith(
+          showWindowsProgressNotification: show,
+        ),
+      ),
+    );
+  }
 }
 
 List<String> _uniqueNonEmptyStrings(List<String> values) {

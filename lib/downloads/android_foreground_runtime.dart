@@ -389,6 +389,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
   final _notifications = FlutterLocalNotificationsPlugin();
   final Set<String> _terminalBatchesNotified = {};
   final Map<String, DownloadQueueStatus> _lastItemStatuses = {};
+  final Set<String> _batchesWithDownloadCompletionNotified = {};
   InProcessDownloadRuntime? _runtime;
   final _runtimeReady = Completer<InProcessDownloadRuntime>();
   StreamSubscription<DownloadManagerState>? _stateSubscription;
@@ -796,6 +797,8 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
       return;
     }
 
+    await _showBatchesEnteringSeeding(state);
+
     if (_notificationSettings.downloadStyle ==
         DownloadNotificationStyle.episodeCompletion) {
       await _showTerminalEpisodeNotifications(state);
@@ -819,10 +822,57 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
         continue;
       }
       _terminalBatchesNotified.add(batch.id);
+      final hadStartedSeeding = _batchesWithDownloadCompletionNotified.remove(
+        batch.id,
+      );
+      final failed = items
+          .where((item) => item.status == DownloadQueueStatus.failed)
+          .length;
+      final cancelled = items
+          .where((item) => item.status == DownloadQueueStatus.cancelled)
+          .length;
+      if (failed == 0 && cancelled > 0) continue;
+      final seedingTargetReached = items.any(
+        (item) => item.seedingTargetReached,
+      );
+      if (hadStartedSeeding && !seedingTargetReached && failed == 0) continue;
       await _showTerminalBatchNotification(
         id: _batchEventNotificationId(batch.id),
         batch: batch,
         items: items,
+      );
+    }
+  }
+
+  Future<void> _showBatchesEnteringSeeding(DownloadManagerState state) async {
+    for (final batch in state.batches) {
+      if (_batchesWithDownloadCompletionNotified.contains(batch.id)) continue;
+      final items = _itemsForBatch(state, batch);
+      final seeding = items.where((item) => item.isSeedingPhase).toList();
+      if (seeding.isEmpty || items.length != batch.itemIds.length) continue;
+      if (!items.every(
+        (item) =>
+            item.status == DownloadQueueStatus.completed || item.isSeedingPhase,
+      )) {
+        continue;
+      }
+      _batchesWithDownloadCompletionNotified.add(batch.id);
+      await _notifications.show(
+        id: _batchDownloadCompletedNotificationId(batch.id),
+        title: batch.title,
+        body: 'Download completed · Seeding in progress',
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            AndroidForegroundDownloadRuntime._eventsChannelId,
+            'Download updates',
+            channelDescription:
+                'Senpwai download completion and error updates.',
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
+            icon: 'ic_notification',
+          ),
+        ),
+        payload: _payload(NotificationActionTargetType.batch, batch.id),
       );
     }
   }
@@ -838,6 +888,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
       final previousStatus = _lastItemStatuses[item.id];
       _lastItemStatuses[item.id] = item.status;
       if (!item.status.isTerminal || previousStatus == item.status) continue;
+      if (item.status == DownloadQueueStatus.cancelled) continue;
       await _showTerminalEpisodeNotification(
         id: _episodeEventNotificationId(item.id),
         item: item,
@@ -862,10 +913,10 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
         .length;
     final status = failed > 0
         ? 'Batch finished with errors'
-        : cancelled == items.length
-        ? 'Batch cancelled'
+        : items.any((item) => item.seedingTargetReached)
+        ? 'Seeding target reached'
         : 'Batch completed';
-    final body = failed > 0 || cancelled > 0
+    final body = failed > 0
         ? '$status · $completed completed · $failed failed · $cancelled cancelled'
         : status;
     await _notifications.show(
@@ -925,6 +976,18 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
             })
             .map((batch) => batch.id),
       );
+    for (final batch in state.batches) {
+      final items = _itemsForBatch(state, batch);
+      if (items.isNotEmpty &&
+          items.every(
+            (item) =>
+                item.status == DownloadQueueStatus.completed ||
+                item.isSeedingPhase,
+          ) &&
+          items.any((item) => item.isSeedingPhase)) {
+        _batchesWithDownloadCompletionNotified.add(batch.id);
+      }
+    }
   }
 
   void _sendState(DownloadManagerState state) {
@@ -1015,7 +1078,10 @@ String _batchProgressBody(
 
 String _terminalEpisodeBody(DownloadQueueItem item, DownloadBatchQueue? batch) {
   final status = switch (item.status) {
-    DownloadQueueStatus.completed => 'Download completed',
+    DownloadQueueStatus.completed =>
+      item.seedingTargetReached
+          ? 'Seeding target reached'
+          : 'Download completed',
     DownloadQueueStatus.failed => item.errorTitle ?? 'Download failed',
     DownloadQueueStatus.cancelled => 'Download cancelled',
     DownloadQueueStatus.seeding => 'Seeding',
@@ -1189,6 +1255,9 @@ String _payload(NotificationActionTargetType type, String id) {
 
 int _batchEventNotificationId(String batchId) =>
     _stableNotificationId('batch-event:$batchId');
+
+int _batchDownloadCompletedNotificationId(String batchId) =>
+    _stableNotificationId('batch-download-completed:$batchId');
 
 int _episodeEventNotificationId(String itemId) =>
     _stableNotificationId('episode-event:$itemId');

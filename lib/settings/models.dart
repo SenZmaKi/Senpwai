@@ -780,11 +780,13 @@ class NotificationPreferences {
   final bool enabled;
   final bool permissionDenied;
   final DownloadNotificationStyle downloadStyle;
+  final bool showWindowsProgressNotification;
 
   const NotificationPreferences({
     this.enabled = true,
     this.permissionDenied = false,
     this.downloadStyle = DownloadNotificationStyle.batchCompletion,
+    this.showWindowsProgressNotification = false,
   });
 
   factory NotificationPreferences.fromJson(Map<String, dynamic> json) =>
@@ -792,23 +794,32 @@ class NotificationPreferences {
         enabled: _boolValue(json['enabled'], true),
         permissionDenied: _boolValue(json['permissionDenied'], false),
         downloadStyle: _downloadNotificationStyleValue(json['downloadStyle']),
+        showWindowsProgressNotification: _boolValue(
+          json['showWindowsProgressNotification'],
+          false,
+        ),
       );
 
   Map<String, dynamic> toJson() => {
     'enabled': enabled,
     'permissionDenied': permissionDenied,
     'downloadStyle': downloadStyle.name,
+    'showWindowsProgressNotification': showWindowsProgressNotification,
   };
 
   NotificationPreferences copyWith({
     bool? enabled,
     bool? permissionDenied,
     DownloadNotificationStyle? downloadStyle,
+    bool? showWindowsProgressNotification,
   }) {
     return NotificationPreferences(
       enabled: enabled ?? this.enabled,
       permissionDenied: permissionDenied ?? this.permissionDenied,
       downloadStyle: downloadStyle ?? this.downloadStyle,
+      showWindowsProgressNotification:
+          showWindowsProgressNotification ??
+          this.showWindowsProgressNotification,
     );
   }
 }
