@@ -1,9 +1,11 @@
 import 'dart:math';
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:html/dom.dart' as html;
 import 'package:senpwai/shared/shared.dart' as shared;
@@ -544,18 +546,29 @@ class Source {
   Future<DirectDownloadLink> _fetchDirectDownloadLinkFromKwikPage({
     required String kwikPageLink,
     required DownloadLink downloadLink,
+    required Uri pahePageUri,
   }) async {
+    final kwikHeaders = {
+      'Accept':
+          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Referer': pahePageUri.toString(),
+    };
+    log.infoWithMetadata(
+      "Kwik page request prepared",
+      metadata: {
+        "animeTitle": downloadLink.animeTitle,
+        "episodeNumber": downloadLink.episodeNumber,
+        "paheRequestedUrl": downloadLink.url,
+        "paheFinalUrl": pahePageUri.toString(),
+        "kwikPageLink": kwikPageLink,
+        "requestHeaders": kwikHeaders,
+      },
+    );
+
     final response = await _dio.get<String>(
       kwikPageLink,
-      options: Options(
-        responseType: ResponseType.plain,
-        headers: {
-          'Accept':
-              'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Referer': downloadLink.url,
-        },
-      ),
+      options: Options(responseType: ResponseType.plain, headers: kwikHeaders),
     );
     final htmlPageText = response.data;
     if (htmlPageText == null) {
@@ -564,6 +577,27 @@ class Source {
         metadata: {"kwikPageLink": kwikPageLink},
       );
     }
+    log.infoWithMetadata(
+      "Kwik page response received",
+      metadata: {
+        "animeTitle": downloadLink.animeTitle,
+        "episodeNumber": downloadLink.episodeNumber,
+        "requestedUrl": kwikPageLink,
+        "finalUrl": response.realUri.toString(),
+        "redirects": [
+          for (final redirect in response.redirects)
+            {
+              "statusCode": redirect.statusCode,
+              "method": redirect.method,
+              "location": redirect.location.toString(),
+            },
+        ],
+        "statusCode": response.statusCode,
+        "httpVersion": response.extra[HttpClientAdapter.extraKeyHttpVersion],
+        "requestReferer": response.requestOptions.headers['Referer'],
+        "responseBytes": htmlPageText.length,
+      },
+    );
 
     final formHtml = _extractAndDecryptKwikForm(htmlPageText);
     log.fineWithMetadata(
@@ -625,7 +659,14 @@ class Source {
     required DownloadLink downloadLink,
   }) async {
     await SourceDirectory.waitForRefresh();
-    final response = await _dio.get<String>(downloadLink.url);
+    final response = await _dio.get<String>(
+      downloadLink.url,
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
+      ),
+    );
     final htmlPageText = response.data;
     if (htmlPageText == null) {
       throw SourceException(
@@ -637,6 +678,26 @@ class Source {
         },
       );
     }
+    log.infoWithMetadata(
+      "Pahe download page resolved",
+      metadata: {
+        "animeTitle": downloadLink.animeTitle,
+        "episodeNumber": downloadLink.episodeNumber,
+        "requestedUrl": downloadLink.url,
+        "finalUrl": response.realUri.toString(),
+        "redirects": [
+          for (final redirect in response.redirects)
+            {
+              "statusCode": redirect.statusCode,
+              "method": redirect.method,
+              "location": redirect.location.toString(),
+            },
+        ],
+        "statusCode": response.statusCode,
+        "httpVersion": response.extra[HttpClientAdapter.extraKeyHttpVersion],
+        "responseBytes": htmlPageText.length,
+      },
+    );
     final kwikMatch = Constants.kwikLinkRegex.firstMatch(htmlPageText);
     if (kwikMatch == null) {
       throw SourceException(
@@ -648,6 +709,7 @@ class Source {
     final directDownloadLink = await _fetchDirectDownloadLinkFromKwikPage(
       downloadLink: downloadLink,
       kwikPageLink: kwikPageLink,
+      pahePageUri: response.realUri,
     );
     log.fineWithMetadata(
       "Fetched direct download link",
