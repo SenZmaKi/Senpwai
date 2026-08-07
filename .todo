@@ -1,5 +1,8 @@
 # Features
 - Updates
+- Poll anilist for anime list changes, maybe shorter cache instead of disabling cache outright for anilist
+- Queuing download should not autoresume paused active download
+- Gracefully handle user exiting download page while "planning download"
 
 # Bugs
 - Memory usage
