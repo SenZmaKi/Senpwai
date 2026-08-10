@@ -1,0 +1,105 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { ArrowDown, ArrowUpRight, Bell, Braces, Download, Palette, Search, Settings, Waypoints } from 'lucide-astro';
+
+const layers = [
+  { icon: Palette, name: 'Interface', path: 'lib/ui', copy: 'Responsive pages, shared components, navigation, and the configurable theme system.' },
+  { icon: Waypoints, name: 'Application state', path: 'Riverpod notifiers', copy: 'Small feature-owned state units connect the interface to downloads, settings, tracking, and AniList.' },
+  { icon: Search, name: 'Discovery', path: 'lib/anilist · lib/sources', copy: 'AniList supplies catalog and watchlist context. Source adapters resolve downloadable episodes.' },
+  { icon: Download, name: 'Download pipeline', path: 'lib/downloads', copy: 'Planning, source resolution, queues, recovery, paths, and the in-process download runtime live together.' },
+  { icon: Bell, name: 'Tracking & notifications', path: 'lib/tracking · lib/notifications', copy: 'Tracked shows can be checked for new episodes, queued, and surfaced through platform notifications.' },
+  { icon: Settings, name: 'Settings & persistence', path: 'lib/settings · lib/shared/persistence', copy: 'User preferences, secure values, folders, and runtime configuration are kept outside the UI layer.' },
+];
+---
+
+<Layout title="Senpwai Architecture" description="A developer-oriented map of the Senpwai Flutter application and its main runtime boundaries.">
+  <section class="architecture-hero shell">
+    <p class="eyebrow">For developers</p>
+    <h1 class="display">Senpwai<br /><span>codebase.</span></h1>
+    <p class="lede">A map of the current Flutter project, including its UI, state, catalog, download, tracking, notification, and persistence areas.</p>
+    <a href="#system-map" class="secondary-button">System map <ArrowDown size={17} aria-hidden="true" /></a>
+  </section>
+
+  <section id="system-map" class="architecture-content shell">
+    <div class="architecture-intro">
+      <p class="eyebrow">System map</p>
+      <h2 class="display">Application areas.</h2>
+      <p>The repository is organised by product responsibility, not by a single catch-all service layer. UI state stays close to the feature that owns it, while shared networking and persistence provide the common foundation.</p>
+    </div>
+    <div class="layer-list">
+      {layers.map((layer, index) => {
+        const Icon = layer.icon;
+        return (
+          <article>
+            <span class="layer-number">{String(index + 1).padStart(2, '0')}</span>
+            <Icon size={22} aria-hidden="true" />
+            <div><h3>{layer.name}</h3><code>{layer.path}</code><p>{layer.copy}</p></div>
+          </article>
+        );
+      })}
+    </div>
+  </section>
+
+  <section class="request-flow shell">
+    <div class="flow-heading"><p class="eyebrow">Typical flow</p><h2 class="display">From a title to a file.</h2></div>
+    <div class="flow-track" aria-label="Download request flow">
+      <span>Find anime</span><i>→</i><span>Choose episodes</span><i>→</i><span>Resolve source</span><i>→</i><span>Plan files</span><i>→</i><span>Queue download</span>
+    </div>
+  </section>
+
+  <section class="libraries shell">
+    <div>
+      <p class="eyebrow">Purpose-built libraries</p>
+      <h2 class="display">Related Dart packages.</h2>
+      <p>Senpwai uses two standalone Dart packages maintained alongside the app. Keeping them separate makes their native boundaries explicit and lets each package evolve independently.</p>
+    </div>
+    <div class="library-cards">
+      <a href="https://github.com/SenZmaKi/libtorrent_dart" target="_blank" rel="noopener noreferrer">
+        <Braces size={21} /><span><strong>libtorrent_dart</strong><small>Torrent runtime bindings</small></span><ArrowUpRight size={17} />
+      </a>
+      <a href="https://github.com/SenZmaKi/anitomy_dart" target="_blank" rel="noopener noreferrer">
+        <Braces size={21} /><span><strong>anitomy_dart</strong><small>Anime filename parsing</small></span><ArrowUpRight size={17} />
+      </a>
+    </div>
+  </section>
+
+  <section class="developer-cta shell">
+    <div><p class="eyebrow">Repository</p><h2 class="display">Source and project history.</h2><p>The repository contains setup instructions, dependencies, supported targets, issues, and current development work.</p></div>
+    <a href="https://github.com/SenZmaKi/Senpwai" target="_blank" rel="noopener noreferrer" class="primary-button">GitHub repository <ArrowUpRight size={17} /></a>
+  </section>
+</Layout>
+
+<style>
+  .architecture-hero { min-height: 72vh; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding-block: 6rem; }
+  h1 { margin: 1rem 0 1.5rem; font-size: clamp(4rem, 9vw, 9rem); line-height: .83; }
+  h1 span { color: #ffcf54; }
+  .architecture-hero .lede { max-width: 44rem; }
+  .architecture-hero .secondary-button { margin-top: 1rem; }
+  .architecture-content { display: grid; grid-template-columns: .75fr 1.25fr; gap: clamp(3rem, 8vw, 8rem); padding-block: 7rem; border-top: 1px solid #292930; }
+  .architecture-intro { position: sticky; top: 110px; align-self: start; }
+  .architecture-intro h2, .flow-heading h2, .libraries h2, .developer-cta h2 { margin: .8rem 0 1rem; font-size: clamp(2.4rem, 4.5vw, 4.5rem); line-height: .96; }
+  .architecture-intro > p:last-child, .libraries > div > p:last-child, .developer-cta p:last-child { color: #929098; line-height: 1.7; }
+  .layer-list article { display: grid; grid-template-columns: 30px 34px 1fr; gap: 1rem; padding: 1.7rem 0; border-top: 1px solid #292930; }
+  .layer-list article:last-child { border-bottom: 1px solid #292930; }
+  .layer-number { color: #77757d; font: .65rem 'JetBrains Mono', monospace; padding-top: .35rem; }
+  .layer-list svg { color: #ffcf54; margin-top: .1rem; }
+  .layer-list h3 { margin: 0; font: 700 1.25rem 'Outfit', sans-serif; }
+  .layer-list code { display: block; margin-top: .35rem; color: #f04444; font: .68rem 'JetBrains Mono', monospace; }
+  .layer-list p { margin: .7rem 0 0; color: #929098; line-height: 1.6; }
+  .request-flow { padding-block: 7rem; border-top: 1px solid #292930; }
+  .flow-track { margin-top: 2.5rem; display: flex; align-items: center; gap: .8rem; overflow-x: auto; padding-bottom: 1rem; }
+  .flow-track span { flex: 0 0 auto; padding: .85rem 1rem; border: 1px solid #34343c; border-radius: .55rem; background: #131318; font: .76rem 'JetBrains Mono', monospace; }
+  .flow-track i { color: #f04444; font-style: normal; }
+  .libraries { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(3rem, 8vw, 8rem); padding-block: 7rem; border-top: 1px solid #292930; }
+  .library-cards { display: grid; gap: .8rem; align-content: center; }
+  .library-cards a { display: grid; grid-template-columns: 30px 1fr 20px; gap: .8rem; align-items: center; padding: 1.2rem; border: 1px solid #34343c; border-radius: .7rem; background: #131318; transition: transform .2s ease, border-color .2s ease; }
+  .library-cards a:hover { transform: translateX(5px); border-color: #ffcf54; }
+  .library-cards svg:first-child { color: #ffcf54; }
+  .library-cards strong, .library-cards small { display: block; }
+  .library-cards strong { font-family: 'JetBrains Mono', monospace; }
+  .library-cards small { margin-top: .2rem; color: #85838b; }
+  .developer-cta { margin-block: 4rem 7rem; padding: clamp(2rem, 5vw, 4rem); display: flex; align-items: end; justify-content: space-between; gap: 3rem; border: 1px solid #34343c; border-radius: 1rem; background: #111116; }
+  .developer-cta > div { max-width: 650px; }
+  .developer-cta .primary-button { flex: 0 0 auto; }
+  @media (max-width: 820px) { .architecture-content, .libraries { grid-template-columns: 1fr; } .architecture-intro { position: static; } .developer-cta { flex-direction: column; align-items: stretch; } }
+</style>

@@ -1,0 +1,397 @@
+---
+import { Palette } from 'lucide-astro';
+import { Image } from 'astro:assets';
+import senpwaiTheme from '../assets/screenshots/mobile/home-senpwai-theme.webp';
+import dekuTheme from '../assets/screenshots/mobile/home-deku-theme.webp';
+import narutoTheme from '../assets/screenshots/mobile/home-naruto-theme.webp';
+import gojoTheme from '../assets/screenshots/mobile/search-gojo-theme.webp';
+import kanekiTheme from '../assets/screenshots/mobile/preview-kaneki-theme.webp';
+
+const themes = [
+  {
+    name: 'Senpwai Theme',
+    accent: '#C4384E',
+    image: senpwaiTheme,
+  },
+  {
+    name: 'Deku Theme',
+    accent: '#22C55E',
+    image: dekuTheme,
+  },
+  {
+    name: 'Naruto Theme',
+    accent: '#FF7B00',
+    image: narutoTheme,
+  },
+  {
+    name: 'Gojo Theme',
+    accent: '#7C3AED',
+    image: gojoTheme,
+  },
+  {
+    name: 'Kaneki Theme',
+    accent: '#8B0000',
+    image: kanekiTheme,
+  },
+];
+---
+
+<section id="themes" class="themes-section shell">
+  <div class="section-intro">
+    <p class="eyebrow"><Palette size={14} class="inline-icon" /> Themes & Customization</p>
+    <h2 class="display">Match your vibe. Pick your theme.</h2>
+    <p class="lede">Customize Senpwai with unique anime theme presets, high-contrast dark modes, and dynamic accent colors.</p>
+  </div>
+
+  <!-- 3D Spin Wheel Stage -->
+  <div class="wheel-stage-container">
+    <div class="wheel-stage">
+      <div class="theme-wheel">
+        {themes.map((theme, idx) => (
+          <div
+            class="wheel-card"
+            data-index={idx}
+            style={`--theme-accent: ${theme.accent};`}
+          >
+            <div class="phone-mockup">
+              <div class="phone-notch"></div>
+              <Image
+                src={theme.image}
+                alt={theme.name}
+                widths={[180, 264, 396, 528]}
+                sizes="(max-width: 600px) 41vw, 175px"
+                quality={82}
+                loading="lazy"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- Quick Theme Pill Selector -->
+    <div class="theme-pills">
+      {themes.map((theme, idx) => (
+        <button
+          type="button"
+          class="theme-pill"
+          data-index={idx}
+          style={`--pill-accent: ${theme.accent};`}
+          aria-pressed={idx === 0 ? 'true' : 'false'}
+        >
+          <span class="pill-dot"></span>
+          <span>{theme.name}</span>
+        </button>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  const wheelStage = document.querySelector<HTMLElement>('.wheel-stage');
+  const cards = document.querySelectorAll<HTMLElement>('.wheel-card');
+  const pills = document.querySelectorAll<HTMLElement>('.theme-pill');
+
+  const total = cards.length;
+  const angleStep = 360 / total;
+
+  let rotationAngle = 0;
+  let targetAngle: number | null = null;
+  let xRadius = 250;
+  let zRadius = 170;
+  let activeScale = 1.08;
+  let inactiveScale = 0.82;
+  let activePillIdx = -1;
+  let previousFrameTime = performance.now();
+  const hoveredCards = new Set<HTMLElement>();
+
+  function syncWheelGeometry() {
+    const stageWidth = wheelStage?.clientWidth ?? 960;
+
+    if (stageWidth <= 600) {
+      xRadius = stageWidth * 0.42;
+      zRadius = stageWidth * 0.3;
+      activeScale = 1.27;
+      inactiveScale = 0.54;
+    } else if (stageWidth <= 900) {
+      xRadius = stageWidth * 0.32;
+      zRadius = Math.min(150, stageWidth * 0.24);
+      activeScale = 1.16;
+      inactiveScale = 0.66;
+    } else {
+      xRadius = 250;
+      zRadius = 170;
+      activeScale = 1.1;
+      inactiveScale = 0.76;
+    }
+  }
+
+  syncWheelGeometry();
+  window.addEventListener('resize', syncWheelGeometry, { passive: true });
+
+  function render(frameTime: number) {
+    const elapsedSeconds = Math.min((frameTime - previousFrameTime) / 1000, 0.05);
+    previousFrameTime = frameTime;
+    const isHovered = hoveredCards.size > 0;
+
+    if (!isHovered && targetAngle === null) {
+      rotationAngle += 13.2 * elapsedSeconds;
+      if (rotationAngle >= 360) rotationAngle -= 360;
+    } else if (targetAngle !== null) {
+      let diff = targetAngle - rotationAngle;
+      while (diff < -180) diff += 360;
+      while (diff > 180) diff -= 360;
+
+      if (Math.abs(diff) < 0.08) {
+        rotationAngle = targetAngle;
+        targetAngle = null;
+      } else {
+        const easing = 1 - Math.exp(-8 * elapsedSeconds);
+        rotationAngle += diff * easing;
+      }
+    }
+
+    let closestIdx = 0;
+    let minDelta = Infinity;
+
+    cards.forEach((card, idx) => {
+      let cardAngle = (idx * angleStep - rotationAngle) % 360;
+      if (cardAngle < -180) cardAngle += 360;
+      if (cardAngle > 180) cardAngle -= 360;
+
+      const rad = (cardAngle * Math.PI) / 180;
+      const x = Math.sin(rad) * xRadius;
+      const z = Math.cos(rad) * zRadius - zRadius;
+      const rotateY = cardAngle * 0.35;
+      const frontProgress = Math.max(0, Math.cos(rad));
+      const easedFrontProgress = frontProgress * frontProgress * (3 - 2 * frontProgress);
+      const scale = inactiveScale + (activeScale - inactiveScale) * easedFrontProgress;
+      const opacity = 0.22 + 0.78 * easedFrontProgress;
+      const brightness = 0.55 + 0.45 * easedFrontProgress;
+      const isFront = Math.abs(cardAngle) < angleStep / 2;
+
+      card.style.transform = `translate3d(${x}px, 0, ${z}px) rotateY(${rotateY}deg) scale(${scale})`;
+      card.style.opacity = String(opacity);
+      card.style.filter = `brightness(${brightness})`;
+      card.style.zIndex = String(Math.round(z + 500));
+      card.classList.toggle('active', isFront);
+
+      if (Math.abs(cardAngle) < minDelta) {
+        minDelta = Math.abs(cardAngle);
+        closestIdx = idx;
+      }
+    });
+
+    if (activePillIdx !== closestIdx) {
+      activePillIdx = closestIdx;
+      pills.forEach((pill, idx) => {
+        const isActive = idx === closestIdx;
+        pill.classList.toggle('active', isActive);
+        pill.setAttribute('aria-pressed', String(isActive));
+      });
+    }
+
+    requestAnimationFrame(render);
+  }
+
+  pills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      const idx = Number(pill.dataset.index);
+      targetAngle = idx * angleStep;
+    });
+  });
+
+  cards.forEach((card) => {
+    card.addEventListener('mouseenter', () => hoveredCards.add(card));
+    card.addEventListener('mouseleave', () => hoveredCards.delete(card));
+    card.addEventListener('click', () => {
+      const idx = Number(card.dataset.index);
+      targetAngle = idx * angleStep;
+    });
+  });
+
+  requestAnimationFrame(render);
+</script>
+
+<style>
+  .themes-section {
+    padding-block: 4rem 6rem;
+    overflow: hidden;
+  }
+
+  .section-intro {
+    max-width: 680px;
+    margin: 0 auto 3rem;
+    text-align: center;
+  }
+
+  .section-intro .eyebrow {
+    color: #ff5252;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+  }
+
+  :global(.inline-icon) {
+    vertical-align: middle;
+  }
+
+  .section-intro h2 {
+    margin: 0.8rem 0 0.6rem;
+    font-size: clamp(2.4rem, 4.5vw, 4.2rem);
+    line-height: 0.98;
+    color: #ffffff;
+  }
+
+  .section-intro .lede {
+    color: #a7a5ad;
+    margin: 0;
+  }
+
+  /* Wheel Stage */
+  .wheel-stage-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2.5rem;
+  }
+
+  .wheel-stage {
+    position: relative;
+    width: 100%;
+    max-width: 960px;
+    height: 420px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 1000px;
+    isolation: isolate;
+  }
+
+  .theme-wheel {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-style: preserve-3d;
+  }
+
+  .wheel-card {
+    position: absolute;
+    width: 175px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    will-change: transform, opacity;
+  }
+
+  .phone-mockup {
+    position: relative;
+    width: 100%;
+    border-radius: 1.6rem;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    background: #08080b;
+    padding: 0.4rem;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6), 0 0 20px var(--theme-accent, rgba(240, 68, 68, 0.2));
+    transition: border-color 0.45s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .phone-notch {
+    width: 40px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 0.2rem auto 0.4rem;
+  }
+
+  .phone-mockup img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 1.25rem;
+  }
+
+  .wheel-card.active .phone-mockup {
+    border-color: var(--theme-accent, #f04444);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px var(--theme-accent, rgba(240, 68, 68, 0.4));
+  }
+
+  /* Quick Pills */
+  .theme-pills {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .theme-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.6rem;
+    background: rgba(18, 18, 23, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #a7a5ad;
+    font: 600 0.75rem 'JetBrains Mono', monospace;
+    cursor: pointer;
+    transform: translateY(0);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+    transition: color 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      background 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .pill-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--pill-accent, #f04444);
+    transform: scale(0.82);
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease;
+  }
+
+  .theme-pill:hover {
+    color: #ffffff;
+    background: rgba(24, 24, 31, 0.85);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .theme-pill.active {
+    color: #ffffff;
+    border-color: var(--pill-accent, #f04444);
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--pill-accent) 18%, transparent);
+  }
+
+  .theme-pill.active .pill-dot {
+    transform: scale(1.18);
+    box-shadow: 0 0 12px var(--pill-accent, #f04444);
+  }
+
+  @media (max-width: 900px) {
+    .wheel-stage-container {
+      gap: 1.5rem;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .section-intro {
+      margin-bottom: 4.25rem;
+    }
+    .wheel-stage {
+      height: 330px;
+    }
+    .wheel-card {
+      width: 132px;
+    }
+  }
+</style>

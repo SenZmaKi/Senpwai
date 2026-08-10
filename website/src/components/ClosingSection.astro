@@ -1,0 +1,166 @@
+---
+import { Download, Github, Heart } from 'lucide-astro';
+
+const discordSvg = `<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>`;
+
+const redditSvg = `<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.687-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.562-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.561-1.249-1.25-1.249zm-4.466 3.99a.326.326 0 0 0-.232.556c.725.725 1.896.945 2.948.945 1.05 0 2.222-.22 2.947-.945a.326.326 0 0 0-.462-.461c-.537.537-1.486.746-2.485.746-.999 0-1.948-.209-2.485-.746a.321.321 0 0 0-.231-.095z"/></svg>`;
+---
+
+<section id="closing-section" class="closing-section shell">
+  <div class="closing-card hub-card">
+    <div class="hub-copy">
+      <p class="eyebrow">Community & Open Source</p>
+      <h2 class="display">Free, open source, built with passion.</h2>
+      <p class="lede">Senpwai is 100% free with no ads. Source code, releases, and issue tracking all live on GitHub.</p>
+
+      <div class="hub-stats">
+        <span class="stat-pill"><Heart size={13} class="icon-red" /> 100% Free</span>
+        <span class="stat-pill"><Github size={13} /> Community Driven</span>
+      </div>
+    </div>
+
+    <div class="hub-actions">
+      <a href="/download" class="primary-button">
+        <Download size={18} aria-hidden="true" /> Download App
+      </a>
+
+      <div class="community-links">
+        <a href="https://github.com/SenZmaKi/Senpwai" target="_blank" rel="noopener noreferrer" class="community-btn github-btn" title="GitHub Repository">
+          <Github size={16} /> GitHub
+        </a>
+        <a href="https://discord.gg/invite/e9UxkuyDX2" target="_blank" rel="noopener noreferrer" class="community-btn discord-btn" title="Discord Community">
+          <span class="btn-svg" set:html={discordSvg} /> Discord
+        </a>
+        <a href="https://www.reddit.com/r/Senpwai" target="_blank" rel="noopener noreferrer" class="community-btn reddit-btn" title="Reddit Subreddit">
+          <span class="btn-svg" set:html={redditSvg} /> Reddit
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .closing-section {
+    margin-block: 3.5rem 6rem;
+  }
+
+  .closing-card {
+    padding: clamp(2.5rem, 5vw, 4rem);
+    border-radius: 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, rgba(23, 23, 28, 0.85) 0%, rgba(14, 14, 18, 0.95) 100%);
+    backdrop-filter: blur(16px);
+  }
+
+  .hub-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3rem;
+    align-items: center;
+  }
+
+  .hub-copy .eyebrow {
+    color: #ff5252;
+  }
+
+  .hub-copy h2 {
+    margin: 0.6rem 0 0.8rem;
+    font-size: clamp(2.2rem, 4vw, 3.8rem);
+    line-height: 0.96;
+    color: #ffffff;
+  }
+
+  .hub-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #c9c7ce;
+    font: 600 0.72rem 'JetBrains Mono', monospace;
+  }
+
+  .hub-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    min-width: 240px;
+  }
+
+  .hub-actions .primary-button {
+    width: 100%;
+  }
+
+  .community-links {
+    display: flex;
+    gap: 0.45rem;
+  }
+
+  .community-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.38rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.6rem;
+    background: rgba(18, 18, 23, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #b8b6bc;
+    font: 600 0.75rem 'JetBrains Mono', monospace;
+    transition: all 0.2s ease;
+  }
+
+  .btn-svg {
+    display: grid;
+    place-items: center;
+  }
+
+  .github-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    transform: translateY(-2px);
+  }
+
+  .discord-btn:hover {
+    background: rgba(88, 101, 242, 0.15);
+    border-color: rgba(88, 101, 242, 0.4);
+    color: #5865f2;
+    transform: translateY(-2px);
+  }
+
+  .reddit-btn:hover {
+    background: rgba(255, 69, 0, 0.15);
+    border-color: rgba(255, 69, 0, 0.4);
+    color: #ff4500;
+    transform: translateY(-2px);
+  }
+
+  :global(.icon-red) {
+    color: #ff5252;
+  }
+
+  :global(.icon-yellow) {
+    color: #ffcf54;
+  }
+
+  @media (max-width: 900px) {
+    .hub-card {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    .hub-actions {
+      width: 100%;
+    }
+  }
+</style>
