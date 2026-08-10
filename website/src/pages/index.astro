@@ -1,0 +1,258 @@
+---
+import Layout from '../layouts/Layout.astro';
+import InteractiveShowcase from '../components/InteractiveShowcase.astro';
+import TechStackSpec from '../components/TechStackSpec.astro';
+import { 
+  Download, Sparkles, Monitor, Smartphone, Play, Search, Shield, Palette, 
+  CheckCircle2, ArrowRight, Zap, Flame, Star, Layers, RefreshCw, Cpu
+} from 'lucide-astro';
+
+const features = [
+  {
+    icon: Zap,
+    color: 'text-[#FF5252]',
+    bg: 'bg-[#E53935]/15 border-[#E53935]/30',
+    title: 'Native Torrent Streaming',
+    badge: 'libtorrent_dart',
+    desc: 'Stream high quality anime directly while downloading via C++ native libtorrent bindings. Zero lag, instant seekable buffer.'
+  },
+  {
+    icon: Search,
+    color: 'text-[#00E5FF]',
+    bg: 'bg-[#00E5FF]/15 border-[#00E5FF]/30',
+    title: 'Multi-Source Anime Search',
+    badge: 'Nyaa & Trackers',
+    desc: 'Instant filter by genre, year, airing season, media format (TV, Movie, ONA, Special), and watch state across top anime sources.'
+  },
+  {
+    icon: Palette,
+    color: 'text-[#FFB300]',
+    bg: 'bg-[#FFB300]/15 border-[#FFB300]/30',
+    title: 'Custom Anime Themes',
+    badge: 'Gojo / Kaneki / Deku',
+    desc: 'Express your style with custom visual themes like Gojo Limitless Cyan, Kaneki Ghoul Red, Naruto Sage, and Deku Emerald.'
+  },
+  {
+    icon: Layers,
+    color: 'text-[#B388FF]',
+    bg: 'bg-[#B388FF]/15 border-[#B388FF]/30',
+    title: 'Episode & Audio Selector',
+    badge: '1080p Dual Audio',
+    desc: 'Fine-tune episode ranges (e.g. 1-24), select exact video quality resolution (1080p/720p), and pick preferred audio tracks.'
+  },
+  {
+    icon: Cpu,
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/15 border-emerald-500/30',
+    title: 'Anitomy Smart Parsing',
+    badge: 'anitomy_dart',
+    desc: 'Automatic regex dissection of release names, sub groups, episode tags, and metadata formatting with pinpoint precision.'
+  },
+  {
+    icon: Monitor,
+    color: 'text-[#00E5FF]',
+    bg: 'bg-[#00E5FF]/15 border-[#00E5FF]/30',
+    title: 'Unified Cross-Platform UI',
+    badge: 'Desktop & Mobile',
+    desc: 'One sleek, responsive Flutter client that looks stunning on widescreen monitors, laptops, tablets, and smartphone screens.'
+  }
+];
+---
+
+<Layout title="Senpwai v3.0.0 - Modern Flutter Anime Streaming & Torrent App">
+  <!-- Hero Section -->
+  <section class="relative pt-12 pb-20 md:pt-20 md:pb-32 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      
+      <!-- Main Hero Header -->
+      <div class="text-center max-w-4xl mx-auto space-y-6">
+        
+        <!-- Version pill badge -->
+        <div class="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#131520] border border-white/15 text-xs font-mono font-semibold text-slate-300 shadow-xl hover:border-[#E53935]/50 transition-all cursor-pointer">
+          <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#E53935]/20 text-[#FF5252] font-bold">
+            <span class="w-2 h-2 rounded-full bg-[#E53935] animate-ping"></span>
+            NEW
+          </span>
+          <span>v3.0.0 Flutter Rewrite is Live!</span>
+          <ArrowRight class="w-3.5 h-3.5 text-slate-400" />
+        </div>
+
+        <!-- Headline -->
+        <h1 class="font-display text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.1]">
+          Anime Streaming & <br class="hidden sm:inline" />
+          Torrent Tracking, <span class="text-gradient-red">Reimagined.</span>
+        </h1>
+
+        <!-- Subtitle -->
+        <p class="text-slate-300 text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed font-normal">
+           Senpwai is a blazing-fast, ad-free anime client built with Flutter 3, custom C++ torrent engines, and dynamic anime themes.
+        </p>
+
+        <!-- Hero Buttons -->
+        <div class="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a 
+            href="/download"
+            class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-[#E53935] to-[#FF2D55] text-white font-display font-bold text-base shadow-xl shadow-[#E53935]/30 hover:shadow-[#E53935]/50 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 border border-red-400/30 glow-red-sm"
+          >
+            <Download class="w-5 h-5" />
+            <span>Download Senpwai v3</span>
+          </a>
+
+          <a 
+            href="#showcase"
+            class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#131520] hover:bg-white/10 text-slate-200 hover:text-white font-display font-bold text-base border border-white/10 transition-all flex items-center justify-center gap-2"
+          >
+            <Sparkles class="w-5 h-5 text-[#00E5FF]" />
+            <span>Explore App Screenshots</span>
+          </a>
+        </div>
+
+        <!-- Hero Badges Bar -->
+        <div class="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400 font-mono">
+          <span class="flex items-center gap-2">
+            <CheckCircle2 class="w-4 h-4 text-emerald-400" />
+            <span>Zero Ads & Tracking</span>
+          </span>
+          <span class="flex items-center gap-2">
+            <CheckCircle2 class="w-4 h-4 text-emerald-400" />
+            <span>Windows • macOS • Linux</span>
+          </span>
+          <span class="flex items-center gap-2">
+            <CheckCircle2 class="w-4 h-4 text-emerald-400" />
+            <span>Android & iOS</span>
+          </span>
+        </div>
+
+      </div>
+
+      <!-- Hero Visual Teaser: App Screenshot Showcase Preview -->
+      <div class="mt-16 relative max-w-5xl mx-auto">
+        <!-- Ambient glow behind mock screenshot -->
+        <div class="absolute -inset-4 bg-gradient-to-r from-[#E53935]/30 via-[#00E5FF]/20 to-[#FFB300]/20 rounded-3xl blur-2xl opacity-60"></div>
+        
+        <div class="relative rounded-2xl overflow-hidden glass-panel border border-white/20 shadow-2xl group">
+          <!-- Window Bar -->
+          <div class="bg-[#090A0F]/90 px-4 py-3 border-b border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-red-500"></span>
+              <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+              <span class="w-3 h-3 rounded-full bg-green-500"></span>
+              <span class="ml-2 font-mono text-xs text-slate-400">Senpwai v3.0.0 — Home Dashboard</span>
+            </div>
+            <div class="flex items-center gap-2 font-mono text-xs">
+              <span class="anime-tag bg-[#E53935]/20 text-[#FF5252] border border-[#E53935]/30">★ 8.4 Rating</span>
+              <span class="anime-tag bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/30">1080p Dual Audio</span>
+            </div>
+          </div>
+
+          <img 
+            src="/screenshots/desktop/home.png" 
+            alt="Senpwai Desktop Home Interface" 
+            class="w-full h-auto object-cover transform group-hover:scale-[1.01] transition-transform duration-500"
+          />
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="py-24 bg-[#07080C] relative border-t border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <!-- Section Title -->
+      <div class="text-center max-w-3xl mx-auto mb-16 space-y-4">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#E53935]/15 border border-[#E53935]/30 text-xs font-mono font-bold text-[#FF5252]">
+          <Flame class="w-3.5 h-3.5" />
+          <span>EVERYTHING YOU NEED</span>
+        </div>
+
+        <h2 class="font-display text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+          Built for the Ultimate <span class="text-gradient-red">Anime Experience</span>
+        </h2>
+
+        <p class="text-slate-400 text-base sm:text-lg leading-relaxed">
+          From multi-tracker search to native torrent streaming and episode organization, Senpwai gives you full control.
+        </p>
+      </div>
+
+      <!-- Features Cards Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {features.map((feat) => {
+          const Icon = feat.icon;
+          return (
+            <div class="glass-panel glass-panel-hover p-8 rounded-3xl space-y-5 flex flex-col justify-between group">
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <div class={`w-12 h-12 rounded-2xl ${feat.bg} border flex items-center justify-center ${feat.color} shadow-lg`}>
+                    <Icon class="w-6 h-6" />
+                  </div>
+                  <span class="font-mono text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300">
+                    {feat.badge}
+                  </span>
+                </div>
+
+                <h3 class="font-display text-xl font-bold text-white group-hover:text-[#FF5252] transition-colors">
+                  {feat.title}
+                </h3>
+
+                <p class="text-slate-400 text-sm leading-relaxed">
+                  {feat.desc}
+                </p>
+              </div>
+
+              <div class="pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-semibold text-[#FF5252]">
+                <span>Explore in v3.0.0</span>
+                <ArrowRight class="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Interactive Showcase Component -->
+  <InteractiveShowcase />
+
+  <!-- Architecture Spec Component -->
+  <TechStackSpec />
+
+  <!-- Download CTA Section -->
+  <section class="py-20 relative overflow-hidden bg-gradient-to-b from-[#090A0F] to-[#07080C] border-t border-white/10">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center space-y-8">
+      
+      <div class="w-20 h-20 rounded-3xl bg-[#161926] p-2 border border-[#E53935]/40 shadow-2xl mx-auto glow-red-lg">
+        <img src="/images/senpwai-icon.png" alt="Senpwai Logo" class="w-full h-full object-contain" />
+      </div>
+
+      <div class="space-y-4 max-w-2xl mx-auto">
+        <h2 class="font-display text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+          Ready to Stream Anime with <span class="text-gradient-red">Senpwai v3</span>?
+        </h2>
+        <p class="text-slate-300 text-base sm:text-lg">
+          Available now for Windows, macOS, Linux, Android, and iOS. Completely free and open-source.
+        </p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+        <a 
+          href="/download"
+          class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-[#E53935] to-[#FF2D55] text-white font-display font-bold text-lg shadow-xl shadow-[#E53935]/30 hover:shadow-[#E53935]/60 hover:scale-[1.03] transition-all flex items-center justify-center gap-3 border border-red-400/30"
+        >
+          <Download class="w-6 h-6" />
+          <span>Go to Download Hub</span>
+        </a>
+
+        <a 
+          href="https://github.com/SenZmaKi/Senpwai" 
+          target="_blank"
+          class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#131520] text-slate-200 hover:text-white font-display font-bold text-lg border border-white/10 transition-all flex items-center justify-center gap-2"
+        >
+          <span>View Source Code</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</Layout>

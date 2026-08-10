@@ -1,0 +1,136 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-display: 'Outfit', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --color-obsidian-950: #07080C;
+  --color-obsidian-900: #0B0D14;
+  --color-obsidian-850: #0F111A;
+  --color-obsidian-800: #161926;
+  --color-obsidian-750: #1D2133;
+  --color-obsidian-700: #262B42;
+
+  --color-brand-red: #E53935;
+  --color-brand-red-bright: #FF2D55;
+  --color-brand-red-glow: rgba(229, 57, 53, 0.25);
+  
+  --color-accent-cyan: #00E5FF;
+  --color-accent-yellow: #FFB300;
+  --color-accent-green: #00E676;
+  --color-accent-purple: #B388FF;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: #07080C;
+  color: #F8FAFC;
+  selection-background-color: #E53935;
+  selection-color: #FFFFFF;
+}
+
+::selection {
+  background-color: #E53935;
+  color: #FFFFFF;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0B0D14;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #262B42;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #E53935;
+}
+
+/* Grid background texture */
+.bg-grid-pattern {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+.bg-radial-gradient {
+  background: radial-gradient(circle at 50% 0%, rgba(229, 57, 53, 0.15) 0%, rgba(11, 13, 20, 0) 70%);
+}
+
+.bg-radial-cyan {
+  background: radial-gradient(circle at 80% 50%, rgba(0, 229, 255, 0.1) 0%, rgba(11, 13, 20, 0) 65%);
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(22, 25, 38, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel-hover:hover {
+  background: rgba(29, 33, 51, 0.85);
+  border-color: rgba(229, 57, 53, 0.4);
+  box-shadow: 0 10px 30px -10px rgba(229, 57, 53, 0.25);
+  transform: translateY(-2px);
+}
+
+/* Glowing text and borders */
+.glow-red-sm {
+  box-shadow: 0 0 15px -3px rgba(229, 57, 53, 0.35);
+}
+
+.glow-red-lg {
+  box-shadow: 0 0 35px -5px rgba(229, 57, 53, 0.4);
+}
+
+.glow-cyan-lg {
+  box-shadow: 0 0 35px -5px rgba(0, 229, 255, 0.3);
+}
+
+.text-gradient-red {
+  background: linear-gradient(135deg, #FFFFFF 30%, #FF2D55 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-cyan {
+  background: linear-gradient(135deg, #FFFFFF 30%, #00E5FF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Anime tags & pill buttons */
+.anime-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  line-height: 1;
+}
+
+/* Accessible interactive hover cursor */
+a, button, [role="button"] {
+  cursor: pointer;
+}

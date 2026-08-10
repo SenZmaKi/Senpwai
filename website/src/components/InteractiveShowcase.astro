@@ -1,0 +1,457 @@
+---
+import { Monitor, Smartphone, Palette, Search, Download, Sparkles, Eye, CheckCircle2, Sliders, Play } from 'lucide-astro';
+
+const desktopScreenshots = [
+  {
+    id: 'desktop-home',
+    title: 'Home Dashboard & Banner Slider',
+    category: 'Home View',
+    theme: 'Default Dark',
+    image: '/screenshots/desktop/home.png',
+    desc: 'Featuring trending seasons, currently watching, and high-res anime backdrop banner slider.',
+    hotspots: [
+      { top: '30%', left: '40%', label: 'Hero Banner Slider', text: 'Dynamic banner backdrop with star ratings & episode tags' },
+      { top: '65%', left: '25%', label: 'Currently Watching', text: 'Quick resume & episode progress tracker' }
+    ]
+  },
+  {
+    id: 'desktop-search',
+    title: 'Advanced Filter & Search Engine',
+    category: 'Search View',
+    theme: 'Default Dark',
+    image: '/screenshots/desktop/search.png',
+    desc: 'Filter by Genre, Year, Season, Format (TV/Movie/ONA/Special), Status, and Sorting.',
+    hotspots: [
+      { top: '15%', left: '35%', label: 'Multi-Filter Bar', text: 'Filter by season, format, status & list status instantly' },
+      { top: '50%', left: '15%', label: 'Anime Card Grid', text: 'Vibrant badges for ratings, episode counts, and status' }
+    ]
+  },
+  {
+    id: 'desktop-download',
+    title: 'Integrated Torrent & Episode Downloader',
+    category: 'Download View',
+    theme: 'Default Dark',
+    image: '/screenshots/desktop/download.png',
+    desc: 'Direct Nyaa integration with custom episode ranges (1-24), quality select (1080p), audio select (Japanese/Dub), and folder picker.',
+    hotspots: [
+      { top: '60%', left: '30%', label: 'Episode & Quality Controls', text: 'Select exact range, 1080p/720p resolution & audio track' },
+      { top: '80%', left: '45%', label: 'One-Click Download Button', text: 'Streams torrent directly via libtorrent_dart' }
+    ]
+  },
+  {
+    id: 'desktop-kaneki',
+    title: 'Kaneki Red Theme',
+    category: 'Custom Theme',
+    theme: 'Kaneki Theme',
+    image: '/screenshots/desktop/home-kaneki-theme.png',
+    desc: 'Dark crimson accents with Tokyo Ghoul inspired aesthetic.',
+    hotspots: []
+  },
+  {
+    id: 'desktop-naruto',
+    title: 'Naruto Sage Theme',
+    category: 'Custom Theme',
+    theme: 'Naruto Theme',
+    image: '/screenshots/desktop/home-naruto-theme.png',
+    desc: 'Warm orange and scroll-styled UI accents.',
+    hotspots: []
+  }
+];
+
+const mobileScreenshots = [
+  {
+    id: 'mobile-home',
+    title: 'Mobile Home Dashboard',
+    category: 'Mobile UI',
+    theme: 'Default Dark',
+    image: '/screenshots/mobile/home.png',
+    desc: 'Touch-optimized mobile layout with smooth scroll and bottom drawer navigation.',
+    hotspots: []
+  },
+  {
+    id: 'mobile-gojo',
+    title: 'Mobile Search (Gojo Theme)',
+    category: 'Mobile UI',
+    theme: 'Gojo Theme',
+    image: '/screenshots/mobile/search-gojo-theme.png',
+    desc: 'Special Gojo Limitless theme variant for mobile search view.',
+    hotspots: []
+  },
+  {
+    id: 'mobile-[#E53935]',
+    title: 'Mobile Anime Details & Torrent Stream',
+    category: 'Mobile UI',
+    theme: 'Default Dark',
+    image: '/screenshots/mobile/download.png',
+    desc: 'Full featured download manager formatted for phone screens.',
+    hotspots: []
+  },
+  {
+    id: 'mobile-deku',
+    title: 'Deku One For All Theme',
+    category: 'Mobile UI',
+    theme: 'Deku Theme',
+    image: '/screenshots/mobile/home-deku-theme.png',
+    desc: 'Neon emerald green hero theme for mobile.',
+    hotspots: []
+  }
+];
+---
+
+<section id="showcase" class="py-24 relative overflow-hidden bg-[#0B0D14]/90 border-y border-white/10">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+    
+    <!-- Section Header -->
+    <div class="text-center max-w-3xl mx-auto mb-12 space-y-4">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#E53935]/15 border border-[#E53935]/30 text-xs font-mono font-bold text-[#FF5252]">
+        <Sparkles class="w-3.5 h-3.5" />
+        <span>V3.0.0 APP SHOWCASE</span>
+      </div>
+
+      <h2 class="font-display text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+        Designed for <span class="text-gradient-red">Every Screen</span> & Taste
+      </h2>
+
+      <p class="text-slate-400 text-base sm:text-lg leading-relaxed">
+        Built natively with Flutter 3, Senpwai adapts seamlessly from widescreen desktop setups to handheld phones, with complete theme personalization.
+      </p>
+
+      <!-- View Switcher Tabs -->
+      <div class="pt-4 flex flex-wrap items-center justify-center gap-3">
+        <button 
+          id="btn-mode-desktop"
+          class="px-5 py-2.5 rounded-xl font-semibold text-sm bg-[#E53935] text-white shadow-lg shadow-[#E53935]/30 border border-red-400/30 flex items-center gap-2 transition-all"
+        >
+          <Monitor class="w-4 h-4" />
+          <span>Desktop Experience</span>
+        </button>
+
+        <button 
+          id="btn-mode-mobile"
+          class="px-5 py-2.5 rounded-xl font-semibold text-sm bg-[#131520] text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 flex items-center gap-2 transition-all"
+        >
+          <Smartphone class="w-4 h-4" />
+          <span>Mobile Layout</span>
+        </button>
+
+        <button 
+          id="btn-mode-themes"
+          class="px-5 py-2.5 rounded-xl font-semibold text-sm bg-[#131520] text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 flex items-center gap-2 transition-all"
+        >
+          <Palette class="w-4 h-4 text-[#00E5FF]" />
+          <span>Anime Themes</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Desktop Preview Container -->
+    <div id="container-desktop" class="transition-all duration-500">
+      <!-- Screenshot Thumbnail Selector -->
+      <div class="flex items-center justify-center gap-2 sm:gap-4 mb-6 overflow-x-auto pb-2">
+        {desktopScreenshots.map((item, idx) => (
+          <button
+            data-shot-index={idx}
+            class={`shot-thumb-btn px-4 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-2 whitespace-nowrap ${
+              idx === 0 
+                ? 'bg-[#E53935]/20 text-white border-[#E53935] shadow-md' 
+                : 'bg-[#131520] text-slate-400 border-white/10 hover:text-white hover:border-white/30'
+            }`}
+          >
+            <span class="w-2 h-2 rounded-full bg-[#E53935]"></span>
+            <span>{item.category}: {item.title.split('&')[0]}</span>
+          </button>
+        ))}
+      </div>
+
+      <!-- Widescreen App Device Frame -->
+      <div class="relative rounded-2xl overflow-hidden glass-panel border border-white/15 shadow-2xl group max-w-6xl mx-auto">
+        <!-- Mock OS Titlebar -->
+        <div class="bg-[#090A0F] px-4 py-3 border-b border-white/10 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+            <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+            <span class="ml-3 font-mono text-xs text-slate-400 flex items-center gap-2">
+              <span class="text-[#FF5252]">Senpwai v3.0.0</span> — <span id="desktop-shot-label">Home Dashboard & Banner Slider</span>
+            </span>
+          </div>
+
+          <div class="flex items-center gap-3 text-xs font-mono text-slate-400">
+            <span class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-emerald-400">60 FPS</span>
+            <span class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-cyan-400">Flutter 3</span>
+          </div>
+        </div>
+
+        <!-- Main Display Image Screen -->
+        <div class="relative aspect-[16/9] w-full bg-[#07080C] overflow-hidden">
+          <img 
+            id="desktop-main-img"
+            src={desktopScreenshots[0].image} 
+            alt={desktopScreenshots[0].title}
+            class="w-full h-full object-cover transition-opacity duration-300"
+          />
+
+          <!-- Floating Info Overlay Card -->
+          <div class="absolute bottom-4 left-4 right-4 sm:left-6 sm:right-auto max-w-lg bg-[#0B0D14]/90 backdrop-blur-md p-4 rounded-xl border border-white/15 shadow-2xl">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span id="desktop-shot-theme" class="text-xs font-mono font-bold text-[#FF5252] uppercase tracking-wider">
+                {desktopScreenshots[0].theme}
+              </span>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-slate-300">Click Image for HD Zoom</span>
+            </div>
+            <h3 id="desktop-shot-title" class="font-display text-lg font-bold text-white mb-1">
+              {desktopScreenshots[0].title}
+            </h3>
+            <p id="desktop-shot-desc" class="text-xs text-slate-300 leading-relaxed">
+              {desktopScreenshots[0].desc}
+            </p>
+          </div>
+
+          <!-- Lightbox Zoom Button Overlay -->
+          <button 
+            id="open-lightbox-btn"
+            class="absolute top-4 right-4 p-3 rounded-xl bg-black/60 hover:bg-[#E53935] text-white backdrop-blur-md border border-white/20 transition-all shadow-lg flex items-center gap-2 text-xs font-semibold"
+          >
+            <Eye class="w-4 h-4" />
+            <span>Full Resolution</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Container (Hidden by Default) -->
+    <div id="container-mobile" class="hidden transition-all duration-500 max-w-5xl mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+        <!-- Phone Frame -->
+        <div class="relative max-w-[320px] mx-auto w-full rounded-[40px] p-3 bg-[#131520] border-4 border-slate-800 shadow-2xl">
+          <!-- Phone Notch/Camera -->
+          <div class="absolute top-6 left-1/2 -translate-x-1/2 w-28 h-5 bg-black rounded-full z-20 flex items-center justify-center">
+            <div class="w-3 h-3 rounded-full bg-slate-800"></div>
+          </div>
+          
+          <div class="relative aspect-[9/19.5] w-full rounded-[30px] overflow-hidden bg-black border border-white/10">
+            <img 
+              id="mobile-main-img"
+              src={mobileScreenshots[0].image} 
+              alt={mobileScreenshots[0].title}
+              class="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+
+        <!-- Mobile Specs & Screenshot Selector -->
+        <div class="space-y-6">
+          <div class="space-y-2">
+            <span class="text-xs font-mono font-bold text-[#00E5FF] uppercase tracking-wider">Mobile First Flutter Architecture</span>
+            <h3 class="font-display text-2xl sm:text-3xl font-bold text-white">
+              Full Desktop Power in Your Pocket
+            </h3>
+            <p class="text-slate-400 text-sm leading-relaxed">
+              Every search filter, torrent engine feature, and customized theme carries over directly to your Android or iOS device with zero compromises.
+            </p>
+          </div>
+
+          <!-- Mobile selector buttons -->
+          <div class="space-y-3">
+            {mobileScreenshots.map((shot, idx) => (
+              <button
+                data-mobile-index={idx}
+                class={`mobile-thumb-btn w-full p-3.5 rounded-xl border text-left transition-all flex items-center justify-between ${
+                  idx === 0 
+                    ? 'bg-[#E53935]/20 border-[#E53935] text-white shadow-md' 
+                    : 'bg-[#131520] border-white/10 text-slate-300 hover:border-white/30'
+                }`}
+              >
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-xs font-mono font-bold text-[#FF5252]">
+                    0{idx + 1}
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-white">{shot.title}</h4>
+                    <span class="text-xs text-slate-400 font-mono">{shot.theme}</span>
+                  </div>
+                </div>
+                <CheckCircle2 class={`w-5 h-5 ${idx === 0 ? 'text-[#FF5252]' : 'text-slate-600'}`} />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Themes Showcase Grid (Hidden by Default) -->
+    <div id="container-themes" class="hidden transition-all duration-500 max-w-6xl mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Gojo Theme Card -->
+        <div class="glass-panel p-4 rounded-2xl space-y-3 group hover:border-[#00E5FF]/50 transition-all">
+          <div class="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-white/10">
+            <img src="/screenshots/mobile/search-gojo-theme.png" alt="Gojo Theme" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          </div>
+          <div class="flex items-center justify-between">
+            <h4 class="font-display font-bold text-white text-base">Gojo Theme</h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-[#00E5FF]/20 text-[#00E5FF]">Limitless Cyan</span>
+          </div>
+          <p class="text-xs text-slate-400">Deep obsidian with electric cyan accents and blue glow borders.</p>
+        </div>
+
+        <!-- Kaneki Theme Card -->
+        <div class="glass-panel p-4 rounded-2xl space-y-3 group hover:border-[#E53935]/50 transition-all">
+          <div class="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-white/10">
+            <img src="/screenshots/desktop/home-kaneki-theme.png" alt="Kaneki Theme" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          </div>
+          <div class="flex items-center justify-between">
+            <h4 class="font-display font-bold text-white text-base">Kaneki Theme</h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-[#E53935]/20 text-[#FF5252]">Ghoul Red</span>
+          </div>
+          <p class="text-xs text-slate-400">Crimson red highlights inspired by Tokyo Ghoul aesthetic.</p>
+        </div>
+
+        <!-- Naruto Theme Card -->
+        <div class="glass-panel p-4 rounded-2xl space-y-3 group hover:border-amber-500/50 transition-all">
+          <div class="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-white/10">
+            <img src="/screenshots/desktop/home-naruto-theme.png" alt="Naruto Theme" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          </div>
+          <div class="flex items-center justify-between">
+            <h4 class="font-display font-bold text-white text-base">Naruto Theme</h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-400">Sage Orange</span>
+          </div>
+          <p class="text-xs text-slate-400">Vibrant warm orange accents with scroll-textured element styling.</p>
+        </div>
+
+        <!-- Deku Theme Card -->
+        <div class="glass-panel p-4 rounded-2xl space-y-3 group hover:border-emerald-500/50 transition-all">
+          <div class="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-white/10">
+            <img src="/screenshots/mobile/home-deku-theme.png" alt="Deku Theme" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          </div>
+          <div class="flex items-center justify-between">
+            <h4 class="font-display font-bold text-white text-base">Deku Theme</h4>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-400">One For All</span>
+          </div>
+          <p class="text-xs text-slate-400">Neon green lightning glow accents and crisp mint badges.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Lightbox Modal -->
+<div id="lightbox-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl hidden items-center justify-center p-4 sm:p-8">
+  <button id="lightbox-close" class="absolute top-6 right-6 p-3 rounded-full bg-white/10 hover:bg-[#E53935] text-white transition-all">
+    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+  </button>
+  <img id="lightbox-img" src="" alt="Zoomed Screenshot" class="max-w-full max-h-[90vh] object-contain rounded-xl border border-white/20 shadow-2xl" />
+</div>
+
+<script define:vars={{ desktopScreenshots, mobileScreenshots }}>
+  // Mode switcher logic
+  const btnDesktop = document.getElementById('btn-mode-desktop');
+  const btnMobile = document.getElementById('btn-mode-mobile');
+  const btnThemes = document.getElementById('btn-mode-themes');
+
+  const containerDesktop = document.getElementById('container-desktop');
+  const containerMobile = document.getElementById('container-mobile');
+  const containerThemes = document.getElementById('container-themes');
+
+  function setActiveMode(activeBtn, showContainer) {
+    [btnDesktop, btnMobile, btnThemes].forEach(btn => {
+      if (btn === activeBtn) {
+        btn.className = 'px-5 py-2.5 rounded-xl font-semibold text-sm bg-[#E53935] text-white shadow-lg shadow-[#E53935]/30 border border-red-400/30 flex items-center gap-2 transition-all';
+      } else {
+        btn.className = 'px-5 py-2.5 rounded-xl font-semibold text-sm bg-[#131520] text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 flex items-center gap-2 transition-all';
+      }
+    });
+
+    [containerDesktop, containerMobile, containerThemes].forEach(container => {
+      if (container === showContainer) {
+        container.classList.remove('hidden');
+      } else {
+        container.classList.add('hidden');
+      }
+    });
+  }
+
+  btnDesktop?.addEventListener('click', () => setActiveMode(btnDesktop, containerDesktop));
+  btnMobile?.addEventListener('click', () => setActiveMode(btnMobile, containerMobile));
+  btnThemes?.addEventListener('click', () => setActiveMode(btnThemes, containerThemes));
+
+  // Desktop thumbnail switcher
+  const desktopBtns = document.querySelectorAll('.shot-thumb-btn');
+  const desktopMainImg = document.getElementById('desktop-main-img');
+  const desktopShotLabel = document.getElementById('desktop-shot-label');
+  const desktopShotTheme = document.getElementById('desktop-shot-theme');
+  const desktopShotTitle = document.getElementById('desktop-shot-title');
+  const desktopShotDesc = document.getElementById('desktop-shot-desc');
+
+  let currentDesktopIndex = 0;
+
+  desktopBtns.forEach((btn, idx) => {
+    btn.addEventListener('click', () => {
+      currentDesktopIndex = idx;
+      const data = desktopScreenshots[idx];
+
+      desktopBtns.forEach((b, i) => {
+        if (i === idx) {
+          b.className = 'shot-thumb-btn px-4 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-2 whitespace-nowrap bg-[#E53935]/20 text-white border-[#E53935] shadow-md';
+        } else {
+          b.className = 'shot-thumb-btn px-4 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-2 whitespace-nowrap bg-[#131520] text-slate-400 border-white/10 hover:text-white hover:border-white/30';
+        }
+      });
+
+      if (desktopMainImg) desktopMainImg.src = data.image;
+      if (desktopShotLabel) desktopShotLabel.textContent = data.title;
+      if (desktopShotTheme) desktopShotTheme.textContent = data.theme;
+      if (desktopShotTitle) desktopShotTitle.textContent = data.title;
+      if (desktopShotDesc) desktopShotDesc.textContent = data.desc;
+    });
+  });
+
+  // Mobile thumbnail switcher
+  const mobileBtns = document.querySelectorAll('.mobile-thumb-btn');
+  const mobileMainImg = document.getElementById('mobile-main-img');
+
+  mobileBtns.forEach((btn, idx) => {
+    btn.addEventListener('click', () => {
+      const data = mobileScreenshots[idx];
+
+      mobileBtns.forEach((b, i) => {
+        const icon = b.querySelector('svg');
+        if (i === idx) {
+          b.className = 'mobile-thumb-btn w-full p-3.5 rounded-xl border text-left transition-all flex items-center justify-between bg-[#E53935]/20 border-[#E53935] text-white shadow-md';
+          if (icon) icon.className.baseVal = 'w-5 h-5 text-[#FF5252]';
+        } else {
+          b.className = 'mobile-thumb-btn w-full p-3.5 rounded-xl border text-left transition-all flex items-center justify-between bg-[#131520] border-white/10 text-slate-300 hover:border-white/30';
+          if (icon) icon.className.baseVal = 'w-5 h-5 text-slate-600';
+        }
+      });
+
+      if (mobileMainImg) mobileMainImg.src = data.image;
+    });
+  });
+
+  // Lightbox Modal logic
+  const lightboxModal = document.getElementById('lightbox-modal');
+  const lightboxImg = document.getElementById('lightbox-img');
+  const openLightboxBtn = document.getElementById('open-lightbox-btn');
+  const lightboxClose = document.getElementById('lightbox-close');
+
+  openLightboxBtn?.addEventListener('click', () => {
+    if (lightboxImg && desktopMainImg) {
+      lightboxImg.src = desktopMainImg.src;
+      lightboxModal?.classList.remove('hidden');
+      lightboxModal?.classList.add('flex');
+    }
+  });
+
+  lightboxClose?.addEventListener('click', () => {
+    lightboxModal?.classList.add('hidden');
+    lightboxModal?.classList.remove('flex');
+  });
+
+  lightboxModal?.addEventListener('click', (e) => {
+    if (e.target === lightboxModal) {
+      lightboxModal.classList.add('hidden');
+      lightboxModal.classList.remove('flex');
+    }
+  });
+</script>

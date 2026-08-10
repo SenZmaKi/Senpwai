@@ -1,0 +1,56 @@
+---
+import '../styles/global.css';
+import Navbar from '../components/Navbar.astro';
+import Footer from '../components/Footer.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Senpwai - Modern Flutter Anime Streaming & Torrent App',
+  description = 'Senpwai v3.0.0 is a modern, fast, cross-platform anime tracking and streaming application built with Flutter, libtorrent_dart, and Anitomy.',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="dark scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/images/senpwai-icon.png" />
+    <meta name="generator" content={Astro.generator} />
+    
+    <!-- Primary Meta Tags -->
+    <title>{title}</title>
+    <meta name="title" content={title} />
+    <meta name="description" content={description} />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content="/screenshots/desktop/home.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content={title} />
+    <meta property="twitter:description" content={description} />
+    <meta property="twitter:image" content="/screenshots/desktop/home.png" />
+  </head>
+  <body class="bg-[#07080C] text-slate-100 font-sans antialiased selection:bg-[#E53935] selection:text-white min-h-screen flex flex-col relative overflow-x-hidden">
+    <!-- Ambient background glows -->
+    <div class="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] bg-radial-gradient pointer-events-none z-0 opacity-80"></div>
+    <div class="fixed top-1/3 -right-40 w-96 h-96 bg-radial-cyan pointer-events-none z-0 opacity-50"></div>
+    <div class="fixed top-0 left-0 w-full h-full bg-grid-pattern opacity-40 pointer-events-none z-0"></div>
+
+    <Navbar />
+
+    <main class="flex-grow z-10">
+      <slot />
+    </main>
+
+    <Footer />
+  </body>
+</html>

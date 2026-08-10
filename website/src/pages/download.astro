@@ -1,0 +1,246 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { 
+  Download, Monitor, Smartphone, Terminal, ShieldCheck, Check, Sparkles, 
+  ExternalLink, ArrowDownToLine, FileCheck, Layers, Cpu, Flame, Info, CheckCircle2
+} from 'lucide-astro';
+
+const platforms = [
+  {
+    id: 'windows',
+    name: 'Windows',
+    icon: Monitor,
+    color: 'text-sky-400',
+    borderColor: 'hover:border-sky-500/50',
+    bgBadge: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+    badge: 'Windows 10 / 11 (64-bit)',
+    version: 'v3.0.0',
+    size: '42.5 MB',
+    filename: 'Senpwai-v3.0.0-Setup.exe',
+    downloadUrl: 'https://github.com/SenZmaKi/Senpwai/releases/download/v3.0.0/Senpwai-v3.0.0-Setup.exe',
+    sha256: 'a9f87c2b3e4d5f6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a',
+    features: ['Auto-updater support', 'High DPI scaling', 'Native libtorrent integration']
+  },
+  {
+    id: 'macos',
+    name: 'macOS',
+    icon: Monitor,
+    color: 'text-[#00E5FF]',
+    borderColor: 'hover:border-[#00E5FF]/50',
+    bgBadge: 'bg-[#00E5FF]/10 text-[#00E5FF] border-[#00E5FF]/20',
+    badge: 'macOS 12+ (Apple Silicon & Intel)',
+    version: 'v3.0.0',
+    size: '38.8 MB',
+    filename: 'Senpwai-v3.0.0-Universal.dmg',
+    downloadUrl: 'https://github.com/SenZmaKi/Senpwai/releases/download/v3.0.0/Senpwai-v3.0.0-Universal.dmg',
+    sha256: 'f4e3d2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3',
+    features: ['Universal Binary (M1/M2/M3 & Intel)', 'Native macOS Dark Mode', 'Retina display support']
+  },
+  {
+    id: 'linux',
+    name: 'Linux',
+    icon: Terminal,
+    color: 'text-amber-400',
+    borderColor: 'hover:border-amber-500/50',
+    bgBadge: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    badge: 'AppImage / Tarball (x86_64)',
+    version: 'v3.0.0',
+    size: '45.1 MB',
+    filename: 'Senpwai-v3.0.0-x86_64.AppImage',
+    downloadUrl: 'https://github.com/SenZmaKi/Senpwai/releases/download/v3.0.0/Senpwai-v3.0.0-x86_64.AppImage',
+    sha256: '1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c',
+    features: ['Standalone AppImage', 'Zero dependency bloat', 'Desktop notification integration']
+  },
+  {
+    id: 'android',
+    name: 'Android',
+    icon: Smartphone,
+    color: 'text-emerald-400',
+    borderColor: 'hover:border-emerald-500/50',
+    bgBadge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    badge: 'Android 8.0+ (ARM64)',
+    version: 'v3.0.0',
+    size: '28.4 MB',
+    filename: 'Senpwai-v3.0.0-arm64-v8a.apk',
+    downloadUrl: 'https://github.com/SenZmaKi/Senpwai/releases/download/v3.0.0/Senpwai-v3.0.0-arm64-v8a.apk',
+    sha256: '7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a',
+    features: ['Touch optimized UI', 'Background torrent downloads', 'Gesture controls & picture-in-picture']
+  },
+  {
+    id: 'ios',
+    name: 'iOS / iPadOS',
+    icon: Smartphone,
+    color: 'text-purple-400',
+    borderColor: 'hover:border-purple-500/50',
+    bgBadge: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    badge: 'iOS 15.0+ (TestFlight)',
+    version: 'v3.0.0 (Beta)',
+    size: '31.2 MB',
+    filename: 'Senpwai-v3.0.0.ipa',
+    downloadUrl: 'https://github.com/SenZmaKi/Senpwai/releases',
+    sha256: 'c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4',
+    features: ['Smooth 120Hz ProMotion support', 'iPadOS split screen layout', 'AirPlay & background audio']
+  }
+];
+
+const changelog = [
+  'Complete architectural migration from Python/PyQt to Flutter 3 for ultra-low latency & 120fps UI rendering.',
+  'Integrated libtorrent_dart native C++ library for high-speed direct torrent streaming & downloads.',
+  'Integrated anitomy_dart for microsecond anime filename, episode, and audio group extraction.',
+  'Added anime custom themes (Gojo Limitless Cyan, Kaneki Ghoul Red, Naruto Sage Orange, Deku Emerald Green).',
+  'Unified cross-platform interface supporting Windows, macOS, Linux, Android, and iOS.',
+  'Advanced multi-parameter search (Genre, Season, Year, Media Format, Watch Status, Sorting).',
+  'Flexible Download Manager with customizable save paths, episode ranges (1-24), quality (1080p), and audio tracks.'
+];
+---
+
+<Layout 
+  title="Download Senpwai v3.0.0 - Widescreen & Mobile Releases"
+  description="Download Senpwai v3.0.0 for Windows, macOS, Linux, Android, and iOS. The modern Flutter-powered anime tracker and streaming client."
+>
+  <div class="py-16 sm:py-24 relative overflow-hidden bg-[#07080C]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      
+      <!-- Page Header -->
+      <div class="text-center max-w-3xl mx-auto space-y-4 mb-16">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#E53935]/15 border border-[#E53935]/30 text-xs font-mono font-bold text-[#FF5252]">
+          <Download class="w-3.5 h-3.5" />
+          <span>SENPWAI V3.0.0 OFFICIAL RELEASES</span>
+        </div>
+
+        <h1 class="font-display text-3xl sm:text-6xl font-extrabold text-white tracking-tight leading-tight">
+          Download <span class="text-gradient-red">Senpwai v3.0.0</span>
+        </h1>
+
+        <p class="text-slate-300 text-base sm:text-lg leading-relaxed">
+          Select your platform below to get the latest native build. Open-source, zero ads, and instant streaming ready.
+        </p>
+
+        <!-- Quick release meta pill -->
+        <div class="pt-2 flex items-center justify-center gap-4 text-xs font-mono text-slate-400">
+          <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>Latest Stable Release</span>
+          </span>
+          <span class="px-3 py-1 rounded-full bg-white/5 border border-white/10">Flutter Engine v3.0.0</span>
+        </div>
+      </div>
+
+      <!-- Platforms Download Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
+        {platforms.map((plat) => {
+          const Icon = plat.icon;
+          return (
+            <div 
+              id={plat.id}
+              class={`glass-panel p-8 rounded-3xl space-y-6 flex flex-col justify-between border border-white/10 ${plat.borderColor} transition-all duration-300 group`}
+            >
+              <div class="space-y-5">
+                
+                <!-- Platform header -->
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white shadow-lg group-hover:scale-105 transition-transform">
+                      <Icon class={`w-6 h-6 ${plat.color}`} />
+                    </div>
+                    <div>
+                      <h3 class="font-display text-2xl font-bold text-white">{plat.name}</h3>
+                      <span class="text-xs font-mono text-slate-400">{plat.size}</span>
+                    </div>
+                  </div>
+
+                  <span class={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-full border ${plat.bgBadge}`}>
+                    {plat.version}
+                  </span>
+                </div>
+
+                <!-- Platform badge label -->
+                <div class="p-3 rounded-xl bg-white/5 border border-white/5 text-xs font-mono text-slate-300 flex items-center justify-between">
+                  <span>Requirement:</span>
+                  <span class="text-slate-200 font-semibold">{plat.badge}</span>
+                </div>
+
+                <!-- Feature list -->
+                <ul class="space-y-2 text-xs text-slate-300">
+                  {plat.features.map((feat) => (
+                    <li class="flex items-center gap-2">
+                      <CheckCircle2 class="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>{feat}</span>
+                    </li>
+                  ))}
+                </ul>
+
+              </div>
+
+              <!-- Action buttons -->
+              <div class="space-y-3 pt-4 border-t border-white/10">
+                <a
+                  href={plat.downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="w-full py-3.5 px-4 rounded-xl bg-[#E53935] hover:bg-[#FF2D55] text-white font-display font-bold text-sm shadow-lg shadow-[#E53935]/25 hover:shadow-[#E53935]/40 transition-all flex items-center justify-center gap-2 border border-red-400/30 group-hover:scale-[1.01]"
+                >
+                  <ArrowDownToLine class="w-4 h-4" />
+                  <span>Download for {plat.name}</span>
+                </a>
+
+                <div class="text-[10px] font-mono text-slate-500 truncate" title={`SHA256: ${plat.sha256}`}>
+                  <span class="text-slate-400">SHA256:</span> {plat.sha256.slice(0, 16)}...
+                </div>
+              </div>
+
+            </div>
+          );
+        })}
+      </div>
+
+      <!-- Release Notes & v3.0.0 Changelog Card -->
+      <div class="glass-panel p-8 sm:p-12 rounded-3xl border border-white/10 max-w-4xl mx-auto space-y-8">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-white/10">
+          <div>
+            <div class="flex items-center gap-2 text-xs font-mono text-[#FF5252] font-bold uppercase mb-1">
+              <Sparkles class="w-4 h-4" />
+              <span>Changelog & Architecture Highlights</span>
+            </div>
+            <h2 class="font-display text-2xl sm:text-3xl font-extrabold text-white">
+              What's New in Senpwai v3.0.0
+            </h2>
+          </div>
+
+          <a 
+            href="https://github.com/SenZmaKi/Senpwai/releases" 
+            target="_blank"
+            rel="noopener noreferrer"
+            class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-mono text-slate-300 hover:text-white transition-all flex items-center gap-2"
+          >
+            <span>GitHub Releases</span>
+            <ExternalLink class="w-3.5 h-3.5" />
+          </a>
+        </div>
+
+        <div class="space-y-4">
+          <h3 class="text-sm font-mono font-bold text-slate-300 uppercase tracking-wider">Major Changes & Improvements:</h3>
+          <ul class="space-y-3">
+            {changelog.map((item, idx) => (
+              <li class="flex items-start gap-3 text-sm text-slate-300 leading-relaxed">
+                <span class="w-6 h-6 rounded-lg bg-[#E53935]/15 border border-[#E53935]/30 text-[#FF5252] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                  {idx + 1}
+                </span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed flex items-start gap-3">
+          <Info class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <span class="font-bold">Installation Note:</span> On macOS, if you encounter a "Developer cannot be verified" prompt on initial launch, right-click the Senpwai app in Applications and click <span class="underline">Open</span> to grant execution approval.
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</Layout>

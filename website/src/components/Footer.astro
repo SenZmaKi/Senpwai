@@ -1,0 +1,119 @@
+---
+import { Github, Monitor, Smartphone, Heart, Sparkles, Terminal, Code } from 'lucide-astro';
+---
+
+<footer class="w-full bg-[#07080C] border-t border-white/10 pt-16 pb-12 relative overflow-hidden">
+  <!-- Subtle footer background glow -->
+  <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-[#E53935]/5 rounded-full blur-3xl pointer-events-none"></div>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 mb-12 pb-12 border-b border-white/10">
+      
+      <!-- Brand column -->
+      <div class="lg:col-span-2 space-y-4">
+        <a href="/" class="flex items-center gap-3 group">
+          <div class="w-10 h-10 rounded-xl overflow-hidden bg-[#161926] p-1 border border-white/10 group-hover:border-[#E53935]/60 transition-colors">
+            <img src="/images/senpwai-icon.png" alt="Senpwai Logo" class="w-full h-full object-contain" />
+          </div>
+          <div class="flex flex-col">
+            <span class="font-display text-2xl font-extrabold text-white">Senpwai <span class="text-[#FF5252]">v3</span></span>
+            <span class="text-xs text-slate-400 font-mono">Flutter Engine • Responsive Desktop & Mobile</span>
+          </div>
+        </a>
+        
+        <p class="text-slate-400 text-sm leading-relaxed max-w-md">
+          Senpwai is a next-generation, high-performance anime streaming and torrent client built from the ground up with Flutter 3, custom native C++ torrent libraries, and smart title parsing.
+        </p>
+
+        <div class="flex items-center gap-3 pt-2">
+          <a 
+            href="https://github.com/SenZmaKi/Senpwai" 
+            target="_blank"
+            rel="noopener noreferrer"
+            class="px-3.5 py-2 rounded-xl bg-[#131520] border border-white/10 text-xs font-semibold text-slate-300 hover:text-white hover:border-[#E53935]/40 transition-all flex items-center gap-2"
+          >
+            <Github class="w-4 h-4 text-slate-200" />
+            <span>GitHub Repository</span>
+          </a>
+          <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#131520] border border-white/10 text-xs font-mono text-slate-400">
+            <span class="w-2 h-2 rounded-full bg-[#00E676]"></span>
+            MIT Licensed
+          </span>
+        </div>
+      </div>
+
+      <!-- Quick Navigation -->
+      <div class="space-y-3">
+        <h4 class="font-display font-bold text-white text-sm tracking-wider uppercase">Navigation</h4>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li><a href="/" class="hover:text-[#FF5252] transition-colors">Home Page</a></li>
+          <li><a href="/#features" class="hover:text-[#FF5252] transition-colors">Key Features</a></li>
+          <li><a href="/#showcase" class="hover:text-[#FF5252] transition-colors">App Screenshots</a></li>
+          <li><a href="/#architecture" class="hover:text-[#FF5252] transition-colors">Tech Architecture</a></li>
+          <li><a href="/download" class="hover:text-[#FF5252] transition-colors flex items-center gap-1.5">
+            <span>Download v3.0.0</span>
+            <span class="w-2 h-2 rounded-full bg-[#FF5252]"></span>
+          </a></li>
+        </ul>
+      </div>
+
+      <!-- Platform Downloads -->
+      <div class="space-y-3">
+        <h4 class="font-display font-bold text-white text-sm tracking-wider uppercase">Platforms</h4>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li><a href="/download#windows" class="hover:text-white transition-colors flex items-center gap-2">
+            <span>🪟 Windows Installer</span>
+          </a></li>
+          <li><a href="/download#macos" class="hover:text-white transition-colors flex items-center gap-2">
+            <span>🍏 macOS DMG</span>
+          </a></li>
+          <li><a href="/download#linux" class="hover:text-white transition-colors flex items-center gap-2">
+            <span>🐧 Linux AppImage</span>
+          </a></li>
+          <li><a href="/download#android" class="hover:text-white transition-colors flex items-center gap-2">
+            <span>🤖 Android APK</span>
+          </a></li>
+          <li><a href="/download#ios" class="hover:text-white transition-colors flex items-center gap-2">
+            <span>📱 iOS / iPadOS</span>
+          </a></li>
+        </ul>
+      </div>
+
+      <!-- Core Libraries -->
+      <div class="space-y-3">
+        <h4 class="font-display font-bold text-white text-sm tracking-wider uppercase">Core Stack</h4>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li class="flex items-center gap-2">
+            <span class="font-mono text-xs text-[#00E5FF]">libtorrent_dart</span>
+            <span class="text-xs text-slate-500">• Native C++</span>
+          </li>
+          <li class="flex items-center gap-2">
+            <span class="font-mono text-xs text-[#FFB300]">anitomy_dart</span>
+            <span class="text-xs text-slate-500">• Title Parser</span>
+          </li>
+          <li class="flex items-center gap-2">
+            <span class="font-mono text-xs text-[#B388FF]">Flutter 3</span>
+            <span class="text-xs text-slate-500">• Cross-Platform</span>
+          </li>
+          <li class="flex items-center gap-2">
+            <span class="font-mono text-xs text-[#00E676]">Nyaa & Trackers</span>
+            <span class="text-xs text-slate-500">• Direct API</span>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Bottom copyright -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+      <div class="flex items-center gap-2">
+        <span>© {new Date().getFullYear()} Senpwai Team. Built for anime fans worldwide.</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <span>Designed with Flutter & Astro</span>
+        <span>•</span>
+        <a href="https://github.com/SenZmaKi/Senpwai" target="_blank" class="hover:text-slate-300 underline">GitHub Source</a>
+      </div>
+    </div>
+  </div>
+</footer>
