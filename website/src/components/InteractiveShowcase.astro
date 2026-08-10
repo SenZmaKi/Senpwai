@@ -1,6 +1,7 @@
 ---
 import { Home, Search, Download, Film, Settings, Monitor } from 'lucide-astro';
 import { Image, getImage } from 'astro:assets';
+import { linuxIconSvg } from '../lib/platform-icons';
 import desktopHome from '../assets/screenshots/desktop/home.webp';
 import desktopSearch from '../assets/screenshots/desktop/search.webp';
 import desktopDownload from '../assets/screenshots/desktop/download.webp';
@@ -45,7 +46,7 @@ const platforms = [
   {
     name: 'Linux',
     tag: 'AppImage / Flatpak',
-    svg: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.44 0c-4.4 0-5.74 3.9-5.74 6.74 0 2.23.47 5.86-1.59 7.42-.56.42-1.46.77-2.32 1.42C1.4 16.63.5 17.9.5 19.5c0 2.22 2.77 3.82 7.08 3.82 1.4 0 2.7-.17 3.84-.48 1.14.31 2.44.48 3.84.48 4.31 0 7.08-1.6 7.08-3.82 0-1.6-.9-2.87-2.29-3.92-.86-.65-1.76-1-2.32-1.42-2.06-1.56-1.59-5.19-1.59-7.42C16.18 3.9 14.84 0 10.44 0z"/></svg>`,
+    svg: linuxIconSvg(20),
   },
   {
     name: 'Android',
