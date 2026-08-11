@@ -23,6 +23,10 @@ import 'package:senpwai/tracking/notifier.dart';
 
 enum DownloadSubmissionStage { idle, planning, reviewing, queueing }
 
+class _DownloadPlanningCancelled implements Exception {
+  const _DownloadPlanningCancelled();
+}
+
 int _availableEpisodesForAnime(AnilistAnimeBase anime) {
   final nextEpisodeNumber = anime.episode;
   if (nextEpisodeNumber != null) {
@@ -591,6 +595,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     required String endInput,
   }) async {
     await _refreshFilesystemState(resolveMissingFolder: true);
+    if (!ref.mounted) throw const _DownloadPlanningCancelled();
     final source = state.selectedSource;
     final folder = state.downloadFolder;
     if (source == null) {
@@ -628,6 +633,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
             episodeCount: state.availableEpisodes,
           )
         : const <int>{};
+    if (!ref.mounted) throw const _DownloadPlanningCancelled();
     final requestedEpisodes = [
       for (final episode in missingEpisodes)
         if (!fillerEpisodes.contains(episode)) episode,

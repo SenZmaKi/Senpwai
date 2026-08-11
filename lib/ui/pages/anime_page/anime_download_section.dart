@@ -434,7 +434,6 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       );
       PreparedDownloadBatch reviewedBatch = preparedBatch;
       if (!context.mounted) {
-        notifier.resetSubmissionStage();
         return;
       }
       final isNyaa =
@@ -453,7 +452,6 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
           notifier: notifier,
         );
         if (!context.mounted) {
-          notifier.resetSubmissionStage();
           return;
         }
         if (resolvedBatch == null) {
@@ -473,6 +471,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       }
       notifier.setSubmissionStage(DownloadSubmissionStage.queueing);
       final result = await notifier.enqueuePreparedDownloads(reviewedBatch);
+      if (!context.mounted) return;
       notifier.resetSubmissionStage();
       ref.read(AppPageNotifier.provider.notifier).showDownloads();
       if (navigator.mounted) {
@@ -480,8 +479,8 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       }
       _showDownloadNotices(result.notices);
     } on DownloadUserError catch (error) {
-      notifier.resetSubmissionStage();
       if (!context.mounted) return;
+      notifier.resetSubmissionStage();
       AppToast.showError(
         context,
         title: error.title,
@@ -489,8 +488,8 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
         copyPayload: error.copyPayload,
       );
     } catch (error, stackTrace) {
-      notifier.resetSubmissionStage();
       if (!context.mounted) return;
+      notifier.resetSubmissionStage();
       AppToast.showError(
         context,
         title: 'Failed to queue download',

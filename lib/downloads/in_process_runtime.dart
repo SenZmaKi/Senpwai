@@ -1167,16 +1167,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       });
       if (!hasRunnable) continue;
       state = state.copyWith(activeBatchId: batch.id);
-      final startedPending = _startPendingItems(batch);
-      if (!startedPending) {
-        for (final id in batch.itemIds) {
-          final item = _findItem(id);
-          if (item == null) continue;
-          if (item.status == DownloadQueueStatus.paused) {
-            unawaited(resume(id));
-          }
-        }
-      }
+      _startPendingItems(batch);
       return;
     }
     if (state.activeBatchId != null) {
