@@ -35,22 +35,18 @@ const runtimeScreens = await Promise.all(
 const platforms = [
   {
     name: 'Windows',
-    tag: 'Windows 10 / 11 (64-bit)',
     svg: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-13.051-1.801"/></svg>`,
   },
   {
     name: 'macOS',
-    tag: 'macOS 11+ (Apple & Intel)',
     svg: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.66-.8 1.11-1.92.99-3.04-.96.04-2.12.64-2.8 1.44-.61.71-1.14 1.86-1 2.97 1.07.08 2.15-.56 2.81-1.37z"/></svg>`,
   },
   {
     name: 'Linux',
-    tag: 'AppImage / Flatpak',
     svg: linuxIconSvg(20),
   },
   {
     name: 'Android',
-    tag: 'Phones & Tablets',
     svg: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997 0-.5511.4482-.9993.9993-.9993.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997 0-.5511.4482-.9993.9993-.9993.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.5029C15.5898 8.1633 13.8567 7.7844 12 7.7844c-1.8567 0-3.5898.3789-5.1368 1.1352L4.8409 5.4167a.416.416 0 00-.5676-.1521.416.416 0 00-.1521.5676l1.9973 3.4592C2.688 11.0865.3444 14.158.0003 17.8447h23.9994c-.3441-3.6867-2.6877-6.7582-6.1182-8.5233"/></svg>`,
   },
 ];
@@ -69,7 +65,6 @@ const platforms = [
         <span class="chip-svg" set:html={p.svg} />
         <div class="chip-info">
           <strong>{p.name}</strong>
-          <small>{p.tag}</small>
         </div>
       </div>
     ))}
@@ -136,7 +131,7 @@ const platforms = [
   </div>
 </section>
 
-<script define:vars={{ screens: runtimeScreens }}>
+<script is:inline define:vars={{ screens: runtimeScreens }}>
   const tabs = document.querySelectorAll('.icon-tab');
   const desktopImg = document.getElementById('desktop-img');
   const mobileImg = document.getElementById('mobile-img');
@@ -248,13 +243,16 @@ const platforms = [
 
 <style>
   .showcase {
-    padding-block: clamp(4.5rem, 8vw, 7.5rem);
+    min-height: calc(100svh - 72px);
+    display: grid;
+    align-content: center;
+    padding-block: clamp(1.25rem, 3vh, 2rem);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .section-intro {
     max-width: 680px;
-    margin: 0 auto 2.5rem;
+    margin: 0 auto 1rem;
     text-align: center;
   }
 
@@ -268,7 +266,7 @@ const platforms = [
 
   .section-intro h2 {
     margin: 0.8rem 0 0;
-    font-size: clamp(2.4rem, 4.5vw, 4.2rem);
+    font-size: clamp(2.15rem, 3.8vw, 3.5rem);
     line-height: 0.98;
     color: #f4f1eb;
   }
@@ -276,16 +274,16 @@ const platforms = [
   .platform-strip {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    max-width: 960px;
-    margin: 0 auto 2.5rem;
+    gap: 0.75rem;
+    max-width: 840px;
+    margin: 0 auto 1rem;
   }
 
   .platform-chip {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
+    gap: 0.6rem;
+    padding: 0.55rem 0.75rem;
     border-radius: 0.75rem;
     background: rgba(18, 18, 23, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.07);
@@ -298,8 +296,8 @@ const platforms = [
   }
 
   .chip-svg {
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
     display: grid;
     place-items: center;
     border-radius: 0.55rem;
@@ -311,27 +309,22 @@ const platforms = [
 
   .chip-info strong {
     display: block;
-    font: 700 0.88rem 'Outfit', sans-serif;
+    font: 700 0.82rem 'Outfit', sans-serif;
     color: #ffffff;
-  }
-
-  .chip-info small {
-    color: #8c8a93;
-    font: 500 0.68rem 'JetBrains Mono', monospace;
   }
 
   /* Icon-Only Carousel Pills */
   .screen-icon-pills {
     display: flex;
     justify-content: center;
-    gap: 0.6rem;
-    margin-bottom: 2rem;
+    gap: 0.45rem;
+    margin-bottom: 0.85rem;
   }
 
   .icon-tab {
     position: relative;
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
     display: grid;
     place-items: center;
     border-radius: 0.65rem;
@@ -391,8 +384,10 @@ const platforms = [
   /* Dual Device Stage */
   .device-stage {
     display: grid;
-    grid-template-columns: 1fr 260px;
-    gap: 2rem;
+    grid-template-columns: minmax(0, 1fr) 190px;
+    gap: 1.25rem;
+    width: min(100%, 880px);
+    margin-inline: auto;
     align-items: center;
   }
 
@@ -479,6 +474,11 @@ const platforms = [
   }
 
   @media (max-width: 900px) {
+    .showcase {
+      min-height: auto;
+      display: block;
+      padding-block: clamp(4.5rem, 8vw, 7.5rem);
+    }
     .platform-strip {
       grid-template-columns: repeat(2, 1fr);
       gap: 0.75rem;

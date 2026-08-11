@@ -1,0 +1,16 @@
+{
+  "name": "Senpwai",
+  "short_name": "Senpwai",
+  "description": "An open-source anime downloader.",
+  "icons": [
+    {
+      "src": "/images/senpwai-icon.webp",
+      "sizes": "2048x2048",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#0a0a0d",
+  "background_color": "#0a0a0d",
+  "display": "standalone"
+}

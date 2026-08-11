@@ -6,24 +6,43 @@ import senpwaiIcon from '../assets/images/senpwai-icon.webp';
 
 <footer class="site-footer">
   <div class="footer-main">
-    <div>
+    <div class="footer-copy">
       <a href="/" class="brand footer-brand">
         <Image src={senpwaiIcon} alt="" width={40} height={40} densities={[1, 2]} />
         <span>Senpwai</span>
       </a>
+      <p>Open-source anime downloads without the runaround.</p>
     </div>
 
-    <div class="footer-links" aria-label="Footer navigation">
-      <a href="/#features">Features</a>
-      <a href="/#showcase">Showcase</a>
-      <a href="/download">Download</a>
-      <a href="https://github.com/SenZmaKi/Senpwai" target="_blank" rel="noopener noreferrer">
-        <Github size={16} aria-hidden="true" /> GitHub
-      </a>
-    </div>
+    <nav class="footer-links" aria-label="Footer navigation">
+      <section class="footer-group">
+        <h2>Product</h2>
+        <a href="/#features">Features</a>
+        <a href="/#showcase">Showcase</a>
+        <a href="/#themes">Themes</a>
+        <a href="/download">Download</a>
+      </section>
+
+      <section class="footer-group">
+        <h2>Community</h2>
+        <a href="https://github.com/SenZmaKi/Senpwai" target="_blank" rel="noopener noreferrer">
+          <Github size={16} aria-hidden="true" /> GitHub
+        </a>
+        <a href="https://discord.gg/invite/e9UxkuyDX2" target="_blank" rel="noopener noreferrer">Discord</a>
+        <a href="https://www.reddit.com/r/Senpwai" target="_blank" rel="noopener noreferrer">Reddit</a>
+      </section>
+
+      <section class="footer-group">
+        <h2>Support</h2>
+        <a href="https://github.com/SenZmaKi/Senpwai/releases" target="_blank" rel="noopener noreferrer">Releases</a>
+        <a href="https://github.com/SenZmaKi/Senpwai/issues" target="_blank" rel="noopener noreferrer">Report an issue</a>
+        <a href="/legal">Legal notice</a>
+      </section>
+    </nav>
   </div>
   <div class="footer-bottom">
     <span>© {new Date().getFullYear()} Senpwai</span>
     <span>Truly one of the most apps ever of all time.</span>
   </div>
+  <p class="footer-notice">Senpwai does not host or control media or third-party websites.</p>
 </footer>

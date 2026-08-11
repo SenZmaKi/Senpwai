@@ -6,12 +6,19 @@ import Footer from '../components/Footer.astro';
 interface Props {
   title?: string;
   description?: string;
+  structuredData?: Record<string, unknown>;
 }
 
 const {
-  title = 'Senpwai — Batch download anime',
-  description = 'An open-source desktop and mobile app for batch downloading anime and keeping up with new episodes.',
+  title = 'Senpwai | Anime Downloader',
+  description = 'An open-source desktop and mobile app for searching anime, batch-downloading episodes, and keeping up with new releases.',
+  structuredData,
 } = Astro.props;
+
+const canonicalUrl = Astro.site ? new URL(Astro.url.pathname, Astro.site) : undefined;
+const socialImageUrl = Astro.site
+  ? new URL('/images/senpwai-icon.webp', Astro.site).toString()
+  : '/images/senpwai-icon.webp';
 ---
 
 <!doctype html>
@@ -20,19 +27,27 @@ const {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/webp" href="/images/senpwai-icon.webp" />
+    <link rel="manifest" href="/site.webmanifest" />
+    {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
     <meta name="generator" content={Astro.generator} />
     <meta name="theme-color" content="#0a0a0d" />
     <title>{title}</title>
     <meta name="title" content={title} />
     <meta name="description" content={description} />
+    <meta name="robots" content="index, follow" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Senpwai" />
+    {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content="/screenshots/desktop/home.webp" />
+    <meta property="og:image" content={socialImageUrl} />
+    <meta property="og:image:alt" content="Senpwai application icon" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content="/screenshots/desktop/home.webp" />
+    <meta name="twitter:image" content={socialImageUrl} />
+    <meta name="twitter:image:alt" content="Senpwai application icon" />
+    {structuredData && <script is:inline type="application/ld+json" set:html={JSON.stringify(structuredData)} />}
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>

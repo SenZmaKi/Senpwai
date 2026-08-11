@@ -23,7 +23,7 @@
 
 * { box-sizing: border-box; }
 
-html { background: #0a0a0d; }
+html { background: #0a0a0d; scroll-padding-top: 72px; }
 
 body {
   margin: 0;
@@ -135,18 +135,22 @@ img { display: block; max-width: 100%; }
 .secondary-button:hover { border-color: #666570; }
 
 .site-footer { border-top: 1px solid #292930; width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: 3.5rem 0 1.5rem; }
-.footer-main { display: flex; justify-content: space-between; gap: 3rem; padding-bottom: 3rem; }
-.footer-main p { color: #85838b; margin: 1rem 0 0; }
-.footer-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 1.5rem; color: #aaa8af; font-size: .9rem; }
+.footer-main { display: grid; grid-template-columns: minmax(220px, 1fr) auto; gap: 4rem; padding-bottom: 1.5rem; }
+.footer-main p { max-width: 18rem; color: #85838b; margin: 1rem 0 0; line-height: 1.55; }
+.footer-links { display: grid; grid-template-columns: repeat(3, minmax(100px, 1fr)); gap: clamp(1.5rem, 4vw, 4rem); color: #aaa8af; font-size: .9rem; }
+.footer-group { display: grid; align-content: start; gap: .55rem; }
+.footer-group h2 { margin: 0 0 .25rem; color: #f4f1eb; font: 700 .78rem 'Outfit', sans-serif; letter-spacing: .02em; }
 .footer-links a { display: inline-flex; align-items: center; gap: .4rem; }
-.footer-bottom { padding-top: 1.25rem; border-top: 1px solid #202026; display: flex; justify-content: space-between; gap: 1rem; color: #77757d; font-size: .78rem; }
+.footer-bottom { display: flex; justify-content: space-between; gap: 1rem; color: #77757d; font-size: .78rem; }
+.footer-notice { margin: .85rem 0 0; color: #77757d; font-size: .76rem; font-style: italic; }
 .made-for { display: inline-flex; align-items: center; gap: .4rem; }
 
 @media (max-width: 760px) {
   .desktop-nav, .nav-download { display: none; }
   .menu-button { display: inline-flex; }
-  .footer-main, .footer-bottom { flex-direction: column; }
-  .footer-links { justify-content: flex-start; gap: 1rem 1.4rem; }
+  .footer-main { grid-template-columns: 1fr; gap: 2.5rem; }
+  .footer-bottom { flex-direction: column; }
+  .footer-links { justify-content: flex-start; gap: 1.5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

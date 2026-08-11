@@ -10,12 +10,33 @@ import desktopHome from '../assets/screenshots/desktop/home.webp';
 import mobileHome from '../assets/screenshots/mobile/home.webp';
 ---
 
-<Layout>
+<Layout
+  structuredData={{
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Senpwai',
+    applicationCategory: 'MultimediaApplication',
+    operatingSystem: 'Windows, macOS, Linux, Android',
+    isAccessibleForFree: true,
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    downloadUrl: 'https://github.com/SenZmaKi/Senpwai/releases',
+    codeRepository: 'https://github.com/SenZmaKi/Senpwai',
+    sameAs: [
+      'https://github.com/SenZmaKi/Senpwai',
+      'https://discord.gg/invite/e9UxkuyDX2',
+      'https://www.reddit.com/r/Senpwai',
+    ],
+  }}
+>
   <section class="hero shell">
     <div class="hero-copy">
       <p class="eyebrow">Senpwai</p>
-      <h1 class="display">Pick an anime.<br /><span>Pick the episodes.</span></h1>
-      <p class="lede">Senpwai searches, batch downloads, and keeps an eye out for new episodes. That is pretty much the whole idea.</p>
+      <h1 class="display"><span class="headline-line">A less annoying</span><br /><span class="headline-line">way to <span>download</span></span><br /><span>anime.</span></h1>
+      <p class="lede">Search anime, batch-download the episodes you want, and let Senpwai keep an eye on new releases. That is pretty much the whole idea.</p>
       <div class="hero-actions">
         <a href="/download" class="primary-button"><Download size={18} aria-hidden="true" /> Download</a>
         <a href="#showcase" class="secondary-button">Have a look <ArrowRight size={17} aria-hidden="true" /></a>
@@ -82,10 +103,11 @@ import mobileHome from '../assets/screenshots/mobile/home.webp';
 </Layout>
 
 <style>
-  .hero { min-height: auto; display: grid; grid-template-columns: .82fr 1.18fr; gap: clamp(2.5rem, 5vw, 5rem); align-items: center; padding-top: clamp(1.2rem, 2.5vw, 2.2rem); padding-bottom: clamp(3.5rem, 7vw, 5.5rem); }
+  .hero { min-height: calc(100svh - 72px); display: grid; grid-template-columns: .82fr 1.18fr; gap: clamp(2.5rem, 5vw, 5rem); align-items: center; padding-top: clamp(1.2rem, 2.5vw, 2.2rem); padding-bottom: clamp(3.5rem, 7vw, 5.5rem); }
   .hero-copy { position: relative; z-index: 2; }
-  h1 { margin: 1.2rem 0 1.4rem; font-size: clamp(3.7rem, 8vw, 7.5rem); line-height: .88; }
+  h1 { margin: 1.2rem 0 1.4rem; font-size: clamp(3.7rem, 5vw, 5.5rem); line-height: .92; }
   h1 span { color: #f04444; }
+  h1 .headline-line { color: inherit; }
   .hero-copy .lede { max-width: 35rem; }
   .hero-actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 2rem; }
   .product-promises {
@@ -143,7 +165,8 @@ import mobileHome from '../assets/screenshots/mobile/home.webp';
     .hero-stage .desktop-shot:hover { transform: translate3d(12px, -10px, 0) rotate(0deg) scale(1.025); border-color: rgba(0,229,255,.34); }
     .hero-stage .phone-shot:hover { transform: translate3d(-12px, -18px, 0) rotate(-1deg) scale(1.07); border-color: rgba(255,82,82,.58); }
   }
-  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; min-height: auto; gap: 3rem; } .hero-copy { max-width: 700px; } }
+  @media (min-width: 901px) { .headline-line { white-space: nowrap; } }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; gap: 3rem; } .hero-copy { max-width: 700px; } }
   @media (max-width: 620px) {
     .hero { padding-top: 1.2rem; gap: 2.2rem; }
     h1 { font-size: clamp(3rem, 14vw, 4.5rem); }

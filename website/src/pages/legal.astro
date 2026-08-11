@@ -1,0 +1,93 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="Legal Notice | Senpwai"
+  description="Legal and content notice for Senpwai, the open-source anime downloader."
+>
+  <section class="legal-page shell">
+    <p class="eyebrow">Legal notice</p>
+    <h1 class="display">Legal Notice</h1>
+    <p class="lede">This notice sets out information about Senpwai, third-party services, and intellectual property.</p>
+
+    <div class="legal-content">
+      <section>
+        <h2>Nature of the application</h2>
+        <p>Senpwai is open-source software designed to facilitate access to publicly available anime content. Senpwai is not intended to support or promote copyright infringement.</p>
+      </section>
+
+      <section>
+        <h2>Third-party services and content</h2>
+        <p>Senpwai does not host, upload, distribute, or control media files or third-party websites. Any external links, services, and content are operated by independent third parties. Senpwai does not control their availability, content, or practices.</p>
+      </section>
+
+      <section>
+        <h2>User responsibility</h2>
+        <p>You are responsible for ensuring that your use of Senpwai and any third-party content complies with all applicable laws, regulations, rights, and terms of service. You should obtain any permissions required for your intended use.</p>
+      </section>
+
+      <section>
+        <h2>Intellectual property</h2>
+        <p>Anime titles, artwork, screenshots, brand names, and other third-party marks are the property of their respective owners. Their inclusion in Senpwai or on this website does not imply endorsement, affiliation, or sponsorship.</p>
+      </section>
+
+      <section>
+        <h2>Questions and concerns</h2>
+        <p>Questions or concerns about content available through a third-party website should be directed to the owner, webmaster, or hosting provider of that website. For issues relating to Senpwai software, <a href="https://github.com/SenZmaKi/Senpwai/issues" target="_blank" rel="noopener noreferrer">open an issue on GitHub</a>.</p>
+      </section>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .legal-page {
+    max-width: 800px;
+    padding-block: clamp(4rem, 9vw, 8rem);
+  }
+
+  h1 {
+    margin: 1rem 0;
+    font-size: clamp(3rem, 6vw, 5.5rem);
+    line-height: 0.92;
+  }
+
+  .legal-page > .lede {
+    max-width: 42rem;
+  }
+
+  .legal-content {
+    display: grid;
+    gap: 2rem;
+    margin-top: clamp(3.5rem, 7vw, 5.5rem);
+  }
+
+  .legal-content section {
+    padding-top: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .legal-content h2 {
+    margin: 0 0 0.7rem;
+    color: #f4f1eb;
+    font: 700 clamp(1.25rem, 2vw, 1.5rem) 'Outfit', sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  .legal-content p {
+    max-width: 46rem;
+    margin: 0;
+    color: #aaa8af;
+    line-height: 1.75;
+  }
+
+  .legal-content a {
+    color: #ff6868;
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+
+  .legal-content a:hover {
+    color: #ffffff;
+  }
+</style>

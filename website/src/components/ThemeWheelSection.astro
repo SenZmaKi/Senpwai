@@ -215,13 +215,16 @@ const themes = [
 
 <style>
   .themes-section {
-    padding-block: 4rem 6rem;
+    min-height: calc(100svh - 72px);
+    display: grid;
+    align-content: center;
+    padding-block: clamp(1.5rem, 3vh, 2.5rem);
     overflow: hidden;
   }
 
   .section-intro {
     max-width: 680px;
-    margin: 0 auto 3rem;
+    margin: 0 auto 1.5rem;
     text-align: center;
   }
 
@@ -255,14 +258,14 @@ const themes = [
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2.5rem;
+    gap: 1.25rem;
   }
 
   .wheel-stage {
     position: relative;
     width: 100%;
     max-width: 960px;
-    height: 420px;
+    height: 400px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -282,7 +285,7 @@ const themes = [
 
   .wheel-card {
     position: absolute;
-    width: 175px;
+    width: 170px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -333,7 +336,7 @@ const themes = [
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    padding: 0.4rem 0.8rem;
+    padding: 0.35rem 0.7rem;
     border-radius: 0.6rem;
     background: rgba(18, 18, 23, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -378,6 +381,11 @@ const themes = [
   }
 
   @media (max-width: 900px) {
+    .themes-section {
+      min-height: auto;
+      display: block;
+      padding-block: 4rem 6rem;
+    }
     .wheel-stage-container {
       gap: 1.5rem;
     }
