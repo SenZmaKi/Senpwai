@@ -232,6 +232,19 @@ String mediaByIdQuery({required bool includeListEntry}) {
     ''';
 }
 
+String mediaByIdsQuery({required bool includeListEntry}) {
+  return '''
+      query (\$ids: [Int], \$isAdult: Boolean, \$perPage: Int) {
+        Page(page: 1, perPage: \$perPage) {
+          pageInfo { currentPage lastPage perPage total }
+          media(id_in: \$ids, type: ANIME, isAdult: \$isAdult) {
+            ${_mediaFields(includeListEntry: includeListEntry)}
+          }
+        }
+      }
+    ''';
+}
+
 String trendingQuery({required bool includeListEntry}) {
   return '''
       query (
@@ -257,23 +270,17 @@ String trendingQuery({required bool includeListEntry}) {
     ''';
 }
 
-String mediaListSearchQuery() {
+String mediaListSnapshotQuery() {
   return '''
-      query (
-        \$listStatus: MediaListStatus,
-        \$userId: Int,
-        \$page: Int,
-        \$perPage: Int
-      ) {
-        Page(page: \$page, perPage: \$perPage) {
-          pageInfo { currentPage lastPage perPage total }
-          mediaList(status: \$listStatus, userId: \$userId, type: ANIME) {
-            id
-            status
-            progress
-            startedAt { year month day }
-            media {
-              ${_mediaFields(includeListEntry: false)}
+      query (\$userId: Int) {
+        MediaListCollection(userId: \$userId, type: ANIME) {
+          lists {
+            entries {
+              id
+              mediaId
+              status
+              progress
+              startedAt { year month day }
             }
           }
         }
@@ -317,20 +324,6 @@ Map<String, dynamic> buildSearchVariables(
       }..removeWhere(
         (_, value) => value == null || (value is List && value.isEmpty),
       );
-
-  return variables;
-}
-
-Map<String, dynamic> buildMediaListVariables(
-  AnimeSearchParams params, {
-  required int userId,
-}) {
-  final variables = <String, dynamic>{
-    "listStatus": params.listStatus?.toGraphql(),
-    "userId": userId,
-    "page": params.page,
-    "perPage": params.perPage,
-  }..removeWhere((_, value) => value == null);
 
   return variables;
 }
@@ -381,26 +374,5 @@ List<AnilistAnimeWithListEntry> mapMediaItemsWithListEntry(
       .whereType<Map<String, dynamic>>()
       .where(contentSettings.allowsMediaJson)
       .map((json) => AnilistAnimeWithListEntry.fromJson(json))
-      .toList();
-}
-
-List<AnilistAnimeWithListEntry> mapMediaListItems(
-  Map<String, dynamic>? pageData, {
-  AnilistContentSettings contentSettings = const AnilistContentSettings(),
-}) {
-  final listItems = (pageData?["mediaList"] as List<dynamic>? ?? []);
-  return listItems
-      .whereType<Map<String, dynamic>>()
-      .where((json) {
-        final media = json["media"] as Map<String, dynamic>?;
-        return media != null && contentSettings.allowsMediaJson(media);
-      })
-      .map((json) {
-        final media = json["media"] as Map<String, dynamic>;
-        return AnilistAnimeWithListEntry.fromJson({
-          ...media,
-          "mediaListEntry": json,
-        });
-      })
       .toList();
 }

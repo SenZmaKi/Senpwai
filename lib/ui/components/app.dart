@@ -114,7 +114,10 @@ class _AppRootState extends ConsumerState<_AppRoot> {
             showAdultContent: settings.content.showAdultContent,
           ),
         );
-    unawaited(ref.read(AnilistNotifier.provider.notifier).initialize());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(ref.read(AnilistNotifier.provider.notifier).initialize());
+    });
     unawaited(
       DesktopTrayController.instance.initialize(
         onCheckTrackedAnime: () =>

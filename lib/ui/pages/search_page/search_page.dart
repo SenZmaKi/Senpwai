@@ -137,6 +137,7 @@ class _SearchPageState extends ConsumerState<SearchPage>
   Future<void> _search() async {
     final providerContainer = ProviderScope.containerOf(context, listen: false);
     final anilist = providerContainer.read(AnilistNotifier.provider);
+    if (anilist.isAuthLoading) return;
     final anilistNotifier = providerContainer.read(
       AnilistNotifier.provider.notifier,
     );
@@ -243,6 +244,18 @@ class _SearchPageState extends ConsumerState<SearchPage>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(AnilistNotifier.provider, (previous, next) {
+      final authenticationFinished =
+          previous?.isAuthLoading == true && !next.isAuthLoading;
+      final authenticationChanged =
+          previous?.isAuthenticated != next.isAuthenticated;
+      final snapshotChanged =
+          previous?.listSnapshotRevision != next.listSnapshotRevision;
+      if (authenticationFinished ||
+          (!next.isAuthLoading && (authenticationChanged || snapshotChanged))) {
+        _search();
+      }
+    });
     final theme = Theme.of(context);
     final horizontalPad = horizontalPadding(context);
     final viewMode = ref.watch(

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/shared.dart';
@@ -10,6 +11,8 @@ import 'package:senpwai/ui/components/anime_card/anime_card_horizontal.dart';
 import 'package:senpwai/ui/components/section_header.dart';
 import 'package:senpwai/ui/shared/anilist.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
+
+final _log = Logger('senpwai.ui.pages.home');
 
 Pagination<List<AnilistAnimeBase>> _castPagination<T extends AnilistAnimeBase>(
   Pagination<List<T>> p,
@@ -75,6 +78,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       ref.read(AnilistNotifier.provider).isAuthenticated;
 
   Future<void> _load() async {
+    if (ref.read(AnilistNotifier.provider).isAuthLoading) return;
     _loadTrending();
     _loadTopRated();
     for (final section in _genreSections) {
@@ -106,7 +110,8 @@ class _HomePageState extends ConsumerState<HomePage> {
           _trendingFetchNext = pagination.fetchNextPage;
         });
       }
-    } catch (_) {
+    } catch (error, stack) {
+      _logLoadFailure('trending', error, stack);
     } finally {
       if (mounted) setState(() => _trendingLoading = false);
     }
@@ -128,7 +133,8 @@ class _HomePageState extends ConsumerState<HomePage> {
           _watchingFetchNext = pagination.fetchNextPage;
         });
       }
-    } catch (_) {
+    } catch (error, stack) {
+      _logLoadFailure('currently watching', error, stack);
     } finally {
       if (mounted) setState(() => _watchingLoading = false);
     }
@@ -157,7 +163,8 @@ class _HomePageState extends ConsumerState<HomePage> {
           _topRatedFetchNext = pagination.fetchNextPage;
         });
       }
-    } catch (_) {
+    } catch (error, stack) {
+      _logLoadFailure('popular anime', error, stack);
     } finally {
       if (mounted) setState(() => _topRatedLoading = false);
     }
@@ -199,7 +206,8 @@ class _HomePageState extends ConsumerState<HomePage> {
           section.fetchNext = pagination.fetchNextPage;
         });
       }
-    } catch (_) {
+    } catch (error, stack) {
+      _logLoadFailure('genre ${section.name}', error, stack);
     } finally {
       if (mounted) setState(() => section.loading = false);
     }
@@ -225,10 +233,15 @@ class _HomePageState extends ConsumerState<HomePage> {
           () => onResult([...current, ...result.items], result.fetchNextPage),
         );
       }
-    } catch (_) {
+    } catch (error, stack) {
+      _logLoadFailure('pagination', error, stack);
     } finally {
       if (mounted) setLoading(false);
     }
+  }
+
+  void _logLoadFailure(String section, Object error, StackTrace stack) {
+    _log.warning('AniList Home section failed: $section', error, stack);
   }
 
   List<Widget> _buildSection({
@@ -283,8 +296,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     ref.listen(AnilistNotifier.provider, (previous, next) {
-      if (previous?.isAuthenticated != next.isAuthenticated) {
-        _loadWatching();
+      final authenticationFinished =
+          previous?.isAuthLoading == true && !next.isAuthLoading;
+      final authenticationChanged =
+          previous?.isAuthenticated != next.isAuthenticated;
+      final snapshotChanged =
+          previous?.listSnapshotRevision != next.listSnapshotRevision;
+      if (authenticationFinished ||
+          (!next.isAuthLoading && (authenticationChanged || snapshotChanged))) {
+        _load();
       }
     });
     final anilist = ref.watch(AnilistNotifier.provider);
