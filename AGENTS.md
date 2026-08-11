@@ -1,8 +1,9 @@
 # Misc
+
 - The app was originally made using PyQt and now we're making v3 which is a Flutter app.
 - The app is designed for mobile, tablet and desktop so it should be responsive.
 - Validate your implementation with static analyzers don't run tests unless I explicitly ask you to.
-- Don't ignore prexisting errors or war
+- Don't ignore pre-existing errors or warnings
 - Before running tests run static analyzers
 - Anything that is clickable and technically a button should behave like a button for accesibility for instance on hover cursor should change to a hand.
 - When refactoring code don't care about backwards compatibility, upstream enforces downstream so downstream should update to the new upstream architecture. Aggressive refactors.
@@ -10,6 +11,16 @@
 - Try to keep ui files as small as possible in terms of lines of code ~300 lines max. If it gets too big then break it down into smaller components and files.
 - Find libtorrent_dart library implementation at ../libtorrent_dart/ and anitomy_dart at ../anitomy_dart/ (I made the libraries so we're in full control over them)
 - Ignore the python codebase we are rebuilding it in flutter just use it as a reference.
+- A user retry or known-good comparison must revise the diagnosis.
+- Trace complete producer-to-consumer and lifecycle paths.
+- Identify the source of truth before adding state or policy.
+- Treat “end to end” as an explicit completeness checklist.
+- Never claim runtime success from static analysis alone.
+- Model materially different states explicitly.
+- Translate internal representation into natural user-facing controls.
+- Remove exploratory diagnostics before final staging.
+- Preserve unrelated edits and verify scoped pushes.
+- Prefer existing narrow infrastructure and delete redundant machinery.
 
 # Frontend Design
 
