@@ -124,7 +124,7 @@ class _CfBypassPageState extends State<CfBypassPage> {
     AppToast.showWarning(
       context,
       title: 'No internet access',
-      description: 'CloudFlare verification will retry when you reconnect.',
+      description: 'Cloudflare verification will retry when you reconnect.',
     );
   }
 

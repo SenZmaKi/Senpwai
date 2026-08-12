@@ -161,6 +161,7 @@ class _StorageSettingsSectionState
                       message:
                           'Cached covers and banners will be downloaded again.',
                       action: AppPersistence.clearImageCache,
+                      successMessage: 'Image cache cleared',
                     ),
                   ),
                 ),
@@ -175,6 +176,7 @@ class _StorageSettingsSectionState
                       title: 'Clear HTTP cache?',
                       message: 'Cached network responses will be removed.',
                       action: AppPersistence.clearHttpCache,
+                      successMessage: 'HTTP cache cleared',
                     ),
                   ),
                 ),
@@ -190,6 +192,7 @@ class _StorageSettingsSectionState
                       message:
                           'Cloudflare cookies and bypass sessions will be removed.',
                       action: AppPersistence.clearNetworkSession,
+                      successMessage: 'Cloudflare sessions cleared',
                     ),
                   ),
                 ),
@@ -205,6 +208,7 @@ class _StorageSettingsSectionState
                       message:
                           'This keeps settings, AniList login, and downloaded anime.',
                       action: AppPersistence.clearAppCacheAndSessions,
+                      successMessage: 'App cache and sessions cleared',
                     ),
                   ),
                 ),
@@ -267,6 +271,7 @@ class _StorageSettingsSectionState
     required String title,
     required String message,
     required Future<void> Function() action,
+    required String successMessage,
   }) async {
     final confirmed = await showConfirmDialog(
       context,
@@ -279,7 +284,7 @@ class _StorageSettingsSectionState
     await action();
     if (!mounted) return;
     _refresh();
-    AppToast.showInfo(context, title: 'Storage cleared');
+    AppToast.showInfo(context, title: successMessage);
   }
 
   Future<void> _confirmAndResetSettings() async {
@@ -294,7 +299,7 @@ class _StorageSettingsSectionState
     if (!confirmed) return;
     await widget.notifier.resetToDefaults();
     if (!mounted) return;
-    AppToast.showInfo(context, title: 'Settings reset to defaults');
+    AppToast.showInfo(context, title: 'Settings reset');
   }
 
   String _size(int? bytes) =>
@@ -308,8 +313,8 @@ class _StorageSettingsSectionState
     setState(() => _httpCacheAgeResetToken++);
     AppToast.showWarning(
       context,
-      title: 'Cache age reset',
-      description: 'HTTP cache age must be greater than zero hours.',
+      title: 'HTTP cache age reset',
+      description: 'Enter an age greater than 0 hours.',
     );
   }
 }

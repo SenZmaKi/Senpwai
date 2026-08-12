@@ -760,7 +760,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     }
     if (start == 0 || end == 0) {
       throw const DownloadUserError(
-        title: 'What am I supposed to do with a zero?',
+        title: 'Episode number cannot be 0',
         description: 'Episode numbers start at 1.',
       );
     }
@@ -772,23 +772,20 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     }
     if (start > availableEpisodes) {
       throw DownloadUserError(
-        title: 'Start episode cannot be greater than the latest aired episode',
-        description:
-            'Pick a start episode between 1 and $availableEpisodes for this anime.',
+        title: 'Start episode unavailable',
+        description: 'Choose an episode from 1 to $availableEpisodes.',
       );
     }
     if (end < start) {
       throw const DownloadUserError(
-        title:
-            'Stop episode cannot be less than start episode, hontoni baka ga',
-        description: 'Choose an ending episode that is after the starting one.',
+        title: 'End episode precedes start',
+        description: 'Choose an end episode no earlier than the start episode.',
       );
     }
     if (end > availableEpisodes) {
       throw DownloadUserError(
-        title: 'Stop episode cannot be greater than the latest aired episode',
-        description:
-            'Pick an ending episode between $start and $availableEpisodes for this anime.',
+        title: 'End episode unavailable',
+        description: 'Choose an episode from $start to $availableEpisodes.',
       );
     }
     return (start: start, end: end);
