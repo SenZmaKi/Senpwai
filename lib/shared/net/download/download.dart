@@ -34,6 +34,7 @@ class Download {
   final Dio _dio;
   late final DownloadState state = DownloadState(params: params);
   Future<void>? _downloadFuture;
+  _OffsetFileWriter? _targetWriter;
 
   /// `If-Range` validator (ETag preferred, falling back to Last-Modified)
   /// captured from the first 206 response. Subsequent reconnects send this
@@ -197,18 +198,17 @@ class Download {
     required int length,
     required _RangeRequestSupport rangeRequestSupport,
   }) async {
-    RandomAccessFile? raf;
     StreamSubscription<Uint8List>? subscription;
     int bytes = 0;
+    final targetWriter =
+        _targetWriter ??
+        (throw StateError('The download target writer is not open.'));
     final iterToken = state.registerIterationToken(
       partNumber,
       cancelOnPause: rangeRequestSupport == _RangeRequestSupport.supported,
     );
 
     try {
-      raf = await params.targetFile.open(mode: FileMode.writeOnly);
-      await raf.setPosition(offset);
-
       final response = await _establishConnection(
         offset,
         length,
@@ -247,7 +247,7 @@ class Download {
           }
           if (iterToken.isCancelled || state.isTerminal) return;
 
-          await raf?.writeFrom(data);
+          await targetWriter.writeAt(offset + bytes, data);
 
           state.addProgress(
             DownloadProgress(
@@ -277,7 +277,6 @@ class Download {
       rethrow;
     } finally {
       await subscription?.cancel();
-      await raf?.close();
       state.unregisterPart(partNumber);
       state.unregisterIterationToken(partNumber);
     }
@@ -363,13 +362,16 @@ class Download {
       );
 
       await Future.wait(tasks);
+      await _closeTargetWriter();
       state.finalize(DownloadStatus.completed);
     } on DownloadCancelledException {
       // State already finalized by cancel()
     } catch (e, st) {
       log.severeWithMetadata("Download failed", error: e, stackTrace: st);
       state.finalize(DownloadStatus.failed);
-    } finally {}
+    } finally {
+      await _closeTargetWriter();
+    }
 
     await _cleanup();
   }
@@ -382,8 +384,20 @@ class Download {
       await params.targetFile.delete();
     }
     final raf = await params.targetFile.open(mode: FileMode.write);
-    await raf.truncate(params.sizeBytes);
-    await raf.close();
+    try {
+      await raf.truncate(params.sizeBytes);
+      _targetWriter = _OffsetFileWriter(raf);
+    } catch (_) {
+      await raf.close();
+      rethrow;
+    }
+  }
+
+  Future<void> _closeTargetWriter() async {
+    final writer = _targetWriter;
+    if (writer == null) return;
+    _targetWriter = null;
+    await writer.close();
   }
 
   Future<_RangeRequestSupport> _probeRangeRequestSupport() async {
@@ -413,6 +427,40 @@ class Download {
       } on PathAccessException {
         log.warning("Could not delete partial file: ${params.targetFile}");
       }
+    }
+  }
+}
+
+/// Serializes offset-based writes through one file handle so range workers
+/// cannot truncate the shared target or race its mutable file position.
+class _OffsetFileWriter {
+  final RandomAccessFile _file;
+  Future<void> _pendingWrite = Future.value();
+  bool _isClosed = false;
+
+  _OffsetFileWriter(this._file);
+
+  Future<void> writeAt(int offset, Uint8List data) {
+    if (_isClosed) {
+      return Future.error(StateError('The download target writer is closed.'));
+    }
+
+    final write = _pendingWrite.then((_) async {
+      await _file.setPosition(offset);
+      await _file.writeFrom(data);
+    });
+    _pendingWrite = write;
+    return write;
+  }
+
+  Future<void> close() async {
+    if (_isClosed) return;
+    _isClosed = true;
+    try {
+      await _pendingWrite;
+      await _file.flush();
+    } finally {
+      await _file.close();
     }
   }
 }
