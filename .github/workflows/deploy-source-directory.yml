@@ -4,6 +4,7 @@ on:
   push:
     branches: [master, v3.0.0]
     paths:
+      - website/**
       - source-directory/**
       - .github/workflows/deploy-source-directory.yml
   workflow_dispatch:
@@ -28,10 +29,23 @@ jobs:
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
       - run: dart pub get
         working-directory: source-directory/signer
+      - run: npm ci
+        working-directory: website
+      - run: npm run astro -- check
+        working-directory: website
+      - run: npm run build
+        working-directory: website
       - run: |
-          mkdir -p ../../site
+          mkdir -p site
+          cp -R website/dist/. site/
+      - run: |
           dart run bin/sign.dart \
             --input ../source_directory.payload.json \
             --output ../../site/source-directory.json

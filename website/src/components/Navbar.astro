@@ -2,11 +2,12 @@
 import { Download, Github, Menu, X } from 'lucide-astro';
 import { Image } from 'astro:assets';
 import senpwaiIcon from '../assets/images/senpwai-icon.webp';
+const base = `${import.meta.env.BASE_URL}/`;
 ---
 
 <header class="site-header">
   <div class="nav-shell">
-    <a href="/" class="brand" aria-label="Senpwai home">
+    <a href={base} class="brand" aria-label="Senpwai home">
       <Image
         src={senpwaiIcon}
         alt=""
@@ -19,14 +20,14 @@ import senpwaiIcon from '../assets/images/senpwai-icon.webp';
     </a>
 
     <nav class="desktop-nav" aria-label="Main navigation">
-      <a href="/#features">Features</a>
-      <a href="/#showcase">Showcase</a>
-      <a href="/#themes">Themes</a>
-      <a href="/download">Download</a>
+      <a href={`${base}#features`}>Features</a>
+      <a href={`${base}#showcase`}>Showcase</a>
+      <a href={`${base}#themes`}>Themes</a>
+      <a href={`${base}download`}>Download</a>
       <a href="https://github.com/SenZmaKi/Senpwai" target="_blank" rel="noopener noreferrer">GitHub</a>
     </nav>
 
-    <a class="nav-download" href="/download">
+    <a class="nav-download" href={`${base}download`}>
       <Download size={16} aria-hidden="true" />
       Download
     </a>
@@ -38,13 +39,13 @@ import senpwaiIcon from '../assets/images/senpwai-icon.webp';
   </div>
 
   <nav id="mobile-menu" class="mobile-menu hidden" aria-label="Mobile navigation">
-    <a href="/#features">Features</a>
-    <a href="/#showcase">Showcase</a>
-    <a href="/#themes">Themes</a>
+    <a href={`${base}#features`}>Features</a>
+    <a href={`${base}#showcase`}>Showcase</a>
+    <a href={`${base}#themes`}>Themes</a>
     <a href="https://github.com/SenZmaKi/Senpwai" target="_blank" rel="noopener noreferrer">
       <Github size={17} aria-hidden="true" /> GitHub
     </a>
-    <a href="/download"><Download size={17} aria-hidden="true" /> Download</a>
+    <a href={`${base}download`}><Download size={17} aria-hidden="true" /> Download</a>
   </nav>
 </header>
 

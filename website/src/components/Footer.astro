@@ -2,12 +2,13 @@
 import { Github } from 'lucide-astro';
 import { Image } from 'astro:assets';
 import senpwaiIcon from '../assets/images/senpwai-icon.webp';
+const base = `${import.meta.env.BASE_URL}/`;
 ---
 
 <footer class="site-footer">
   <div class="footer-main">
     <div class="footer-copy">
-      <a href="/" class="brand footer-brand">
+      <a href={base} class="brand footer-brand">
         <Image src={senpwaiIcon} alt="" width={40} height={40} densities={[1, 2]} />
         <span>Senpwai</span>
       </a>
@@ -17,10 +18,10 @@ import senpwaiIcon from '../assets/images/senpwai-icon.webp';
     <nav class="footer-links" aria-label="Footer navigation">
       <section class="footer-group">
         <h2>Product</h2>
-        <a href="/#features">Features</a>
-        <a href="/#showcase">Showcase</a>
-        <a href="/#themes">Themes</a>
-        <a href="/download">Download</a>
+        <a href={`${base}#features`}>Features</a>
+        <a href={`${base}#showcase`}>Showcase</a>
+        <a href={`${base}#themes`}>Themes</a>
+        <a href={`${base}download`}>Download</a>
       </section>
 
       <section class="footer-group">
@@ -36,7 +37,7 @@ import senpwaiIcon from '../assets/images/senpwai-icon.webp';
         <h2>Support</h2>
         <a href="https://github.com/SenZmaKi/Senpwai/releases" target="_blank" rel="noopener noreferrer">Releases</a>
         <a href="https://github.com/SenZmaKi/Senpwai/issues" target="_blank" rel="noopener noreferrer">Report an issue</a>
-        <a href="/legal">Legal notice</a>
+        <a href={`${base}legal`}>Legal notice</a>
       </section>
     </nav>
   </div>

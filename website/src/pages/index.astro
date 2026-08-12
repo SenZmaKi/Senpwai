@@ -8,6 +8,7 @@ import { ArrowRight, Download, Ban, Code2, Gift } from 'lucide-astro';
 import { Image } from 'astro:assets';
 import desktopHome from '../assets/screenshots/desktop/home.webp';
 import mobileHome from '../assets/screenshots/mobile/home.webp';
+const base = `${import.meta.env.BASE_URL}/`;
 ---
 
 <Layout
@@ -38,7 +39,7 @@ import mobileHome from '../assets/screenshots/mobile/home.webp';
       <h1 class="display"><span class="headline-line">A less annoying</span><br /><span class="headline-line">way to <span>download</span></span><br /><span>anime.</span></h1>
       <p class="lede">Search anime, batch-download the episodes you want, and let Senpwai keep an eye on new releases. That is pretty much the whole idea.</p>
       <div class="hero-actions">
-        <a href="/download" class="primary-button"><Download size={18} aria-hidden="true" /> Download</a>
+        <a href={`${base}download`} class="primary-button"><Download size={18} aria-hidden="true" /> Download</a>
         <a href="#showcase" class="secondary-button">Have a look <ArrowRight size={17} aria-hidden="true" /></a>
       </div>
       <div class="product-promises" aria-label="Product guarantees">

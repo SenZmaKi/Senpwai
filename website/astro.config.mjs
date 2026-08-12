@@ -5,7 +5,8 @@ import tailwindcss from '@tailwindcss/vite';
 
 // https://astro.build/config
 export default defineConfig({
-  site: import.meta.env.PUBLIC_SITE_URL,
+  site: 'https://senzmaki.github.io',
+  base: '/Senpwai',
   trailingSlash: 'never',
   vite: {
     plugins: [tailwindcss()]
