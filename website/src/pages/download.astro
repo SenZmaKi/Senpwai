@@ -303,8 +303,88 @@ const downloadCards = [
   }
 
   @media (max-width: 600px) {
+    .download-section {
+      padding-top: 1.35rem;
+      padding-bottom: 0.75rem;
+    }
+
+    .section-intro {
+      margin-bottom: 1.15rem;
+    }
+
+    .section-intro h1 {
+      margin-top: 0.45rem;
+      font-size: clamp(2rem, 10vw, 2.55rem);
+      line-height: 0.96;
+    }
+
     .platform-grid {
       grid-template-columns: 1fr;
+      gap: 0.7rem;
     }
+
+    .dl-card {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: 0.85rem;
+      padding: 0.9rem;
+      border-radius: 0.8rem;
+    }
+
+    .dl-card[data-platform-id='android'] {
+      order: -1;
+    }
+
+    .card-top {
+      grid-row: span 2;
+      align-self: center;
+      margin: 0;
+    }
+
+    .card-top .tag-row {
+      position: absolute;
+      top: 0.9rem;
+      right: 0.9rem;
+    }
+
+    .dl-card {
+      position: relative;
+    }
+
+    .dl-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 0.55rem;
+    }
+
+    .card-header-info {
+      min-width: 0;
+      padding-right: 5.75rem;
+    }
+
+    .card-header-info h2 {
+      margin: 0 0 0.1rem;
+      font-size: 1.05rem;
+    }
+
+    .card-subtitle {
+      margin: 0;
+      font-size: 0.66rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-action {
+      grid-column: 1 / -1;
+      margin-top: 0.75rem;
+    }
+
+    .dl-button {
+      min-height: 42px;
+      padding: 0.65rem 0.9rem;
+    }
+
+    .releases-section { margin-block: 0.75rem 2rem; }
   }
 </style>

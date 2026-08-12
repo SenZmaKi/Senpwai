@@ -2,7 +2,9 @@
 import { Download, Github, Menu, X } from 'lucide-astro';
 import { Image } from 'astro:assets';
 import senpwaiIcon from '../assets/images/senpwai-icon.webp';
-const base = `${import.meta.env.BASE_URL}/`;
+const base = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
 ---
 
 <header class="site-header">
@@ -50,17 +52,33 @@ const base = `${import.meta.env.BASE_URL}/`;
 </header>
 
 <script>
+  const header = document.querySelector<HTMLElement>('.site-header');
   const button = document.querySelector<HTMLButtonElement>('#menu-button');
   const menu = document.querySelector<HTMLElement>('#mobile-menu');
   const openIcon = document.querySelector<HTMLElement>('#menu-open-icon');
   const closeIcon = document.querySelector<HTMLElement>('#menu-close-icon');
 
-  button?.addEventListener('click', () => {
-    const willOpen = menu?.classList.contains('hidden') ?? false;
-    menu?.classList.toggle('hidden', !willOpen);
-    openIcon?.classList.toggle('hidden', willOpen);
-    closeIcon?.classList.toggle('hidden', !willOpen);
-    button.setAttribute('aria-expanded', String(willOpen));
-    button.setAttribute('aria-label', willOpen ? 'Close navigation' : 'Open navigation');
+  const setMenuOpen = (isOpen: boolean) => {
+    menu?.classList.toggle('hidden', !isOpen);
+    openIcon?.classList.toggle('hidden', isOpen);
+    closeIcon?.classList.toggle('hidden', !isOpen);
+    button?.setAttribute('aria-expanded', String(isOpen));
+    button?.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
+  };
+
+  button?.addEventListener('click', () => setMenuOpen(menu?.classList.contains('hidden') ?? false));
+  menu?.addEventListener('click', () => setMenuOpen(false));
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!menu?.classList.contains('hidden') && !header?.contains(event.target as Node)) {
+      setMenuOpen(false);
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !menu?.classList.contains('hidden')) {
+      setMenuOpen(false);
+      button?.focus();
+    }
   });
 </script>
