@@ -138,13 +138,29 @@ class ContentDownloadSettings extends StatelessWidget {
                 settings.downloads.maxDownloadBytesPerSecond,
               ),
               searchQuery: searchQuery,
-              trailing: NumberSettingField(
-                value: _bytesToMegabytes(
+              trailing: LimitSettingControl(
+                mode: _speedLimitMode(
                   settings.downloads.maxDownloadBytesPerSecond,
                 ),
-                unit: 'MB/s',
-                onSubmitted: (value) => unawaited(
-                  notifier.setHttpMaxDownloadBytesPerSecond(megabytes(value)),
+                allowsDisabled: false,
+                onModeChanged: (mode) => unawaited(
+                  notifier.setHttpMaxDownloadBytesPerSecond(
+                    mode == LimitMode.unlimited
+                        ? 0
+                        : _speedLimitForCustomValue(
+                            settings.downloads.maxDownloadBytesPerSecond,
+                          ),
+                  ),
+                ),
+                valueField: NumberSettingField(
+                  value: _megabytesForCustomValue(
+                    settings.downloads.maxDownloadBytesPerSecond,
+                  ),
+                  unit: 'MB/s',
+                  min: 1,
+                  onSubmitted: (value) => unawaited(
+                    notifier.setHttpMaxDownloadBytesPerSecond(megabytes(value)),
+                  ),
                 ),
               ),
             ),
@@ -184,6 +200,14 @@ class ContentDownloadSettings extends StatelessWidget {
 }
 
 int _bytesToMegabytes(int bytes) => (bytes / (1024 * 1024)).round();
+
+LimitMode _speedLimitMode(int value) =>
+    value <= 0 ? LimitMode.unlimited : LimitMode.limited;
+
+int _speedLimitForCustomValue(int value) => value > 0 ? value : megabytes(10);
+
+int _megabytesForCustomValue(int bytes) =>
+    _bytesToMegabytes(_speedLimitForCustomValue(bytes));
 
 LimitMode _queueLimitMode(int value) => switch (value) {
   -1 => LimitMode.unlimited,

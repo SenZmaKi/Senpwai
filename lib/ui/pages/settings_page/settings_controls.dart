@@ -86,6 +86,8 @@ class LimitSettingControl extends StatelessWidget {
   final ValueChanged<LimitMode> onModeChanged;
   final Widget? valueField;
   final bool allowsDisabled;
+  final bool allowsUnlimited;
+  final String unlimitedLabel;
 
   const LimitSettingControl({
     super.key,
@@ -93,6 +95,8 @@ class LimitSettingControl extends StatelessWidget {
     required this.onModeChanged,
     this.valueField,
     this.allowsDisabled = true,
+    this.allowsUnlimited = true,
+    this.unlimitedLabel = 'Unlimited',
   });
 
   @override
@@ -106,10 +110,11 @@ class LimitSettingControl extends StatelessWidget {
         SettingsDropdown<LimitMode>(
           value: mode,
           items: [
-            const DropdownMenuItem(
-              value: LimitMode.unlimited,
-              child: Text('Unlimited'),
-            ),
+            if (allowsUnlimited)
+              DropdownMenuItem(
+                value: LimitMode.unlimited,
+                child: Text(unlimitedLabel),
+              ),
             const DropdownMenuItem(
               value: LimitMode.limited,
               child: Text('Custom Limit'),

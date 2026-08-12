@@ -124,14 +124,29 @@ class _StorageSettingsSectionState
                   subtitle:
                       '${_imageCacheLimitLabel(widget.settings.storage.imageCacheMaxBytes)} · Usage: ${_size(usage?.imageCacheBytes)}',
                   searchQuery: sq,
-                  trailing: NumberSettingField(
-                    value: _bytesToMegabytes(
+                  trailing: LimitSettingControl(
+                    mode: _imageCacheLimitMode(
                       widget.settings.storage.imageCacheMaxBytes,
                     ),
-                    min: 0,
-                    unit: 'MB',
-                    onSubmitted: (value) => unawaited(
-                      widget.notifier.setImageCacheMaxBytes(megabytes(value)),
+                    allowsDisabled: false,
+                    onModeChanged: (mode) => unawaited(
+                      widget.notifier.setImageCacheMaxBytes(
+                        mode == LimitMode.unlimited
+                            ? 0
+                            : _imageCacheLimitForCustomValue(
+                                widget.settings.storage.imageCacheMaxBytes,
+                              ),
+                      ),
+                    ),
+                    valueField: NumberSettingField(
+                      value: _imageCacheMegabytesForCustomValue(
+                        widget.settings.storage.imageCacheMaxBytes,
+                      ),
+                      min: 1,
+                      unit: 'MB',
+                      onSubmitted: (value) => unawaited(
+                        widget.notifier.setImageCacheMaxBytes(megabytes(value)),
+                      ),
                     ),
                   ),
                 ),
@@ -320,6 +335,15 @@ class _StorageSettingsSectionState
 }
 
 int _bytesToMegabytes(int bytes) => (bytes / (1024 * 1024)).round();
+
+LimitMode _imageCacheLimitMode(int value) =>
+    value <= 0 ? LimitMode.unlimited : LimitMode.limited;
+
+int _imageCacheLimitForCustomValue(int value) =>
+    value > 0 ? value : StoragePreferences.defaultImageCacheMaxBytes;
+
+int _imageCacheMegabytesForCustomValue(int bytes) =>
+    _bytesToMegabytes(_imageCacheLimitForCustomValue(bytes));
 
 String _imageCacheLimitLabel(int bytes) =>
     bytes == 0 ? 'Unlimited' : 'Limit: ${formatBytes(bytes)}';

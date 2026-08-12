@@ -188,15 +188,34 @@ class _NyaaDefaultsList extends StatelessWidget {
         SettingsTile(
           icon: Icons.people_alt_outlined,
           title: 'Minimum Seeders',
-          subtitle: '${filters.minSeeders} seeders required',
+          subtitle: filters.minSeeders == 0
+              ? 'Any number of seeders'
+              : '${filters.minSeeders} seeders required',
           keywords: 'nyaa seeders minimum search filter',
           searchQuery: searchQuery,
-          trailing: NumberSettingField(
-            value: filters.minSeeders,
-            unit: 'seeders',
-            onSubmitted: (value) => unawaited(
+          trailing: LimitSettingControl(
+            mode: filters.minSeeders == 0
+                ? LimitMode.unlimited
+                : LimitMode.limited,
+            allowsDisabled: false,
+            unlimitedLabel: 'Any seeders',
+            onModeChanged: (mode) => unawaited(
               notifier.setNyaaDefaultFilters(
-                filters.copyWith(minSeeders: value),
+                filters.copyWith(
+                  minSeeders: mode == LimitMode.unlimited
+                      ? 0
+                      : _minimumSeedersForCustomValue(filters.minSeeders),
+                ),
+              ),
+            ),
+            valueField: NumberSettingField(
+              value: _minimumSeedersForCustomValue(filters.minSeeders),
+              min: 1,
+              unit: 'seeders',
+              onSubmitted: (value) => unawaited(
+                notifier.setNyaaDefaultFilters(
+                  filters.copyWith(minSeeders: value),
+                ),
               ),
             ),
           ),
@@ -205,3 +224,5 @@ class _NyaaDefaultsList extends StatelessWidget {
     );
   }
 }
+
+int _minimumSeedersForCustomValue(int seeders) => seeders > 0 ? seeders : 1;

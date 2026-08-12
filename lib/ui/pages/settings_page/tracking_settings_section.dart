@@ -91,12 +91,30 @@ class TrackingSettingsSection extends ConsumerWidget {
                     ? 'Disabled'
                     : 'Check on launch, then repeat while Senpwai is running',
                 searchQuery: searchQuery,
-                trailing: NumberSettingField(
-                  value: settings!.anilist.trackerCheckIntervalHours,
-                  min: 0,
-                  unit: 'hours',
-                  onSubmitted: (hours) =>
-                      unawaited(notifier!.setTrackerCheckIntervalHours(hours)),
+                trailing: LimitSettingControl(
+                  mode: trackerDisabled
+                      ? LimitMode.disabled
+                      : LimitMode.limited,
+                  allowsUnlimited: false,
+                  onModeChanged: (mode) => unawaited(
+                    notifier!.setTrackerCheckIntervalHours(
+                      mode == LimitMode.disabled
+                          ? 0
+                          : _trackerIntervalForCustomValue(
+                              settings!.anilist.trackerCheckIntervalHours,
+                            ),
+                    ),
+                  ),
+                  valueField: NumberSettingField(
+                    value: _trackerIntervalForCustomValue(
+                      settings!.anilist.trackerCheckIntervalHours,
+                    ),
+                    min: 1,
+                    unit: 'hours',
+                    onSubmitted: (hours) => unawaited(
+                      notifier!.setTrackerCheckIntervalHours(hours),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -150,6 +168,9 @@ class TrackingSettingsSection extends ConsumerWidget {
     );
   }
 }
+
+int _trackerIntervalForCustomValue(int hours) =>
+    hours > 0 ? hours : AnilistPreferences.defaultTrackerCheckIntervalHours;
 
 class _TrackedAnimeTile extends StatelessWidget {
   final TrackedAnime tracked;
