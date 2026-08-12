@@ -398,7 +398,8 @@ class DownloadRequest {
   final int endEpisode;
   final List<int> episodeNumbers;
   final String downloadFolder;
-  final String httpJobTitle;
+  final String fileTitle;
+  final int? fileSeasonNumber;
   final Resolution resolution;
   final Language language;
 
@@ -409,7 +410,8 @@ class DownloadRequest {
     required this.endEpisode,
     List<int>? episodeNumbers,
     required this.downloadFolder,
-    required this.httpJobTitle,
+    required this.fileTitle,
+    this.fileSeasonNumber,
     required this.resolution,
     required this.language,
   }) : episodeNumbers = _normalizedEpisodeNumbers(

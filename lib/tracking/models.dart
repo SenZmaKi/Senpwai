@@ -54,7 +54,6 @@ class TrackedAnime {
   final Resolution resolution;
   final Language language;
   final String downloadFolder;
-  final String httpJobTitle;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? lastCheckedAt;
@@ -65,7 +64,6 @@ class TrackedAnime {
     required this.anilistId,
     required this.animeSnapshot,
     required this.downloadFolder,
-    required this.httpJobTitle,
     required this.resolution,
     required this.language,
     required this.createdAt,
@@ -97,7 +95,6 @@ class TrackedAnime {
         Language.japanese,
       ),
       downloadFolder: _stringValue(json['downloadFolder'], ''),
-      httpJobTitle: _stringValue(json['httpJobTitle'], anime.title.display),
       createdAt: _dateTimeValue(json['createdAt'], now),
       updatedAt: _dateTimeValue(json['updatedAt'], now),
       lastCheckedAt: _nullableDateTimeValue(json['lastCheckedAt']),
@@ -114,7 +111,6 @@ class TrackedAnime {
     'resolution': resolution.name,
     'language': language.name,
     'downloadFolder': downloadFolder,
-    'httpJobTitle': httpJobTitle,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
     'lastCheckedAt': lastCheckedAt?.toIso8601String(),
@@ -129,7 +125,6 @@ class TrackedAnime {
     Resolution? resolution,
     Language? language,
     String? downloadFolder,
-    String? httpJobTitle,
     DateTime? updatedAt,
     DateTime? lastCheckedAt,
     String? lastError,
@@ -150,7 +145,6 @@ class TrackedAnime {
       resolution: resolution ?? this.resolution,
       language: language ?? this.language,
       downloadFolder: downloadFolder ?? this.downloadFolder,
-      httpJobTitle: httpJobTitle ?? this.httpJobTitle,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastCheckedAt: lastCheckedAt ?? this.lastCheckedAt,

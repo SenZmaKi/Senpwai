@@ -105,8 +105,9 @@ class AnimePaheDownloadPlanner {
       );
       final plannedTarget = _targetPlanner.planEpisodeFile(
         directory: request.downloadFolder,
-        jobTitle: request.httpJobTitle,
+        jobTitle: request.fileTitle,
         episodeNumber: directLink.episodeNumber,
+        seasonNumber: request.fileSeasonNumber,
         sourceFileName: directLink.filename,
         resolvedUrl: resolvedTarget.resolvedUrl,
         suggestedFileName: resolvedTarget.suggestedFileName,

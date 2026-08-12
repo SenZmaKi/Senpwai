@@ -12,8 +12,8 @@ class ResolvedAnimeDownloadLocation {
   final String seriesDirectory;
   final String episodeDirectory;
   final String seriesTitle;
-  final String httpJobTitle;
-  final int? seasonNumber;
+  final String fileTitle;
+  final int? fileSeasonNumber;
   final String? variantFolderName;
 
   const ResolvedAnimeDownloadLocation({
@@ -21,8 +21,8 @@ class ResolvedAnimeDownloadLocation {
     required this.seriesDirectory,
     required this.episodeDirectory,
     required this.seriesTitle,
-    required this.httpJobTitle,
-    this.seasonNumber,
+    required this.fileTitle,
+    this.fileSeasonNumber,
     this.variantFolderName,
   });
 
@@ -71,19 +71,22 @@ class DownloadTargetPlanner {
     final fallbackTitle = sanitizePathSegment(
       anime.title.english ?? anime.title.display,
     );
+    final canonicalIdentity = _canonicalIdentity(
+      parsedCandidates.firstOrNull,
+      fallbackTitle,
+    );
 
     for (final customFolder in customAnimeFolders) {
       if (_matchesCustomFolder(customFolder, titleCandidates)) {
         final customPath = path.normalize(customFolder.folder);
         if (!await Directory(customPath).exists()) continue;
-        final customTitle = sanitizePathSegment(customFolder.animeTitle);
         return ResolvedAnimeDownloadLocation(
           rootDirectory: path.dirname(customPath),
           seriesDirectory: customPath,
           episodeDirectory: customPath,
-          seriesTitle: customTitle,
-          httpJobTitle: customTitle,
-          seasonNumber: null,
+          seriesTitle: canonicalIdentity.seriesTitle,
+          fileTitle: canonicalIdentity.fileTitle,
+          fileSeasonNumber: canonicalIdentity.fileSeasonNumber,
           variantFolderName: null,
         );
       }
@@ -107,9 +110,9 @@ class DownloadTargetPlanner {
               rootDirectory: root,
               seriesDirectory: existingSeriesDirectory.path,
               episodeDirectory: existingEpisodeDirectory.path,
-              seriesTitle: parsed.baseTitle,
-              httpJobTitle: parsed.baseTitle,
-              seasonNumber: parsed.seasonNumber,
+              seriesTitle: canonicalIdentity.seriesTitle,
+              fileTitle: canonicalIdentity.fileTitle,
+              fileSeasonNumber: canonicalIdentity.fileSeasonNumber,
               variantFolderName: parsed.variantFolderName,
             );
           }
@@ -121,33 +124,28 @@ class DownloadTargetPlanner {
             rootDirectory: root,
             seriesDirectory: existingSeriesDirectory.path,
             episodeDirectory: defaultEpisodeDirectory,
-            seriesTitle: parsed.baseTitle,
-            httpJobTitle: parsed.baseTitle,
-            seasonNumber: parsed.seasonNumber,
+            seriesTitle: canonicalIdentity.seriesTitle,
+            fileTitle: canonicalIdentity.fileTitle,
+            fileSeasonNumber: canonicalIdentity.fileSeasonNumber,
             variantFolderName: parsed.variantFolderName,
           );
         }
       }
     }
 
-    String? matchedTitleCandidate;
     for (final candidate in titleCandidates) {
       for (final root in rootDirectories) {
         final directMatch = await _detectChildDirectory(Directory(root), [
           sanitizePathSegment(candidate),
         ]);
         if (directMatch == null) continue;
-        matchedTitleCandidate = candidate;
-        final sanitizedMatchedTitle = sanitizePathSegment(
-          matchedTitleCandidate,
-        );
         return ResolvedAnimeDownloadLocation(
           rootDirectory: root,
           seriesDirectory: directMatch.path,
           episodeDirectory: directMatch.path,
-          seriesTitle: sanitizedMatchedTitle,
-          httpJobTitle: sanitizedMatchedTitle,
-          seasonNumber: null,
+          seriesTitle: canonicalIdentity.seriesTitle,
+          fileTitle: canonicalIdentity.fileTitle,
+          fileSeasonNumber: canonicalIdentity.fileSeasonNumber,
           variantFolderName: null,
         );
       }
@@ -164,9 +162,9 @@ class DownloadTargetPlanner {
       rootDirectory: rootDirectory,
       seriesDirectory: defaultSeriesDirectory,
       episodeDirectory: defaultEpisodeDirectory,
-      seriesTitle: defaultSeriesTitle,
-      httpJobTitle: fallbackTitle,
-      seasonNumber: parsed?.seasonNumber,
+      seriesTitle: canonicalIdentity.seriesTitle,
+      fileTitle: canonicalIdentity.fileTitle,
+      fileSeasonNumber: canonicalIdentity.fileSeasonNumber,
       variantFolderName: parsed?.variantFolderName,
     );
   }
@@ -175,6 +173,7 @@ class DownloadTargetPlanner {
     required String directory,
     required String jobTitle,
     required int episodeNumber,
+    int? seasonNumber,
     required String sourceFileName,
     required String resolvedUrl,
     String? suggestedFileName,
@@ -187,7 +186,9 @@ class DownloadTargetPlanner {
       suggestedFileName: suggestedFileName,
       contentType: contentType,
     );
-    final episodeLabel = 'Episode ${_formatEpisodeNumber(episodeNumber)}';
+    final episodeLabel = seasonNumber != null && seasonNumber > 1
+        ? 'S${seasonNumber.toString().padLeft(2, '0')}E${_formatEpisodeNumber(episodeNumber)}'
+        : 'E${_formatEpisodeNumber(episodeNumber)}';
     final baseName = dedupeSuffix == null
         ? '$jobTitle $episodeLabel'
         : '$jobTitle $episodeLabel $dedupeSuffix';
@@ -245,6 +246,51 @@ class DownloadTargetPlanner {
     return sanitized.length > 255
         ? sanitized.substring(0, 255).trim()
         : sanitized;
+  }
+
+  static ({String fileTitle, int? seasonNumber}) fileIdentityFor(
+    AnilistAnimeBase anime,
+  ) {
+    final titleCandidates = _titleCandidates(anime.title);
+    final parsed = titleCandidates
+        .map(_parseAnimeTitle)
+        .whereType<_ParsedAnimeTitle>()
+        .firstOrNull;
+    final fallbackTitle = sanitizePathSegment(
+      anime.title.english ?? anime.title.display,
+    );
+    final identity = _canonicalIdentity(parsed, fallbackTitle);
+    return (
+      fileTitle: identity.fileTitle,
+      seasonNumber: identity.fileSeasonNumber,
+    );
+  }
+
+  static _CanonicalAnimeIdentity _canonicalIdentity(
+    _ParsedAnimeTitle? parsed,
+    String fallbackTitle,
+  ) {
+    if (parsed == null) {
+      return _CanonicalAnimeIdentity(
+        seriesTitle: fallbackTitle,
+        fileTitle: fallbackTitle,
+        fileSeasonNumber: null,
+      );
+    }
+
+    final (fileTitle, fileSeasonNumber) = switch ((
+      parsed.variantFolderName,
+      parsed.seasonNumber,
+    )) {
+      (final String _, _) => (fallbackTitle, null),
+      (null, final season) when season > 1 => (parsed.baseTitle, season),
+      _ => (parsed.baseTitle, null),
+    };
+    return _CanonicalAnimeIdentity(
+      seriesTitle: parsed.baseTitle,
+      fileTitle: fileTitle,
+      fileSeasonNumber: fileSeasonNumber,
+    );
   }
 
   static List<String> _titleCandidates(AnilistTitle title) {
@@ -434,4 +480,16 @@ class _ParsedAnimeTitle {
   });
 
   String? get variantFolderName => typeNames.firstOrNull;
+}
+
+class _CanonicalAnimeIdentity {
+  final String seriesTitle;
+  final String fileTitle;
+  final int? fileSeasonNumber;
+
+  const _CanonicalAnimeIdentity({
+    required this.seriesTitle,
+    required this.fileTitle,
+    required this.fileSeasonNumber,
+  });
 }

@@ -332,7 +332,7 @@ class NyaaDownloadPlanner {
 
       final plannedTarget = _targetPlanner.planMovieFile(
         directory: request.downloadFolder,
-        jobTitle: request.httpJobTitle,
+        jobTitle: request.fileTitle,
         sourceFileName: matchedFile.entry.path,
         resolvedUrl: matchedFile.entry.path,
       );
@@ -384,8 +384,9 @@ class NyaaDownloadPlanner {
         final match = inspected.selectedFiles[episodeNumber]!;
         final plannedTarget = _targetPlanner.planEpisodeFile(
           directory: request.downloadFolder,
-          jobTitle: request.httpJobTitle,
+          jobTitle: request.fileTitle,
           episodeNumber: episodeNumber,
+          seasonNumber: request.fileSeasonNumber,
           sourceFileName: match.entry.path,
           resolvedUrl: match.entry.path,
         );
@@ -483,8 +484,9 @@ class NyaaDownloadPlanner {
     }
     final plannedTarget = _targetPlanner.planEpisodeFile(
       directory: request.downloadFolder,
-      jobTitle: request.httpJobTitle,
+      jobTitle: request.fileTitle,
       episodeNumber: episodeNumber,
+      seasonNumber: request.fileSeasonNumber,
       sourceFileName: mappedFile.entry.path,
       resolvedUrl: mappedFile.entry.path,
     );

@@ -8,7 +8,7 @@ import 'package:senpwai/settings/models.dart';
 void main() {
   const planner = DownloadTargetPlanner();
 
-  test('planEpisodeFile embeds a zero-padded episode number', () {
+  test('planEpisodeFile embeds an abbreviated zero-padded episode number', () {
     final target = planner.planEpisodeFile(
       directory: '/downloads',
       jobTitle: 'Frieren',
@@ -18,7 +18,7 @@ void main() {
     );
 
     expect(target.directory, '/downloads');
-    expect(target.fileName, 'Frieren Episode 03.mkv');
+    expect(target.fileName, 'Frieren E03.mkv');
   });
 
   test('planEpisodeFile keeps no fallback .bin extension', () {
@@ -30,7 +30,7 @@ void main() {
       resolvedUrl: 'https://cdn.example.com/stream/12345',
     );
 
-    expect(target.fileName, 'Frieren Episode 12');
+    expect(target.fileName, 'Frieren E12');
   });
 
   test('planEpisodeFile uses the server-suggested filename extension', () {
@@ -43,7 +43,7 @@ void main() {
       suggestedFileName: 'frieren-12.mp4',
     );
 
-    expect(target.fileName, 'Frieren Episode 12.mp4');
+    expect(target.fileName, 'Frieren E12.mp4');
   });
 
   test('planEpisodeFile falls back to the video content type', () {
@@ -56,7 +56,7 @@ void main() {
       contentType: 'video/mp4; charset=binary',
     );
 
-    expect(target.fileName, 'Frieren Episode 12.mp4');
+    expect(target.fileName, 'Frieren E12.mp4');
   });
 
   test('planMovieFile does not add an episode label', () {
@@ -103,22 +103,84 @@ void main() {
     expect(location.episodeDirectory, season.path);
   });
 
+  test('season file title is stable before and after folders exist', () async {
+    final temp = await Directory.systemTemp.createTemp('senpwai-target-');
+    addTearDown(() async => temp.delete(recursive: true));
+    final root = Directory('${temp.path}/library')..createSync();
+    final anime = _anime(english: 'Grand Blue Dreaming Season 3');
+
+    final initial = await planner.resolveAnimeLocation(
+      anime: anime,
+      downloadRoots: [root.path],
+    );
+    expect(initial.seriesTitle, 'Grand Blue Dreaming');
+    expect(initial.fileTitle, 'Grand Blue Dreaming');
+    expect(initial.fileSeasonNumber, 3);
+    expect(
+      initial.episodeDirectory,
+      '${root.path}/Grand Blue Dreaming/Season 03',
+    );
+
+    await Directory(initial.episodeDirectory).create(recursive: true);
+    final existing = await planner.resolveAnimeLocation(
+      anime: anime,
+      downloadRoots: [root.path],
+    );
+    expect(existing.fileTitle, initial.fileTitle);
+
+    final target = planner.planEpisodeFile(
+      directory: existing.episodeDirectory,
+      jobTitle: existing.fileTitle,
+      episodeNumber: 1,
+      seasonNumber: existing.fileSeasonNumber,
+      sourceFileName: 'episode.mp4',
+      resolvedUrl: 'https://cdn.example.com/episode.mp4',
+    );
+    expect(target.fileName, 'Grand Blue Dreaming S03E01.mp4');
+  });
+
   test('resolveAnimeLocation honors custom anime folder override', () async {
     final temp = await Directory.systemTemp.createTemp('senpwai-target-');
     addTearDown(() async => temp.delete(recursive: true));
     final root = Directory('${temp.path}/library');
-    final custom = Directory('${temp.path}/custom/Frieren S01');
+    final custom = Directory('${temp.path}/custom/Grand Blue S03')
+      ..createSync(recursive: true);
 
     final location = await planner.resolveAnimeLocation(
-      anime: _anime(english: 'Frieren', romaji: 'Sousou no Frieren'),
+      anime: _anime(english: 'Grand Blue Dreaming Season 3'),
       downloadRoots: [root.path],
       customAnimeFolders: [
-        CustomAnimeFolder(animeTitle: 'Frieren', folder: custom.path),
+        CustomAnimeFolder(
+          animeTitle: 'Grand Blue Dreaming Season 3',
+          folder: custom.path,
+        ),
       ],
     );
 
     expect(location.episodeDirectory, custom.path);
+    expect(location.fileTitle, 'Grand Blue Dreaming');
+    expect(location.fileSeasonNumber, 3);
   });
+
+  test(
+    'direct folder aliases do not replace canonical file identity',
+    () async {
+      final temp = await Directory.systemTemp.createTemp('senpwai-target-');
+      addTearDown(() async => temp.delete(recursive: true));
+      final root = Directory('${temp.path}/library')..createSync();
+      final direct = Directory('${root.path}/Grand Blue Dreaming Season 3')
+        ..createSync();
+
+      final location = await planner.resolveAnimeLocation(
+        anime: _anime(english: 'Grand Blue Dreaming Season 3'),
+        downloadRoots: [root.path],
+      );
+
+      expect(location.episodeDirectory, direct.path);
+      expect(location.fileTitle, 'Grand Blue Dreaming');
+      expect(location.fileSeasonNumber, 3);
+    },
+  );
 }
 
 AnilistAnime _anime({String? english, String? romaji}) => AnilistAnime(

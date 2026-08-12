@@ -35,7 +35,6 @@ class TrackingNotifier extends Notifier<TrackingState> {
     required Resolution resolution,
     required Language language,
     required String downloadFolder,
-    required String httpJobTitle,
   }) async {
     final now = DateTime.now();
     final existing = state.trackedById(anime.id);
@@ -47,7 +46,6 @@ class TrackingNotifier extends Notifier<TrackingState> {
       resolution: resolution,
       language: language,
       downloadFolder: downloadFolder,
-      httpJobTitle: httpJobTitle,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       lastCheckedAt: existing?.lastCheckedAt,

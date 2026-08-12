@@ -76,8 +76,9 @@ class TokyoInsiderDownloadPlanner {
       );
       final plannedTarget = _targetPlanner.planEpisodeFile(
         directory: request.downloadFolder,
-        jobTitle: request.httpJobTitle,
+        jobTitle: request.fileTitle,
         episodeNumber: selectedLink.episodeNumber,
+        seasonNumber: request.fileSeasonNumber,
         sourceFileName: selectedLink.filename,
         resolvedUrl: resolvedTarget.resolvedUrl,
         suggestedFileName: resolvedTarget.suggestedFileName,

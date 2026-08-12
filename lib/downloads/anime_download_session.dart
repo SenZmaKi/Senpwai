@@ -68,7 +68,8 @@ class AnimeDownloadSessionState {
   final int startEpisode;
   final int endEpisode;
   final String? downloadFolder;
-  final String resolvedDownloadTitle;
+  final String resolvedFileTitle;
+  final int? resolvedFileSeasonNumber;
   final Set<int> ownedEpisodes;
   final bool trackingEnabled;
   final DownloadSubmissionStage submissionStage;
@@ -87,7 +88,8 @@ class AnimeDownloadSessionState {
     this.startEpisode = 1,
     this.endEpisode = 1,
     this.downloadFolder,
-    this.resolvedDownloadTitle = '',
+    this.resolvedFileTitle = '',
+    this.resolvedFileSeasonNumber,
     this.ownedEpisodes = const {},
     this.trackingEnabled = false,
     this.submissionStage = DownloadSubmissionStage.idle,
@@ -142,7 +144,8 @@ class AnimeDownloadSessionState {
     int? startEpisode,
     int? endEpisode,
     String? downloadFolder,
-    String? resolvedDownloadTitle,
+    String? resolvedFileTitle,
+    int? resolvedFileSeasonNumber,
     Set<int>? ownedEpisodes,
     bool? trackingEnabled,
     DownloadSubmissionStage? submissionStage,
@@ -164,8 +167,9 @@ class AnimeDownloadSessionState {
       startEpisode: startEpisode ?? this.startEpisode,
       endEpisode: endEpisode ?? this.endEpisode,
       downloadFolder: downloadFolder ?? this.downloadFolder,
-      resolvedDownloadTitle:
-          resolvedDownloadTitle ?? this.resolvedDownloadTitle,
+      resolvedFileTitle: resolvedFileTitle ?? this.resolvedFileTitle,
+      resolvedFileSeasonNumber:
+          resolvedFileSeasonNumber ?? this.resolvedFileSeasonNumber,
       ownedEpisodes: ownedEpisodes ?? this.ownedEpisodes,
       trackingEnabled: trackingEnabled ?? this.trackingEnabled,
       submissionStage: submissionStage ?? this.submissionStage,
@@ -300,7 +304,8 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
           state.downloadFolderSelectedByUser && !replaceSelectedFolder
           ? state.downloadFolder
           : plannedLocation.episodeDirectory,
-      resolvedDownloadTitle: plannedLocation.httpJobTitle,
+      resolvedFileTitle: plannedLocation.fileTitle,
+      resolvedFileSeasonNumber: plannedLocation.fileSeasonNumber,
       ownedEpisodes: ownedEpisodes,
       startEpisode: _startEpisodeSelectedByUser == true
           ? state.startEpisode
@@ -572,7 +577,6 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
             resolution: state.selectedResolution,
             language: state.selectedLanguage,
             downloadFolder: folder,
-            httpJobTitle: state.resolvedDownloadTitle,
           );
     } else {
       await ref
@@ -658,7 +662,8 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         endEpisode: range.end,
         episodeNumbers: requestedEpisodes,
         downloadFolder: folder,
-        httpJobTitle: state.resolvedDownloadTitle,
+        fileTitle: state.resolvedFileTitle,
+        fileSeasonNumber: state.resolvedFileSeasonNumber,
         resolution: state.selectedResolution,
         language: state.selectedLanguage,
       ),
@@ -713,7 +718,8 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       startEpisode: state.startEpisode,
       endEpisode: state.endEpisode,
       downloadFolder: folder,
-      httpJobTitle: state.resolvedDownloadTitle,
+      fileTitle: state.resolvedFileTitle,
+      fileSeasonNumber: state.resolvedFileSeasonNumber,
       resolution: state.selectedResolution,
       language: state.selectedLanguage,
     );

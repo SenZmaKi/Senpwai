@@ -210,6 +210,7 @@ class AnimeTracker {
             downloadRoots: settings.downloads.effectiveRootDirectories,
             customAnimeFolders: settings.downloads.customAnimeFolders,
           )).episodeDirectory;
+    final fileIdentity = DownloadTargetPlanner.fileIdentityFor(freshAnime);
     final batch = await _coordinator.plan(
       request: DownloadRequest(
         anime: freshAnime,
@@ -218,7 +219,8 @@ class AnimeTracker {
         endEpisode: endEpisode,
         episodeNumbers: requestedEpisodes,
         downloadFolder: folder,
-        httpJobTitle: tracked.httpJobTitle,
+        fileTitle: fileIdentity.fileTitle,
+        fileSeasonNumber: fileIdentity.seasonNumber,
         resolution: tracked.resolution,
         language: tracked.language,
       ),
