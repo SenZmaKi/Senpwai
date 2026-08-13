@@ -338,19 +338,21 @@ _ParsedAnimeFields<T> _parseAnimeFields<T extends ToJson>(
   Map<String, dynamic> json,
   T Function(Map<String, dynamic>) relatedParser,
 ) {
-  final nextAiring = json["nextAiringEpisode"] as Map<String, dynamic>?;
-  final episodeValue = nextAiring?["episode"];
+  final nextAiring = _mapOrNull(json["nextAiringEpisode"]);
+  final episodeValue = nextAiring?["episode"] ?? json["episode"];
   final episode = episodeValue is num ? episodeValue.toInt() : null;
-  final airingAtValue = nextAiring?["airingAt"];
+  final airingAtValue = nextAiring?["airingAt"] ?? json["nextEpisodeAiring"];
   final nextEpisodeAiring = airingAtValue is num
       ? DateTime.fromMillisecondsSinceEpoch(
           airingAtValue.toInt() * 1000,
           isUtc: true,
         )
+      : airingAtValue is String
+      ? DateTime.tryParse(airingAtValue)
       : null;
   return _ParsedAnimeFields(
     id: json["id"],
-    title: AnilistTitle.fromJson(json["title"]),
+    title: _parseTitle(json["title"]),
     format: AnilistFormatExtension.fromGraphql(json["format"]),
     season: AnilistSeasonExtension.fromGraphql(json["season"]),
     seasonYear: json["seasonYear"],
@@ -365,15 +367,26 @@ _ParsedAnimeFields<T> _parseAnimeFields<T extends ToJson>(
         .whereType<AnilistGenre>()
         .toList(),
     averageScore: (json["averageScore"] as num?)?.toDouble(),
-    coverImage: json["coverImage"] == null
-        ? null
-        : AnilistCoverImage.fromJson(json["coverImage"]),
+    coverImage: AnilistCoverImage.fromJson(_mapOrNull(json["coverImage"])),
     bannerImage: json["bannerImage"] as String?,
-    startDate: _parseFuzzyDate(json["startDate"] as Map<String, dynamic>?),
-    endDate: _parseFuzzyDate(json["endDate"] as Map<String, dynamic>?),
+    startDate: _parseDate(json["startDate"]),
+    endDate: _parseDate(json["endDate"]),
     isFavourite: json["isFavourite"] as bool?,
     isAdult: json["isAdult"] as bool?,
   );
+}
+
+AnilistTitle _parseTitle(Object? value) {
+  if (value is String) return AnilistTitle(romaji: value);
+  return AnilistTitle.fromJson(_mapOrNull(value));
+}
+
+Map<String, dynamic>? _mapOrNull(Object? value) =>
+    value is Map<String, dynamic> ? value : null;
+
+DateTime? _parseDate(Object? value) {
+  if (value is String) return DateTime.tryParse(value);
+  return _parseFuzzyDate(_mapOrNull(value));
 }
 
 DateTime? _parseFuzzyDate(Map<String, dynamic>? json) {
