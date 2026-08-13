@@ -101,7 +101,7 @@ class AppNotificationService {
       onDidReceiveBackgroundNotificationResponse:
           handleBackgroundNotificationResponse,
     );
-    await _captureLaunchNotificationResponse();
+    if (!Platform.isLinux) await _captureLaunchNotificationResponse();
     _initialized = true;
   }
 
