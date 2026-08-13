@@ -262,13 +262,14 @@ class AnimeTracker {
 
     final batchId = result.batchId;
     final title = freshAnime.title.display;
+    final episodeLabel = requestedEpisodes.length == 1 ? 'episode' : 'episodes';
     final events = <TrackingEvent>[
       TrackingEvent.create(
         kind: TrackingEventKind.queued,
         level: TrackingEventLevel.info,
-        title: 'Queued new episodes',
+        title: 'Queued new $episodeLabel',
         description:
-            '$title episodes ${_episodeListText(requestedEpisodes)} were added to downloads.',
+            '$title $episodeLabel ${_episodeListText(requestedEpisodes)} were added to downloads.',
       ),
       ..._noticeEvents(title, batch.notices),
     ];
