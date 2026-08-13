@@ -72,14 +72,13 @@ class SecureTokenStore {
       return await _storage.read(key: _anilistTokenKey);
     } on PlatformException catch (error, stackTrace) {
       _log.warningWithMetadata(
-        'Failed to read AniList token; deleting the corrupted secure entry',
+        'Failed to read AniList token; preserving the secure entry',
         metadata: {
           'key': _anilistTokenKey,
           'error': error.toString(),
           'stackTrace': stackTrace.toString(),
         },
       );
-      await deleteAnilistToken();
       return null;
     }
   }
@@ -130,7 +129,7 @@ class SecureTokenStore {
         );
       }
       return SecureTorrentProxyConfiguration.fromJson(decoded);
-    } on Object catch (error, stackTrace) {
+    } on FormatException catch (error, stackTrace) {
       _log.warningWithMetadata(
         'Failed to read torrent proxy configuration; deleting the corrupted secure entry',
         metadata: {
@@ -140,6 +139,16 @@ class SecureTokenStore {
         },
       );
       await deleteTorrentProxyConfiguration();
+      return null;
+    } on PlatformException catch (error, stackTrace) {
+      _log.warningWithMetadata(
+        'Failed to access torrent proxy configuration; preserving the secure entry',
+        metadata: {
+          'key': _torrentProxyKey,
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        },
+      );
       return null;
     }
   }
