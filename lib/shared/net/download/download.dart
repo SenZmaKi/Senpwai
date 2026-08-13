@@ -35,6 +35,7 @@ class Download {
   late final DownloadState state = DownloadState(params: params);
   Future<void>? _downloadFuture;
   _OffsetFileWriter? _targetWriter;
+  int _activeKwikConnections = 0;
 
   /// `If-Range` validator (ETag preferred, falling back to Last-Modified)
   /// captured from the first 206 response. Subsequent reconnects send this
@@ -75,6 +76,20 @@ class Download {
           'Could not determine the final content length for this file.',
         );
       }
+      if (_isKwikRequest(response.realUri, headers)) {
+        log.infoWithMetadata(
+          'Kwik range probe completed',
+          metadata: {
+            'host': response.realUri.host,
+            'statusCode': response.statusCode,
+            'contentRange': contentRange,
+            'contentLength': contentLength,
+            'supportsRangeRequests': supportsRangeRequests,
+            'sizeBytes': sizeBytes,
+            'contentType': response.headers.value(Headers.contentTypeHeader),
+          },
+        );
+      }
       return ResolvedDownloadTarget(
         resolvedUrl: response.realUri.toString(),
         sizeBytes: sizeBytes,
@@ -101,6 +116,22 @@ class Download {
     final size = match?.group(1);
     return size == null ? null : int.tryParse(size);
   }
+
+  static bool _isKwikUrl(Uri uri) {
+    final host = uri.host.toLowerCase();
+    return host == 'kwik.cx' || host.endsWith('.kwik.cx');
+  }
+
+  static bool _isKwikRequest(Uri url, Map<String, dynamic>? headers) {
+    if (_isKwikUrl(url)) return true;
+    final referer = headers?.entries
+        .firstWhereOrNull((entry) => entry.key.toLowerCase() == 'referer')
+        ?.value;
+    return referer is String && _isKwikUrl(Uri.tryParse(referer) ?? Uri());
+  }
+
+  bool get _isKwikDownload =>
+      _isKwikRequest(Uri.parse(params.url), params.headers);
 
   static String? _contentDispositionFilename(String? contentDisposition) {
     if (contentDisposition == null) return null;
@@ -200,6 +231,7 @@ class Download {
   }) async {
     StreamSubscription<Uint8List>? subscription;
     int bytes = 0;
+    String? firstChunkFingerprint;
     final targetWriter =
         _targetWriter ??
         (throw StateError('The download target writer is not open.'));
@@ -207,6 +239,10 @@ class Download {
       partNumber,
       cancelOnPause: rangeRequestSupport == _RangeRequestSupport.supported,
     );
+    final isKwikDownload = _isKwikDownload;
+    if (isKwikDownload) {
+      _activeKwikConnections += 1;
+    }
 
     try {
       final response = await _establishConnection(
@@ -223,6 +259,31 @@ class Download {
         throw DownloadResourceChangedException(
           "Expected $expectedStatus, got ${response.statusCode}. "
           "The file may have changed on the server during the download.",
+        );
+      }
+
+      if (isKwikDownload) {
+        log.infoWithMetadata(
+          'Kwik part connection established',
+          metadata: {
+            'fileName': params.targetFile.uri.pathSegments.last,
+            'part': partNumber,
+            'activeConnectionsForFile': _activeKwikConnections,
+            'configuredParts': params.numberOfParts,
+            'requestedRange': _requestedRange(
+              offset,
+              length,
+              rangeRequestSupport,
+            ),
+            'statusCode': response.statusCode,
+            'contentRange': response.headers.value('content-range'),
+            'contentLength': response.headers.value(
+              Headers.contentLengthHeader,
+            ),
+            'contentType': response.headers.value(Headers.contentTypeHeader),
+            'server': response.headers.value('server'),
+            'via': response.headers.value('via'),
+          },
         );
       }
 
@@ -249,6 +310,8 @@ class Download {
 
           await targetWriter.writeAt(offset + bytes, data);
 
+          firstChunkFingerprint ??= _fingerprint(data);
+
           state.addProgress(
             DownloadProgress(
               partNumber: partNumber,
@@ -269,6 +332,25 @@ class Download {
       state.registerPart(partNumber, subscription, completer);
       await completer.future;
 
+      if (isKwikDownload) {
+        log.infoWithMetadata(
+          'Kwik part connection completed',
+          metadata: {
+            'fileName': params.targetFile.uri.pathSegments.last,
+            'part': partNumber,
+            'requestedRange': _requestedRange(
+              offset,
+              length,
+              rangeRequestSupport,
+            ),
+            'receivedBytes': bytes,
+            'expectedBytes': length,
+            'byteCountMatches': bytes == length,
+            'firstChunkFingerprint': firstChunkFingerprint,
+          },
+        );
+      }
+
       return bytes;
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
@@ -279,7 +361,26 @@ class Download {
       await subscription?.cancel();
       state.unregisterPart(partNumber);
       state.unregisterIterationToken(partNumber);
+      if (isKwikDownload) {
+        _activeKwikConnections -= 1;
+      }
     }
+  }
+
+  String _requestedRange(
+    int offset,
+    int length,
+    _RangeRequestSupport rangeRequestSupport,
+  ) => rangeRequestSupport == _RangeRequestSupport.supported
+      ? 'bytes=$offset-${offset + length - 1}'
+      : 'full file';
+
+  String _fingerprint(Uint8List data) {
+    final sampleLength = data.length < 16 ? data.length : 16;
+    return data
+        .take(sampleLength)
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join();
   }
 
   /// Helper to configure the Dio request for a specific range.
@@ -346,6 +447,19 @@ class Download {
           rangeRequestSupport == _RangeRequestSupport.supported
           ? params.numberOfParts
           : 1;
+      if (_isKwikDownload) {
+        log.infoWithMetadata(
+          'Kwik download starting',
+          metadata: {
+            'fileName': params.targetFile.uri.pathSegments.last,
+            'sizeBytes': params.sizeBytes,
+            'rangeRequestsSupported':
+                rangeRequestSupport == _RangeRequestSupport.supported,
+            'configuredParts': params.numberOfParts,
+            'activeParts': numberOfParts,
+          },
+        );
+      }
       final partRanges = computePartRanges(
         sizeBytes: params.sizeBytes,
         numberOfParts: numberOfParts,
