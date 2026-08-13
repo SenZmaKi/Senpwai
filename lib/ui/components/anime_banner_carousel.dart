@@ -1,16 +1,15 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/settings/settings.dart';
-import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/components/anime_card/anime_score_badge.dart';
 import 'package:senpwai/ui/components/genre_tag.dart';
 import 'package:senpwai/ui/components/overlay_chip.dart';
+import 'package:senpwai/ui/components/render_sized_cached_network_image.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
@@ -256,8 +255,7 @@ class _BannerSlide extends ConsumerWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        CachedNetworkImage(
-          cacheManager: AppImageCache.manager,
+        RenderSizedCachedNetworkImage(
           imageUrl: bannerUrl,
           fit: BoxFit.cover,
           placeholder: (_, __) => Container(
