@@ -212,6 +212,7 @@ class _NyaaDefaultsList extends StatelessWidget {
               value: _minimumSeedersForCustomValue(filters.minSeeders),
               min: 1,
               unit: 'seeders',
+              zeroValueModeShortcut: true,
               onSubmitted: (value) => unawaited(
                 notifier.setNyaaDefaultFilters(
                   filters.copyWith(minSeeders: value),

@@ -52,6 +52,7 @@ class TorrentSettingsSection extends StatelessWidget {
                   value: _bytesToMegabytes(torrent.maxDownloadBytesPerSecond),
                   unit: 'MB/s',
                   min: 1,
+                  zeroValueModeShortcut: true,
                   onSubmitted: (value) => unawaited(
                     notifier.setTorrentMaxDownloadBytesPerSecond(
                       megabytes(value),
@@ -81,6 +82,7 @@ class TorrentSettingsSection extends StatelessWidget {
                   value: _bytesToMegabytes(torrent.maxUploadBytesPerSecond),
                   unit: 'MB/s',
                   min: 1,
+                  zeroValueModeShortcut: true,
                   onSubmitted: (value) => unawaited(
                     notifier.setTorrentMaxUploadBytesPerSecond(
                       megabytes(value),
@@ -113,6 +115,7 @@ class TorrentSettingsSection extends StatelessWidget {
                       : 1,
                   unit: 'active',
                   min: 1,
+                  zeroValueModeShortcut: true,
                   onSubmitted: (value) => unawaited(
                     notifier.setTorrentLimits(maxActiveDownloads: value),
                   ),
@@ -140,6 +143,7 @@ class TorrentSettingsSection extends StatelessWidget {
                       : 1,
                   unit: 'seeds',
                   min: 1,
+                  zeroValueModeShortcut: true,
                   onSubmitted: (value) => unawaited(
                     notifier.setTorrentLimits(maxActiveSeeds: value),
                   ),

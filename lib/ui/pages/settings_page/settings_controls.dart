@@ -158,6 +158,7 @@ class NumberSettingField extends StatefulWidget {
   final int min;
   final int? max;
   final bool allowNegative;
+  final bool zeroValueModeShortcut;
   final int resetToken;
   final ValueChanged<int> onSubmitted;
 
@@ -169,6 +170,7 @@ class NumberSettingField extends StatefulWidget {
     this.min = 0,
     this.max,
     this.allowNegative = false,
+    this.zeroValueModeShortcut = false,
     this.resetToken = 0,
   });
 
@@ -283,7 +285,17 @@ class _NumberSettingFieldState extends State<NumberSettingField> {
   }
 
   void _commit() {
-    final parsed = int.tryParse(_controller.text.trim()) ?? 0;
+    final input = _controller.text.trim();
+    final parsed = int.tryParse(input);
+    if (parsed == null) {
+      _controller.text = widget.value.toString();
+      return;
+    }
+    if (parsed == 0 && widget.zeroValueModeShortcut) {
+      _controller.text = '0';
+      widget.onSubmitted(0);
+      return;
+    }
     final shouldClampMin = !widget.allowNegative || parsed >= widget.min;
     final lowerBound = shouldClampMin ? widget.min : parsed;
     final clamped = parsed.clamp(lowerBound, widget.max ?? parsed).toInt();

@@ -144,6 +144,7 @@ class _StorageSettingsSectionState
                       ),
                       min: 1,
                       unit: 'MB',
+                      zeroValueModeShortcut: true,
                       onSubmitted: (value) => unawaited(
                         widget.notifier.setImageCacheMaxBytes(megabytes(value)),
                       ),

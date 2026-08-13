@@ -158,6 +158,7 @@ class ContentDownloadSettings extends StatelessWidget {
                   ),
                   unit: 'MB/s',
                   min: 1,
+                  zeroValueModeShortcut: true,
                   onSubmitted: (value) => unawaited(
                     notifier.setHttpMaxDownloadBytesPerSecond(megabytes(value)),
                   ),
@@ -187,6 +188,7 @@ class ContentDownloadSettings extends StatelessWidget {
                       : 1,
                   unit: 'active',
                   min: 1,
+                  zeroValueModeShortcut: true,
                   onSubmitted: (value) =>
                       unawaited(notifier.setHttpMaxActiveDownloads(value)),
                 ),
