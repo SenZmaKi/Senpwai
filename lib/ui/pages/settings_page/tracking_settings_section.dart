@@ -29,7 +29,6 @@ class TrackingSettingsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tracking = ref.watch(TrackingNotifier.provider);
     final trackingNotifier = ref.read(TrackingNotifier.provider.notifier);
-    final isSearching = searchQuery?.trim().isNotEmpty ?? false;
     final generalTrackingMatch = settingsSearchMatches(searchQuery, const [
       'Tracking AniList',
       'Tracked Anime Auto-Downloader',
@@ -40,24 +39,6 @@ class TrackingSettingsSection extends ConsumerWidget {
       'hours',
       'No tracked anime',
     ]);
-    final matchingTrackedAnime = tracking.trackedAnime.indexed
-        .where(
-          (entry) =>
-              generalTrackingMatch ||
-              settingsSearchMatches(searchQuery, [
-                entry.$2.animeSnapshot.title.display,
-                entry.$2.downloadFolder,
-                entry.$2.resolution.toString(),
-                entry.$2.language.toString(),
-                _sourceLabel(entry.$2),
-                if (entry.$2.lastError != null) entry.$2.lastError!,
-              ]),
-        )
-        .toList();
-    final showTrackedAnime =
-        !isSearching ||
-        matchingTrackedAnime.isNotEmpty ||
-        (tracking.trackedAnime.isEmpty && generalTrackingMatch);
     final trackerCheckIntervalHours =
         settings?.anilist.trackerCheckIntervalHours ??
         AnilistPreferences.defaultTrackerCheckIntervalHours;
@@ -111,59 +92,21 @@ class TrackingSettingsSection extends ConsumerWidget {
                     ),
                     min: 1,
                     unit: 'hours',
+                    zeroValueModeShortcut: true,
                     onSubmitted: (hours) => unawaited(
                       notifier!.setTrackerCheckIntervalHours(hours),
                     ),
                   ),
                 ),
               ),
+            _TrackedAnimeList(
+              trackedAnime: tracking.trackedAnime,
+              notifier: trackingNotifier,
+              searchQuery: searchQuery,
+              generalTrackingMatch: generalTrackingMatch,
+            ),
           ],
         ),
-        if (showTrackedAnime) ...[
-          const SizedBox(height: 16),
-          if (tracking.trackedAnime.isEmpty)
-            const SettingsGroupCard(
-              children: [
-                SettingsTile(
-                  icon: Icons.playlist_remove_rounded,
-                  title: 'No tracked anime',
-                  subtitle:
-                      'Use Track on an anime page to watch for future episodes',
-                ),
-              ],
-            )
-          else if (isSearching)
-            Column(
-              children: [
-                for (final entry in matchingTrackedAnime)
-                  _TrackedAnimeTile(
-                    key: ValueKey(entry.$2.anilistId),
-                    tracked: entry.$2,
-                    index: entry.$1,
-                    notifier: trackingNotifier,
-                    showDragHandle: false,
-                  ),
-              ],
-            )
-          else
-            ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              buildDefaultDragHandles: false,
-              itemCount: tracking.trackedAnime.length,
-              onReorder: (oldIndex, newIndex) =>
-                  unawaited(trackingNotifier.reorder(oldIndex, newIndex)),
-              itemBuilder: (context, index) {
-                final tracked = tracking.trackedAnime[index];
-                return _TrackedAnimeTile(
-                  key: ValueKey(tracked.anilistId),
-                  tracked: tracked,
-                  index: index,
-                  notifier: trackingNotifier,
-                );
-              },
-            ),
-        ],
       ],
     );
   }
@@ -171,6 +114,94 @@ class TrackingSettingsSection extends ConsumerWidget {
 
 int _trackerIntervalForCustomValue(int hours) =>
     hours > 0 ? hours : AnilistPreferences.defaultTrackerCheckIntervalHours;
+
+class _TrackedAnimeList extends StatelessWidget implements SettingsSearchable {
+  final List<TrackedAnime> trackedAnime;
+  final TrackingNotifier notifier;
+  final String? searchQuery;
+  final bool generalTrackingMatch;
+
+  const _TrackedAnimeList({
+    required this.trackedAnime,
+    required this.notifier,
+    required this.searchQuery,
+    required this.generalTrackingMatch,
+  });
+
+  @override
+  bool matchesSearch(String? query) {
+    if (trackedAnime.isEmpty) {
+      return settingsSearchMatches(query, const [
+        'No tracked anime',
+        'Use Track on an anime page to watch for future episodes',
+      ]);
+    }
+    return generalTrackingMatch ||
+        trackedAnime.any((tracked) => _matchesTrackedAnime(tracked, query));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSearching = searchQuery?.trim().isNotEmpty ?? false;
+    if (trackedAnime.isEmpty) {
+      return const SettingsTile(
+        icon: Icons.playlist_remove_rounded,
+        title: 'No tracked anime',
+        subtitle: 'Use Track on an anime page to watch for future episodes',
+      );
+    }
+
+    if (isSearching) {
+      final matchingTrackedAnime = trackedAnime.indexed
+          .where(
+            (entry) =>
+                generalTrackingMatch ||
+                _matchesTrackedAnime(entry.$2, searchQuery),
+          )
+          .toList();
+      return Column(
+        children: [
+          for (final entry in matchingTrackedAnime)
+            _TrackedAnimeTile(
+              key: ValueKey(entry.$2.anilistId),
+              tracked: entry.$2,
+              index: entry.$1,
+              notifier: notifier,
+              showDragHandle: false,
+            ),
+        ],
+      );
+    }
+
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: trackedAnime.length,
+      onReorder: (oldIndex, newIndex) =>
+          unawaited(notifier.reorder(oldIndex, newIndex)),
+      itemBuilder: (context, index) {
+        final tracked = trackedAnime[index];
+        return _TrackedAnimeTile(
+          key: ValueKey(tracked.anilistId),
+          tracked: tracked,
+          index: index,
+          notifier: notifier,
+        );
+      },
+    );
+  }
+}
+
+bool _matchesTrackedAnime(TrackedAnime tracked, String? query) =>
+    settingsSearchMatches(query, [
+      tracked.animeSnapshot.title.display,
+      tracked.downloadFolder,
+      tracked.resolution.toString(),
+      tracked.language.toString(),
+      _sourceLabel(tracked),
+      if (tracked.lastError != null) tracked.lastError!,
+    ]);
 
 class _TrackedAnimeTile extends StatelessWidget {
   final TrackedAnime tracked;
