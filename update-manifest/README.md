@@ -53,6 +53,11 @@ production builds continue to use the stable Pages appcast. Install one workflow
 build, then dispatch the workflow again with a higher build number to exercise
 Sparkle's complete download, verification, replacement, and relaunch path.
 
+GitHub enables manual workflow dispatch only after the workflow file exists on
+the default branch. Until v3 reaches that branch, bumping `version:` in
+`pubspec.yaml` on `v3.0.0` triggers the same rolling prerelease using that
+version and build number.
+
 The DMG is the human-facing installer. The ZIP is Sparkle's update payload. Both
 contain the same ad-hoc-signed app, so Gatekeeper approval is still required on
 the first installation.
