@@ -30,8 +30,11 @@ class SecureTokenStore {
         synchronizable: false,
       ),
       mOptions: MacOsOptions(
+        accountName: 'com.senzmaki.senpwai.credentials',
         accessibility: KeychainAccessibility.unlocked_this_device,
         synchronizable: false,
+        label: 'Senpwai credentials',
+        description: 'Credentials saved by Senpwai',
         usesDataProtectionKeychain: false,
       ),
     ),
