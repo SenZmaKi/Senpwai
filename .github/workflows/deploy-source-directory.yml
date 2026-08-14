@@ -6,6 +6,7 @@ on:
     paths:
       - website/**
       - source-directory/**
+      - update-manifest/**
       - .github/workflows/deploy-source-directory.yml
   workflow_dispatch:
 
@@ -49,6 +50,14 @@ jobs:
           dart run bin/sign.dart \
             --input ../source_directory.payload.json \
             --output ../../site/source-directory.json
+        env:
+          SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
+        working-directory: source-directory/signer
+      - run: |
+          dart run bin/sign.dart \
+            --input ../../update-manifest/update_manifest.payload.json \
+            --output ../../site/update-manifest.json
+          cp ../../update-manifest/appcast.xml ../../site/appcast.xml
         env:
           SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
         working-directory: source-directory/signer

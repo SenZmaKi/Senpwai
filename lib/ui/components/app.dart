@@ -21,10 +21,12 @@ import 'package:senpwai/ui/pages/home_page.dart';
 import 'package:senpwai/ui/pages/search_page/search_page.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_page.dart';
 import 'package:senpwai/ui/components/app_shell.dart';
+import 'package:senpwai/ui/components/update_restart_dialog.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:toastification/toastification.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
 import 'package:senpwai/ui/shared/desktop_tray_controller.dart';
+import 'package:senpwai/updates/updates.dart';
 
 enum AppPage { home, search, downloads, settings }
 
@@ -238,6 +240,7 @@ class _AppRootState extends ConsumerState<_AppRoot> {
         viewer: anilist.viewer,
         isAuthLoading: anilist.isAuthLoading,
         onAvatarTap: () => _handleAvatarTap(anilist.viewer),
+        onUpdateReady: _handleUpdateReady,
         body: IndexedStack(
           index: currentPage.index,
           children: [
@@ -315,6 +318,46 @@ class _AppRootState extends ConsumerState<_AppRoot> {
       _isHandlingDesktopExit = false;
     }
     return false;
+  }
+
+  Future<void> _handleUpdateReady() async {
+    final downloadState = ref.read(DownloadManagerNotifier.provider);
+    final activeItems = downloadState.items
+        .where(
+          (item) => switch (item.status) {
+            DownloadQueueStatus.preparing ||
+            DownloadQueueStatus.queued ||
+            DownloadQueueStatus.downloading ||
+            DownloadQueueStatus.seeding => true,
+            _ => false,
+          },
+        )
+        .toList();
+    if (activeItems.isNotEmpty) {
+      final shouldContinue = await showDialog<bool>(
+        context: context,
+        builder: (context) => UpdateRestartDialog(
+          downloadCount: activeItems
+              .where((item) => item.status != DownloadQueueStatus.seeding)
+              .length,
+          seedCount: activeItems
+              .where((item) => item.status == DownloadQueueStatus.seeding)
+              .length,
+        ),
+      );
+      if (shouldContinue != true || !mounted) return;
+      final manager = ref.read(DownloadManagerNotifier.provider.notifier);
+      for (final item in activeItems) {
+        await manager.cancel(item.id);
+      }
+    }
+
+    final disposition = await ref
+        .read(UpdateController.provider.notifier)
+        .installAndRestart();
+    if (disposition == UpdateInstallDisposition.quitThenRelaunch) {
+      await DesktopTrayController.instance.quitApp();
+    }
   }
 
   void _handleTrackingEvent(TrackingEvent event) {

@@ -3,6 +3,8 @@ import FlutterMacOS
 import LaunchAtLogin
 
 class MainFlutterWindow: NSWindow {
+  private var sparkleUpdateBridge: SparkleUpdateBridge?
+
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     let windowFrame = self.frame
@@ -38,6 +40,10 @@ class MainFlutterWindow: NSWindow {
       name: "senpwai/window_reopen", binaryMessenger: flutterViewController.engine.binaryMessenger
     )
     (NSApp.delegate as? AppDelegate)?.setWindowReopenChannel(windowReopenChannel)
+
+    let sparkleUpdateBridge = SparkleUpdateBridge()
+    sparkleUpdateBridge.register(with: flutterViewController.engine.binaryMessenger)
+    self.sparkleUpdateBridge = sparkleUpdateBridge
 
     FlutterMethodChannel(
       name: "senpwai/menu_bar_mode", binaryMessenger: flutterViewController.engine.binaryMessenger

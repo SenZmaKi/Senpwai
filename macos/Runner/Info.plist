@@ -30,6 +30,16 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://senzmaki.github.io/Senpwai/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>tK5qjqlCFmgyiPDwWt3d6zccUuO7fYHsGqxkDUM6lcU=</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

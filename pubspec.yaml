@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 3.0.0+30000
 
 environment:
     sdk: ^3.9.2
@@ -85,6 +85,8 @@ dependencies:
     dio_http2_adapter: ^2.8.0
     http2: ^2.3.1
     flutter_svg: ^2.0.17
+    package_info_plus: ^8.3.1
+    pub_semver: ^2.2.0
 
 dev_dependencies:
     flutter_test:
@@ -99,6 +101,17 @@ dev_dependencies:
     # rules and activating additional ones.
     flutter_lints: ^5.0.0
     flutter_launcher_icons: ^0.14.4
+    msix: ^3.18.0
+
+msix_config:
+    display_name: Senpwai
+    publisher_display_name: Senpwai
+    publisher: CN=Senpwai
+    identity_name: SenZmaKi.Senpwai
+    logo_path: assets/images/senpwai-icon.png
+    architecture: x64
+    capabilities: internetClient
+    sign_msix: false
 
 flutter_native_splash:
     color: "#F5F0F1"

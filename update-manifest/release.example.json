@@ -1,0 +1,33 @@
+{
+  "version": "3.0.0",
+  "build": 30000,
+  "channel": "stable",
+  "mandatory": false,
+  "notes": "Senpwai 3.0.0",
+  "artifacts": [
+    {
+      "platform": "android",
+      "architecture": "any",
+      "localPath": "build/releases/senpwai-3.0.0.apk",
+      "url": "https://github.com/SenZmaKi/Senpwai/releases/download/v3.0.0/senpwai-3.0.0.apk"
+    },
+    {
+      "platform": "windows",
+      "architecture": "x64",
+      "localPath": "build/releases/senpwai-3.0.0.msix",
+      "url": "https://github.com/SenZmaKi/Senpwai/releases/download/v3.0.0/senpwai-3.0.0.msix"
+    },
+    {
+      "platform": "linux",
+      "architecture": "x64",
+      "localPath": "build/releases/Senpwai-3.0.0-x86_64.AppImage",
+      "url": "https://github.com/SenZmaKi/Senpwai/releases/download/v3.0.0/Senpwai-3.0.0-x86_64.AppImage"
+    },
+    {
+      "platform": "macos",
+      "architecture": "arm64",
+      "localPath": "build/releases/Senpwai-3.0.0-macos.zip",
+      "url": "https://github.com/SenZmaKi/Senpwai/releases/download/v3.0.0/Senpwai-3.0.0-macos.zip"
+    }
+  ]
+}

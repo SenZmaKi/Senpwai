@@ -1,14 +1,15 @@
 import 'dart:async';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
+import 'package:senpwai/ui/pages/settings_page/settings_controls.dart';
+import 'package:senpwai/updates/updates.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class AboutSettingsSection extends ConsumerStatefulWidget {
+class AboutSettingsSection extends ConsumerWidget {
   final AppSettings settings;
   final AppSettingsNotifier notifier;
   final String? searchQuery;
@@ -20,20 +21,10 @@ class AboutSettingsSection extends ConsumerStatefulWidget {
     this.searchQuery,
   });
 
-  @override
-  ConsumerState<AboutSettingsSection> createState() =>
-      _AboutSettingsSectionState();
-}
-
-class _AboutSettingsSectionState extends ConsumerState<AboutSettingsSection> {
-  bool _isCheckingUpdate = false;
-
   static const _discordUrl = 'https://discord.gg/e9UxkuyDX2';
   static const _githubUrl = 'https://github.com/SenZmaKi/Senpwai';
   static const _redditUrl = 'https://reddit.com/r/Senpwai';
   static const _githubSponsorsUrl = 'https://github.com/sponsors/SenZmaKi';
-  static const _currentVersion = '1.0.0';
-
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
@@ -41,56 +32,40 @@ class _AboutSettingsSectionState extends ConsumerState<AboutSettingsSection> {
     }
   }
 
-  Future<void> _checkForUpdates() async {
-    if (_isCheckingUpdate) return;
-    setState(() => _isCheckingUpdate = true);
-
-    try {
-      final dio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
-        ),
+  Future<void> _checkForUpdates(BuildContext context, WidgetRef ref) async {
+    await ref
+        .read(UpdateController.provider.notifier)
+        .check(userInitiated: true);
+    if (!context.mounted) return;
+    final result = ref.read(UpdateController.provider);
+    if (result.phase == UpdatePhase.idle) {
+      AppToast.showInfo(
+        context,
+        title: 'Senpwai is up to date',
+        description: 'Version ${result.currentVersion} is the latest release.',
       );
-      final response = await dio.get<Map<String, dynamic>>(
-        'https://api.github.com/repos/SenZmaKi/Senpwai/releases/latest',
+    } else if (result.phase == UpdatePhase.failed) {
+      AppToast.showError(
+        context,
+        title: 'Could not check for updates',
+        description: result.error ?? 'Try again later.',
       );
-
-      if (!mounted) return;
-
-      final data = response.data;
-      final tagName = data?['tag_name'] as String? ?? '';
-      final cleanTag = tagName.replaceAll('v', '').trim();
-
-      if (cleanTag.isNotEmpty && cleanTag != _currentVersion) {
-        AppToast.showInfo(context, title: 'Update Available: $tagName');
-        await _openUrl('https://github.com/SenZmaKi/Senpwai/releases/latest');
-      } else {
-        AppToast.showInfo(
-          context,
-          title: 'You are using the latest version (v$_currentVersion)',
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      AppToast.showInfo(context, title: 'Opening GitHub releases page...');
-      await _openUrl('https://github.com/SenZmaKi/Senpwai/releases');
-    } finally {
-      if (mounted) {
-        setState(() => _isCheckingUpdate = false);
-      }
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final sq = widget.searchQuery;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sq = searchQuery;
     final theme = Theme.of(context);
+    final updateState = ref.watch(UpdateController.provider);
+    final currentVersion = updateState.currentVersion.isEmpty
+        ? '—'
+        : updateState.currentVersion;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildHeroCard(theme),
+        _buildHeroCard(theme, currentVersion),
         const SizedBox(height: 16),
         SettingsGroupCard(
           title: 'Updates & Releases',
@@ -101,26 +76,38 @@ class _AboutSettingsSectionState extends ConsumerState<AboutSettingsSection> {
             SettingsTile(
               icon: Icons.code_rounded,
               title: 'Current Version',
-              subtitle: 'v$_currentVersion',
+              subtitle: 'v$currentVersion',
               keywords: 'version build latest release update',
               searchQuery: sq,
             ),
             SettingsTile(
               icon: Icons.published_with_changes_rounded,
               title: 'Check for Updates',
-              subtitle: _isCheckingUpdate
+              subtitle: updateState.phase == UpdatePhase.checking
                   ? 'Checking GitHub for updates...'
-                  : 'Check GitHub releases for latest version',
+                  : _updateStatusDescription(updateState),
               keywords: 'check updates new version download upgrade github',
               searchQuery: sq,
-              trailing: _isCheckingUpdate
+              trailing: updateState.phase == UpdatePhase.checking
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.chevron_right, size: 20),
-              onTap: _checkForUpdates,
+              onTap: () => unawaited(_checkForUpdates(context, ref)),
+            ),
+            SettingsTile(
+              icon: Icons.downloading_rounded,
+              title: 'Download updates automatically',
+              subtitle:
+                  'Checks in the background; anime download limits do not apply',
+              keywords: 'automatic updates background download app speed limit',
+              searchQuery: sq,
+              trailing: AsyncSwitch(
+                value: settings.updates.automaticallyDownload,
+                onChanged: notifier.setAutomaticallyDownloadUpdates,
+              ),
             ),
             SettingsTile(
               icon: Icons.notes_rounded,
@@ -233,7 +220,7 @@ class _AboutSettingsSectionState extends ConsumerState<AboutSettingsSection> {
                 showLicensePage(
                   context: context,
                   applicationName: 'Senpwai',
-                  applicationVersion: _currentVersion,
+                  applicationVersion: currentVersion,
                 );
               },
             ),
@@ -243,7 +230,7 @@ class _AboutSettingsSectionState extends ConsumerState<AboutSettingsSection> {
     );
   }
 
-  Widget _buildHeroCard(ThemeData theme) {
+  Widget _buildHeroCard(ThemeData theme, String currentVersion) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -277,7 +264,7 @@ class _AboutSettingsSectionState extends ConsumerState<AboutSettingsSection> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'v$_currentVersion · Free & Open-Source Anime Downloader',
+                  'v$currentVersion · Free & Open-Source Anime Downloader',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w600,
@@ -297,4 +284,15 @@ class _AboutSettingsSectionState extends ConsumerState<AboutSettingsSection> {
       ),
     );
   }
+
+  String _updateStatusDescription(UpdateState state) => switch (state.phase) {
+    UpdatePhase.available => '${state.release?.displayVersion} is available',
+    UpdatePhase.downloading => 'Downloading ${state.release?.displayVersion}',
+    UpdatePhase.verifying => 'Verifying the downloaded update',
+    UpdatePhase.preparing => 'Preparing the update for the next launch',
+    UpdatePhase.ready => '${state.release?.displayVersion} is ready to install',
+    UpdatePhase.installing => 'Installing ${state.release?.displayVersion}',
+    UpdatePhase.failed => state.error ?? 'Update check failed',
+    _ => 'Check for the latest Senpwai release',
+  };
 }

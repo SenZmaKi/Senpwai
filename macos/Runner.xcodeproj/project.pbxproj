@@ -30,6 +30,7 @@
 		72C214672067DD553DE693E8 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 566AF7989FC78E1122965ACD /* Pods_RunnerTests.framework */; };
 		A153A5DCD5E801EBD1DE9E6D /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5116BB150D59B74DDEDAB440 /* Pods_Runner.framework */; };
 		F0A5A0010000000000000001 /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = F0A5A0030000000000000001 /* LaunchAtLogin */; };
+		F0A5A0140000000000000001 /* SparkleUpdateBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A5A0150000000000000001 /* SparkleUpdateBridge.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -88,6 +89,7 @@
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		F2D19E2272B336EF1CBA6237 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		F71A4A52DE328B66CD0D04EB /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
+		F0A5A0150000000000000001 /* SparkleUpdateBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdateBridge.swift; sourceTree = "<group>"; };
 		F9D733B41B6CF26F3B3F95F6 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -179,6 +181,7 @@
 			children = (
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
+				F0A5A0150000000000000001 /* SparkleUpdateBridge.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
 				33CC11242044D66E0003C045 /* Resources */,
@@ -244,6 +247,7 @@
 				F0A5A0040000000000000001 /* Copy Launch at Login Helper */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
 				022F50CBC08BD05B02E6DF70 /* [CP] Embed Pods Frameworks */,
+				F0A5A0200000000000000001 /* Seal Nested Helpers */,
 			);
 			buildRules = (
 			);
@@ -379,6 +383,18 @@
 			shellScript = "\"${BUILT_PRODUCTS_DIR}/LaunchAtLogin_LaunchAtLogin.bundle/Contents/Resources/copy-helper-swiftpm.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		F0A5A0200000000000000001 /* Seal Nested Helpers */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			name = "Seal Nested Helpers";
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"${PROJECT_DIR}/scripts/sign_nested_helpers.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 		33CC111E2044C6BF0003C045 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -460,6 +476,7 @@
 			files = (
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
+				F0A5A0140000000000000001 /* SparkleUpdateBridge.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

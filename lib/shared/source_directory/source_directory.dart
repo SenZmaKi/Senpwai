@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cryptography/cryptography.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:logging/logging.dart';
@@ -12,6 +11,7 @@ import 'package:senpwai/shared/net/interceptors/cookie_manager.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
+import 'package:senpwai/shared/signed_envelope.dart';
 
 final _log = Logger('senpwai.source_directory');
 
@@ -36,8 +36,6 @@ Options sourceDirectoryRequestOptions({required String? eTag}) => Options(
 class SourceDirectory {
   static const _directoryUri =
       'https://senzmaki.github.io/Senpwai/source-directory.json';
-  static const _publicKeyBase64 =
-      'tK5qjqlCFmgyiPDwWt3d6zccUuO7fYHsGqxkDUM6lcU=';
   static SourceDirectory _instance = SourceDirectory.defaults();
   static Future<void>? _refreshFuture;
   static final _updates = StreamController<SourceDirectory>.broadcast();
@@ -291,31 +289,7 @@ class _SourceDirectoryRepository {
   }
 
   Future<SourceDirectory> _decodeAndVerify(String envelopeText) async {
-    final envelope = jsonDecode(envelopeText);
-    if (envelope is! Map<String, dynamic> ||
-        envelope['payload'] is! String ||
-        envelope['signature'] is! String) {
-      throw const FormatException('Invalid source directory envelope.');
-    }
-    final payload = base64Url.decode(
-      base64Url.normalize(envelope['payload'] as String),
-    );
-    final signatureBytes = base64.decode(envelope['signature'] as String);
-    final publicKeyBytes = base64.decode(SourceDirectory._publicKeyBase64);
-    final verified = await Ed25519().verify(
-      payload,
-      signature: Signature(
-        signatureBytes,
-        publicKey: SimplePublicKey(publicKeyBytes, type: KeyPairType.ed25519),
-      ),
-    );
-    if (!verified) {
-      throw const FormatException('Invalid source directory signature.');
-    }
-    final decoded = jsonDecode(utf8.decode(payload));
-    if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('Invalid source directory payload.');
-    }
+    final decoded = await decodeSignedJsonEnvelope(envelopeText);
     return SourceDirectory.fromJson(decoded);
   }
 }
