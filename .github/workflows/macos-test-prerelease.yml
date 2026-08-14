@@ -1,6 +1,10 @@
 name: macOS test prerelease
 
 on:
+  push:
+    branches: [v3.0.0]
+    paths:
+      - .github/workflows/macos-test-prerelease.yml
   workflow_dispatch:
     inputs:
       version:
@@ -51,10 +55,20 @@ jobs:
           flutter-version: 3.41.4
           cache: true
 
-      - name: Validate release inputs
+      - name: Resolve and validate release inputs
         shell: bash
         run: |
           set -euo pipefail
+          package_version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)"
+          if [[ -z "$BUILD_NAME" ]]; then
+            BUILD_NAME="${package_version%%+*}"
+          fi
+          if [[ -z "$BUILD_NUMBER" ]]; then
+            BUILD_NUMBER="${package_version##*+}"
+          fi
+          if [[ -z "$RELEASE_NOTES" ]]; then
+            RELEASE_NOTES="Initial end-to-end macOS updater test build"
+          fi
           if [[ ! "$BUILD_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "version must contain three numeric components, such as 3.0.1" >&2
             exit 64
@@ -63,6 +77,11 @@ jobs:
             echo "build_number must be a positive integer" >&2
             exit 64
           fi
+          {
+            echo "BUILD_NAME=$BUILD_NAME"
+            echo "BUILD_NUMBER=$BUILD_NUMBER"
+            echo "RELEASE_NOTES=$RELEASE_NOTES"
+          } >> "$GITHUB_ENV"
 
       - name: Install Flutter dependencies
         run: flutter pub get
