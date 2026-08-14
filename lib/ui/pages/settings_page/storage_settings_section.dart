@@ -248,35 +248,6 @@ class _StorageSettingsSectionState
                 ),
               ],
             ),
-            SettingsGroupCard(
-              title: 'About Senpwai',
-              icon: Icons.info_outline_rounded,
-              description:
-                  'Version information and third-party software licenses',
-              searchQuery: sq,
-              children: [
-                SettingsTile(
-                  icon: Icons.code_rounded,
-                  title: 'Version',
-                  subtitle: '1.0.0',
-                  searchQuery: sq,
-                ),
-                SettingsTile(
-                  icon: Icons.description_outlined,
-                  title: 'Licenses',
-                  subtitle: 'View open source licenses',
-                  searchQuery: sq,
-                  trailing: const Icon(Icons.chevron_right, size: 20),
-                  onTap: () {
-                    showLicensePage(
-                      context: context,
-                      applicationName: 'Senpwai',
-                      applicationVersion: '1.0.0',
-                    );
-                  },
-                ),
-              ],
-            ),
           ],
         );
       },

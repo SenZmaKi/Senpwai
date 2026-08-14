@@ -198,7 +198,8 @@ class SettingsGroupCard extends StatelessWidget implements SettingsSearchable {
 }
 
 class SettingsTile extends StatelessWidget implements SettingsSearchable {
-  final IconData icon;
+  final IconData? icon;
+  final Widget? leadingWidget;
   final String title;
   final String subtitle;
   final String? keywords;
@@ -209,7 +210,8 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
 
   const SettingsTile({
     super.key,
-    required this.icon,
+    this.icon,
+    this.leadingWidget,
     required this.title,
     required this.subtitle,
     this.keywords,
@@ -244,6 +246,17 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 460;
 
+        final leading = leadingWidget ??
+            (icon != null
+                ? Icon(
+                    icon,
+                    size: 20,
+                    color: enabled
+                        ? theme.colorScheme.onSurface.withValues(alpha: 0.7)
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                  )
+                : const SizedBox(width: 20, height: 20));
+
         Widget buildTileContent() {
           if (isCompact && trailing != null) {
             return Padding(
@@ -256,17 +269,7 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
-                        child: Icon(
-                          icon,
-                          size: 20,
-                          color: enabled
-                              ? theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.7,
-                                )
-                              : theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.35,
-                                ),
-                        ),
+                        child: leading,
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -310,13 +313,7 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  size: 20,
-                  color: enabled
-                      ? theme.colorScheme.onSurface.withValues(alpha: 0.7)
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.35),
-                ),
+                leading,
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(

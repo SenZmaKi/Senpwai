@@ -29,7 +29,12 @@ enum SettingsCategory {
   system(
     'System & Storage',
     Icons.storage_rounded,
-    'Notifications, cache & about',
+    'Notifications & cache management',
+  ),
+  about(
+    'Updates & About',
+    Icons.info_outline_rounded,
+    'Version, updates, social links & support',
   );
 
   final String title;

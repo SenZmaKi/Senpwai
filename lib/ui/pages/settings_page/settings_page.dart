@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/settings/settings.dart';
+import 'package:senpwai/ui/pages/settings_page/about_settings_section.dart';
 import 'package:senpwai/ui/pages/settings_page/appearance_settings.dart';
 import 'package:senpwai/ui/pages/settings_page/content_download_settings.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_category_nav.dart';
@@ -306,6 +307,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         notifier: notifier,
       ),
       SettingsCategory.system => StorageSettingsSection(
+        settings: settings,
+        notifier: notifier,
+      ),
+      SettingsCategory.about => AboutSettingsSection(
         settings: settings,
         notifier: notifier,
       ),
