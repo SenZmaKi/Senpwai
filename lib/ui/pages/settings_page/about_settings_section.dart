@@ -63,10 +63,7 @@ class _AboutSettingsSectionState extends ConsumerState<AboutSettingsSection> {
       final cleanTag = tagName.replaceAll('v', '').trim();
 
       if (cleanTag.isNotEmpty && cleanTag != _currentVersion) {
-        AppToast.showInfo(
-          context,
-          title: 'Update Available: $tagName',
-        );
+        AppToast.showInfo(context, title: 'Update Available: $tagName');
         await _openUrl('https://github.com/SenZmaKi/Senpwai/releases/latest');
       } else {
         AppToast.showInfo(
@@ -76,10 +73,7 @@ class _AboutSettingsSectionState extends ConsumerState<AboutSettingsSection> {
       }
     } catch (_) {
       if (!mounted) return;
-      AppToast.showInfo(
-        context,
-        title: 'Opening GitHub releases page...',
-      );
+      AppToast.showInfo(context, title: 'Opening GitHub releases page...');
       await _openUrl('https://github.com/SenZmaKi/Senpwai/releases');
     } finally {
       if (mounted) {
@@ -135,7 +129,8 @@ class _AboutSettingsSectionState extends ConsumerState<AboutSettingsSection> {
               keywords: 'release notes changelog github updates',
               searchQuery: sq,
               trailing: const Icon(Icons.open_in_new_rounded, size: 18),
-              onTap: () => _openUrl('https://github.com/SenZmaKi/Senpwai/releases'),
+              onTap: () =>
+                  _openUrl('https://github.com/SenZmaKi/Senpwai/releases'),
             ),
           ],
         ),
@@ -212,7 +207,8 @@ class _AboutSettingsSectionState extends ConsumerState<AboutSettingsSection> {
             SettingsTile(
               icon: Icons.star_rounded,
               title: 'Star on GitHub',
-              subtitle: 'Starring the repository helps other weebs discover Senpwai',
+              subtitle:
+                  'Starring the repository helps other weebs discover Senpwai',
               keywords: 'star github repository support open source',
               searchQuery: sq,
               trailing: const Icon(Icons.open_in_new_rounded, size: 18),

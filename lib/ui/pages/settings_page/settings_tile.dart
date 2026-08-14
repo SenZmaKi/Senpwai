@@ -246,7 +246,8 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 460;
 
-        final leading = leadingWidget ??
+        final leading =
+            leadingWidget ??
             (icon != null
                 ? Icon(
                     icon,
