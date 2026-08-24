@@ -2,20 +2,26 @@
 
 `update_manifest.payload.json` is the source of truth for Android, Windows, and
 Linux updates. GitHub Pages signs and publishes it as `update-manifest.json`.
-The app verifies that envelope with the public Ed25519 key embedded in Senpwai.
+The workflow uses the `UPDATE_MANIFEST_PRIVATE_KEY` Actions secret, and the app
+verifies the envelope with `updateManifestPublicKeyBase64`.
 
-macOS uses Sparkle's `appcast.xml`. Release enclosures must point to the packaged
-macOS archive and include its byte length and `sparkle:edSignature`.
-The Sparkle signature uses the same Ed25519 seed stored in the
-`SOURCE_DIRECTORY_PRIVATE_KEY` Actions secret.
+macOS uses Sparkle's `appcast.xml` from the latest stable GitHub release.
+Release enclosures must point to the packaged macOS archive and include its byte
+length and `sparkle:edSignature`.
+Sparkle signatures use the independent `SPARKLE_PRIVATE_KEY` Actions secret;
+its public half is stored in the macOS `SUPublicEDKey` setting.
+
+The source directory, cross-platform manifest, and Sparkle archive deliberately
+use separate keys. See [`docs/signing-keys.md`](../docs/signing-keys.md).
 
 Artifact requirements:
 
 - Android: release-signed universal APK (`platform: android`, `architecture: any`).
 - Windows: trusted-certificate-signed MSIX (`windows`, currently `x64`).
 - Linux: AppImage (`linux`, architecture matching the runner).
-- macOS: ad-hoc-signed ZIP referenced by the appcast and signed with Sparkle's
-  Ed25519 key. Developer ID/notarization remain optional if that policy changes.
+- macOS: universal arm64/x86_64 ad-hoc-signed ZIP referenced by the appcast and
+  signed with Sparkle's Ed25519 key. Developer ID/notarization remain optional
+  if that policy changes.
 
 Never publish an artifact before its hash, size, version, and build have been
 written to the appropriate feed. The update manifest accepts only HTTPS GitHub
@@ -40,38 +46,28 @@ This prevents Gatekeeper's genuinely malformed-signature failure. It does not
 make an ad-hoc signature trusted or notarized; first-time users still need to
 approve Senpwai through macOS Privacy & Security.
 
-## Rolling macOS test prerelease
+## Production releases
 
-Run the `macOS test prerelease` workflow manually to build the Apple Silicon
-Release app, verify its nested signatures, and publish a DMG, Sparkle ZIP, and
-signed test appcast to the reusable `macos-update-test` GitHub prerelease. The
-workflow replaces the same three assets on every run, so test builds do not
-create a trail of disposable releases.
+The tag-driven `Release` workflow is the production source of truth. To release:
 
-The workflow stamps only its CI build with the prerelease appcast URL. Local and
-production builds continue to use the stable Pages appcast. Install one workflow
-build, then dispatch the workflow again with a higher build number to exercise
-Sparkle's complete download, verification, replacement, and relaunch path.
+1. Set `version:` in `pubspec.yaml` to `<version>+<monotonic build number>`.
+2. Commit the complete release state.
+3. Create and push the matching `v<version>` tag.
 
-GitHub enables manual workflow dispatch only after the workflow file exists on
-the default branch. Until v3 reaches that branch, bumping `version:` in
-`pubspec.yaml` on `v3.0.0` triggers the same rolling prerelease using that
-version and build number.
+The workflow rejects a tag that does not match `pubspec.yaml`. Its macOS job
+analyzes and builds the universal arm64/x86_64 app, verifies both architectures
+and the complete nested signature structure, packages a human-facing DMG and
+Sparkle ZIP, generates the signed appcast and checksums, and uploads the assets
+to a draft GitHub release.
+Only after every asset exists does the publish job make the release public and
+move GitHub's `latest` release pointer, which atomically exposes the new appcast
+to installed copies of Senpwai.
 
-The DMG is the human-facing installer. The ZIP is Sparkle's update payload. Both
-contain the same ad-hoc-signed app, so Gatekeeper approval is still required on
-the first installation.
+The workflow is split into version preparation, platform build, and final
+publication jobs. Add Android, Windows, and Linux build jobs alongside
+`build-macos`, upload their `release-*` artifacts, and make `publish` depend on
+them after each platform's updater has been validated.
 
-After building, verifying, and uploading the artifacts, copy
-`release.example.json`, update its values, then generate both feeds:
-
-```sh
-cd source-directory/signer
-dart run bin/build_update_feeds.dart \
-  --release ../../update-manifest/release.json \
-  --manifest ../../update-manifest/update_manifest.payload.json \
-  --appcast ../../update-manifest/appcast.xml
-```
-
-Commit the generated feeds. The Pages workflow signs the shared manifest; the
-generator has already added Sparkle's artifact signature to the appcast.
+The DMG is the human-facing macOS installer. The ZIP is Sparkle's update
+payload. Both contain the same ad-hoc-signed app, so Gatekeeper approval remains
+required only for the first installation.

@@ -1,12 +1,12 @@
 import FlutterMacOS
 import Sparkle
 
-final class SparkleUpdateBridge: NSObject, FlutterStreamHandler, SPUUserDriver {
+final class SparkleUpdateBridge: NSObject, FlutterStreamHandler, SPUUserDriver, SPUUpdaterDelegate {
   private lazy var updater = SPUUpdater(
     hostBundle: .main,
     applicationBundle: .main,
     userDriver: self,
-    delegate: nil
+    delegate: self
   )
   private var eventSink: FlutterEventSink?
   private var lastEvent: [String: Any]?
@@ -18,6 +18,7 @@ final class SparkleUpdateBridge: NSObject, FlutterStreamHandler, SPUUserDriver {
   private var bytesReceived: UInt64 = 0
   private var totalBytes: UInt64 = 0
   private var currentItem: SUAppcastItem?
+  private var shouldCheckOnLaunch = false
 
   func register(with messenger: FlutterBinaryMessenger) {
     let methods = FlutterMethodChannel(
@@ -36,8 +37,8 @@ final class SparkleUpdateBridge: NSObject, FlutterStreamHandler, SPUUserDriver {
     switch call.method {
     case "start":
       automaticallyDownload = arguments?["automaticallyDownload"] as? Bool ?? true
-      updater.automaticallyChecksForUpdates = true
       updater.automaticallyDownloadsUpdates = false
+      shouldCheckOnLaunch = true
       do {
         try updater.start()
         result(nil)
@@ -113,6 +114,23 @@ final class SparkleUpdateBridge: NSObject, FlutterStreamHandler, SPUUserDriver {
   func onCancel(withArguments _: Any?) -> FlutterError? {
     eventSink = nil
     return nil
+  }
+
+  func updater(_ updater: SPUUpdater, willScheduleUpdateCheckAfterDelay _: TimeInterval) {
+    guard shouldCheckOnLaunch else { return }
+    shouldCheckOnLaunch = false
+    DispatchQueue.main.async {
+      guard updater.canCheckForUpdates else { return }
+      updater.checkForUpdatesInBackground()
+    }
+  }
+
+  func updater(
+    _: SPUUpdater,
+    didFinishUpdateCycleFor _: SPUUpdateCheck,
+    error _: Error?
+  ) {
+    shouldCheckOnLaunch = false
   }
 
   func show(

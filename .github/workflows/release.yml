@@ -1,0 +1,260 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate release version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Match tag to pubspec version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)"
+          version="${package_version%%+*}"
+          build_number="${package_version##*+}"
+          expected_tag="v${version}"
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "pubspec version must contain three numeric components" >&2
+            exit 64
+          fi
+          if [[ ! "$build_number" =~ ^[1-9][0-9]*$ ]]; then
+            echo "pubspec build number must be a positive integer" >&2
+            exit 64
+          fi
+          if [[ "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match pubspec version $version" >&2
+            exit 64
+          fi
+
+          {
+            echo "version=$version"
+            echo "build_number=$build_number"
+            echo "tag=$expected_tag"
+          } >> "$GITHUB_OUTPUT"
+
+  build-macos:
+    name: Build universal macOS app
+    needs: prepare
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      ZIP_NAME: Senpwai-macos-universal.zip
+      DMG_NAME: Senpwai-macos-universal.dmg
+      APPCAST_NAME: appcast.xml
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.4
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter code
+        run: flutter analyze
+
+      - name: Verify production update configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_feed="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${APPCAST_NAME}"
+          actual_feed="$(/usr/libexec/PlistBuddy -c 'Print :SUFeedURL' macos/Runner/Info.plist)"
+          test "$actual_feed" = "$expected_feed"
+
+      - name: Build ad-hoc-signed release app
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build macos \
+            --release \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER"
+
+      - name: Verify and package macOS app
+        shell: bash
+        run: |
+          set -euo pipefail
+          built_app="build/macos/Build/Products/Release/senpwai.app"
+          release_dir="build/release/macos"
+          package_root="$RUNNER_TEMP/senpwai-package"
+          dmg_root="$RUNNER_TEMP/senpwai-dmg"
+          extracted_root="$RUNNER_TEMP/senpwai-extracted"
+          app_executable="$built_app/Contents/MacOS/senpwai"
+          torrent_framework="$built_app/Contents/Frameworks/torrent-rasterbar.framework/torrent-rasterbar"
+
+          for binary in "$app_executable" "$torrent_framework"; do
+            architectures="$(lipo -archs "$binary")"
+            [[ " $architectures " == *" arm64 "* ]]
+            [[ " $architectures " == *" x86_64 "* ]]
+          done
+
+          sh macos/scripts/verify_app_signature.sh "$built_app"
+          mkdir -p "$release_dir" "$package_root" "$dmg_root" "$extracted_root"
+          /usr/bin/ditto "$built_app" "$package_root/Senpwai.app"
+          sh macos/scripts/verify_app_signature.sh "$package_root/Senpwai.app"
+
+          /usr/bin/ditto \
+            -c -k --sequesterRsrc --keepParent \
+            "$package_root/Senpwai.app" \
+            "$release_dir/$ZIP_NAME"
+          /usr/bin/ditto -x -k "$release_dir/$ZIP_NAME" "$extracted_root"
+          sh macos/scripts/verify_app_signature.sh "$extracted_root/Senpwai.app"
+
+          /usr/bin/ditto "$package_root/Senpwai.app" "$dmg_root/Senpwai.app"
+          ln -s /Applications "$dmg_root/Applications"
+          hdiutil create \
+            -volname "Senpwai" \
+            -srcfolder "$dmg_root" \
+            -format UDZO \
+            -ov \
+            "$release_dir/$DMG_NAME"
+          hdiutil verify "$release_dir/$DMG_NAME"
+
+      - name: Generate signed production appcast
+        shell: bash
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          release_dir="build/release/macos"
+          repository_root="$PWD"
+          descriptor="$RUNNER_TEMP/macos-release.json"
+          empty_manifest="$RUNNER_TEMP/empty-update-manifest.json"
+          zip_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${ZIP_NAME}"
+          appcast_url="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${APPCAST_NAME}"
+
+          jq -n \
+            --arg version "$VERSION" \
+            --argjson build "$BUILD_NUMBER" \
+            --arg notes "Senpwai $VERSION" \
+            --arg path "$repository_root/$release_dir/$ZIP_NAME" \
+            --arg url "$zip_url" \
+            '{
+              version: $version,
+              build: $build,
+              channel: "stable",
+              mandatory: false,
+              notes: $notes,
+              artifacts: [{
+                platform: "macos",
+                architecture: "universal",
+                localPath: $path,
+                url: $url
+              }]
+            }' > "$descriptor"
+          printf '%s\n' '{"schemaVersion":1,"releases":[]}' > "$empty_manifest"
+
+          cd source-directory/signer
+          dart pub get
+          dart run bin/build_update_feeds.dart \
+            --release "$descriptor" \
+            --manifest "$empty_manifest" \
+            --appcast "$repository_root/$release_dir/$APPCAST_NAME" \
+            --appcast-link "$appcast_url"
+
+          cd "$repository_root/$release_dir"
+          shasum -a 256 "$ZIP_NAME" "$DMG_NAME" "$APPCAST_NAME" > SHA256SUMS.txt
+
+      - name: Upload macOS release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: |
+            build/release/macos/Senpwai-macos-universal.zip
+            build/release/macos/Senpwai-macos-universal.dmg
+            build/release/macos/appcast.xml
+            build/release/macos/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub release
+    needs: [prepare, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create complete draft release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+            if [[ "$is_draft" != "true" ]]; then
+              echo "Published release $RELEASE_TAG already exists; refusing to overwrite it" >&2
+              exit 1
+            fi
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --draft \
+              --generate-notes \
+              --title "Senpwai $VERSION" \
+              --notes "The macOS build is ad-hoc signed and is not notarized. First-time installation requires the documented macOS Gatekeeper override."
+          fi
+
+          gh release upload "$RELEASE_TAG" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+      - name: Publish release and update the stable feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false \
+            --latest
+
+      - name: Add workflow summary
+        shell: bash
+        run: |
+          {
+            echo "## Senpwai $VERSION"
+            echo
+            echo "Published $RELEASE_TAG with the macOS installer, Sparkle archive, signed appcast, and checksums."
+          } >> "$GITHUB_STEP_SUMMARY"

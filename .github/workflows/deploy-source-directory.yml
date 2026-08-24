@@ -56,10 +56,10 @@ jobs:
       - run: |
           dart run bin/sign.dart \
             --input ../../update-manifest/update_manifest.payload.json \
-            --output ../../site/update-manifest.json
-          cp ../../update-manifest/appcast.xml ../../site/appcast.xml
+            --output ../../site/update-manifest.json \
+            --private-key-environment UPDATE_MANIFEST_PRIVATE_KEY
         env:
-          SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
+          UPDATE_MANIFEST_PRIVATE_KEY: ${{ secrets.UPDATE_MANIFEST_PRIVATE_KEY }}
         working-directory: source-directory/signer
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

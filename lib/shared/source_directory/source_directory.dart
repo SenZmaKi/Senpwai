@@ -289,7 +289,10 @@ class _SourceDirectoryRepository {
   }
 
   Future<SourceDirectory> _decodeAndVerify(String envelopeText) async {
-    final decoded = await decodeSignedJsonEnvelope(envelopeText);
+    final decoded = await decodeSignedJsonEnvelope(
+      envelopeText,
+      publicKeyBase64: sourceDirectoryPublicKeyBase64,
+    );
     return SourceDirectory.fromJson(decoded);
   }
 }

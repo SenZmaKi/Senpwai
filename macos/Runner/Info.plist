@@ -34,12 +34,14 @@
 	<true/>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>3600</integer>
 	<key>SUEnableInstallerLauncherService</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://senzmaki.github.io/Senpwai/appcast.xml</string>
+	<string>https://github.com/SenZmaKi/Senpwai/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
-	<string>tK5qjqlCFmgyiPDwWt3d6zccUuO7fYHsGqxkDUM6lcU=</string>
+	<string>uyqccdZCY2282RUX1vyQzbOKsVNsxbM2O0N4vMk0MPg=</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -2,13 +2,15 @@ import 'dart:convert';
 
 import 'package:cryptography/cryptography.dart';
 
-/// Public trust root shared by Senpwai's declarative remote manifests.
-const senpwaiManifestPublicKeyBase64 =
-    'tK5qjqlCFmgyiPDwWt3d6zccUuO7fYHsGqxkDUM6lcU=';
+const sourceDirectoryPublicKeyBase64 =
+    'ypBeUW9mAsDQ1buawf/zRT/fUafC6Ea8FB2o3xuM1VY=';
+
+const updateManifestPublicKeyBase64 =
+    '/k0TtLWNnHf6fSg+X3QyZx1IUDcGb4f0ZMmjvHVK0hg=';
 
 Future<Map<String, dynamic>> decodeSignedJsonEnvelope(
   String envelopeText, {
-  String publicKeyBase64 = senpwaiManifestPublicKeyBase64,
+  required String publicKeyBase64,
 }) async {
   final envelope = jsonDecode(envelopeText);
   if (envelope is! Map<String, dynamic> ||

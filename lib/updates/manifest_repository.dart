@@ -39,7 +39,10 @@ class UpdateManifestRepository {
       throw const FormatException('The update manifest response was empty.');
     }
     final manifest = UpdateManifest.fromJson(
-      await decodeSignedJsonEnvelope(envelope),
+      await decodeSignedJsonEnvelope(
+        envelope,
+        publicKeyBase64: updateManifestPublicKeyBase64,
+      ),
     );
     await paths.updateManifestFile.writeAsString(envelope, flush: true);
     return manifest;

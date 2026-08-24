@@ -1,5 +1,6 @@
 # Features
 - Figure out why queueing entire jjk on nyaa shows a single file in download page
+- Publish libraries e.g., cf_bypass, libtorrent_dart, anitomy_dart
 - Updates
 - Comprehensive test suite
 

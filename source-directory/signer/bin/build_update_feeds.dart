@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
 
-const _privateKeyEnvironment = 'SOURCE_DIRECTORY_PRIVATE_KEY';
+const _privateKeyEnvironment = 'SPARKLE_PRIVATE_KEY';
 
 Future<void> main(List<String> arguments) async {
   final descriptorPath = _requiredArgument(arguments, '--release');
@@ -11,7 +11,7 @@ Future<void> main(List<String> arguments) async {
   final appcastPath = _requiredArgument(arguments, '--appcast');
   final appcastLink =
       _optionalArgument(arguments, '--appcast-link') ??
-      'https://senzmaki.github.io/Senpwai/appcast.xml';
+      'https://github.com/SenZmaKi/Senpwai/releases/latest/download/appcast.xml';
   final parsedAppcastLink = Uri.tryParse(appcastLink);
   if (parsedAppcastLink == null || parsedAppcastLink.scheme != 'https') {
     _fail('The appcast link must be an HTTPS URL.');
