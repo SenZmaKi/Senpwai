@@ -1,6 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:senpwai/sources/shared/shared.dart';
-import 'package:anitomy_dart/anitomy.dart' as anitomy;
+import 'package:anitomy_dart/anitomy_dart.dart' as anitomy;
 
 final _ani = anitomy.Anitomy();
 
