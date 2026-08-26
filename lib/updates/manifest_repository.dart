@@ -11,8 +11,10 @@ import 'package:senpwai/shared/signed_envelope.dart';
 import 'package:senpwai/updates/models.dart';
 
 class UpdateManifestRepository {
-  static const manifestUri =
-      'https://senzmaki.github.io/Senpwai/update-manifest.json';
+  static const manifestUri = String.fromEnvironment(
+    'UPDATE_MANIFEST_URL',
+    defaultValue: 'https://senzmaki.github.io/Senpwai/update-manifest.json',
+  );
 
   final AppPaths paths;
 

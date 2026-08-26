@@ -1,0 +1,222 @@
+name: Linux prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer version embedded in the test AppImage
+        required: true
+        default: "3.0.0"
+        type: string
+      build_number:
+        description: Monotonically increasing test build number
+        required: true
+        default: "30001"
+        type: string
+      release_tag:
+        description: GitHub prerelease tag for this AppImage
+        required: true
+        default: "linux-prerelease-3.0.0-30001"
+        type: string
+      wpe_sdk_tag:
+        description: GitHub prerelease tag containing the WPE SDK archive
+        required: true
+        default: "wpe-sdk-2.53.3"
+        type: string
+      wpe_sdk_asset:
+        description: WPE SDK archive name from that prerelease
+        required: true
+        default: "Senpwai-WPE-SDK-2.53.3-linux-x86_64.tar.xz"
+        type: string
+      notes:
+        description: Release notes shown by the updater
+        required: true
+        default: "Linux prerelease for updater testing."
+        type: string
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    name: Build Linux prerelease
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      VERSION: ${{ inputs.version }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      WPE_SDK_TAG: ${{ inputs.wpe_sdk_tag }}
+      RELEASE_NOTES: ${{ inputs.notes }}
+      WPE_SDK_NAME: ${{ inputs.wpe_sdk_asset }}
+      APPIMAGE_NAME: Senpwai-${{ inputs.version }}-x86_64.AppImage
+      PRERELEASE_MANIFEST_URL: https://senzmaki.github.io/Senpwai/update-manifest-prerelease.json
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Validate manual inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          [[ "$RELEASE_TAG" =~ ^linux-prerelease-[0-9]+\.[0-9]+\.[0-9]+-[1-9][0-9]*$ ]]
+          [[ "$WPE_SDK_TAG" =~ ^wpe-sdk-[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$WPE_SDK_NAME" =~ ^Senpwai-WPE-SDK-[0-9]+\.[0-9]+\.[0-9]+-linux-x86_64\.tar\.xz$ ]]
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install Linux packaging dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            file libgtk-3-dev libsecret-1-dev libwayland-dev pkg-config
+
+      - name: Install the pinned WPE SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_dir="$RUNNER_TEMP/wpe-sdk"
+          mkdir -p "$sdk_dir"
+          gh release download "$WPE_SDK_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "$WPE_SDK_NAME*" \
+            --dir "$sdk_dir"
+          cd "$sdk_dir"
+          sha256sum --check "$WPE_SDK_NAME.sha256"
+          sudo tar -xJf "$WPE_SDK_NAME" -C /
+          sudo ldconfig
+          test "$(pkg-config --modversion wpe-webkit-2.0)" = "$(jq -r .webkitVersion "$WPE_SDK_NAME.metadata.json")"
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter code
+        run: flutter analyze
+
+      - name: Build the prerelease bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build linux \
+            --release \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER" \
+            --dart-define=UPDATE_MANIFEST_URL="$PRERELEASE_MANIFEST_URL"
+
+      - name: Package AppImage
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_dir="$RUNNER_TEMP/appimage"
+          app_dir="$package_dir/AppDir"
+          tool="$package_dir/appimagetool-x86_64.AppImage"
+          mkdir -p "$app_dir/usr/bin" "$GITHUB_WORKSPACE/release-assets"
+          cp -a build/linux/x64/release/bundle/. "$app_dir/usr/bin/"
+          cp linux/com.senpwai.app.desktop "$app_dir/com.senpwai.app.desktop"
+          cp assets/images/senpwai-icon.png "$app_dir/com.senpwai.app.png"
+          printf '%s\n' '#!/bin/sh' 'exec "$APPDIR/usr/bin/senpwai" "$@"' > "$app_dir/AppRun"
+          chmod 755 "$app_dir/AppRun"
+          curl --fail --location --retry 4 --retry-all-errors \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage \
+            --output "$tool"
+          chmod 755 "$tool"
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$tool" "$app_dir" "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME"
+          file "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME" | grep -q 'ELF 64-bit'
+          sha256sum "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME" > "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME.sha256"
+
+      - name: Build prerelease update manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset="$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME"
+          descriptor="$RUNNER_TEMP/linux-prerelease.json"
+          manifest="$RUNNER_TEMP/update-manifest-prerelease.payload.json"
+          jq -n \
+            --arg version "$VERSION" \
+            --argjson build "$BUILD_NUMBER" \
+            --arg notes "$RELEASE_NOTES" \
+            --arg path "$asset" \
+            --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${APPIMAGE_NAME}" \
+            '{version: $version, build: $build, channel: "stable", mandatory: false, notes: $notes, artifacts: [{platform: "linux", architecture: "x64", localPath: $path, url: $url}]}' \
+            > "$descriptor"
+          printf '%s\n' '{"schemaVersion":1,"releases":[]}' > "$manifest"
+          cd source-directory/signer
+          dart pub get
+          dart run bin/build_update_feeds.dart \
+            --release "$descriptor" \
+            --manifest "$manifest" \
+            --appcast "$RUNNER_TEMP/unused-appcast.xml"
+          cp "$manifest" "$RUNNER_TEMP/update-manifest-prerelease.final.json"
+
+      - name: Publish GitHub prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --prerelease \
+              --title "Senpwai Linux prerelease $VERSION+$BUILD_NUMBER" \
+              --notes "$RELEASE_NOTES"
+          fi
+          gh release upload "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Build signed Pages content
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefix website
+          npm run build --prefix website
+          mkdir -p site
+          cp -R website/dist/. site/
+          cd source-directory/signer
+          dart run bin/sign.dart \
+            --input ../source_directory.payload.json \
+            --output ../../site/source-directory.json
+          dart run bin/sign.dart \
+            --input ../../update-manifest/update_manifest.payload.json \
+            --output ../../site/update-manifest.json \
+            --private-key-environment UPDATE_MANIFEST_PRIVATE_KEY
+          dart run bin/sign.dart \
+            --input "$RUNNER_TEMP/update-manifest-prerelease.final.json" \
+            --output ../../site/update-manifest-prerelease.json \
+            --private-key-environment UPDATE_MANIFEST_PRIVATE_KEY
+        env:
+          SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
+          UPDATE_MANIFEST_PRIVATE_KEY: ${{ secrets.UPDATE_MANIFEST_PRIVATE_KEY }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy prerelease update manifest
+        id: deployment
+        uses: actions/deploy-pages@v4
