@@ -19,14 +19,14 @@ on:
         default: "linux-prerelease-3.0.0-30001"
         type: string
       wpe_sdk_tag:
-        description: GitHub prerelease tag containing the WPE SDK archive
+        description: Prerelease tag containing the WPE SDK archive
         required: true
-        default: "wpe-sdk-2.53.3"
+        default: "wpe-sdk-2.50.4"
         type: string
       wpe_sdk_asset:
         description: WPE SDK archive name from that prerelease
         required: true
-        default: "Senpwai-WPE-SDK-2.53.3-linux-x86_64.tar.xz"
+        default: "Senpwai-WPE-SDK-2.50.4-linux-x86_64.tar.xz"
         type: string
       notes:
         description: Release notes shown by the updater
@@ -55,6 +55,7 @@ jobs:
       WPE_SDK_TAG: ${{ inputs.wpe_sdk_tag }}
       RELEASE_NOTES: ${{ inputs.notes }}
       WPE_SDK_NAME: ${{ inputs.wpe_sdk_asset }}
+      WPE_SDK_REPOSITORY: SenZmaKi/wpe-webkit-sdk-prebuilt-binaries
       APPIMAGE_NAME: Senpwai-${{ inputs.version }}-x86_64.AppImage
       PRERELEASE_MANIFEST_URL: https://senzmaki.github.io/Senpwai/update-manifest-prerelease.json
       GH_TOKEN: ${{ github.token }}
@@ -69,7 +70,7 @@ jobs:
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]
           [[ "$RELEASE_TAG" =~ ^linux-prerelease-[0-9]+\.[0-9]+\.[0-9]+-[1-9][0-9]*$ ]]
-          [[ "$WPE_SDK_TAG" =~ ^wpe-sdk-[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$WPE_SDK_TAG" =~ ^wpe-sdk-[0-9]+\.[0-9]+\.[0-9]+(-local)?$ ]]
           [[ "$WPE_SDK_NAME" =~ ^Senpwai-WPE-SDK-[0-9]+\.[0-9]+\.[0-9]+-linux-x86_64\.tar\.xz$ ]]
 
       - name: Set up Flutter
@@ -101,7 +102,7 @@ jobs:
           sdk_dir="$RUNNER_TEMP/wpe-sdk"
           mkdir -p "$sdk_dir"
           gh release download "$WPE_SDK_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
+            --repo "$WPE_SDK_REPOSITORY" \
             --pattern "$WPE_SDK_NAME*" \
             --dir "$sdk_dir"
           cd "$sdk_dir"
