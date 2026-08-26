@@ -68,8 +68,8 @@ class AnilistGraphqlError {
 class AnilistGraphqlException extends AnilistException {
   final List<AnilistGraphqlError> errors;
 
-  AnilistGraphqlException(this.errors, {Object? error})
-    : super(_messageForErrors(errors), error: error);
+  AnilistGraphqlException(this.errors, {super.error})
+    : super(_messageForErrors(errors));
 
   static String _messageForErrors(List<AnilistGraphqlError> errors) {
     if (errors.isEmpty) {
@@ -89,8 +89,8 @@ class AnilistEmptyResponseException extends AnilistException {
 }
 
 class AnilistAuthUrlOpenException extends AnilistException {
-  const AnilistAuthUrlOpenException({Object? error})
-    : super("Failed to open AniList auth URL", error: error);
+  const AnilistAuthUrlOpenException({super.error})
+    : super("Failed to open AniList auth URL");
 }
 
 class AnilistAuthMissingTokenException extends AnilistException {

@@ -178,7 +178,7 @@ class _TrackedAnimeList extends StatelessWidget implements SettingsSearchable {
       physics: const NeverScrollableScrollPhysics(),
       buildDefaultDragHandles: false,
       itemCount: trackedAnime.length,
-      onReorder: (oldIndex, newIndex) =>
+      onReorderItem: (oldIndex, newIndex) =>
           unawaited(notifier.reorder(oldIndex, newIndex)),
       itemBuilder: (context, index) {
         final tracked = trackedAnime[index];

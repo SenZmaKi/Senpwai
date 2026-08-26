@@ -145,7 +145,7 @@ class AnimeListCache {
   bool _isInitialized = false;
   final Dio _dio;
 
-  AnimeListCache({required Dio dio}) : _dio = dio;
+  AnimeListCache({required this._dio});
 
   Future<void> _initializeCache() async {
     final response = await _dio.get("${Constants.baseUrl}/anime/list");

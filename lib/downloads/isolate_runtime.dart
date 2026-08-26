@@ -37,13 +37,12 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   DownloadIsolateRuntime({
     required int initialMaxDownloadBytesPerSecond,
     required int initialMaxActiveHttpDownloads,
-    required String downloadUserAgent,
+    required this._downloadUserAgent,
     required TorrentPreferences initialTorrentSettings,
     required this.appDataRootPath,
     required this.onError,
   }) : _maxDownloadBytesPerSecond = initialMaxDownloadBytesPerSecond,
        _maxActiveHttpDownloads = initialMaxActiveHttpDownloads,
-       _downloadUserAgent = downloadUserAgent,
        _torrentSettings = initialTorrentSettings {
     unawaited(_start().catchError((_) {}));
   }

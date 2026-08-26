@@ -1399,7 +1399,6 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   @override
   void reorder(int oldIndex, int newIndex) {
     final items = [...state.items];
-    if (oldIndex < newIndex) newIndex -= 1;
     final item = items.removeAt(oldIndex);
     items.insert(newIndex, item);
     state = state.copyWith(items: items);
@@ -1409,7 +1408,6 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   void reorderBatch(int oldIndex, int newIndex) {
     final batches = [...state.batches];
     if (oldIndex < 0 || oldIndex >= batches.length) return;
-    if (oldIndex < newIndex) newIndex -= 1;
     final clamped = newIndex.clamp(0, batches.length - 1);
     final batch = batches.removeAt(oldIndex);
     batches.insert(clamped, batch);

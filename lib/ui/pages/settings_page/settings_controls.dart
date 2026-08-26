@@ -136,7 +136,7 @@ class LimitSettingControl extends StatelessWidget {
             child: SizeTransition(
               sizeFactor: animation,
               axis: Axis.horizontal,
-              axisAlignment: -1.0,
+              alignment: Alignment.topLeft,
               child: child,
             ),
           ),

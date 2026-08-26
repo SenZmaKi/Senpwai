@@ -20,7 +20,7 @@ class SecureTokenStore {
   final void Function(AppSettings)? _writeSettings;
 
   SecureTokenStore({
-    FlutterSecureStorage storage = const FlutterSecureStorage(
+    this._storage = const FlutterSecureStorage(
       aOptions: AndroidOptions(
         resetOnError: true,
         preferencesKeyPrefix: 'senpwai_',
@@ -38,13 +38,10 @@ class SecureTokenStore {
         usesDataProtectionKeychain: false,
       ),
     ),
-    AppSettingsRepository? settingsRepository,
-    AppSettings Function()? readSettings,
-    void Function(AppSettings)? writeSettings,
-  }) : _storage = storage,
-       _settingsRepository = settingsRepository,
-       _readSettings = readSettings,
-       _writeSettings = writeSettings;
+    this._settingsRepository,
+    this._readSettings,
+    this._writeSettings,
+  });
 
   bool get _usesSettings => kDebugMode;
 

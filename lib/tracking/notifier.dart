@@ -68,7 +68,6 @@ class TrackingNotifier extends Notifier<TrackingState> {
 
   Future<void> reorder(int oldIndex, int newIndex) async {
     final next = [...state.trackedAnime];
-    if (newIndex > oldIndex) newIndex -= 1;
     final item = next.removeAt(oldIndex);
     next.insert(newIndex, item);
     await _commit(next);

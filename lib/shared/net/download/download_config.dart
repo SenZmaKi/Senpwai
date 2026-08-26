@@ -7,8 +7,7 @@ class DownloadConfig {
     _maxBytesPerSecond = maxBytesPerSecond;
   }
 
-  DownloadConfig({required double maxBytesPerSecond})
-    : _maxBytesPerSecond = maxBytesPerSecond;
+  DownloadConfig({required this._maxBytesPerSecond});
 
   static DownloadConfig? _instance;
 

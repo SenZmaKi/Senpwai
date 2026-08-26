@@ -44,13 +44,12 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
   AndroidForegroundDownloadRuntime({
     required int initialMaxDownloadBytesPerSecond,
     required int initialMaxActiveHttpDownloads,
-    required String downloadUserAgent,
+    required this._downloadUserAgent,
     required TorrentPreferences initialTorrentSettings,
     required NotificationPreferences initialNotificationSettings,
     required this.onError,
   }) : _maxDownloadBytesPerSecond = initialMaxDownloadBytesPerSecond,
        _maxActiveHttpDownloads = initialMaxActiveHttpDownloads,
-       _downloadUserAgent = downloadUserAgent,
        _torrentSettings = initialTorrentSettings,
        _notificationSettings = initialNotificationSettings {
     if (Platform.isAndroid) {

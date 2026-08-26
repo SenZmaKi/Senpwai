@@ -40,9 +40,8 @@ class SourceSettingsSection extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               buildDefaultDragHandles: false,
               itemCount: sources.priority.length,
-              onReorder: (oldIndex, newIndex) {
+              onReorderItem: (oldIndex, newIndex) {
                 final next = [...sources.priority];
-                if (newIndex > oldIndex) newIndex -= 1;
                 final source = next.removeAt(oldIndex);
                 next.insert(newIndex, source);
                 unawaited(notifier.setSourcePriority(next));

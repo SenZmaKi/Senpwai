@@ -1,0 +1,177 @@
+name: Build WPE WebKit SDK
+
+on:
+  workflow_dispatch:
+    inputs:
+      webkit_version:
+        description: WPE WebKit release to build
+        required: true
+        default: "2.53.3"
+        type: string
+      libwpe_version:
+        description: libwpe release compatible with the selected WPE WebKit release
+        required: true
+        default: "1.16.3"
+        type: string
+      release_tag:
+        description: Prerelease tag that will hold the reusable SDK asset
+        required: true
+        default: "wpe-sdk-2.53.3"
+        type: string
+      build_jobs:
+        description: Parallel compile jobs (keep this low; each WebKit process uses substantial memory)
+        required: true
+        default: "2"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-wpe-sdk-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build WPE WebKit ${{ inputs.webkit_version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      WEBKIT_VERSION: ${{ inputs.webkit_version }}
+      LIBWPE_VERSION: ${{ inputs.libwpe_version }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      BUILD_JOBS: ${{ inputs.build_jobs }}
+      SDK_NAME: Senpwai-WPE-SDK-${{ inputs.webkit_version }}-linux-x86_64.tar.xz
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Validate manual inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$WEBKIT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$LIBWPE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$RELEASE_TAG" =~ ^wpe-sdk-[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$BUILD_JOBS" =~ ^[1-9][0-9]*$ ]]
+          (( BUILD_JOBS <= 4 )) || {
+            echo "build_jobs must be at most 4 to stay within GitHub-hosted runner memory" >&2
+            exit 64
+          }
+
+      - name: Install WPE WebKit build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            bison build-essential cmake flex gperf meson ninja-build pkg-config \
+            python3 ruby ruby-dev \
+            libdrm-dev libegl1-mesa-dev libgbm-dev libgl1-mesa-dev \
+            libglib2.0-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libgcrypt20-dev libharfbuzz-dev libhyphen-dev libicu-dev \
+            libjpeg-dev liblcms2-dev libopenjp2-7-dev libpng-dev libpsl-dev \
+            libsecret-1-dev libsoup-3.0-dev libsqlite3-dev libssl-dev \
+            libtasn1-6-dev libunwind-dev libwayland-dev libwebp-dev \
+            libxml2-dev libxkbcommon-dev libxslt1-dev libzstd-dev \
+            wayland-protocols
+
+      - name: Download source releases
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_dir="$RUNNER_TEMP/wpe-source"
+          mkdir -p "$source_dir"
+          curl --fail --location --retry 4 --retry-all-errors \
+            "https://wpewebkit.org/releases/libwpe-${LIBWPE_VERSION}.tar.xz" \
+            --output "$source_dir/libwpe.tar.xz"
+          curl --fail --location --retry 4 --retry-all-errors \
+            "https://wpewebkit.org/releases/wpewebkit-${WEBKIT_VERSION}.tar.xz" \
+            --output "$source_dir/wpewebkit.tar.xz"
+          tar -xJf "$source_dir/libwpe.tar.xz" -C "$source_dir"
+          tar -xJf "$source_dir/wpewebkit.tar.xz" -C "$source_dir"
+
+      - name: Build and install libwpe
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_dir="$RUNNER_TEMP/wpe-source"
+          cd "$source_dir/libwpe-${LIBWPE_VERSION}"
+          meson setup build --buildtype release --prefix /usr/local
+          meson compile -C build -j "$BUILD_JOBS"
+          sudo meson install -C build
+          sudo ldconfig
+          pkg-config --modversion wpe-1.0
+
+      - name: Build and install WPE WebKit
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_dir="$RUNNER_TEMP/wpe-source"
+          cd "$source_dir/wpewebkit-${WEBKIT_VERSION}"
+          cmake -S . -B WebKitBuild/WPE -G Ninja \
+            -DPORT=WPE \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DENABLE_WPE_PLATFORM=ON \
+            -DENABLE_WPE_PLATFORM_HEADLESS=ON \
+            -DENABLE_WPE_PLATFORM_DRM=ON \
+            -DENABLE_WPE_PLATFORM_WAYLAND=ON \
+            -DUSE_GBM=ON \
+            -DUSE_LIBDRM=ON
+          cmake --build WebKitBuild/WPE --parallel "$BUILD_JOBS"
+          sudo cmake --install WebKitBuild/WPE
+          sudo ldconfig
+          test "$(pkg-config --modversion wpe-webkit-2.0)" = "$WEBKIT_VERSION"
+
+      - name: Package the reusable SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_root="$RUNNER_TEMP/sdk-root"
+          release_dir="$GITHUB_WORKSPACE/release-assets"
+          mkdir -p "$sdk_root/usr/local/include" "$sdk_root/usr/local/share" "$release_dir"
+
+          cp -a /usr/local/include/wpe-1.0 /usr/local/include/wpe-webkit-2.0 "$sdk_root/usr/local/include/"
+          cp -a /usr/local/share/wpe-webkit-2.0 "$sdk_root/usr/local/share/"
+          while IFS= read -r -d '' file; do
+            relative="${file#/usr/local/}"
+            mkdir -p "$sdk_root/usr/local/$(dirname "$relative")"
+            cp -a "$file" "$sdk_root/usr/local/$relative"
+          done < <(
+            find /usr/local/lib \( -type f -o -type l \) \
+              \( -name 'libWPEWebKit*' -o -name 'libwpe*' -o -name 'wpe*.pc' \) \
+              -print0
+          )
+
+          tar -C "$sdk_root" -cJf "$release_dir/$SDK_NAME" usr
+          (cd "$release_dir" && sha256sum "$SDK_NAME" > "$SDK_NAME.sha256")
+          jq -n \
+            --arg webkitVersion "$WEBKIT_VERSION" \
+            --arg libwpeVersion "$LIBWPE_VERSION" \
+            --arg architecture "x86_64" \
+            --arg platform "ubuntu-24.04" \
+            --arg configureFlags "PORT=WPE ENABLE_WPE_PLATFORM ENABLE_WPE_PLATFORM_HEADLESS ENABLE_WPE_PLATFORM_DRM ENABLE_WPE_PLATFORM_WAYLAND USE_GBM USE_LIBDRM" \
+            '{webkitVersion: $webkitVersion, libwpeVersion: $libwpeVersion, architecture: $architecture, platform: $platform, installPrefix: "/usr/local", configureFlags: $configureFlags}' \
+            > "$release_dir/$SDK_NAME.metadata.json"
+          tar -tJf "$release_dir/$SDK_NAME" | grep -qx 'usr/local/lib/pkgconfig/wpe-webkit-2.0.pc'
+          tar -tJf "$release_dir/$SDK_NAME" | grep -q '/libWPEWebKit-2.0\.so'
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wpe-sdk-${{ inputs.webkit_version }}-linux-x86_64
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish SDK prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --prerelease \
+              --title "WPE WebKit SDK $WEBKIT_VERSION" \
+              --notes "Reusable Linux x86_64 build of WPE WebKit $WEBKIT_VERSION and libwpe $LIBWPE_VERSION. Extract at / before building Senpwai."
+          fi
+          gh release upload "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber

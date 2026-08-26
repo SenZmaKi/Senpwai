@@ -54,10 +54,10 @@ class CfBypassInterceptor extends Interceptor {
     required this.dio,
     required this.cookieJar,
     required this.sessionStore,
-    required String? networkKey,
+    required this._networkKey,
     required this.egressResolver,
     required Map<String, CfBypassHostSession> initialSessions,
-  }) : _networkKey = networkKey {
+  }) {
     for (final entry in initialSessions.entries) {
       _bypassedHosts.add(entry.key);
       final userAgent = entry.value.userAgent;
