@@ -100,7 +100,8 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            file libgtk-3-dev libsecret-1-dev libsoup-3.0-dev libwayland-dev pkg-config
+            file libayatana-appindicator3-dev libgtk-3-dev libsecret-1-dev \
+            libsoup-3.0-dev libwayland-dev pkg-config
 
       - name: Install the pinned WPE SDK
         shell: bash
