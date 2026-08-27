@@ -175,6 +175,8 @@ jobs:
           sha256sum "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME" > "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME.sha256"
 
       - name: Build prerelease update manifest
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
