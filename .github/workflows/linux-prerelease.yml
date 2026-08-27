@@ -52,12 +52,14 @@ jobs:
         include:
           - runner: ubuntu-24.04
             display_architecture: x86_64
+            flutter_from_source: false
             flutter_architecture: x64
             wpe_architecture: x86_64
             appimage_architecture: x86_64
             manifest_architecture: x64
           - runner: ubuntu-24.04-arm
             display_architecture: aarch64
+            flutter_from_source: true
             flutter_architecture: arm64
             wpe_architecture: aarch64
             appimage_architecture: aarch64
@@ -89,11 +91,22 @@ jobs:
           [[ "$WPE_SDK_TAG" =~ ^wpe-sdk-[0-9]+\.[0-9]+\.[0-9]+$ ]]
 
       - name: Set up Flutter
+        if: ${{ !matrix.flutter_from_source }}
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version: 3.47.1
           cache: true
+
+      - name: Set up Flutter from source
+        if: ${{ matrix.flutter_from_source }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter_root="$RUNNER_TEMP/flutter"
+          git clone --depth 1 --branch 3.47.1 https://github.com/flutter/flutter.git "$flutter_root"
+          echo "$flutter_root/bin" >> "$GITHUB_PATH"
+          "$flutter_root/bin/flutter" --version
 
       - name: Install Linux packaging dependencies
         shell: bash
