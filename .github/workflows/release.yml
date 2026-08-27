@@ -196,9 +196,172 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  publish:
-    name: Publish GitHub release
-    needs: [prepare, build-macos]
+  build-linux:
+    name: Build ${{ matrix.display_architecture }} Linux AppImage
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            display_architecture: x86_64
+            flutter_from_source: false
+            flutter_architecture: x64
+            wpe_architecture: x86_64
+            appimage_architecture: x86_64
+          - runner: ubuntu-24.04-arm
+            display_architecture: aarch64
+            flutter_from_source: true
+            flutter_architecture: arm64
+            wpe_architecture: aarch64
+            appimage_architecture: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      WPE_VERSION: "2.50.4"
+      WPE_RELEASE_TAG: wpe-sdk-2.50.4
+      WPE_RELEASE_REPOSITORY: SenZmaKi/wpe-webkit-sdk-prebuilt-binaries
+      FLUTTER_ARCHITECTURE: ${{ matrix.flutter_architecture }}
+      WPE_ARCHITECTURE: ${{ matrix.wpe_architecture }}
+      APPIMAGE_ARCHITECTURE: ${{ matrix.appimage_architecture }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        if: ${{ !matrix.flutter_from_source }}
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - name: Set up Flutter from source
+        if: ${{ matrix.flutter_from_source }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter_root="$RUNNER_TEMP/flutter"
+          git clone --depth 1 --branch 3.47.1 https://github.com/flutter/flutter.git "$flutter_root"
+          echo "$flutter_root/bin" >> "$GITHUB_PATH"
+          "$flutter_root/bin/flutter" --version
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            file libayatana-appindicator3-dev libgtk-3-dev libsecret-1-dev \
+            libsoup-3.0-dev libwayland-dev pkg-config
+
+      - name: Install pinned WPE SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_name="Senpwai-WPE-SDK-${WPE_VERSION}-linux-${WPE_ARCHITECTURE}.tar.xz"
+          sdk_dir="$RUNNER_TEMP/wpe-sdk"
+          mkdir -p "$sdk_dir"
+          gh release download "$WPE_RELEASE_TAG" \
+            --repo "$WPE_RELEASE_REPOSITORY" \
+            --pattern "$sdk_name*" \
+            --dir "$sdk_dir"
+          (cd "$sdk_dir" && sha256sum --check "$sdk_name.sha256")
+          sudo tar -xJf "$sdk_dir/$sdk_name" -C /
+          sudo ldconfig
+          test "$(pkg-config --modversion wpe-webkit-2.0)" = "$WPE_VERSION"
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter code
+        run: flutter analyze
+
+      - name: Build Linux release bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build linux --release
+
+      - name: Package AppImage
+        shell: bash
+        run: |
+          set -euo pipefail
+          appimage_name="Senpwai-${VERSION}-${APPIMAGE_ARCHITECTURE}.AppImage"
+          runtime_name="Senpwai-WPE-Runtime-${WPE_VERSION}-linux-${WPE_ARCHITECTURE}.tar.xz"
+          bundle_dir="build/linux/${FLUTTER_ARCHITECTURE}/release/bundle"
+          package_dir="$RUNNER_TEMP/appimage"
+          app_dir="$package_dir/AppDir"
+          runtime_dir="$RUNNER_TEMP/wpe-runtime"
+          appimage_runtime="$package_dir/runtime-${APPIMAGE_ARCHITECTURE}"
+          tool="$package_dir/appimagetool-${APPIMAGE_ARCHITECTURE}.AppImage"
+          release_dir="build/release/linux"
+
+          test -d "$bundle_dir"
+          jq -e \
+            --arg version "$VERSION" \
+            --arg build "$BUILD_NUMBER" \
+            '.version == $version and .build_number == $build' \
+            "$bundle_dir/data/flutter_assets/version.json"
+          mkdir -p "$app_dir/usr/bin" "$runtime_dir/root" "$release_dir"
+          cp -a "$bundle_dir/." "$app_dir/usr/bin/"
+          dart_jni="$app_dir/usr/bin/lib/libdartjni.so"
+          if test -e "$dart_jni" || test -L "$dart_jni"; then
+            unlink "$dart_jni"
+          fi
+
+          gh release download "$WPE_RELEASE_TAG" \
+            --repo "$WPE_RELEASE_REPOSITORY" \
+            --pattern "$runtime_name*" \
+            --dir "$runtime_dir"
+          (cd "$runtime_dir" && sha256sum --check "$runtime_name.sha256")
+          tar -xJf "$runtime_dir/$runtime_name" -C "$runtime_dir/root"
+          test -f "$runtime_dir/root/usr/local/lib/wpe-webkit-2.0/injected-bundle/libWPEInjectedBundle.so"
+          mkdir -p "$app_dir/usr/bin/lib" "$app_dir/usr/libexec" "$app_dir/usr/share"
+          cp -a "$runtime_dir/root/usr/local/lib/." "$app_dir/usr/bin/lib/"
+          cp -a "$runtime_dir/root/usr/local/libexec/." "$app_dir/usr/libexec/"
+          cp -a "$runtime_dir/root/usr/local/share/." "$app_dir/usr/share/"
+          cp linux/com.senpwai.app.desktop "$app_dir/com.senpwai.app.desktop"
+          cp assets/images/senpwai-icon.png "$app_dir/com.senpwai.app.png"
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'export LD_LIBRARY_PATH="$APPDIR/usr/bin/lib:${LD_LIBRARY_PATH:-}"' \
+            'export WEBKIT_EXEC_PATH="$APPDIR/usr/libexec/wpe-webkit-2.0"' \
+            'export WEBKIT_INJECTED_BUNDLE_PATH="$APPDIR/usr/bin/lib/wpe-webkit-2.0/injected-bundle"' \
+            'export XDG_DATA_DIRS="$APPDIR/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"' \
+            'exec "$APPDIR/usr/bin/senpwai" "$@"' \
+            > "$app_dir/AppRun"
+          chmod 755 "$app_dir/AppRun"
+
+          curl --fail --location --retry 4 --retry-all-errors \
+            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${APPIMAGE_ARCHITECTURE}.AppImage" \
+            --output "$tool"
+          chmod 755 "$tool"
+          curl --fail --location --retry 4 --retry-all-errors \
+            "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-${APPIMAGE_ARCHITECTURE}" \
+            --output "$appimage_runtime"
+          chmod 755 "$appimage_runtime"
+          ARCH="$APPIMAGE_ARCHITECTURE" APPIMAGE_EXTRACT_AND_RUN=1 \
+            "$tool" --runtime-file "$appimage_runtime" "$app_dir" "$release_dir/$appimage_name"
+          chmod 755 "$release_dir/$appimage_name"
+          test ! -e "$app_dir/usr/bin/lib/libdartjni.so"
+          file "$release_dir/$appimage_name" | grep -q 'ELF 64-bit'
+          (cd "$release_dir" && sha256sum "$appimage_name" > "$appimage_name.sha256")
+
+      - name: Upload Linux release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-${{ matrix.appimage_architecture }}
+          path: build/release/linux/
+          if-no-files-found: error
+          retention-days: 7
+
+  stage-release:
+    name: Stage draft GitHub release
+    needs: [prepare, build-macos, build-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -234,17 +397,141 @@ jobs:
               --draft \
               --generate-notes \
               --title "Senpwai $VERSION" \
-              --notes "The macOS build is ad-hoc signed and is not notarized. First-time installation requires the documented macOS Gatekeeper override."
+              --notes "Linux AppImages are available for x86_64 and aarch64. The macOS build is ad-hoc signed and is not notarized; first-time installation requires the documented macOS Gatekeeper override."
           fi
 
           gh release upload "$RELEASE_TAG" release-assets/* \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
 
-      - name: Publish release and update the stable feed
+  deploy-update-feed:
+    name: Deploy production update feed
+    needs: [prepare, stage-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Download Linux release assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-linux-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Build production update manifest
         shell: bash
         run: |
           set -euo pipefail
+          descriptor="$RUNNER_TEMP/linux-release.json"
+          manifest="$RUNNER_TEMP/update-manifest.payload.json"
+          artifacts='[]'
+          for mapping in 'x86_64:x64' 'aarch64:arm64'; do
+            appimage_architecture="${mapping%%:*}"
+            manifest_architecture="${mapping##*:}"
+            appimage_name="Senpwai-${VERSION}-${appimage_architecture}.AppImage"
+            asset="${GITHUB_WORKSPACE}/release-assets/${appimage_name}"
+            test -f "$asset"
+            (
+              cd "$(dirname "$asset")"
+              sha256sum --check "${appimage_name}.sha256"
+            )
+            artifacts="$(jq \
+              --arg platform linux \
+              --arg architecture "$manifest_architecture" \
+              --arg path "$asset" \
+              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${appimage_name}" \
+              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
+              <<<"$artifacts")"
+          done
+          jq -n \
+            --arg version "$VERSION" \
+            --argjson build "$BUILD_NUMBER" \
+            --arg notes "Senpwai $VERSION" \
+            --argjson artifacts "$artifacts" \
+            '{version: $version, build: $build, channel: "stable", mandatory: false, notes: $notes, artifacts: $artifacts}' \
+            > "$descriptor"
+          cd source-directory/signer
+          dart pub get
+          dart run bin/build_update_feeds.dart \
+            --release "$descriptor" \
+            --manifest ../../update-manifest/update_manifest.payload.json \
+            --appcast "$RUNNER_TEMP/unused-appcast.xml"
+          cp ../../update-manifest/update_manifest.payload.json "$manifest"
+
+      - name: Build production Pages content
+        shell: bash
+        env:
+          SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
+          UPDATE_MANIFEST_PRIVATE_KEY: ${{ secrets.UPDATE_MANIFEST_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          npm ci --prefix website
+          npm run astro --prefix website -- check
+          npm run --prefix website build
+          mkdir -p site
+          cp -R website/dist/. site/
+          cd source-directory/signer
+          dart run bin/sign.dart \
+            --input ../source_directory.payload.json \
+            --output ../../site/source-directory.json
+          dart run bin/sign.dart \
+            --input "$RUNNER_TEMP/update-manifest.payload.json" \
+            --output ../../site/update-manifest.json \
+            --private-key-environment UPDATE_MANIFEST_PRIVATE_KEY
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy production update manifest
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  publish:
+    name: Publish GitHub release
+    needs: [prepare, deploy-update-feed]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - name: Publish completed release
+        shell: bash
+        run: |
+          set -euo pipefail
+          is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          test "$is_draft" = "true"
           gh release edit "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --draft=false \
@@ -256,5 +543,5 @@ jobs:
           {
             echo "## Senpwai $VERSION"
             echo
-            echo "Published $RELEASE_TAG with the macOS installer, Sparkle archive, signed appcast, and checksums."
+            echo "Published $RELEASE_TAG with Linux x86_64/aarch64 AppImages, the macOS installer, Sparkle archive, signed appcast, and checksums."
           } >> "$GITHUB_STEP_SUMMARY"
