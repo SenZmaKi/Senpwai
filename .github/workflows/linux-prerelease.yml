@@ -224,6 +224,11 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
 
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
       - name: Download AppImage artifacts
         uses: actions/download-artifact@v4
         with:
