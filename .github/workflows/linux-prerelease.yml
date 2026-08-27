@@ -172,7 +172,7 @@ jobs:
           chmod 755 "$tool"
           ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$tool" "$app_dir" "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME"
           file "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME" | grep -q 'ELF 64-bit'
-          sha256sum "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME" > "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME.sha256"
+          (cd "$GITHUB_WORKSPACE/release-assets" && sha256sum "$APPIMAGE_NAME" > "$APPIMAGE_NAME.sha256")
 
       - name: Build prerelease update manifest
         env:
