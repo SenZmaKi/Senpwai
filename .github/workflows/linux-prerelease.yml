@@ -175,6 +175,7 @@ jobs:
             --dir "$runtime_dir"
           (cd "$runtime_dir" && sha256sum --check "$runtime_name.sha256")
           tar -xJf "$runtime_dir/$runtime_name" -C "$runtime_dir/root"
+          test -f "$runtime_dir/root/usr/local/lib/wpe-webkit-2.0/injected-bundle/libWPEInjectedBundle.so"
           mkdir -p "$app_dir/usr/bin/lib" "$app_dir/usr/libexec" "$app_dir/usr/share"
           cp -a "$runtime_dir/root/usr/local/lib/." "$app_dir/usr/bin/lib/"
           cp -a "$runtime_dir/root/usr/local/libexec/." "$app_dir/usr/libexec/"
@@ -185,6 +186,7 @@ jobs:
             '#!/bin/sh' \
             'export LD_LIBRARY_PATH="$APPDIR/usr/bin/lib:${LD_LIBRARY_PATH:-}"' \
             'export WEBKIT_EXEC_PATH="$APPDIR/usr/libexec/wpe-webkit-2.0"' \
+            'export WEBKIT_INJECTED_BUNDLE_PATH="$APPDIR/usr/bin/lib/wpe-webkit-2.0/injected-bundle"' \
             'export XDG_DATA_DIRS="$APPDIR/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"' \
             'exec "$APPDIR/usr/bin/senpwai" "$@"' \
             > "$app_dir/AppRun"
