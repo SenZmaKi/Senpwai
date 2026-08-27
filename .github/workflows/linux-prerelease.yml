@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: SemVer version embedded in the test AppImage
+        description: SemVer version embedded in the test AppImages
         required: true
         default: "3.0.0"
         type: string
@@ -14,29 +14,24 @@ on:
         default: "30001"
         type: string
       release_tag:
-        description: GitHub prerelease tag for this AppImage
+        description: GitHub prerelease tag receiving both AppImages
         required: true
         default: "linux-prerelease-3.0.0-30001"
         type: string
+      wpe_version:
+        description: WPE WebKit SDK/runtime version
+        required: true
+        default: "2.50.4"
+        type: string
       wpe_sdk_tag:
-        description: Prerelease tag containing the WPE SDK archive
+        description: Prerelease tag containing the matching WPE assets
         required: true
         default: "wpe-sdk-2.50.4"
-        type: string
-      wpe_sdk_asset:
-        description: WPE SDK archive name from that prerelease
-        required: true
-        default: "Senpwai-WPE-SDK-2.50.4-linux-x86_64.tar.xz"
-        type: string
-      wpe_runtime_asset:
-        description: Matching WPE runtime archive bundled into the AppImage
-        required: true
-        default: "Senpwai-WPE-Runtime-2.50.4-linux-x86_64.tar.xz"
         type: string
       notes:
         description: Release notes shown by the updater
         required: true
-        default: "Linux prerelease for updater testing."
+        default: "Linux prerelease for AppImage and updater testing."
         type: string
 
 permissions:
@@ -45,24 +40,39 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: linux-prerelease-${{ inputs.release_tag }}
   cancel-in-progress: false
 
 jobs:
-  build-and-publish:
-    name: Build Linux prerelease
-    runs-on: ubuntu-24.04
+  build:
+    name: Build ${{ matrix.display_architecture }} AppImage
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            display_architecture: x86_64
+            flutter_architecture: x64
+            wpe_architecture: x86_64
+            appimage_architecture: x86_64
+            manifest_architecture: x64
+          - runner: ubuntu-24.04-arm
+            display_architecture: aarch64
+            flutter_architecture: arm64
+            wpe_architecture: aarch64
+            appimage_architecture: aarch64
+            manifest_architecture: arm64
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     env:
       VERSION: ${{ inputs.version }}
       BUILD_NUMBER: ${{ inputs.build_number }}
-      RELEASE_TAG: ${{ inputs.release_tag }}
+      WPE_VERSION: ${{ inputs.wpe_version }}
       WPE_SDK_TAG: ${{ inputs.wpe_sdk_tag }}
-      RELEASE_NOTES: ${{ inputs.notes }}
-      WPE_SDK_NAME: ${{ inputs.wpe_sdk_asset }}
-      WPE_RUNTIME_NAME: ${{ inputs.wpe_runtime_asset }}
       WPE_SDK_REPOSITORY: SenZmaKi/wpe-webkit-sdk-prebuilt-binaries
-      APPIMAGE_NAME: Senpwai-${{ inputs.version }}-x86_64.AppImage
+      FLUTTER_ARCHITECTURE: ${{ matrix.flutter_architecture }}
+      WPE_ARCHITECTURE: ${{ matrix.wpe_architecture }}
+      APPIMAGE_ARCHITECTURE: ${{ matrix.appimage_architecture }}
       PRERELEASE_MANIFEST_URL: https://senzmaki.github.io/Senpwai/update-manifest-prerelease.json
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -75,10 +85,8 @@ jobs:
           set -euo pipefail
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]
-          [[ "$RELEASE_TAG" =~ ^linux-prerelease-[0-9]+\.[0-9]+\.[0-9]+-[1-9][0-9]*$ ]]
-          [[ "$WPE_SDK_TAG" =~ ^wpe-sdk-[0-9]+\.[0-9]+\.[0-9]+(-local)?$ ]]
-          [[ "$WPE_SDK_NAME" =~ ^Senpwai-WPE-SDK-[0-9]+\.[0-9]+\.[0-9]+-linux-x86_64\.tar\.xz$ ]]
-          [[ "$WPE_RUNTIME_NAME" =~ ^Senpwai-WPE-Runtime-[0-9]+\.[0-9]+\.[0-9]+-linux-x86_64\.tar\.xz$ ]]
+          [[ "$WPE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$WPE_SDK_TAG" =~ ^wpe-sdk-[0-9]+\.[0-9]+\.[0-9]+$ ]]
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -86,13 +94,6 @@ jobs:
           channel: stable
           flutter-version: 3.47.1
           cache: true
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: website/package-lock.json
 
       - name: Install Linux packaging dependencies
         shell: bash
@@ -107,17 +108,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          sdk_name="Senpwai-WPE-SDK-${WPE_VERSION}-linux-${WPE_ARCHITECTURE}.tar.xz"
           sdk_dir="$RUNNER_TEMP/wpe-sdk"
           mkdir -p "$sdk_dir"
           gh release download "$WPE_SDK_TAG" \
             --repo "$WPE_SDK_REPOSITORY" \
-            --pattern "$WPE_SDK_NAME*" \
+            --pattern "$sdk_name*" \
             --dir "$sdk_dir"
-          cd "$sdk_dir"
-          sha256sum --check "$WPE_SDK_NAME.sha256"
-          sudo tar -xJf "$WPE_SDK_NAME" -C /
+          (cd "$sdk_dir" && sha256sum --check "$sdk_name.sha256")
+          sudo tar -xJf "$sdk_dir/$sdk_name" -C /
           sudo ldconfig
-          test "$(pkg-config --modversion wpe-webkit-2.0)" = "$(jq -r .webkitVersion "$WPE_SDK_NAME.metadata.json")"
+          test "$(pkg-config --modversion wpe-webkit-2.0)" = "$WPE_VERSION"
 
       - name: Install Flutter dependencies
         run: flutter pub get
@@ -139,21 +140,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          appimage_name="Senpwai-${VERSION}-${APPIMAGE_ARCHITECTURE}.AppImage"
+          runtime_name="Senpwai-WPE-Runtime-${WPE_VERSION}-linux-${WPE_ARCHITECTURE}.tar.xz"
+          bundle_dir="build/linux/${FLUTTER_ARCHITECTURE}/release/bundle"
           package_dir="$RUNNER_TEMP/appimage"
           app_dir="$package_dir/AppDir"
           runtime_dir="$RUNNER_TEMP/wpe-runtime"
-          tool="$package_dir/appimagetool-x86_64.AppImage"
-          mkdir -p "$app_dir/usr/bin" "$runtime_dir/root" "$GITHUB_WORKSPACE/release-assets"
-          cp -a build/linux/x64/release/bundle/. "$app_dir/usr/bin/"
+          tool="$package_dir/appimagetool-${APPIMAGE_ARCHITECTURE}.AppImage"
+          release_dir="$GITHUB_WORKSPACE/release-assets"
+          test -d "$bundle_dir"
+          mkdir -p "$app_dir/usr/bin" "$runtime_dir/root" "$release_dir"
+          cp -a "$bundle_dir/." "$app_dir/usr/bin/"
           gh release download "$WPE_SDK_TAG" \
             --repo "$WPE_SDK_REPOSITORY" \
-            --pattern "$WPE_RUNTIME_NAME*" \
+            --pattern "$runtime_name*" \
             --dir "$runtime_dir"
-          (cd "$runtime_dir" && sha256sum --check "$WPE_RUNTIME_NAME.sha256")
-          tar -xJf "$runtime_dir/$WPE_RUNTIME_NAME" -C "$runtime_dir/root"
-          mkdir -p "$app_dir/usr/bin/lib"
+          (cd "$runtime_dir" && sha256sum --check "$runtime_name.sha256")
+          tar -xJf "$runtime_dir/$runtime_name" -C "$runtime_dir/root"
+          mkdir -p "$app_dir/usr/bin/lib" "$app_dir/usr/libexec" "$app_dir/usr/share"
           cp -a "$runtime_dir/root/usr/local/lib/." "$app_dir/usr/bin/lib/"
-          mkdir -p "$app_dir/usr/libexec" "$app_dir/usr/share"
           cp -a "$runtime_dir/root/usr/local/libexec/." "$app_dir/usr/libexec/"
           cp -a "$runtime_dir/root/usr/local/share/." "$app_dir/usr/share/"
           cp linux/com.senpwai.app.desktop "$app_dir/com.senpwai.app.desktop"
@@ -167,29 +172,80 @@ jobs:
             > "$app_dir/AppRun"
           chmod 755 "$app_dir/AppRun"
           curl --fail --location --retry 4 --retry-all-errors \
-            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage \
+            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${APPIMAGE_ARCHITECTURE}.AppImage" \
             --output "$tool"
           chmod 755 "$tool"
-          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$tool" "$app_dir" "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME"
-          file "$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME" | grep -q 'ELF 64-bit'
-          (cd "$GITHUB_WORKSPACE/release-assets" && sha256sum "$APPIMAGE_NAME" > "$APPIMAGE_NAME.sha256")
+          ARCH="$APPIMAGE_ARCHITECTURE" APPIMAGE_EXTRACT_AND_RUN=1 \
+            "$tool" "$app_dir" "$release_dir/$appimage_name"
+          chmod 755 "$release_dir/$appimage_name"
+          file "$release_dir/$appimage_name" | grep -q 'ELF 64-bit'
+          (cd "$release_dir" && sha256sum "$appimage_name" > "$appimage_name.sha256")
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-prerelease-${{ matrix.appimage_architecture }}
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish Linux prerelease
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ inputs.version }}
+      BUILD_NUMBER: ${{ inputs.build_number }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      RELEASE_NOTES: ${{ inputs.notes }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Download AppImage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: linux-prerelease-*
+          path: release-assets
+          merge-multiple: true
 
       - name: Build prerelease update manifest
-        env:
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
-          asset="$GITHUB_WORKSPACE/release-assets/$APPIMAGE_NAME"
           descriptor="$RUNNER_TEMP/linux-prerelease.json"
           manifest="$RUNNER_TEMP/update-manifest-prerelease.payload.json"
+          artifacts='[]'
+          for mapping in 'x86_64:x64' 'aarch64:arm64'; do
+            appimage_architecture="${mapping%%:*}"
+            manifest_architecture="${mapping##*:}"
+            appimage_name="Senpwai-${VERSION}-${appimage_architecture}.AppImage"
+            asset="${GITHUB_WORKSPACE}/release-assets/${appimage_name}"
+            test -f "$asset"
+            sha256sum --check "${asset}.sha256"
+            artifacts="$(jq \
+              --arg platform linux \
+              --arg architecture "$manifest_architecture" \
+              --arg path "$asset" \
+              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${appimage_name}" \
+              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
+              <<<"$artifacts")"
+          done
           jq -n \
             --arg version "$VERSION" \
             --argjson build "$BUILD_NUMBER" \
             --arg notes "$RELEASE_NOTES" \
-            --arg path "$asset" \
-            --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${APPIMAGE_NAME}" \
-            '{version: $version, build: $build, channel: "stable", mandatory: false, notes: $notes, artifacts: [{platform: "linux", architecture: "x64", localPath: $path, url: $url}]}' \
+            --argjson artifacts "$artifacts" \
+            '{version: $version, build: $build, channel: "stable", mandatory: false, notes: $notes, artifacts: $artifacts}' \
             > "$descriptor"
           printf '%s\n' '{"schemaVersion":1,"releases":[]}' > "$manifest"
           cd source-directory/signer
@@ -236,7 +292,6 @@ jobs:
         env:
           SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
           UPDATE_MANIFEST_PRIVATE_KEY: ${{ secrets.UPDATE_MANIFEST_PRIVATE_KEY }}
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

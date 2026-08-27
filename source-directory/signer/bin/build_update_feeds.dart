@@ -21,8 +21,6 @@ Future<void> main(List<String> arguments) async {
     _fail('The release descriptor must contain an artifacts list.');
   }
 
-  final privateKey = _privateKey();
-  final keyPair = await Ed25519().newKeyPairFromSeed(privateKey);
   final artifacts = <Map<String, dynamic>>[];
   Map<String, dynamic>? macArtifact;
   for (final raw in descriptor['artifacts'] as List) {
@@ -48,6 +46,8 @@ Future<void> main(List<String> arguments) async {
     };
     artifacts.add(artifact);
     if (raw['platform'] == 'macos') {
+      final privateKey = _privateKey();
+      final keyPair = await Ed25519().newKeyPairFromSeed(privateKey);
       final signature = await Ed25519().sign(bytes, keyPair: keyPair);
       macArtifact = {
         ...artifact,
