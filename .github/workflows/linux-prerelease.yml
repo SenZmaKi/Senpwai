@@ -159,6 +159,7 @@ jobs:
           package_dir="$RUNNER_TEMP/appimage"
           app_dir="$package_dir/AppDir"
           runtime_dir="$RUNNER_TEMP/wpe-runtime"
+          appimage_runtime="$package_dir/runtime-${APPIMAGE_ARCHITECTURE}"
           tool="$package_dir/appimagetool-${APPIMAGE_ARCHITECTURE}.AppImage"
           release_dir="$GITHUB_WORKSPACE/release-assets"
           test -d "$bundle_dir"
@@ -188,8 +189,12 @@ jobs:
             "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${APPIMAGE_ARCHITECTURE}.AppImage" \
             --output "$tool"
           chmod 755 "$tool"
+          curl --fail --location --retry 4 --retry-all-errors \
+            "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-${APPIMAGE_ARCHITECTURE}" \
+            --output "$appimage_runtime"
+          chmod 755 "$appimage_runtime"
           ARCH="$APPIMAGE_ARCHITECTURE" APPIMAGE_EXTRACT_AND_RUN=1 \
-            "$tool" "$app_dir" "$release_dir/$appimage_name"
+            "$tool" --runtime-file "$appimage_runtime" "$app_dir" "$release_dir/$appimage_name"
           chmod 755 "$release_dir/$appimage_name"
           file "$release_dir/$appimage_name" | grep -q 'ELF 64-bit'
           (cd "$release_dir" && sha256sum "$appimage_name" > "$appimage_name.sha256")
