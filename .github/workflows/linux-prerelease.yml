@@ -244,7 +244,10 @@ jobs:
             appimage_name="Senpwai-${VERSION}-${appimage_architecture}.AppImage"
             asset="${GITHUB_WORKSPACE}/release-assets/${appimage_name}"
             test -f "$asset"
-            sha256sum --check "${asset}.sha256"
+            (
+              cd "$(dirname "$asset")"
+              sha256sum --check "${appimage_name}.sha256"
+            )
             artifacts="$(jq \
               --arg platform linux \
               --arg architecture "$manifest_architecture" \
