@@ -22,7 +22,7 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Match tag to pubspec version
         id: version
@@ -67,7 +67,7 @@ jobs:
       APPCAST_NAME: appcast.xml
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -185,7 +185,7 @@ jobs:
           shasum -a 256 "$ZIP_NAME" "$DMG_NAME" "$APPCAST_NAME" > SHA256SUMS.txt
 
       - name: Upload macOS release assets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-macos
           path: |
@@ -229,7 +229,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Flutter
         if: ${{ !matrix.flutter_from_source }}
@@ -352,7 +352,7 @@ jobs:
           (cd "$release_dir" && sha256sum "$appimage_name" > "$appimage_name.sha256")
 
       - name: Upload Linux release assets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-linux-${{ matrix.appimage_architecture }}
           path: build/release/linux/
@@ -371,10 +371,10 @@ jobs:
       VERSION: ${{ needs.prepare.outputs.version }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Download release assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: release-assets
@@ -421,7 +421,7 @@ jobs:
       RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Dart
         uses: dart-lang/setup-dart@v1
@@ -429,14 +429,14 @@ jobs:
           sdk: stable
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: website/package-lock.json
 
       - name: Download Linux release assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: release-linux-*
           path: release-assets
@@ -504,16 +504,16 @@ jobs:
             --private-key-environment UPDATE_MANIFEST_PRIVATE_KEY
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
       - name: Deploy production update manifest
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   publish:
     name: Publish GitHub release
