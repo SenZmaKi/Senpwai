@@ -165,6 +165,10 @@ jobs:
           test -d "$bundle_dir"
           mkdir -p "$app_dir/usr/bin" "$runtime_dir/root" "$release_dir"
           cp -a "$bundle_dir/." "$app_dir/usr/bin/"
+          dart_jni="$app_dir/usr/bin/lib/libdartjni.so"
+          if test -e "$dart_jni" || test -L "$dart_jni"; then
+            unlink "$dart_jni"
+          fi
           gh release download "$WPE_SDK_TAG" \
             --repo "$WPE_SDK_REPOSITORY" \
             --pattern "$runtime_name*" \
@@ -196,6 +200,7 @@ jobs:
           ARCH="$APPIMAGE_ARCHITECTURE" APPIMAGE_EXTRACT_AND_RUN=1 \
             "$tool" --runtime-file "$appimage_runtime" "$app_dir" "$release_dir/$appimage_name"
           chmod 755 "$release_dir/$appimage_name"
+          test ! -e "$app_dir/usr/bin/lib/libdartjni.so"
           file "$release_dir/$appimage_name" | grep -q 'ELF 64-bit'
           (cd "$release_dir" && sha256sum "$appimage_name" > "$appimage_name.sha256")
 
