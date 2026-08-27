@@ -133,6 +133,13 @@ jobs:
           sudo ldconfig
           test "$(pkg-config --modversion wpe-webkit-2.0)" = "$WPE_VERSION"
 
+      - name: Set Linux application version
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i -E "s/^version: .*/version: ${VERSION}+${BUILD_NUMBER}/" pubspec.yaml
+          grep -Fx "version: ${VERSION}+${BUILD_NUMBER}" pubspec.yaml
+
       - name: Install Flutter dependencies
         run: flutter pub get
 
@@ -163,6 +170,11 @@ jobs:
           tool="$package_dir/appimagetool-${APPIMAGE_ARCHITECTURE}.AppImage"
           release_dir="$GITHUB_WORKSPACE/release-assets"
           test -d "$bundle_dir"
+          jq -e \
+            --arg version "$VERSION" \
+            --arg build "$BUILD_NUMBER" \
+            '.version == $version and .build_number == $build' \
+            "$bundle_dir/data/flutter_assets/version.json"
           mkdir -p "$app_dir/usr/bin" "$runtime_dir/root" "$release_dir"
           cp -a "$bundle_dir/." "$app_dir/usr/bin/"
           dart_jni="$app_dir/usr/bin/lib/libdartjni.so"
