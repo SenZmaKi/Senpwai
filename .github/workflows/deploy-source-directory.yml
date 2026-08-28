@@ -54,6 +54,14 @@ jobs:
           SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
         working-directory: source-directory/signer
       - run: |
+          set -euo pipefail
+          if curl --fail --silent --show-error --location \
+            --proto '=https' --tlsv1.2 \
+            https://senzmaki.github.io/Senpwai/update-manifest.json \
+            --output ../../site/update-manifest.json; then
+            exit 0
+          fi
+
           dart run bin/sign.dart \
             --input ../../update-manifest/update_manifest.payload.json \
             --output ../../site/update-manifest.json \

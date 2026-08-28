@@ -84,7 +84,7 @@ class AboutSettingsSection extends ConsumerWidget {
               icon: Icons.published_with_changes_rounded,
               title: 'Check for Updates',
               subtitle: updateState.phase == UpdatePhase.checking
-                  ? 'Checking GitHub for updates...'
+                  ? 'Checking for updates...'
                   : _updateStatusDescription(updateState),
               keywords: 'check updates new version download upgrade github',
               searchQuery: sq,

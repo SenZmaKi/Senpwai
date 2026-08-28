@@ -1,0 +1,281 @@
+name: Android prerelease
+
+on:
+  push:
+    tags:
+      - "v*.*.*-*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-prerelease-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate prerelease version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)"
+          version="${package_version%%+*}"
+          build_number="${package_version##*+}"
+          expected_tag="v${version}"
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*$ ]]; then
+            echo "Android prereleases must use a SemVer prerelease version." >&2
+            exit 64
+          fi
+          if [[ ! "$build_number" =~ ^[1-9][0-9]*$ ]]; then
+            echo "pubspec build number must be a positive integer" >&2
+            exit 64
+          fi
+          if [[ "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match pubspec version $version" >&2
+            exit 64
+          fi
+
+          {
+            echo "version=$version"
+            echo "build_number=$build_number"
+            echo "tag=$expected_tag"
+          } >> "$GITHUB_OUTPUT"
+
+  build-android:
+    name: Build signed Android APKs
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      SENPWAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.SENPWAI_ANDROID_KEYSTORE_BASE64 }}
+      SENPWAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SENPWAI_ANDROID_KEYSTORE_PASSWORD }}
+      SENPWAI_ANDROID_KEY_ALIAS: ${{ secrets.SENPWAI_ANDROID_KEY_ALIAS }}
+      SENPWAI_ANDROID_KEY_PASSWORD: ${{ secrets.SENPWAI_ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - name: Materialize release keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          for secret_name in \
+            SENPWAI_ANDROID_KEYSTORE_BASE64 \
+            SENPWAI_ANDROID_KEYSTORE_PASSWORD \
+            SENPWAI_ANDROID_KEY_ALIAS \
+            SENPWAI_ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "Missing required Android signing secret: $secret_name" >&2
+              exit 1
+            fi
+          done
+          keystore_path="$RUNNER_TEMP/senpwai-release.keystore"
+          printf '%s' "$SENPWAI_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+          echo "SENPWAI_ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+      - name: Build ABI-specific release APKs
+        run: |
+          flutter build apk --release --split-per-abi \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER"
+      - name: Verify and package APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_dir="build/release/android"
+          mkdir -p "$release_dir"
+          for mapping in \
+            'armeabi-v7a:arm' \
+            'arm64-v8a:arm64' \
+            'x86_64:x64'; do
+            abi="${mapping%%:*}"
+            architecture="${mapping##*:}"
+            source="build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            destination="$release_dir/Senpwai-${VERSION}-${architecture}.apk"
+            test -f "$source"
+            cp "$source" "$destination"
+            "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose "$destination"
+            (
+              cd "$release_dir"
+              sha256sum "$(basename "$destination")" > "$(basename "$destination").sha256"
+            )
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-android
+          path: build/release/android/
+          if-no-files-found: error
+          retention-days: 7
+
+  stage-release:
+    name: Stage Android prerelease
+    needs: [prepare, build-android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-android
+          path: release-assets
+      - name: Create prerelease and upload APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+            if [[ "$is_draft" != "true" ]]; then
+              echo "Published release $RELEASE_TAG already exists; refusing to overwrite it" >&2
+              exit 1
+            fi
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --draft \
+              --prerelease \
+              --generate-notes \
+              --title "Senpwai $VERSION" \
+              --notes "Android prerelease with ABI-specific APKs for arm64, 32-bit ARM, and x86_64."
+          fi
+          gh release upload "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+
+  deploy-update-feed:
+    name: Deploy Android prerelease update feed
+    needs: [prepare, stage-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-android
+          path: release-assets
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Build signed Android update manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          descriptor="$RUNNER_TEMP/android-release.json"
+          manifest="$RUNNER_TEMP/update-manifest.payload.json"
+          artifacts='[]'
+          for architecture in arm arm64 x64; do
+            apk_name="Senpwai-${VERSION}-${architecture}.apk"
+            asset="$GITHUB_WORKSPACE/release-assets/$apk_name"
+            test -f "$asset"
+            (
+              cd "$(dirname "$asset")"
+              sha256sum --check "${apk_name}.sha256"
+            )
+            artifacts="$(jq \
+              --arg platform android \
+              --arg architecture "$architecture" \
+              --arg path "$asset" \
+              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${apk_name}" \
+              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
+              <<<"$artifacts")"
+          done
+          jq -n \
+            --arg version "$VERSION" \
+            --argjson build "$BUILD_NUMBER" \
+            --arg notes "Senpwai $VERSION" \
+            --argjson artifacts "$artifacts" \
+            '{version: $version, build: $build, channel: "stable", mandatory: false, notes: $notes, artifacts: $artifacts}' \
+            > "$descriptor"
+          cp update-manifest/update_manifest.payload.json "$manifest"
+          cd source-directory/signer
+          dart pub get
+          dart run bin/build_update_feeds.dart \
+            --release "$descriptor" \
+            --manifest "$manifest" \
+            --appcast "$RUNNER_TEMP/unused-appcast.xml"
+      - name: Build Pages content
+        shell: bash
+        env:
+          SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
+          UPDATE_MANIFEST_PRIVATE_KEY: ${{ secrets.UPDATE_MANIFEST_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          npm ci --prefix website
+          npm run astro --prefix website -- check
+          npm run --prefix website build
+          mkdir -p site
+          cp -R website/dist/. site/
+          cd source-directory/signer
+          dart run bin/sign.dart \
+            --input ../source_directory.payload.json \
+            --output ../../site/source-directory.json
+          dart run bin/sign.dart \
+            --input "$RUNNER_TEMP/update-manifest.payload.json" \
+            --output ../../site/update-manifest.json \
+            --private-key-environment UPDATE_MANIFEST_PRIVATE_KEY
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v5
+
+  publish:
+    name: Publish Android prerelease
+    needs: [prepare, deploy-update-feed]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - name: Publish prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          test "$is_draft" = "true"
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
+      - name: Add workflow summary
+        shell: bash
+        run: |
+          {
+            echo "## Senpwai $VERSION Android prerelease"
+            echo
+            echo "Published signed APKs for arm64, 32-bit ARM, and x86_64, then deployed the signed update manifest."
+          } >> "$GITHUB_STEP_SUMMARY"
