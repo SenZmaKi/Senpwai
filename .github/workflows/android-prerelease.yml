@@ -164,6 +164,9 @@ jobs:
     name: Deploy Android prerelease update feed
     needs: [prepare, stage-release]
     runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     permissions:
       contents: read
       pages: write
