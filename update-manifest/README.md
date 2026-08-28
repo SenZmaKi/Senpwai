@@ -16,7 +16,8 @@ use separate keys. See [`docs/signing-keys.md`](../docs/signing-keys.md).
 
 Artifact requirements:
 
-- Android: release-signed universal APK (`platform: android`, `architecture: any`).
+- Android: release-signed ABI-specific APK (`android`, with `arm64`, `arm`, or
+  `x64` architecture).
 - Windows: trusted-certificate-signed MSIX (`windows`, currently `x64`).
 - Linux: AppImage (`linux`, architecture matching the runner).
 - macOS: universal arm64/x86_64 ad-hoc-signed ZIP referenced by the appcast and
@@ -67,6 +68,27 @@ The workflow is split into version preparation, platform build, and final
 publication jobs. Add Android, Windows, and Linux build jobs alongside
 `build-macos`, upload their `release-*` artifacts, and make `publish` depend on
 them after each platform's updater has been validated.
+
+## Android prereleases
+
+The `Android prerelease` workflow exercises the same signed-manifest and
+in-app update path without making a public release. Use a prerelease version
+and matching tag, for example `3.0.0-android.1+30000` and
+`v3.0.0-android.1`. It publishes three ABI-specific APKs (`arm64`, `arm`, and
+`x64`) to a GitHub prerelease, then publishes their hashes and explicit
+prerelease asset URLs in the normal signed update manifest.
+
+Before the first run, configure these repository Actions secrets:
+
+- `SENPWAI_ANDROID_KEYSTORE_BASE64`: base64-encoded permanent Android release
+  keystore.
+- `SENPWAI_ANDROID_KEYSTORE_PASSWORD`
+- `SENPWAI_ANDROID_KEY_ALIAS`
+- `SENPWAI_ANDROID_KEY_PASSWORD`
+
+Use the same keystore for every Android prerelease and the later public Android
+release. Android rejects updates signed by a different key, and every new APK
+must have a higher build number (`versionCode`) than the installed APK.
 
 The DMG is the human-facing macOS installer. The ZIP is Sparkle's update
 payload. Both contain the same ad-hoc-signed app, so Gatekeeper approval remains

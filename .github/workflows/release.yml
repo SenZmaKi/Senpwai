@@ -15,6 +15,7 @@ concurrency:
 jobs:
   prepare:
     name: Validate release version
+    if: ${{ !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
