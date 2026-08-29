@@ -1,4 +1,5 @@
 # Features
+- Update downloads are slow and failing when u leave mobile app
 - Cloudflare rate limiting thing
 - Figure out why queueing entire jjk on nyaa shows a single file in download page
 - Publish libraries e.g., cf_bypass, libtorrent_dart, anitomy_dart
