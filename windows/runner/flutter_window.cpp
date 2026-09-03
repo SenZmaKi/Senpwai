@@ -1,6 +1,9 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <windows.h>
+
+#include <flutter/standard_method_codec.h>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -25,6 +28,28 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  update_installer_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(),
+          "senpwai/update_installer",
+          &flutter::StandardMethodCodec::GetInstance());
+  update_installer_channel_->SetMethodCallHandler(
+      [](const flutter::MethodCall<flutter::EncodableValue>& call,
+         std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
+             result) {
+        if (call.method_name() != "registerApplicationRestart") {
+          result->NotImplemented();
+          return;
+        }
+        const HRESULT status = RegisterApplicationRestart(nullptr, 0);
+        if (SUCCEEDED(status)) {
+          result->Success();
+          return;
+        }
+        result->Error("restart_registration_failed",
+                      "Windows could not register Senpwai for restart.",
+                      flutter::EncodableValue(static_cast<int64_t>(status)));
+      });
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   return true;
@@ -32,6 +57,7 @@ bool FlutterWindow::OnCreate() {
 
 void FlutterWindow::OnDestroy() {
   if (flutter_controller_) {
+    update_installer_channel_.reset();
     flutter_controller_ = nullptr;
   }
 

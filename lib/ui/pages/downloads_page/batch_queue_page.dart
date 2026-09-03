@@ -141,7 +141,7 @@ class _ReorderList extends ConsumerWidget {
       padding: EdgeInsets.fromLTRB(pad, 12, pad, 24),
       itemCount: snapshots.length,
       buildDefaultDragHandles: false,
-      onReorder: notifier.reorderBatch,
+      onReorderItem: notifier.reorderBatch,
       proxyDecorator: (child, _, __) => Material(
         elevation: 14,
         shadowColor: theme.colorScheme.primary.withValues(alpha: 0.22),

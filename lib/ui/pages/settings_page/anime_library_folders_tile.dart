@@ -57,7 +57,7 @@ class AnimeLibraryFoldersTile extends StatelessWidget {
                 child: child,
               ),
               itemCount: folders.length,
-              onReorder: _handleReorder,
+              onReorderItem: _handleReorder,
               itemBuilder: (context, index) {
                 final folder = folders[index];
                 return _AnimeLibraryFolderRow(
@@ -95,7 +95,6 @@ class AnimeLibraryFoldersTile extends StatelessWidget {
 
   void _handleReorder(int oldIndex, int newIndex) {
     final reordered = [...folders];
-    if (oldIndex < newIndex) newIndex -= 1;
     final moved = reordered.removeAt(oldIndex);
     reordered.insert(newIndex, moved);
     onReorder(reordered);

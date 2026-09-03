@@ -131,6 +131,14 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setAutomaticallyDownloadUpdates(bool enabled) {
+    return _commit(
+      state.copyWith(
+        updates: state.updates.copyWith(automaticallyDownload: enabled),
+      ),
+    );
+  }
+
   Future<void> setTitleLanguage(TitleLanguagePreference language) {
     return _commit(
       state.copyWith(content: state.content.copyWith(titleLanguage: language)),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
@@ -42,12 +43,17 @@ class DesktopTrayController with TrayListener {
     try {
       trayManager.addListener(this);
       await trayManager.setIcon(_iconPath);
-      await trayManager.setToolTip('Senpwai');
+      if (!Platform.isLinux) {
+        await trayManager.setToolTip('Senpwai');
+      }
       await _setContextMenu(isWindowVisible: await windowManager.isVisible());
       await WindowManager.getInstance().configureCloseHandler(_requestClose);
       _terminationChannel.setMethodCallHandler(_handleTerminationRequest);
       _windowReopenChannel.setMethodCallHandler(_handleWindowReopen);
       _initialized = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_refreshContextMenu());
+      });
     } on Object catch (error, stackTrace) {
       trayManager.removeListener(this);
       _log.severeWithMetadata(
@@ -149,7 +155,7 @@ class DesktopTrayController with TrayListener {
 
   Future<void> _showContextMenu() async {
     try {
-      await _setContextMenu(isWindowVisible: await windowManager.isVisible());
+      await _refreshContextMenu();
       await trayManager.popUpContextMenu();
     } on Object catch (error, stackTrace) {
       _log.severeWithMetadata(
@@ -158,6 +164,12 @@ class DesktopTrayController with TrayListener {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  Future<void> _refreshContextMenu() {
+    return windowManager.isVisible().then(
+      (isWindowVisible) => _setContextMenu(isWindowVisible: isWindowVisible),
+    );
   }
 
   Future<void> _setContextMenu({required bool isWindowVisible}) {

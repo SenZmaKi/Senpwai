@@ -90,7 +90,7 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
     _autoScrollTimer = Timer.periodic(widget.autoScrollInterval, (_) {
       if (_userInteracting || !mounted || _items.isEmpty) return;
       final next = (_currentPage + 1) % _items.length;
-      _pageController.animateToPage(
+      _animateToPage(
         next,
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeInOutCubic,
@@ -105,6 +105,15 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
 
   void _onPageChanged(int page) {
     setState(() => _currentPage = page);
+  }
+
+  void _animateToPage(
+    int page, {
+    required Duration duration,
+    required Curve curve,
+  }) {
+    if (!_pageController.hasClients) return;
+    _pageController.animateToPage(page, duration: duration, curve: curve);
   }
 
   double _carouselHeight(BuildContext context) {
@@ -178,7 +187,7 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
                   cursor: SystemMouseCursors.click,
                   child: GestureDetector(
                     onTap: () {
-                      _pageController.animateToPage(
+                      _animateToPage(
                         i,
                         duration: const Duration(milliseconds: 400),
                         curve: Curves.easeOut,

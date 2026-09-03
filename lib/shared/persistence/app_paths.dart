@@ -21,6 +21,9 @@ class AppPaths {
   final Directory imageCacheMetadataDirectory;
   final File imageCacheMetadataFile;
   final Directory logsDirectory;
+  final Directory updatesDirectory;
+  final File updateStateFile;
+  final File updateManifestFile;
 
   const AppPaths._({
     required this.rootDirectory,
@@ -40,6 +43,9 @@ class AppPaths {
     required this.imageCacheMetadataDirectory,
     required this.imageCacheMetadataFile,
     required this.logsDirectory,
+    required this.updatesDirectory,
+    required this.updateStateFile,
+    required this.updateManifestFile,
   });
 
   static Future<AppPaths> initialize() async {
@@ -72,6 +78,9 @@ class AppPaths {
       path.join(cacheDirectory.path, 'metadata'),
     );
     final logsDirectory = Directory(path.join(rootDirectory.path, 'logs'));
+    final updatesDirectory = Directory(
+      path.join(rootDirectory.path, 'updates'),
+    );
 
     final paths = AppPaths._(
       rootDirectory: rootDirectory,
@@ -105,6 +114,11 @@ class AppPaths {
         path.join(imageCacheMetadataDirectory.path, 'image_cache.json'),
       ),
       logsDirectory: logsDirectory,
+      updatesDirectory: updatesDirectory,
+      updateStateFile: File(path.join(updatesDirectory.path, 'state.json')),
+      updateManifestFile: File(
+        path.join(updatesDirectory.path, 'manifest.json'),
+      ),
     );
 
     await Future.wait([
@@ -118,6 +132,7 @@ class AppPaths {
       imageCacheDirectory.create(recursive: true),
       imageCacheMetadataDirectory.create(recursive: true),
       logsDirectory.create(recursive: true),
+      updatesDirectory.create(recursive: true),
     ]);
 
     return paths;

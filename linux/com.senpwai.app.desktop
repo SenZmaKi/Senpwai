@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Senpwai
+Comment=Download and track anime
+Exec=senpwai %u
+Icon=com.senpwai.app
+Terminal=false
+Categories=AudioVideo;Video;
+MimeType=x-scheme-handler/senpwai;
+StartupWMClass=com.senpwai.app

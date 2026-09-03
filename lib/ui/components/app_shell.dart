@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/ui/components/anime_cover_image.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
+import 'package:senpwai/ui/components/update_navigation_action.dart';
+import 'package:senpwai/updates/updates.dart';
 
 Widget _buildAvatarIcon(AnilistViewer? viewer, bool isAuthLoading) {
   if (isAuthLoading) {
@@ -33,6 +38,7 @@ class AppShell extends StatelessWidget {
   final AnilistViewer? viewer;
   final bool isAuthLoading;
   final VoidCallback onAvatarTap;
+  final Future<void> Function() onUpdateReady;
 
   const AppShell({
     super.key,
@@ -42,6 +48,7 @@ class AppShell extends StatelessWidget {
     this.viewer,
     this.isAuthLoading = false,
     required this.onAvatarTap,
+    required this.onUpdateReady,
   });
 
   static const _destinations = [
@@ -81,6 +88,7 @@ class AppShell extends StatelessWidget {
                 viewer: viewer,
                 isAuthLoading: isAuthLoading,
                 onAvatarTap: onAvatarTap,
+                onUpdateReady: onUpdateReady,
               ),
               VerticalDivider(
                 width: 1,
@@ -94,24 +102,11 @@ class AppShell extends StatelessWidget {
       ),
       bottomNavigationBar: vertical
           ? null
-          : NavigationBar(
-              selectedIndex: currentIndex,
-              onDestinationSelected: onDestinationChanged,
-              destinations: [
-                ..._destinations.map(
-                  (d) => NavigationDestination(
-                    icon: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Icon(d.icon),
-                    ),
-                    selectedIcon: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Icon(d.selectedIcon),
-                    ),
-                    label: d.label,
-                  ),
-                ),
-              ],
+          : _MobileNavigationBar(
+              currentIndex: currentIndex,
+              destinations: _destinations,
+              onDestinationChanged: onDestinationChanged,
+              onUpdateReady: onUpdateReady,
             ),
     );
   }
@@ -135,6 +130,7 @@ class _DesktopRail extends StatelessWidget {
   final AnilistViewer? viewer;
   final bool isAuthLoading;
   final VoidCallback onAvatarTap;
+  final Future<void> Function() onUpdateReady;
 
   const _DesktopRail({
     required this.currentIndex,
@@ -143,6 +139,7 @@ class _DesktopRail extends StatelessWidget {
     this.viewer,
     this.isAuthLoading = false,
     required this.onAvatarTap,
+    required this.onUpdateReady,
   });
 
   @override
@@ -162,6 +159,7 @@ class _DesktopRail extends StatelessWidget {
                 onTap: () => onDestinationChanged(index),
               ),
             const Spacer(),
+            UpdateNavigationAction(onReady: onUpdateReady),
             Tooltip(
               message: viewer == null
                   ? 'Log in to AniList'
@@ -176,6 +174,58 @@ class _DesktopRail extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MobileNavigationBar extends ConsumerWidget {
+  final int currentIndex;
+  final List<_Dest> destinations;
+  final ValueChanged<int> onDestinationChanged;
+  final Future<void> Function() onUpdateReady;
+
+  const _MobileNavigationBar({
+    required this.currentIndex,
+    required this.destinations,
+    required this.onDestinationChanged,
+    required this.onUpdateReady,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final updateState = ref.watch(UpdateController.provider);
+    return NavigationBar(
+      selectedIndex: currentIndex,
+      onDestinationSelected: (index) {
+        if (index < destinations.length) {
+          onDestinationChanged(index);
+        } else {
+          unawaited(handleUpdateAction(ref, updateState, onUpdateReady));
+        }
+      },
+      destinations: [
+        for (final destination in destinations)
+          NavigationDestination(
+            icon: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Icon(destination.icon),
+            ),
+            selectedIcon: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Icon(destination.selectedIcon),
+            ),
+            label: destination.label,
+          ),
+        if (updateState.isVisible)
+          NavigationDestination(
+            tooltip: updateTooltip(updateState),
+            icon: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: UpdateNavigationIndicator(state: updateState),
+            ),
+            label: updateShortLabel(updateState),
+          ),
+      ],
     );
   }
 }

@@ -16,8 +16,8 @@ class FillingBar {
   final _clock = Stopwatch()..start();
 
   FillingBar({
-    required int total,
-    String desc = '',
+    required this._total,
+    this._desc = '',
     this.fill = '█',
     this.space = '.',
     this.width = 40,
@@ -25,9 +25,7 @@ class FillingBar {
     this.percentage = true,
     this.rate = false,
     void Function(String)? writer,
-  }) : _total = total,
-       _desc = desc,
-       _write = writer ?? stdout.write;
+  }) : _write = writer ?? stdout.write;
 
   set total(int total) {
     _total = total;

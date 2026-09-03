@@ -42,7 +42,7 @@ class Download {
   /// so the server returns 200 (and we abort) if the file has changed.
   String? _ifRangeValidator;
 
-  Download({required this.params, required Dio dio}) : _dio = dio;
+  Download({required this.params, required this._dio});
 
   static Future<ResolvedDownloadTarget> probeSingleFile({
     required String url,

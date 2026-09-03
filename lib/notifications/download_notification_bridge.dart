@@ -8,6 +8,7 @@ import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/notifications/app_notification_service.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_formatters.dart';
+import 'package:senpwai/ui/shared/window_manager.dart';
 import 'package:windows_taskbar/windows_taskbar.dart';
 
 class DownloadNotificationBridge extends ConsumerStatefulWidget {
@@ -349,7 +350,7 @@ class _DownloadNotificationBridgeState
     final manager = ref.read(DownloadManagerNotifier.provider.notifier);
     switch (event.kind) {
       case NotificationActionKind.open:
-        widget.onOpenDownloads();
+        unawaited(_openDownloadsFromNotification());
         return;
       case NotificationActionKind.pause:
         if (event.targetId == null) return;
@@ -373,6 +374,12 @@ class _DownloadNotificationBridgeState
           unawaited(manager.cancel(event.targetId!));
         }
     }
+  }
+
+  Future<void> _openDownloadsFromNotification() async {
+    await WindowManager.getInstance().focus();
+    if (!mounted) return;
+    widget.onOpenDownloads();
   }
 
   String _batchProgressBody({

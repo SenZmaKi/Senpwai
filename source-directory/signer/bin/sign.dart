@@ -3,12 +3,15 @@ import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
 
-const _privateKeyEnvironment = 'SOURCE_DIRECTORY_PRIVATE_KEY';
+const _defaultPrivateKeyEnvironment = 'SOURCE_DIRECTORY_PRIVATE_KEY';
 
 Future<void> main(List<String> arguments) async {
   final input = _argument(arguments, '--input');
   final output = _argument(arguments, '--output');
   final privateKeyOutput = _argument(arguments, '--private-key-output');
+  final privateKeyEnvironment =
+      _argument(arguments, '--private-key-environment') ??
+      _defaultPrivateKeyEnvironment;
   final generateKey = arguments.contains('--generate-key');
 
   if (generateKey) {
@@ -26,14 +29,14 @@ Future<void> main(List<String> arguments) async {
   if (input == null || output == null) {
     usage('Both --input and --output are required.');
   }
-  final privateKeyBase64 = Platform.environment[_privateKeyEnvironment];
+  final privateKeyBase64 = Platform.environment[privateKeyEnvironment];
   if (privateKeyBase64 == null || privateKeyBase64.isEmpty) {
-    usage('Set $_privateKeyEnvironment to the base64-encoded private key.');
+    usage('Set $privateKeyEnvironment to the base64-encoded private key.');
   }
 
   final privateKey = base64.decode(privateKeyBase64);
   if (privateKey.length != 32) {
-    usage('$_privateKeyEnvironment must decode to a 32-byte Ed25519 seed.');
+    usage('$privateKeyEnvironment must decode to a 32-byte Ed25519 seed.');
   }
   final payload = await File(input).readAsBytes();
   final keyPair = await Ed25519().newKeyPairFromSeed(privateKey);
@@ -58,7 +61,8 @@ Never usage(String message) {
   stderr.writeln(message);
   stderr.writeln(
     'Usage: dart run bin/sign.dart --input <payload.json> '
-    '--output <source-directory.json>',
+    '--output <signed-envelope.json> '
+    '[--private-key-environment <environment-variable>]',
   );
   exitCode = 64;
   throw ArgumentError(message);

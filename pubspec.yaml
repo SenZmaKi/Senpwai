@@ -16,10 +16,11 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 3.0.0-android.3+30002
 
 environment:
-    sdk: ^3.9.2
+    sdk: ^3.12.0
+    flutter: ">=3.44.0"
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -47,13 +48,8 @@ dependencies:
     app_links: ^6.4.0
     google_fonts: ^6.1.0
     cached_network_image: ^3.3.1
-    anitomy_dart:
-        git:
-            url: https://github.com/SenZmaKi/anitomy_dart
-    libtorrent_dart:
-        git:
-            url: https://github.com/SenZmaKi/libtorrent_dart
-            ref: v0.3.1
+    anitomy_dart: ^1.0.1
+    libtorrent_dart: ^1.0.1
     path: ^1.9.1
     toastification: ^3.0.3
     riverpod: ^3.2.1
@@ -81,9 +77,13 @@ dependencies:
     flutter_foreground_task:
         git:
             url: https://github.com/SenZmaKi/flutter_foreground_task_progress
+            ref: d45cc6313b8626edc7a61f8eb210ef6dd07b6284
     windows_taskbar: ^1.1.2
     dio_http2_adapter: ^2.8.0
     http2: ^2.3.1
+    flutter_svg: ^2.0.17
+    package_info_plus: ^8.3.1
+    pub_semver: ^2.2.0
 
 dev_dependencies:
     flutter_test:
@@ -98,6 +98,17 @@ dev_dependencies:
     # rules and activating additional ones.
     flutter_lints: ^5.0.0
     flutter_launcher_icons: ^0.14.4
+    msix: ^3.18.0
+
+msix_config:
+    display_name: Senpwai
+    publisher_display_name: Senpwai
+    publisher: CN=Senpwai
+    identity_name: SenZmaKi.Senpwai
+    logo_path: assets/images/senpwai-icon.png
+    architecture: x64
+    capabilities: internetClient
+    sign_msix: false
 
 flutter_native_splash:
     color: "#F5F0F1"
@@ -139,6 +150,7 @@ flutter:
 
     assets:
         - assets/images/
+        - assets/images/link_icons/
         - windows/runner/resources/app_icon.ico
 
     # An image asset can refer to one or more resolution-specific "variants", see

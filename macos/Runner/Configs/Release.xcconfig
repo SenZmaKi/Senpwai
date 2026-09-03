@@ -1,6 +1,2 @@
 #include "../../Flutter/Flutter-Release.xcconfig"
 #include "Warnings.xcconfig"
-
-// libtorrent_dart currently distributes an Apple Silicon-only macOS dylib.
-// Do not ask Flutter's native-assets step to create a universal binary from it.
-ARCHS = arm64

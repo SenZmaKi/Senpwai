@@ -5,6 +5,7 @@ import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/tracking/models.dart';
 import 'package:senpwai/tracking/notifier.dart';
+import 'package:senpwai/ui/pages/settings_page/about_settings_section.dart';
 import 'package:senpwai/ui/pages/settings_page/appearance_settings.dart';
 import 'package:senpwai/ui/pages/settings_page/content_download_settings.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_search.dart';
@@ -87,6 +88,11 @@ class SettingsSearchResults extends ConsumerWidget {
             searchQuery: query,
           ),
           StorageSettingsSection(
+            settings: settings,
+            notifier: notifier,
+            searchQuery: query,
+          ),
+          AboutSettingsSection(
             settings: settings,
             notifier: notifier,
             searchQuery: query,
@@ -192,7 +198,7 @@ class SettingsSearchResults extends ConsumerWidget {
       'Image Cache Limit HTTP Cache Age',
       'Clear Image Cache Clear HTTP Cache Clear Cloudflare Sessions',
       'Clear App Cache Sessions',
-      'About Senpwai Version 1.0.0 third party software Licenses open source',
+      'About Senpwai Version 1.0.0 updates releases check for updates social links discord github reddit sponsors support open source licenses bug report feature request',
     ]);
   }
 }

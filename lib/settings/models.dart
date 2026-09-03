@@ -94,7 +94,7 @@ extension AnilistTitleLanguageDisplay on TitleLanguagePreference {
 
 @immutable
 class AppSettings {
-  static const currentSchemaVersion = 1;
+  static const currentSchemaVersion = 2;
 
   final int schemaVersion;
   final AppearancePreferences appearance;
@@ -106,6 +106,7 @@ class AppSettings {
   final StoragePreferences storage;
   final NotificationPreferences notifications;
   final WindowPreferences window;
+  final UpdatePreferences updates;
 
   const AppSettings({
     this.schemaVersion = currentSchemaVersion,
@@ -118,6 +119,7 @@ class AppSettings {
     this.storage = const StoragePreferences(),
     this.notifications = const NotificationPreferences(),
     this.window = const WindowPreferences(),
+    this.updates = const UpdatePreferences(),
   });
 
   factory AppSettings.defaults() => AppSettingsDefaults.settings;
@@ -135,6 +137,7 @@ class AppSettings {
       _mapValue(json['notifications']),
     ),
     window: WindowPreferences.fromJson(_mapValue(json['window'])),
+    updates: UpdatePreferences.fromJson(_mapValue(json['updates'])),
   );
 
   Map<String, dynamic> toJson() => {
@@ -148,6 +151,7 @@ class AppSettings {
     'storage': storage.toJson(),
     'notifications': notifications.toJson(),
     'window': window.toJson(),
+    'updates': updates.toJson(),
   };
 
   String displayTitle(AnilistTitle title) => content.titleLanguage.displayTitle(
@@ -166,6 +170,7 @@ class AppSettings {
     StoragePreferences? storage,
     NotificationPreferences? notifications,
     WindowPreferences? window,
+    UpdatePreferences? updates,
   }) {
     return AppSettings(
       schemaVersion: schemaVersion,
@@ -178,6 +183,7 @@ class AppSettings {
       storage: storage ?? this.storage,
       notifications: notifications ?? this.notifications,
       window: window ?? this.window,
+      updates: updates ?? this.updates,
     );
   }
 }
@@ -879,6 +885,28 @@ class WindowPreferences {
       launchAtStartup: launchAtStartup ?? this.launchAtStartup,
     );
   }
+}
+
+@immutable
+class UpdatePreferences {
+  final bool automaticallyDownload;
+
+  const UpdatePreferences({this.automaticallyDownload = true});
+
+  factory UpdatePreferences.fromJson(Map<String, dynamic> json) =>
+      UpdatePreferences(
+        automaticallyDownload: _boolValue(json['automaticallyDownload'], true),
+      );
+
+  Map<String, dynamic> toJson() => {
+    'automaticallyDownload': automaticallyDownload,
+  };
+
+  UpdatePreferences copyWith({bool? automaticallyDownload}) =>
+      UpdatePreferences(
+        automaticallyDownload:
+            automaticallyDownload ?? this.automaticallyDownload,
+      );
 }
 
 DownloadNotificationStyle _downloadNotificationStyleValue(Object? value) {
