@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/sources/animepahe.dart' as animepahe;
 import 'package:senpwai/sources/shared/matcher/shared.dart';
 
@@ -24,7 +25,9 @@ class AnimepaheMatcher {
     final allMatches = <SourceMatch<animepahe.AnimeResult>>[];
     final seenIds = <int>{};
 
-    final futures = titleCandidates.map((title) async {
+    Future<({String title, List<animepahe.AnimeResult> results})> searchTitle(
+      String title,
+    ) async {
       try {
         final results = await _source.search(
           params: animepahe.SearchParams(term: title),
@@ -55,9 +58,28 @@ class AnimepaheMatcher {
         );
         return (title: title, results: <animepahe.AnimeResult>[]);
       }
-    });
+    }
 
-    final searchResults = await Future.wait(futures);
+    final searchResults =
+        <({String title, List<animepahe.AnimeResult> results})>[];
+    var nextCandidate = 0;
+    while (nextCandidate < titleCandidates.length) {
+      final hasValidatedSession =
+          GlobalDio.cfBypassInterceptor?.hasSessionForHost(
+            animepahe.Constants.paheDomain,
+          ) ==
+          true;
+      final end = hasValidatedSession
+          ? titleCandidates.length
+          : nextCandidate + 1;
+      searchResults.addAll(
+        await Future.wait(
+          titleCandidates.sublist(nextCandidate, end).map(searchTitle),
+        ),
+      );
+      nextCandidate = end;
+    }
+
     for (final (:title, :results) in searchResults) {
       for (final result in results) {
         if (seenIds.contains(result.id)) continue;

@@ -7,6 +7,7 @@ import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/cf_egress_identity.dart';
 import 'package:senpwai/shared/net/net_config.dart';
+import 'package:senpwai/shared/net/interceptors/rate_limit.dart';
 import 'package:senpwai/shared/persistence/cf_bypass_session_store.dart';
 
 final _log = Logger("senpwai.net.interceptors.cf_bypass");
@@ -79,6 +80,8 @@ class CfBypassInterceptor extends Interceptor {
     _networkKey = null;
   }
 
+  bool hasSessionForHost(String host) => _hasBypassSession(host);
+
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (options.extra[skipCfBypassExtraKey] == true) {
@@ -112,6 +115,13 @@ class CfBypassInterceptor extends Interceptor {
     }
     final response = err.response;
     if (response == null) {
+      handler.next(err);
+      return;
+    }
+
+    // Error 1015 is a temporary rate limit, not a challenge the WebView can
+    // solve. The rate-limit interceptor owns its cooldown and bounded retry.
+    if (isCloudflare1015Response(response)) {
       handler.next(err);
       return;
     }

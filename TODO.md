@@ -1,15 +1,13 @@
-# Features
+# On release
+
 - Update downloads are slow and failing when u leave mobile app
-- Cloudflare rate limiting thing
 - Figure out why queueing entire jjk on nyaa shows a single file in download page
-- Publish libraries e.g., cf_bypass, libtorrent_dart, anitomy_dart
+- Publish flutter_foreground_task_progress if our [PR](https://github.com/Dev-hwang/flutter_foreground_task/pull/394) does not get approved in the next 2 months
 - Updates
 - Comprehensive test suite
 
-# Bugs
-- Memory usage
-
 # Maybe later
+
 - Remember ongoing downloads on exit and restart
 - Add watchcartoonsonline
 - Option to name episode files with resolution and sub or dub
