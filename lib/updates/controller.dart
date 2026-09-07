@@ -8,12 +8,13 @@ import 'package:pub_semver/pub_semver.dart';
 import 'package:senpwai/settings/notifier.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
-import 'package:senpwai/updates/downloader.dart';
+import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/updates/manifest_repository.dart';
 import 'package:senpwai/updates/macos_update_bridge.dart';
 import 'package:senpwai/updates/models.dart';
 import 'package:senpwai/updates/platform_installer.dart';
 import 'package:senpwai/updates/update_repository.dart';
+import 'package:senpwai/updates/update_transfer.dart';
 
 final _log = Logger('senpwai.updates');
 
@@ -25,9 +26,9 @@ class UpdateController extends Notifier<UpdateState> {
   late final UpdateRepository _repository;
   late final UpdateManifestRepository _manifestRepository;
   late final UpdatePlatformInstaller _installer;
-  final UpdateDownloader _downloader = UpdateDownloader();
   final MacOsUpdateBridge _macOsBridge = const MacOsUpdateBridge();
   StreamSubscription<Map<String, Object?>>? _macOsSubscription;
+  StreamSubscription<UpdateTransferState>? _updateTransferSubscription;
   bool _initialized = false;
   bool _busy = false;
 
@@ -36,6 +37,13 @@ class UpdateController extends Notifier<UpdateState> {
     _repository = UpdateRepository(paths: AppPersistence.paths);
     _manifestRepository = UpdateManifestRepository(paths: AppPersistence.paths);
     _installer = UpdatePlatformInstaller.current();
+    if (!Platform.isMacOS) {
+      final downloads = ref.read(DownloadManagerNotifier.provider.notifier);
+      _updateTransferSubscription = downloads.updateStateStream.listen(
+        _handleUpdateTransferState,
+      );
+      ref.onDispose(() => _updateTransferSubscription?.cancel());
+    }
     ref.listen(
       AppSettingsNotifier.provider.select(
         (settings) => settings.updates.automaticallyDownload,
@@ -88,6 +96,22 @@ class UpdateController extends Notifier<UpdateState> {
         final file = File(prepared.filePath);
         if (await file.exists()) await file.delete();
       } else {
+        if (_installer.preparesForNextLaunch && !prepared.platformPrepared) {
+          final platformPrepared = await _installer.prepare(
+            File(prepared.filePath),
+            AppRelease(
+              version: preparedVersion,
+              build: prepared.build,
+              channel: 'stable',
+              mandatory: false,
+              notes: '',
+              artifacts: [prepared.artifact],
+            ),
+          );
+          await _repository.savePrepared(
+            prepared.copyWith(platformPrepared: platformPrepared),
+          );
+        }
         final release = AppRelease(
           version: preparedVersion,
           build: prepared.build,
@@ -183,8 +207,6 @@ class UpdateController extends Notifier<UpdateState> {
     final artifact = state.artifact;
     if (release == null || artifact == null) return;
     _busy = true;
-    final partialFile = _repository.partialArtifactFile(artifact);
-    final artifactFile = _repository.artifactFile(artifact);
     state = state.copyWith(
       phase: UpdatePhase.downloading,
       bytesReceived: 0,
@@ -192,41 +214,22 @@ class UpdateController extends Notifier<UpdateState> {
       clearError: true,
     );
     try {
-      await _downloader.download(
-        artifact: artifact,
-        destination: partialFile,
-        onProgress: (received, total) {
-          state = state.copyWith(bytesReceived: received, totalBytes: total);
-        },
-      );
-      state = state.copyWith(phase: UpdatePhase.verifying);
-      await _downloader.verify(partialFile, artifact);
-      if (await artifactFile.exists()) await artifactFile.delete();
-      await partialFile.rename(artifactFile.path);
-      var prepared = PreparedUpdate(
-        version: release.version.toString(),
-        build: release.build,
-        artifact: artifact,
-        filePath: artifactFile.path,
-        platformPrepared: false,
-      );
-      await _repository.savePrepared(prepared);
+      await ref
+          .read(DownloadManagerNotifier.provider.notifier)
+          .downloadUpdate(release, artifact);
+      var prepared = await _repository.loadPrepared();
+      if (prepared == null) return;
 
       state = state.copyWith(phase: UpdatePhase.preparing);
-      final platformPrepared = await _installer.prepare(artifactFile, release);
+      final platformPrepared = await _installer.prepare(
+        File(prepared.filePath),
+        release,
+      );
       prepared = prepared.copyWith(platformPrepared: platformPrepared);
       await _repository.savePrepared(prepared);
       state = state.copyWith(
         phase: UpdatePhase.ready,
         bytesReceived: artifact.sizeBytes,
-        totalBytes: artifact.sizeBytes,
-        clearError: true,
-      );
-    } on UpdateDownloadCancelled {
-      if (await partialFile.exists()) await partialFile.delete();
-      state = state.copyWith(
-        phase: UpdatePhase.available,
-        bytesReceived: 0,
         totalBytes: artifact.sizeBytes,
         clearError: true,
       );
@@ -252,7 +255,13 @@ class UpdateController extends Notifier<UpdateState> {
       unawaited(_macOsBridge.cancelDownload());
       return;
     }
-    if (state.phase == UpdatePhase.downloading) _downloader.cancel();
+    if (state.phase == UpdatePhase.downloading) {
+      unawaited(
+        ref
+            .read(DownloadManagerNotifier.provider.notifier)
+            .cancelUpdateDownload(),
+      );
+    }
   }
 
   Future<UpdateInstallDisposition?> installAndRestart() async {
@@ -324,6 +333,30 @@ class UpdateController extends Notifier<UpdateState> {
       return error.message;
     }
     return error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+  }
+
+  void _handleUpdateTransferState(UpdateTransferState transfer) {
+    final release = transfer.release;
+    final artifact = transfer.artifact;
+    if (release == null || artifact == null) return;
+    final phase = switch (transfer.phase) {
+      UpdateTransferPhase.idle => null,
+      UpdateTransferPhase.downloading => UpdatePhase.downloading,
+      UpdateTransferPhase.verifying => UpdatePhase.verifying,
+      UpdateTransferPhase.completed => UpdatePhase.preparing,
+      UpdateTransferPhase.cancelled => UpdatePhase.available,
+      UpdateTransferPhase.failed => UpdatePhase.failed,
+    };
+    if (phase == null) return;
+    state = state.copyWith(
+      phase: phase,
+      release: release,
+      artifact: artifact,
+      bytesReceived: transfer.bytesReceived,
+      totalBytes: transfer.totalBytes,
+      error: transfer.error,
+      clearError: transfer.error == null,
+    );
   }
 
   void _handleMacOsEvent(Map<String, Object?> event) {

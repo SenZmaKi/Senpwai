@@ -193,6 +193,15 @@ class AppRelease {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+    'version': version.toString(),
+    'build': build,
+    'channel': channel,
+    'mandatory': mandatory,
+    'notes': notes,
+    'artifacts': artifacts.map((artifact) => artifact.toJson()).toList(),
+  };
+
   String get displayVersion => 'v$version';
 
   UpdateArtifact? artifactForCurrentPlatform() {

@@ -12,6 +12,8 @@ import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/ui/components/app.dart';
 import 'package:senpwai/ui/components/toast.dart';
+import 'package:senpwai/updates/models.dart';
+import 'package:senpwai/updates/update_transfer.dart';
 
 class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
   static final provider =
@@ -89,6 +91,16 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
   Future<EnqueuedDownloadsResult> enqueueBatch(PreparedDownloadBatch batch) {
     return _runtime.enqueueBatch(batch);
   }
+
+  UpdateTransferState get currentUpdateState => _runtime.currentUpdateState;
+
+  Stream<UpdateTransferState> get updateStateStream =>
+      _runtime.updateStateStream;
+
+  Future<void> downloadUpdate(AppRelease release, UpdateArtifact artifact) =>
+      _runtime.downloadUpdate(release, artifact);
+
+  Future<void> cancelUpdateDownload() => _runtime.cancelUpdateDownload();
 
   Future<void> pause(String id) => _runtime.pause(id);
 

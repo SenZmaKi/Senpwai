@@ -15,6 +15,8 @@ import 'package:senpwai/shared/net/user_agents.dart';
 import 'package:senpwai/shared/performance_trace.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_formatters.dart';
+import 'package:senpwai/updates/models.dart';
+import 'package:senpwai/updates/update_transfer.dart';
 
 typedef _CommandPayload = Map<String, Object?>;
 
@@ -30,6 +32,8 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
 
   final DownloadRuntimeErrorHandler onError;
   final _stateController = StreamController<DownloadManagerState>.broadcast();
+  final _updateStateController =
+      StreamController<UpdateTransferState>.broadcast();
   final _pendingRequests = <String, Completer<Object?>>{};
   int _maxDownloadBytesPerSecond;
   int _maxActiveHttpDownloads;
@@ -37,6 +41,7 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
   TorrentPreferences _torrentSettings;
   NotificationPreferences _notificationSettings;
   var _stateSnapshot = const DownloadManagerState();
+  var _updateStateSnapshot = const UpdateTransferState();
   var _requestCounter = 0;
 
   static bool _initialized = false;
@@ -64,6 +69,24 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
 
   @override
   Stream<DownloadManagerState> get stateStream => _stateController.stream;
+
+  @override
+  UpdateTransferState get currentUpdateState => _updateStateSnapshot;
+
+  @override
+  Stream<UpdateTransferState> get updateStateStream =>
+      _updateStateController.stream;
+
+  @override
+  Future<void> downloadUpdate(AppRelease release, UpdateArtifact artifact) =>
+      _sendVoidCommand('downloadUpdate', {
+        'release': release.toJson(),
+        'artifact': artifact.toJson(),
+      });
+
+  @override
+  Future<void> cancelUpdateDownload() =>
+      _sendVoidCommand('cancelUpdateDownload', const {});
 
   @override
   Future<EnqueuedDownloadsResult> enqueueBatch(
@@ -214,6 +237,7 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
     }
     _pendingRequests.clear();
     await _stateController.close();
+    await _updateStateController.close();
   }
 
   void _initializeForegroundTask() {
@@ -337,6 +361,12 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
         );
         _stateSnapshot = next;
         if (!_stateController.isClosed) _stateController.add(next);
+      case 'updateState':
+        final next = UpdateTransferState.fromJson(_map(message['state']));
+        _updateStateSnapshot = next;
+        if (!_updateStateController.isClosed) {
+          _updateStateController.add(next);
+        }
       case 'response':
         _onResponse(message);
       case 'error':
@@ -392,6 +422,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
   InProcessDownloadRuntime? _runtime;
   final _runtimeReady = Completer<InProcessDownloadRuntime>();
   StreamSubscription<DownloadManagerState>? _stateSubscription;
+  StreamSubscription<UpdateTransferState>? _updateStateSubscription;
   NotificationPreferences _notificationSettings =
       const NotificationPreferences();
   DateTime? _lastNotificationUpdate;
@@ -427,6 +458,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
       initialMaxDownloadBytesPerSecond: 0,
       initialMaxActiveHttpDownloads: 1,
       initialTorrentSettings: const TorrentPreferences(),
+      paths: paths,
       onError: _sendError,
     );
     if (!_runtimeReady.isCompleted) {
@@ -442,6 +474,20 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
               error: error,
               stackTrace: stackTrace,
               metadata: _foregroundStateMetadata(state),
+            );
+          });
+    });
+    _updateStateSubscription = _runtime!.updateStateStream.listen((state) {
+      FlutterForegroundTask.sendDataToMain({
+        'kind': 'updateState',
+        'state': state.toJson(),
+      });
+      _stateHandling = _stateHandling
+          .then((_) => _updateForegroundNotificationForUpdate(state))
+          .catchError((Object error, StackTrace stackTrace) {
+            _log.warningWithMetadata(
+              'Failed to render update download notification',
+              metadata: {'error': '$error', 'stackTrace': '$stackTrace'},
             );
           });
     });
@@ -468,6 +514,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
     );
     _idleNotificationTimer?.cancel();
     await _stateSubscription?.cancel();
+    await _updateStateSubscription?.cancel();
     await _stateHandling;
     await _runtime?.dispose();
   }
@@ -490,6 +537,12 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
   Future<void> _handleNotificationButtonPressed(String id) async {
     final runtime = await _waitForRuntime();
     if (runtime == null) return;
+    if (runtime.currentUpdateState.isActive) {
+      if (id == AndroidForegroundDownloadRuntime._actionCancel) {
+        await runtime.cancelUpdateDownload();
+      }
+      return;
+    }
     final batchId = runtime.currentState.activeBatchId;
     if (batchId == null) return;
     switch (id) {
@@ -546,6 +599,19 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
           result = DownloadRuntimeCodec.encodeEnqueuedResult(
             await runtime.enqueueBatch(batch),
           );
+        case 'downloadUpdate':
+          await runtime.downloadUpdate(
+            AppRelease.fromJson(
+              Map<String, dynamic>.from(_map(payload['release'])),
+            ),
+            UpdateArtifact.fromJson(
+              Map<String, dynamic>.from(_map(payload['artifact'])),
+            ),
+          );
+          result = null;
+        case 'cancelUpdateDownload':
+          await runtime.cancelUpdateDownload();
+          result = null;
         case 'pause':
           await runtime.pause(_string(payload['id']));
           await _sendAndRenderCurrentState(runtime);
@@ -621,6 +687,10 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
           result = null;
         case 'syncState':
           _sendState(runtime.currentState);
+          FlutterForegroundTask.sendDataToMain({
+            'kind': 'updateState',
+            'state': runtime.currentUpdateState.toJson(),
+          });
           _baselineTerminalState(runtime.currentState);
           await _updateForegroundNotification(
             runtime.currentState,
@@ -667,6 +737,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
     bool force = false,
     _BatchNotificationStatus? overrideStatus,
   }) async {
+    if (_runtime?.currentUpdateState.isActive == true) return;
     final activeBatchId = state.activeBatchId;
     var activeBatch = activeBatchId == null
         ? null
@@ -713,6 +784,60 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
       text: _batchProgressBody(batchItems, aggregate, status: status),
       progress: _notificationProgress(aggregate, status),
       buttons: _notificationButtonsForStatus(status),
+    );
+  }
+
+  Future<void> _updateForegroundNotificationForUpdate(
+    UpdateTransferState state,
+  ) async {
+    if (state.phase == UpdateTransferPhase.idle) return;
+    if (state.isActive) {
+      _cancelPendingForegroundStop();
+      final progress = state.totalBytes <= 0
+          ? const NotificationProgress(max: 0, progress: 0, indeterminate: true)
+          : NotificationProgress(
+              max: state.totalBytes,
+              progress: state.bytesReceived.clamp(0, state.totalBytes),
+            );
+      await _updateServiceNotification(
+        title: 'Downloading ${state.release?.displayVersion ?? 'update'}',
+        text: state.phase == UpdateTransferPhase.verifying
+            ? 'Verifying update...'
+            : '${formatBytes(state.bytesReceived)} of ${formatBytes(state.totalBytes)}',
+        progress: progress,
+        buttons: const [
+          NotificationButton(
+            id: AndroidForegroundDownloadRuntime._actionCancel,
+            text: 'Cancel',
+          ),
+        ],
+      );
+      return;
+    }
+
+    _foregroundNotificationIsTerminal = true;
+    final text = switch (state.phase) {
+      UpdateTransferPhase.completed => 'Update ready to install',
+      UpdateTransferPhase.failed => 'Update download failed',
+      UpdateTransferPhase.cancelled => 'Update download cancelled',
+      _ => 'Update download finished',
+    };
+    await _updateServiceNotification(
+      title: 'Senpwai update',
+      text: text,
+      progress: const NotificationProgress.none(),
+      buttons: const [],
+    );
+    final runtime = _runtime;
+    if (runtime != null && runtime.currentState.batches.isNotEmpty) {
+      await _updateForegroundNotification(runtime.currentState, force: true);
+      return;
+    }
+    _foregroundServiceStopScheduled = true;
+    _idleNotificationTimer?.cancel();
+    _idleNotificationTimer = Timer(
+      _terminalNotificationGrace,
+      () => unawaited(_stopForegroundService()),
     );
   }
 

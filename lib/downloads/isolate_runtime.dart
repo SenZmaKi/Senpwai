@@ -10,6 +10,8 @@ import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/shared/performance_trace.dart';
+import 'package:senpwai/updates/models.dart';
+import 'package:senpwai/updates/update_transfer.dart';
 
 typedef _CommandPayload = Map<String, Object?>;
 
@@ -17,6 +19,8 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   final DownloadRuntimeErrorHandler onError;
   final String appDataRootPath;
   final _stateController = StreamController<DownloadManagerState>.broadcast();
+  final _updateStateController =
+      StreamController<UpdateTransferState>.broadcast();
   final _pendingRequests = <String, Completer<Object?>>{};
 
   int _maxDownloadBytesPerSecond;
@@ -24,6 +28,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   String _downloadUserAgent;
   TorrentPreferences _torrentSettings;
   var _stateSnapshot = const DownloadManagerState();
+  var _updateStateSnapshot = const UpdateTransferState();
   var _requestCounter = 0;
   final _receivedStateRate = TimelineRateCounter(
     'downloads.main_isolate_state_rate',
@@ -52,6 +57,24 @@ class DownloadIsolateRuntime implements DownloadRuntime {
 
   @override
   Stream<DownloadManagerState> get stateStream => _stateController.stream;
+
+  @override
+  UpdateTransferState get currentUpdateState => _updateStateSnapshot;
+
+  @override
+  Stream<UpdateTransferState> get updateStateStream =>
+      _updateStateController.stream;
+
+  @override
+  Future<void> downloadUpdate(AppRelease release, UpdateArtifact artifact) =>
+      _sendVoidCommand('downloadUpdate', {
+        'release': release.toJson(),
+        'artifact': artifact.toJson(),
+      });
+
+  @override
+  Future<void> cancelUpdateDownload() =>
+      _sendVoidCommand('cancelUpdateDownload', const {});
 
   @override
   Future<EnqueuedDownloadsResult> enqueueBatch(
@@ -173,6 +196,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
     _receivePort?.close();
     _isolate?.kill(priority: Isolate.beforeNextEvent);
     await _stateController.close();
+    await _updateStateController.close();
   }
 
   Future<void> _sendVoidCommand(String type, _CommandPayload payload) async {
@@ -250,6 +274,12 @@ class DownloadIsolateRuntime implements DownloadRuntime {
         if (stateValue != null) {
           _publishState(DownloadRuntimeCodec.decodeState(_map(stateValue)));
         }
+        final updateStateValue = message['updateState'];
+        if (updateStateValue != null) {
+          _updateStateSnapshot = UpdateTransferState.fromJson(
+            _map(updateStateValue),
+          );
+        }
         final ready = _ready;
         if (ready != null && !ready.isCompleted) ready.complete();
       case 'state':
@@ -266,6 +296,12 @@ class DownloadIsolateRuntime implements DownloadRuntime {
             arguments: {'queueItems': itemCount},
           ),
         );
+      case 'updateState':
+        final next = UpdateTransferState.fromJson(_map(message['state']));
+        _updateStateSnapshot = next;
+        if (!_updateStateController.isClosed) {
+          _updateStateController.add(next);
+        }
       case 'response':
         _onResponse(message);
       case 'error':
@@ -346,6 +382,7 @@ Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
   final commandPort = ReceivePort();
   InProcessDownloadRuntime? runtime;
   StreamSubscription<DownloadManagerState>? stateSubscription;
+  StreamSubscription<UpdateTransferState>? updateStateSubscription;
   final sentStateRate = TimelineRateCounter('downloads.worker_state_rate');
 
   void sendState(DownloadManagerState state) {
@@ -393,20 +430,31 @@ Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
       initialTorrentSettings: DownloadRuntimeCodec.decodeTorrentSettings(
         _map(config['settings']),
       ),
+      paths: paths,
       onError: sendError,
     );
     stateSubscription = runtime.stateStream.listen(sendState);
+    updateStateSubscription = runtime.updateStateStream.listen((state) {
+      mainPort.send({'kind': 'updateState', 'state': state.toJson()});
+    });
     mainPort.send({
       'kind': 'ready',
       'sendPort': commandPort.sendPort,
       'state': DownloadRuntimeCodec.encodeState(runtime.currentState),
+      'updateState': runtime.currentUpdateState.toJson(),
     });
 
     await for (final data in commandPort) {
       final message = _mapString(data);
       if (_string(message['kind']) == 'shutdown') break;
       if (_string(message['kind']) != 'command') continue;
-      await _handleDownloadCommand(runtime, mainPort, message);
+      if (_string(message['type']) == 'downloadUpdate') {
+        // Keep consuming commands so a desktop update can be cancelled while
+        // its long-running transfer is in progress.
+        unawaited(_handleDownloadCommand(runtime, mainPort, message));
+      } else {
+        await _handleDownloadCommand(runtime, mainPort, message);
+      }
     }
   } on Object catch (error, stackTrace) {
     mainPort.send({
@@ -416,6 +464,7 @@ Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
     });
   } finally {
     await stateSubscription?.cancel();
+    await updateStateSubscription?.cancel();
     await runtime?.dispose();
     commandPort.close();
   }
@@ -439,6 +488,19 @@ Future<void> _handleDownloadCommand(
         result = DownloadRuntimeCodec.encodeEnqueuedResult(
           await runtime.enqueueBatch(batch),
         );
+      case 'downloadUpdate':
+        await runtime.downloadUpdate(
+          AppRelease.fromJson(
+            Map<String, dynamic>.from(_map(payload['release'])),
+          ),
+          UpdateArtifact.fromJson(
+            Map<String, dynamic>.from(_map(payload['artifact'])),
+          ),
+        );
+        result = null;
+      case 'cancelUpdateDownload':
+        await runtime.cancelUpdateDownload();
+        result = null;
       case 'pause':
         await runtime.pause(_string(payload['id']));
         result = null;

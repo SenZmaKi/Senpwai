@@ -13,6 +13,9 @@ import 'package:senpwai/shared/net/download/download_dio.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
 import 'package:senpwai/shared/performance_trace.dart';
+import 'package:senpwai/shared/persistence/app_paths.dart';
+import 'package:senpwai/updates/models.dart';
+import 'package:senpwai/updates/update_transfer.dart';
 
 typedef DownloadRuntimeErrorHandler =
     void Function({
@@ -24,8 +27,12 @@ typedef DownloadRuntimeErrorHandler =
 abstract class DownloadRuntime {
   DownloadManagerState get currentState;
   Stream<DownloadManagerState> get stateStream;
+  UpdateTransferState get currentUpdateState;
+  Stream<UpdateTransferState> get updateStateStream;
 
   Future<EnqueuedDownloadsResult> enqueueBatch(PreparedDownloadBatch batch);
+  Future<void> downloadUpdate(AppRelease release, UpdateArtifact artifact);
+  Future<void> cancelUpdateDownload();
   Future<void> pause(String id);
   Future<void> resume(String id);
   Future<void> cancel(String id);
@@ -53,6 +60,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
   final DownloadRuntimeErrorHandler onError;
   final Dio _downloadDio;
+  late final UpdateTransfer _updateTransfer;
 
   final Map<String, _ActiveHttpDownload> _httpDownloads = {};
   final Map<String, _ActiveTorrentDownload> _torrentDownloads = {};
@@ -73,10 +81,12 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     required int initialMaxDownloadBytesPerSecond,
     required int initialMaxActiveHttpDownloads,
     required TorrentPreferences initialTorrentSettings,
+    required AppPaths paths,
     required this.onError,
   }) : _downloadDio = createDownloadDio(userAgent: downloadUserAgent),
        _maxActiveHttpDownloads = initialMaxActiveHttpDownloads,
        _torrentSettings = initialTorrentSettings {
+    _updateTransfer = UpdateTransfer(paths: paths, dio: _downloadDio);
     DownloadConfig.getInstance().updateMaxBytesPerSecond(
       initialMaxDownloadBytesPerSecond.toDouble(),
     );
@@ -112,6 +122,20 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
   @override
   Stream<DownloadManagerState> get stateStream => _stateController.stream;
+
+  @override
+  UpdateTransferState get currentUpdateState => _updateTransfer.currentState;
+
+  @override
+  Stream<UpdateTransferState> get updateStateStream =>
+      _updateTransfer.stateStream;
+
+  @override
+  Future<void> downloadUpdate(AppRelease release, UpdateArtifact artifact) =>
+      _updateTransfer.download(release, artifact);
+
+  @override
+  Future<void> cancelUpdateDownload() => _updateTransfer.cancel();
 
   @override
   Future<EnqueuedDownloadsResult> enqueueBatch(
@@ -375,6 +399,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     _torrentSession?.close();
     _torrentSession = null;
     _mockDownloads.clear();
+    await _updateTransfer.dispose();
     _downloadDio.close(force: true);
     await _stateController.close();
   }
