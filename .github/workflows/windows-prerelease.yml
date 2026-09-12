@@ -32,12 +32,27 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Enable Git long paths
+        shell: pwsh
+        run: git config --global core.longpaths true
+
       - name: Set up Flutter
+        if: matrix.architecture == 'x64'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version: 3.47.2
           cache: true
+
+      - name: Set up Flutter from source
+        if: matrix.architecture == 'arm64'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $flutterRoot = Join-Path $env:RUNNER_TEMP 'flutter'
+          git clone --depth 1 --branch 3.47.2 https://github.com/flutter/flutter.git $flutterRoot
+          "$flutterRoot\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & "$flutterRoot\bin\flutter.bat" --version
 
       - name: Set up MSVC developer environment
         uses: ilammy/msvc-dev-cmd@v1
