@@ -98,18 +98,6 @@ dev_dependencies:
     # rules and activating additional ones.
     flutter_lints: ^5.0.0
     flutter_launcher_icons: ^0.14.4
-    msix: ^3.18.0
-
-msix_config:
-    display_name: Senpwai
-    publisher_display_name: Senpwai
-    publisher: CN=Senpwai
-    identity_name: SenZmaKi.Senpwai
-    logo_path: assets/images/senpwai-icon.png
-    architecture: x64
-    capabilities: internetClient
-    sign_msix: false
-
 flutter_native_splash:
     color: "#F5F0F1"
     color_dark: "#080A0F"

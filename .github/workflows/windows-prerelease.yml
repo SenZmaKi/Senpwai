@@ -1,0 +1,205 @@
+name: Windows prerelease
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-prerelease-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    name: Build Windows ${{ matrix.architecture }} installer
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x64
+            runner: windows-2025
+          - architecture: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      ARCHITECTURE: ${{ matrix.architecture }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.2
+          cache: true
+
+      - name: Set up MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.architecture == 'arm64' && 'arm64' || 'amd64' }}
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter code
+        run: flutter analyze
+
+      - name: Build Windows release bundle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Select-String -Path pubspec.yaml -Pattern '^version:\s*(.+)$').Matches[0].Groups[1].Value.Trim()
+          flutter build windows --release --build-name $version
+
+          $bundle = "build\windows\$env:ARCHITECTURE\runner\Release"
+          if (-not (Test-Path -LiteralPath "$bundle\senpwai.exe")) {
+            throw "Windows bundle was not created at $bundle"
+          }
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "WINDOWS_BUNDLE=$bundle" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify native architecture
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expectedMachine = if ($env:ARCHITECTURE -eq 'arm64') { 'ARM64' } else { 'x64' }
+          foreach ($binary in @(
+            "$env:WINDOWS_BUNDLE\senpwai.exe",
+            "$env:WINDOWS_BUNDLE\torrent-rasterbar.dll"
+          )) {
+            if (-not (Test-Path -LiteralPath $binary)) {
+              throw "Required binary is missing: $binary"
+            }
+            $headers = dumpbin /headers $binary
+            if (-not ($headers | Select-String -SimpleMatch "machine ($expectedMachine)")) {
+              throw "$binary is not a native $expectedMachine binary"
+            }
+          }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress --limit-output
+
+      - name: Compile unsigned installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path -LiteralPath $iscc)) {
+            throw "Inno Setup compiler was not found at $iscc"
+          }
+          & $iscc /Qp "/DAppVersion=$env:APP_VERSION" "/DAppArchitecture=$env:ARCHITECTURE" scripts\setup.iss
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup compilation failed with exit code $LASTEXITCODE"
+          }
+
+          $releaseDir = 'build\release\windows'
+          $installerName = "Senpwai-windows-$env:ARCHITECTURE-setup.exe"
+          $installer = Join-Path $releaseDir $installerName
+          if (-not (Test-Path -LiteralPath $installer)) {
+            throw "Installer was not created: $installer"
+          }
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $installerName" | Set-Content -LiteralPath "$installer.sha256" -Encoding ascii
+
+      - name: Test installer lifecycle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Resolve-Path "build\release\windows\Senpwai-windows-$env:ARCHITECTURE-setup.exe"
+          $testDir = Join-Path $env:RUNNER_TEMP "Senpwai-$env:ARCHITECTURE-installer-test"
+          if (Test-Path -LiteralPath $testDir) {
+            throw "Installer test directory already exists: $testDir"
+          }
+
+          $install = Start-Process -FilePath $installer -ArgumentList @(
+            '/VERYSILENT',
+            '/SUPPRESSMSGBOXES',
+            '/NORESTART',
+            '/NOICONS',
+            "/DIR=$testDir"
+          ) -Wait -PassThru
+          if ($install.ExitCode -ne 0) {
+            throw "Installer exited with code $($install.ExitCode)"
+          }
+
+          $installedExe = Join-Path $testDir 'senpwai.exe'
+          if (-not (Test-Path -LiteralPath $installedExe)) {
+            throw 'The installed Senpwai executable is missing'
+          }
+          $versionInfo = (Get-Item -LiteralPath $installedExe).VersionInfo
+          if ($versionInfo.CompanyName -ne 'com.senpwai.app') {
+            throw "Unexpected CompanyName: $($versionInfo.CompanyName)"
+          }
+
+          $uninstaller = Join-Path $testDir 'unins000.exe'
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @(
+            '/VERYSILENT',
+            '/SUPPRESSMSGBOXES',
+            '/NORESTART',
+            '/KEEPAPPDATA'
+          ) -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0 -or (Test-Path -LiteralPath $installedExe)) {
+            throw 'The installer lifecycle test did not uninstall Senpwai cleanly'
+          }
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-windows-${{ matrix.architecture }}
+          path: |
+            build/release/windows/Senpwai-windows-${{ matrix.architecture }}-setup.exe
+            build/release/windows/Senpwai-windows-${{ matrix.architecture }}-setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-prerelease:
+    name: Publish Windows prerelease
+    needs: build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PRERELEASE_TAG: windows-v3-preview.${{ github.run_number }}
+    steps:
+      - name: Download Windows installers
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-windows-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-assets
+          sha256sum --check Senpwai-windows-x64-setup.exe.sha256
+          sha256sum --check Senpwai-windows-arm64-setup.exe.sha256
+
+      - name: Create Windows prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$PRERELEASE_TAG" \
+            release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Senpwai Windows preview ${GITHUB_RUN_NUMBER}" \
+            --notes "Unsigned Windows preview installers for native x64 and ARM64. Windows SmartScreen may require More info → Run anyway. This preview does not update the production update feed."
+
+      - name: Add workflow summary
+        shell: bash
+        run: |
+          {
+            echo "## Senpwai Windows preview ${GITHUB_RUN_NUMBER}"
+            echo
+            echo "Published unsigned native x64 and ARM64 Inno Setup installers."
+            echo
+            echo "Tag: \`$PRERELEASE_TAG\`"
+          } >> "$GITHUB_STEP_SUMMARY"

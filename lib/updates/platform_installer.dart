@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
@@ -54,8 +52,6 @@ class AndroidUpdateInstaller extends UpdatePlatformInstaller {
 }
 
 class WindowsUpdateInstaller extends UpdatePlatformInstaller {
-  static const _channel = MethodChannel('senpwai/update_installer');
-
   const WindowsUpdateInstaller();
 
   @override
@@ -63,23 +59,13 @@ class WindowsUpdateInstaller extends UpdatePlatformInstaller {
 
   @override
   Future<bool> prepare(File artifact, AppRelease release) async {
-    final result = await Process.run('powershell.exe', [
-      '-NoLogo',
-      '-NoProfile',
-      '-NonInteractive',
-      '-EncodedCommand',
-      _encodedPowerShell(
-        "Add-AppxPackage -Path '${_escapePowerShell(artifact.path)}' "
-        '-DeferRegistrationWhenPackagesAreInUse -ErrorAction Stop',
-      ),
-    ]);
-    if (result.exitCode != 0) {
-      throw ProcessException(
-        'powershell.exe',
-        const [],
-        result.stderr.toString().trim(),
-        result.exitCode,
+    if (!artifact.path.toLowerCase().endsWith('.exe')) {
+      throw const FormatException(
+        'Windows updates must be Inno Setup executables.',
       );
+    }
+    if (!await artifact.exists()) {
+      throw FileSystemException('Update installer is missing.', artifact.path);
     }
     return true;
   }
@@ -89,30 +75,14 @@ class WindowsUpdateInstaller extends UpdatePlatformInstaller {
     File artifact,
     AppRelease release,
   ) async {
-    await _channel.invokeMethod<void>('registerApplicationRestart');
-    await Process.start('powershell.exe', [
-      '-NoLogo',
-      '-NoProfile',
-      '-NonInteractive',
-      '-EncodedCommand',
-      _encodedPowerShell(
-        "Add-AppxPackage -Path '${_escapePowerShell(artifact.path)}' "
-        '-ForceApplicationShutdown -ErrorAction Stop',
-      ),
+    await Process.start(artifact.path, const [
+      '/VERYSILENT',
+      '/SUPPRESSMSGBOXES',
+      '/NORESTART',
+      '/CLOSEAPPLICATIONS',
+      '/LAUNCH',
     ], mode: ProcessStartMode.detached);
-    return UpdateInstallDisposition.applicationWillRestart;
-  }
-
-  static String _escapePowerShell(String value) => value.replaceAll("'", "''");
-
-  static String _encodedPowerShell(String script) {
-    final units = script.codeUnits;
-    final bytes = Uint8List(units.length * 2);
-    final data = ByteData.sublistView(bytes);
-    for (var index = 0; index < units.length; index++) {
-      data.setUint16(index * 2, units[index], Endian.little);
-    }
-    return base64.encode(bytes);
+    return UpdateInstallDisposition.quitThenRelaunch;
   }
 }
 
