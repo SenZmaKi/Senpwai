@@ -75,12 +75,39 @@ class WindowsUpdateInstaller extends UpdatePlatformInstaller {
     File artifact,
     AppRelease release,
   ) async {
-    await Process.start(artifact.path, const [
-      '/VERYSILENT',
-      '/SUPPRESSMSGBOXES',
-      '/NORESTART',
-      '/CLOSEAPPLICATIONS',
-      '/LAUNCH',
+    final handoff = File(path.join(artifact.parent.path, 'install-update.ps1'));
+    await handoff.writeAsString(r'''
+param(
+  [Parameter(Mandatory = $true)] [string] $Installer,
+  [Parameter(Mandatory = $true)] [int] $AppProcessId
+)
+
+$appProcess = Get-Process -Id $AppProcessId -ErrorAction SilentlyContinue
+if ($null -ne $appProcess) {
+  $appProcess.WaitForExit()
+}
+
+Start-Process -FilePath $Installer -ArgumentList @(
+  '/VERYSILENT',
+  '/SUPPRESSMSGBOXES',
+  '/NORESTART',
+  '/LAUNCH'
+) -Wait
+''');
+    await Process.start('powershell.exe', [
+      '-NoLogo',
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-WindowStyle',
+      'Hidden',
+      '-File',
+      handoff.path,
+      '-Installer',
+      artifact.path,
+      '-AppProcessId',
+      pid.toString(),
     ], mode: ProcessStartMode.detached);
     return UpdateInstallDisposition.quitThenRelaunch;
   }
