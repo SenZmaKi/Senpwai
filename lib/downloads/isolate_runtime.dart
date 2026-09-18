@@ -70,7 +70,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
       _sendVoidCommand('downloadUpdate', {
         'release': release.toJson(),
         'artifact': artifact.toJson(),
-      });
+      }, timeout: null);
 
   @override
   Future<void> cancelUpdateDownload() =>
@@ -199,11 +199,19 @@ class DownloadIsolateRuntime implements DownloadRuntime {
     await _updateStateController.close();
   }
 
-  Future<void> _sendVoidCommand(String type, _CommandPayload payload) async {
-    await _sendCommand(type, payload);
+  Future<void> _sendVoidCommand(
+    String type,
+    _CommandPayload payload, {
+    Duration? timeout = const Duration(seconds: 30),
+  }) async {
+    await _sendCommand(type, payload, timeout: timeout);
   }
 
-  Future<Object?> _sendCommand(String type, _CommandPayload payload) async {
+  Future<Object?> _sendCommand(
+    String type,
+    _CommandPayload payload, {
+    Duration? timeout = const Duration(seconds: 30),
+  }) async {
     await _ensureReady();
     final requestId = _nextRequestId();
     final completer = Completer<Object?>();
@@ -214,8 +222,10 @@ class DownloadIsolateRuntime implements DownloadRuntime {
       'type': type,
       'payload': payload,
     });
-    return completer.future.timeout(
-      const Duration(seconds: 30),
+    final future = completer.future;
+    if (timeout == null) return future;
+    return future.timeout(
+      timeout,
       onTimeout: () {
         _pendingRequests.remove(requestId);
         throw TimeoutException('Timed out waiting for download command $type.');
