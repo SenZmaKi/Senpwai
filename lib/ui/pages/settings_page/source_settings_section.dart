@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/settings/settings.dart';
+import 'package:senpwai/ui/components/browser_transport_info_icon.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_controls.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 
@@ -54,6 +55,9 @@ class SourceSettingsSection extends StatelessWidget {
                   child: SettingsTile(
                     icon: Icons.drag_indicator_rounded,
                     title: source.label,
+                    titleSuffix: source == AnimeSource.animepahe
+                        ? const BrowserTransportInfoIcon()
+                        : null,
                     subtitle: sources.enabledSources.contains(source)
                         ? 'Enabled · Priority ${index + 1}'
                         : 'Disabled',

@@ -113,9 +113,9 @@ class _StorageSettingsSectionState
               ],
             ),
             SettingsGroupCard(
-              title: 'Storage & Memory Cache',
+              title: 'Storage & Memory',
               icon: Icons.storage_rounded,
-              description: 'Manage cache limits and clear disk usage',
+              description: 'Manage caches, site sessions, and disk usage',
               searchQuery: sq,
               children: [
                 SettingsTile(
@@ -163,6 +163,28 @@ class _StorageSettingsSectionState
                     resetToken: _httpCacheAgeResetToken,
                     unit: 'hours',
                     onSubmitted: (value) => unawaited(_setHttpCacheAge(value)),
+                  ),
+                ),
+                SettingsTile(
+                  icon: Icons.memory_rounded,
+                  title: 'Browser Transport Timeout',
+                  subtitle:
+                      'Close inactive embedded browser sessions to reduce memory use',
+                  keywords:
+                      'browser transport session memory idle timeout animepahe webview',
+                  searchQuery: sq,
+                  trailing: NumberSettingField(
+                    value: widget
+                        .settings
+                        .sources
+                        .browserTransportIdleTimeoutMinutes,
+                    min:
+                        SourcePreferences.minBrowserTransportIdleTimeoutMinutes,
+                    max:
+                        SourcePreferences.maxBrowserTransportIdleTimeoutMinutes,
+                    unit: 'min',
+                    onSubmitted:
+                        widget.notifier.setBrowserTransportIdleTimeoutMinutes,
                   ),
                 ),
                 SettingsTile(

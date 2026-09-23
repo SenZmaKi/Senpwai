@@ -41,7 +41,10 @@ class _BrowserTransportHostState extends State<BrowserTransportHost> {
         widget.child,
         for (final session in _transport.sessions)
           _BrowserSessionView(
-            key: ValueKey(session.host),
+            // A retired host can be requested again before Flutter renders the
+            // removal frame. Key by the session instance so the replacement
+            // always gets a fresh platform WebView and onWebViewCreated call.
+            key: ObjectKey(session),
             session: session,
             visible: identical(session, visibleSession),
           ),

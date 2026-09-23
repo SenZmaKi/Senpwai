@@ -8,7 +8,7 @@ import 'package:senpwai/ui/pages/downloads_page/download_batch_snapshot.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_formatters.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_status_style.dart';
-import 'package:senpwai/ui/pages/downloads_page/pulsing_progress_bar.dart';
+import 'package:senpwai/ui/components/pulsing_progress_bar.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
 /// Single-batch wrapper used in the Batch Queue page.

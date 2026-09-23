@@ -73,7 +73,10 @@ class NyaaDownloadPlanner {
        _source = source ?? nyaa.Source.getInstance(),
        _targetPlanner = targetPlanner ?? const DownloadTargetPlanner();
 
-  Future<PreparedDownloadBatch> plan(DownloadRequest request) async {
+  Future<PreparedDownloadBatch> plan(
+    DownloadRequest request, {
+    DownloadPlanningProgressCallback? onProgress,
+  }) async {
     final params = NyaaMatchParams(
       preferredResolution: request.resolution,
       preferredLanguage: request.language,
@@ -82,8 +85,20 @@ class NyaaDownloadPlanner {
     final notices = <DownloadNotice>[];
     final anime = request.anime;
 
+    void report(int completedEpisodes, int totalEpisodes, String activity) {
+      onProgress?.call(
+        DownloadPlanningProgress(
+          completedEpisodes: completedEpisodes,
+          totalEpisodes: totalEpisodes,
+          activity: activity,
+        ),
+      );
+    }
+
     if (anime.format == AnilistFormat.movie) {
+      report(0, 1, 'Searching for a movie torrent');
       final movieCandidates = await _matcher.matchMovie(anime, params);
+      report(0, 1, 'Inspecting movie torrents');
       final moviePlan = await _planMovieCandidate(
         anime: anime,
         request: request,
@@ -96,8 +111,11 @@ class NyaaDownloadPlanner {
               'Could not find a movie torrent whose files matched this title.',
         );
       }
+      report(1, 1, 'Prepared movie');
       return PreparedDownloadBatch(jobs: [moviePlan], notices: notices);
     }
+
+    report(0, requestedEpisodes.length, 'Searching Nyaa');
 
     final shouldPreferEpisodes =
         anime.status == AnilistAiringStatus.releasing ||
@@ -105,12 +123,18 @@ class NyaaDownloadPlanner {
 
     if (!shouldPreferEpisodes) {
       final seasonCandidates = await _matcher.matchSeason(anime, params);
+      report(0, requestedEpisodes.length, 'Inspecting season packs');
       final seasonPlan = await _planBatchCandidate(
         request: request,
         requestedEpisodes: requestedEpisodes,
         candidates: seasonCandidates,
       );
       if (seasonPlan != null && seasonPlan.coversAllEpisodes) {
+        report(
+          requestedEpisodes.length,
+          requestedEpisodes.length,
+          'Prepared season pack',
+        );
         return PreparedDownloadBatch(jobs: [seasonPlan.job], notices: notices);
       }
       if (seasonPlan != null) {
@@ -134,6 +158,14 @@ class NyaaDownloadPlanner {
       }
       if (seasonPlan != null) {
         final plannedEpisodes = seasonPlan.episodeNumbers.toSet();
+        final completedByPack = requestedEpisodes
+            .where(plannedEpisodes.contains)
+            .length;
+        report(
+          completedByPack,
+          requestedEpisodes.length,
+          'Prepared $completedByPack episodes from a season pack',
+        );
         final remainingEpisodes = requestedEpisodes
             .where((episode) => !plannedEpisodes.contains(episode))
             .toList();
@@ -142,6 +174,9 @@ class NyaaDownloadPlanner {
           request: request,
           requestedEpisodes: remainingEpisodes,
           params: params,
+          initialCompletedEpisodes: completedByPack,
+          totalEpisodes: requestedEpisodes.length,
+          onProgress: onProgress,
         );
         return PreparedDownloadBatch(
           jobs: [seasonPlan.job, ...remaining.jobs],
@@ -156,6 +191,8 @@ class NyaaDownloadPlanner {
       request: request,
       requestedEpisodes: requestedEpisodes,
       params: params,
+      totalEpisodes: requestedEpisodes.length,
+      onProgress: onProgress,
     );
     if (individualPlan.jobs.isEmpty &&
         individualPlan.nyaaEpisodeIssues.isEmpty) {
@@ -178,11 +215,21 @@ class NyaaDownloadPlanner {
     required DownloadRequest request,
     required List<int> requestedEpisodes,
     required NyaaMatchParams params,
+    int initialCompletedEpisodes = 0,
+    required int totalEpisodes,
+    DownloadPlanningProgressCallback? onProgress,
   }) async {
     if (requestedEpisodes.isEmpty) {
       return const PreparedDownloadBatch(jobs: []);
     }
 
+    onProgress?.call(
+      DownloadPlanningProgress(
+        completedEpisodes: initialCompletedEpisodes,
+        totalEpisodes: totalEpisodes,
+        activity: 'Searching for episode torrents',
+      ),
+    );
     final (episodeMatches, broadCandidates) = await (
       _matcher.matchEpisodes(anime, params, episodeNumbers: requestedEpisodes),
       _matcher.matchBroadCandidates(anime, params),
@@ -193,7 +240,15 @@ class NyaaDownloadPlanner {
     };
     final jobs = <PreparedDownloadJob>[];
     final unresolvedIssues = <NyaaEpisodeResolutionIssue>[];
+    var completedEpisodes = initialCompletedEpisodes;
     for (final episodeNumber in requestedEpisodes) {
+      onProgress?.call(
+        DownloadPlanningProgress(
+          completedEpisodes: completedEpisodes,
+          totalEpisodes: totalEpisodes,
+          activity: 'Inspecting episode $episodeNumber',
+        ),
+      );
       final episodeSpecificMatches =
           matchesByEpisode[episodeNumber]?.matches ?? const [];
       final job = await _planEpisodeFromCandidates(
@@ -204,15 +259,24 @@ class NyaaDownloadPlanner {
       );
       if (job != null) {
         jobs.add(job);
-        continue;
+      } else {
+        unresolvedIssues.add(
+          _buildEpisodeResolutionIssue(
+            anime: anime,
+            episodeNumber: episodeNumber,
+            hadEpisodeSpecificMatches: episodeSpecificMatches.isNotEmpty,
+            hadBroadCandidates: broadCandidates.isNotEmpty,
+          ),
+        );
       }
-
-      unresolvedIssues.add(
-        _buildEpisodeResolutionIssue(
-          anime: anime,
-          episodeNumber: episodeNumber,
-          hadEpisodeSpecificMatches: episodeSpecificMatches.isNotEmpty,
-          hadBroadCandidates: broadCandidates.isNotEmpty,
+      completedEpisodes++;
+      onProgress?.call(
+        DownloadPlanningProgress(
+          completedEpisodes: completedEpisodes,
+          totalEpisodes: totalEpisodes,
+          activity: job == null
+              ? 'Episode $episodeNumber needs review'
+              : 'Prepared episode $episodeNumber',
         ),
       );
     }

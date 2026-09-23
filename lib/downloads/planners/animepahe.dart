@@ -17,6 +17,7 @@ class AnimePaheDownloadPlanner {
   Future<PreparedDownloadBatch> plan({
     required DownloadRequest request,
     required animepahe.AnimeResult? animeMatch,
+    DownloadPlanningProgressCallback? onProgress,
   }) async {
     final requestedEpisodes = request.episodeNumbers;
     if (requestedEpisodes.isEmpty) {
@@ -28,6 +29,17 @@ class AnimePaheDownloadPlanner {
         description: 'This anime does not currently have an AnimePahe match.',
       );
     }
+
+    final totalEpisodes = requestedEpisodes.length;
+    var completedEpisodes = 0;
+    void report(String activity) => onProgress?.call(
+      DownloadPlanningProgress(
+        completedEpisodes: completedEpisodes,
+        totalEpisodes: totalEpisodes,
+        activity: activity,
+      ),
+    );
+    report('Finding episodes');
 
     // Must be called before any AnimePahe network request.
     await animepahe.Source.ensureInitialized();
@@ -73,10 +85,10 @@ class AnimePaheDownloadPlanner {
         )
         .where((session) => requestedEpisodes.contains(session.number))
         .toList();
-
     final notices = <DownloadNotice>[];
     final jobs = <PreparedDownloadJob>[];
     for (final episodeSession in selectedSessions) {
+      report('Preparing episode ${episodeSession.number}');
       final downloadLinks = await _source.fetchDownloadLinks(
         animeTitle: animeMatch.title,
         animeSession: animeMatch.session,
@@ -126,6 +138,8 @@ class AnimePaheDownloadPlanner {
           episodeNumber: directLink.episodeNumber,
         ),
       );
+      completedEpisodes++;
+      report('Prepared episode ${episodeSession.number}');
     }
 
     return PreparedDownloadBatch(jobs: jobs, notices: notices);

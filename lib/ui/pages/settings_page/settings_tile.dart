@@ -201,6 +201,7 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
   final IconData? icon;
   final Widget? leadingWidget;
   final String title;
+  final Widget? titleSuffix;
   final String subtitle;
   final String? keywords;
   final Widget? trailing;
@@ -213,6 +214,7 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
     this.icon,
     this.leadingWidget,
     required this.title,
+    this.titleSuffix,
     required this.subtitle,
     this.keywords,
     this.trailing,
@@ -274,11 +276,21 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
                       ),
                       const SizedBox(width: 14),
                       Expanded(
-                        child: Text(
-                          title,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                title,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            if (titleSuffix != null) ...[
+                              const SizedBox(width: 6),
+                              titleSuffix!,
+                            ],
+                          ],
                         ),
                       ),
                     ],
@@ -320,11 +332,21 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (titleSuffix != null) ...[
+                            const SizedBox(width: 6),
+                            titleSuffix!,
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(

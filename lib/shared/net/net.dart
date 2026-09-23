@@ -12,6 +12,7 @@ import 'package:senpwai/shared/net/interceptors/concurrency.dart';
 import 'package:senpwai/shared/net/interceptors/cookie_manager.dart';
 import 'package:senpwai/shared/net/interceptors/rate_limit.dart';
 import 'package:senpwai/shared/net/net_config.dart';
+import 'package:senpwai/shared/net/request_cancellation_scope.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 
 class GlobalDio {
@@ -54,6 +55,7 @@ class GlobalDio {
     );
     _cookieJar = cookieJar;
     _instance = Dio();
+    _instance!.interceptors.add(const ScopedCancelTokenInterceptor());
     _connectivityInterceptor = ConnectivityInterceptor(_instance!);
     _instance!.interceptors.add(RateLimitInterceptor(_instance!));
     _concurrencyInterceptor = ConcurrencyInterceptor(const {});

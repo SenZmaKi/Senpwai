@@ -14,6 +14,8 @@ class PulsingProgressBar extends StatefulWidget {
   final bool pulsing;
   final BorderRadius borderRadius;
   final Duration pulseDuration;
+  final String? semanticsLabel;
+  final String? semanticsValue;
 
   const PulsingProgressBar({
     super.key,
@@ -25,6 +27,8 @@ class PulsingProgressBar extends StatefulWidget {
     this.pulsing = true,
     this.borderRadius = const BorderRadius.all(Radius.circular(4)),
     this.pulseDuration = const Duration(milliseconds: 1500),
+    this.semanticsLabel,
+    this.semanticsValue,
   });
 
   @override
@@ -71,33 +75,42 @@ class _PulsingProgressBarState extends State<PulsingProgressBar>
   @override
   Widget build(BuildContext context) {
     final target = (widget.value ?? 0).clamp(0.0, 1.0);
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: _displayedValue, end: target),
-      duration: const Duration(milliseconds: 360),
-      curve: Curves.easeOutCubic,
-      onEnd: () => _displayedValue = target,
-      builder: (_, value, __) {
-        return AnimatedBuilder(
-          animation: _ctrl,
-          builder: (_, __) {
-            return ClipRRect(
-              borderRadius: widget.borderRadius,
-              child: CustomPaint(
-                size: Size.fromHeight(widget.height),
-                painter: _BarPainter(
-                  value: widget.value == null ? null : value,
-                  color: widget.color,
-                  trackColor: widget.trackColor,
-                  pulseColor: widget.pulseColor,
-                  phase: _ctrl.value,
-                  pulsing: widget.pulsing,
-                ),
-                child: SizedBox(width: double.infinity, height: widget.height),
-              ),
+    return Semantics(
+      label: widget.semanticsLabel,
+      value: widget.semanticsValue,
+      child: ExcludeSemantics(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: _displayedValue, end: target),
+          duration: const Duration(milliseconds: 360),
+          curve: Curves.easeOutCubic,
+          onEnd: () => _displayedValue = target,
+          builder: (_, value, __) {
+            return AnimatedBuilder(
+              animation: _ctrl,
+              builder: (_, __) {
+                return ClipRRect(
+                  borderRadius: widget.borderRadius,
+                  child: CustomPaint(
+                    size: Size.fromHeight(widget.height),
+                    painter: _BarPainter(
+                      value: widget.value == null ? null : value,
+                      color: widget.color,
+                      trackColor: widget.trackColor,
+                      pulseColor: widget.pulseColor,
+                      phase: _ctrl.value,
+                      pulsing: widget.pulsing,
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: widget.height,
+                    ),
+                  ),
+                );
+              },
             );
           },
-        );
-      },
+        ),
+      ),
     );
   }
 }

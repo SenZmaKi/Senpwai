@@ -175,6 +175,7 @@ class SettingsSearchResults extends ConsumerWidget {
       'Proxy Host Port Username Password ${torrent.proxyMode.label}',
       'Provider Priority Activation drag reorder source toggle enabled disabled',
       for (final source in settings.sources.priority) source.label,
+      'Browser Transport Timeout memory inactivity ${settings.sources.browserTransportIdleTimeoutMinutes} minutes AnimePahe',
       'Nyaa Search Filtering default filters sorting torrent searches',
       'Exact Episode Only Same Season Only Manual Sort Order Minimum Seeders',
       'Skip Nyaa Review When Ready no episode reconciliation needed',

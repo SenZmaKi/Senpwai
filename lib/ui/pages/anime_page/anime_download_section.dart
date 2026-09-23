@@ -10,6 +10,8 @@ import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/components/app.dart';
+import 'package:senpwai/ui/components/confirm_dialog.dart';
+import 'package:senpwai/ui/components/pulsing_progress_bar.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/anime_page/nyaa_review/nyaa_review_sheet.dart';
 import 'package:senpwai/ui/pages/anime_page/download_widgets.dart';
@@ -192,38 +194,78 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       ),
     );
 
+    final canCancelPlanning =
+        state.submissionStage == DownloadSubmissionStage.planning &&
+        !state.planningCancellationRequested;
+    final canPressDownloadButton = canStartDownload || canCancelPlanning;
+    final isPlanning =
+        state.submissionStage == DownloadSubmissionStage.planning;
     final downloadButton = MouseRegion(
-      cursor: canStartDownload
+      cursor: canPressDownloadButton
           ? SystemMouseCursors.click
           : SystemMouseCursors.basic,
-      child: ElevatedButton.icon(
-        onPressed: canStartDownload
-            ? () => unawaited(_handleDownload(context))
-            : null,
-        icon: state.isSubmittingDownload
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.download_rounded, size: 20),
-        label: Text(
-          state.submitButtonLabel,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: canStartDownload
-              ? theme.colorScheme.primary
-              : theme.colorScheme.surfaceContainerHighest,
-          foregroundColor: canStartDownload
-              ? theme.colorScheme.onPrimary
-              : theme.colorScheme.onSurface.withValues(alpha: 0.3),
-          minimumSize: const Size(double.infinity, 48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+      child: Stack(
+        children: [
+          ElevatedButton.icon(
+            onPressed: canCancelPlanning
+                ? () => unawaited(_confirmCancelPlanning())
+                : canStartDownload
+                ? () => unawaited(_handleDownload(context))
+                : null,
+            icon: isPlanning && !state.planningCancellationRequested
+                ? const Icon(Icons.close_rounded, size: 20)
+                : state.isSubmittingDownload
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download_rounded, size: 20),
+            label: Text(
+              state.submitButtonLabel,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: canPressDownloadButton
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.surfaceContainerHighest,
+              foregroundColor: canPressDownloadButton
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              elevation: canStartDownload ? 2 : 0,
+            ),
           ),
-          elevation: canStartDownload ? 2 : 0,
-        ),
+          if (isPlanning && !state.planningCancellationRequested)
+            Positioned(
+              left: 10,
+              right: 10,
+              bottom: 4,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: PulsingProgressBar(
+                  height: 2,
+                  value:
+                      state.planningProgress == null ||
+                          state.planningProgress!.completedEpisodes == 0
+                      ? null
+                      : state.planningProgress!.fraction,
+                  color: theme.colorScheme.onPrimary,
+                  trackColor: theme.colorScheme.onPrimary.withValues(
+                    alpha: 0.18,
+                  ),
+                  pulseColor: theme.colorScheme.primary.withValues(alpha: 0.28),
+                  semanticsLabel: state.planningProgress?.activity,
+                  semanticsValue: state.planningProgress == null
+                      ? null
+                      : '${(state.planningProgress!.fraction * 100).round()}',
+                ),
+              ),
+            ),
+        ],
       ),
     );
 
@@ -388,6 +430,25 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
     );
   }
 
+  Future<void> _confirmCancelPlanning() async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Cancel download planning?',
+      message:
+          'The work completed so far will be discarded and no downloads will be added to the queue.',
+      confirmLabel: 'Cancel planning',
+      cancelLabel: 'Keep planning',
+      destructive: true,
+    );
+    if (!mounted || !confirmed) return;
+
+    final state = widget.notifier.currentState;
+    if (state.submissionStage == DownloadSubmissionStage.planning &&
+        !state.planningCancellationRequested) {
+      widget.notifier.cancelDownloadPlanning();
+    }
+  }
+
   Future<void> _pickFolder(BuildContext context) async {
     final initialDirectory = await _folderPickerInitialDirectory(
       widget.pageState.downloadFolder,
@@ -427,7 +488,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
     final notifier = widget.notifier;
     final navigator = Navigator.of(context);
     try {
-      notifier.setSubmissionStage(DownloadSubmissionStage.planning);
+      notifier.startDownloadPlanning();
       final preparedBatch = await notifier.prepareDownloads(
         startInput: _startController.text,
         endInput: _endController.text,
@@ -478,6 +539,9 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
         navigator.pop();
       }
       _showDownloadNotices(result.notices);
+    } on DownloadPlanningCancelled {
+      if (!context.mounted) return;
+      notifier.resetSubmissionStage();
     } on DownloadUserError catch (error) {
       if (!context.mounted) return;
       notifier.resetSubmissionStage();

@@ -148,6 +148,9 @@ class AppPersistence {
       maxSizeBytes: settings.storage.imageCacheMaxBytes,
     );
     await GlobalDio.initialize(paths: initializedPaths);
+    BrowserTransportService.instance.updateIdleTimeout(
+      settings.sources.browserTransportIdleTimeout,
+    );
     await SourceDirectory.initialize(paths: initializedPaths);
     _updateSourceDirectoryConcurrency(SourceDirectory.instance);
     SourceDirectory.changes.listen(_updateSourceDirectoryConcurrency);

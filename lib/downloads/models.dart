@@ -51,6 +51,25 @@ extension DownloadQueueStatusExtension on DownloadQueueStatus {
 
 enum DownloadNoticeLevel { info, warning }
 
+class DownloadPlanningProgress {
+  final int completedEpisodes;
+  final int totalEpisodes;
+  final String activity;
+
+  const DownloadPlanningProgress({
+    required this.completedEpisodes,
+    required this.totalEpisodes,
+    required this.activity,
+  });
+
+  double get fraction => totalEpisodes <= 0
+      ? 0
+      : (completedEpisodes / totalEpisodes).clamp(0.0, 1.0);
+}
+
+typedef DownloadPlanningProgressCallback =
+    void Function(DownloadPlanningProgress progress);
+
 class DownloadNotice {
   final DownloadNoticeLevel level;
   final String title;

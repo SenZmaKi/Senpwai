@@ -64,6 +64,9 @@ class BrowserTransportService extends ChangeNotifier {
   static final instance = BrowserTransportService._();
 
   final Map<String, BrowserHostSession> _sessions = {};
+  final Map<String, Timer> _idleTimers = {};
+  final Map<String, int> _activeRequests = {};
+  Duration _idleTimeout = const Duration(minutes: 10);
   int _nextRequestId = 0;
 
   List<BrowserHostSession> get sessions => List.unmodifiable(_sessions.values);
@@ -71,10 +74,20 @@ class BrowserTransportService extends ChangeNotifier {
       .where((session) => session.requiresInteraction)
       .firstOrNull;
 
+  void updateIdleTimeout(Duration timeout) {
+    if (timeout <= Duration.zero) {
+      throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
+    }
+    _idleTimeout = timeout;
+    for (final host in _sessions.keys) {
+      _scheduleIdleClose(host);
+    }
+  }
+
   Future<BrowserTransportResponse> send(
     BrowserTransportRequest request, {
     Future<void>? cancelFuture,
-  }) {
+  }) async {
     final host = request.uri.host.toLowerCase();
     if (request.bootstrapUri.host.toLowerCase() != host) {
       throw BrowserTransportException(
@@ -86,12 +99,24 @@ class BrowserTransportService extends ChangeNotifier {
       () => BrowserHostSession(
         host: host,
         bootstrapUri: request.bootstrapUri,
-        onChanged: notifyListeners,
+        onChanged: () => _sessionChanged(host),
         nextRequestId: () => _nextRequestId++,
       ),
     );
+    _idleTimers.remove(host)?.cancel();
+    _activeRequests[host] = (_activeRequests[host] ?? 0) + 1;
     notifyListeners();
-    return session.send(request, cancelFuture: cancelFuture);
+    try {
+      return await session.send(request, cancelFuture: cancelFuture);
+    } finally {
+      final remaining = (_activeRequests[host] ?? 1) - 1;
+      if (remaining <= 0) {
+        _activeRequests.remove(host);
+        _scheduleIdleClose(host);
+      } else {
+        _activeRequests[host] = remaining;
+      }
+    }
   }
 
   Future<void> clearSessions() async {
@@ -106,10 +131,35 @@ class BrowserTransportService extends ChangeNotifier {
         .where((host) => !retained.contains(host))
         .toList();
     for (final host in removed) {
+      _idleTimers.remove(host)?.cancel();
+      _activeRequests.remove(host);
       final session = _sessions.remove(host);
       if (session != null) unawaited(session.close());
     }
     if (removed.isNotEmpty) notifyListeners();
+  }
+
+  void _sessionChanged(String host) {
+    notifyListeners();
+    _scheduleIdleClose(host);
+  }
+
+  void _scheduleIdleClose(String host) {
+    _idleTimers.remove(host)?.cancel();
+    final session = _sessions[host];
+    if (session == null || (_activeRequests[host] ?? 0) > 0) {
+      return;
+    }
+    _idleTimers[host] = Timer(_idleTimeout, () {
+      _idleTimers.remove(host);
+      final current = _sessions[host];
+      if (!identical(current, session) || (_activeRequests[host] ?? 0) > 0) {
+        return;
+      }
+      _sessions.remove(host);
+      unawaited(session.close());
+      notifyListeners();
+    });
   }
 }
 

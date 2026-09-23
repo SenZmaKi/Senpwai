@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show AppLifecycleState;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/anilist/enums.dart';
@@ -18,13 +19,14 @@ import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/app_lifecycle.dart';
 import 'package:senpwai/shared/platform_paths.dart';
 import 'package:senpwai/shared/performance_trace.dart';
+import 'package:senpwai/shared/net/request_cancellation_scope.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/tracking/notifier.dart';
 
 enum DownloadSubmissionStage { idle, planning, reviewing, queueing }
 
-class _DownloadPlanningCancelled implements Exception {
-  const _DownloadPlanningCancelled();
+class DownloadPlanningCancelled implements Exception {
+  const DownloadPlanningCancelled();
 }
 
 int _availableEpisodesForAnime(AnilistAnimeBase anime) {
@@ -73,6 +75,8 @@ class AnimeDownloadSessionState {
   final Set<int> ownedEpisodes;
   final bool trackingEnabled;
   final DownloadSubmissionStage submissionStage;
+  final DownloadPlanningProgress? planningProgress;
+  final bool planningCancellationRequested;
   final bool sourceSelectedByUser;
   final bool downloadFolderSelectedByUser;
   final bool endEpisodeUsesLatest;
@@ -93,6 +97,8 @@ class AnimeDownloadSessionState {
     this.ownedEpisodes = const {},
     this.trackingEnabled = false,
     this.submissionStage = DownloadSubmissionStage.idle,
+    this.planningProgress,
+    this.planningCancellationRequested = false,
     this.sourceSelectedByUser = false,
     this.downloadFolderSelectedByUser = false,
     this.endEpisodeUsesLatest = true,
@@ -112,15 +118,21 @@ class AnimeDownloadSessionState {
   bool get isSubmittingDownload =>
       submissionStage != DownloadSubmissionStage.idle;
 
-  String get submitButtonLabel => isSubmittingDownload
-      ? submissionStage.label(hasSource: selectedSource != null)
-      : !allSourcesResolved
-      ? 'Loading sources...'
-      : selectedSource == null
-      ? 'No source available'
-      : hasAvailableEpisodes
-      ? 'Download'
-      : 'No aired episodes yet';
+  String get submitButtonLabel {
+    if (submissionStage == DownloadSubmissionStage.planning) {
+      if (planningCancellationRequested) return 'Canceling plan...';
+      final progress = planningProgress;
+      return progress == null
+          ? 'Cancel planning'
+          : 'Cancel planning (${progress.completedEpisodes}/${progress.totalEpisodes})';
+    }
+    if (isSubmittingDownload) {
+      return submissionStage.label(hasSource: selectedSource != null);
+    }
+    if (!allSourcesResolved) return 'Loading sources...';
+    if (selectedSource == null) return 'No source available';
+    return hasAvailableEpisodes ? 'Download' : 'No aired episodes yet';
+  }
 
   bool isSourceAvailable(AnimeSource source) => switch (source) {
     AnimeSource.animepahe => animepaheMatch.isMatched,
@@ -149,10 +161,13 @@ class AnimeDownloadSessionState {
     Set<int>? ownedEpisodes,
     bool? trackingEnabled,
     DownloadSubmissionStage? submissionStage,
+    DownloadPlanningProgress? planningProgress,
+    bool? planningCancellationRequested,
     bool? sourceSelectedByUser,
     bool? downloadFolderSelectedByUser,
     bool? endEpisodeUsesLatest,
     bool clearSource = false,
+    bool clearPlanningProgress = false,
   }) {
     return AnimeDownloadSessionState(
       anime: anime,
@@ -173,6 +188,11 @@ class AnimeDownloadSessionState {
       ownedEpisodes: ownedEpisodes ?? this.ownedEpisodes,
       trackingEnabled: trackingEnabled ?? this.trackingEnabled,
       submissionStage: submissionStage ?? this.submissionStage,
+      planningProgress: clearPlanningProgress
+          ? null
+          : (planningProgress ?? this.planningProgress),
+      planningCancellationRequested:
+          planningCancellationRequested ?? this.planningCancellationRequested,
       sourceSelectedByUser: sourceSelectedByUser ?? this.sourceSelectedByUser,
       downloadFolderSelectedByUser:
           downloadFolderSelectedByUser ?? this.downloadFolderSelectedByUser,
@@ -188,6 +208,8 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         AnimeDownloadSessionState,
         AnilistAnimeBase
       >((anime) => AnimeDownloadSessionNotifier._(anime));
+
+  CancelToken? _planningCancelToken;
 
   static const _filesystemWatchDebounce = Duration(milliseconds: 250);
 
@@ -246,6 +268,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       },
     );
     ref.onDispose(() {
+      _planningCancelToken?.cancel('Download planning session disposed.');
       _filesystemWatchGeneration += 1;
       _filesystemWatchDebounceTimer?.cancel();
       unawaited(_filesystemWatchSubscription?.cancel());
@@ -587,19 +610,82 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   }
 
   void setSubmissionStage(DownloadSubmissionStage stage) {
-    state = state.copyWith(submissionStage: stage);
+    state = state.copyWith(
+      submissionStage: stage,
+      clearPlanningProgress: stage != DownloadSubmissionStage.planning,
+      planningCancellationRequested: false,
+    );
+  }
+
+  void startDownloadPlanning() {
+    _planningCancelToken?.cancel('Superseded by a new download plan.');
+    _planningCancelToken = CancelToken();
+    state = state.copyWith(
+      submissionStage: DownloadSubmissionStage.planning,
+      clearPlanningProgress: true,
+      planningCancellationRequested: false,
+    );
+  }
+
+  void cancelDownloadPlanning() {
+    if (state.submissionStage != DownloadSubmissionStage.planning ||
+        state.planningCancellationRequested) {
+      return;
+    }
+    state = state.copyWith(planningCancellationRequested: true);
+    _planningCancelToken?.cancel('Download planning cancelled by the user.');
   }
 
   void resetSubmissionStage() {
-    state = state.copyWith(submissionStage: DownloadSubmissionStage.idle);
+    state = state.copyWith(
+      submissionStage: DownloadSubmissionStage.idle,
+      clearPlanningProgress: true,
+      planningCancellationRequested: false,
+    );
   }
 
   Future<PreparedDownloadBatch> prepareDownloads({
     required String startInput,
     required String endInput,
   }) async {
+    final cancelToken = _planningCancelToken;
+    if (cancelToken == null) {
+      throw StateError('Download planning was not started.');
+    }
+    final operation = runWithRequestCancelToken(
+      cancelToken,
+      () => _prepareDownloads(
+        startInput: startInput,
+        endInput: endInput,
+        cancelToken: cancelToken,
+      ),
+    );
+    try {
+      return await Future.any([
+        operation,
+        cancelToken.whenCancel.then<PreparedDownloadBatch>(
+          (_) => throw const DownloadPlanningCancelled(),
+        ),
+      ]);
+    } catch (_) {
+      if (cancelToken.isCancelled) {
+        throw const DownloadPlanningCancelled();
+      }
+      rethrow;
+    } finally {
+      if (identical(_planningCancelToken, cancelToken)) {
+        _planningCancelToken = null;
+      }
+    }
+  }
+
+  Future<PreparedDownloadBatch> _prepareDownloads({
+    required String startInput,
+    required String endInput,
+    required CancelToken cancelToken,
+  }) async {
     await _refreshFilesystemState(resolveMissingFolder: true);
-    if (!ref.mounted) throw const _DownloadPlanningCancelled();
+    _throwIfPlanningCancelled(cancelToken);
     final source = state.selectedSource;
     final folder = state.downloadFolder;
     if (source == null) {
@@ -637,7 +723,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
             episodeCount: state.availableEpisodes,
           )
         : const <int>{};
-    if (!ref.mounted) throw const _DownloadPlanningCancelled();
+    _throwIfPlanningCancelled(cancelToken);
     final requestedEpisodes = [
       for (final episode in missingEpisodes)
         if (!fillerEpisodes.contains(episode)) episode,
@@ -669,7 +755,17 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       ),
       animepaheMatch: state.animepaheMatch.result?.result,
       tokyoinsiderMatch: state.tokyoinsiderMatch.result?.result,
+      onProgress: (progress) {
+        if (!ref.mounted || cancelToken.isCancelled) return;
+        state = state.copyWith(planningProgress: progress);
+      },
     );
+  }
+
+  void _throwIfPlanningCancelled(CancelToken cancelToken) {
+    if (!ref.mounted || cancelToken.isCancelled) {
+      throw const DownloadPlanningCancelled();
+    }
   }
 
   Future<EnqueuedDownloadsResult> enqueuePreparedDownloads(

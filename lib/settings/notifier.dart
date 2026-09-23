@@ -6,6 +6,7 @@ import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/settings/models.dart';
 import 'package:senpwai/shared/net/download/download_config.dart';
+import 'package:senpwai/shared/net/browser_transport/browser_transport.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
@@ -48,6 +49,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       settings.storage.httpCacheMaxAge,
     );
     AppImageCache.applyMaxSizeBytes(settings.storage.imageCacheMaxBytes);
+    BrowserTransportService.instance.updateIdleTimeout(
+      settings.sources.browserTransportIdleTimeout,
+    );
   }
 
   Future<void> setBrightnessMode(BrightnessMode mode) {
@@ -260,6 +264,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   Future<void> setSourcePriority(List<AnimeSource> priority) {
     return _commit(
       state.copyWith(sources: state.sources.copyWith(priority: priority)),
+    );
+  }
+
+  Future<void> setBrowserTransportIdleTimeoutMinutes(int minutes) {
+    return _commit(
+      state.copyWith(
+        sources: state.sources.copyWith(
+          browserTransportIdleTimeoutMinutes: minutes,
+        ),
+      ),
     );
   }
 

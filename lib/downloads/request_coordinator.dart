@@ -40,17 +40,19 @@ class AnimeDownloadCoordinator {
     required DownloadRequest request,
     animepahe.AnimeResult? animepaheMatch,
     tokyoinsider.AnimeResult? tokyoinsiderMatch,
+    DownloadPlanningProgressCallback? onProgress,
   }) async {
     return switch (request.source) {
       AnimeSource.animepahe => _animepahePlanner.plan(
         request: request,
         animeMatch: animepaheMatch,
+        onProgress: onProgress,
       ),
       AnimeSource.tokyoinsider => _tokyoinsiderPlanner.plan(
         request: request,
         animeMatch: tokyoinsiderMatch,
       ),
-      AnimeSource.nyaa => _nyaaPlanner.plan(request),
+      AnimeSource.nyaa => _nyaaPlanner.plan(request, onProgress: onProgress),
     };
   }
 

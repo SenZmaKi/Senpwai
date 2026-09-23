@@ -438,6 +438,9 @@ class CustomAnimeFolder {
 
 @immutable
 class SourcePreferences {
+  static const defaultBrowserTransportIdleTimeoutMinutes = 10;
+  static const minBrowserTransportIdleTimeoutMinutes = 1;
+  static const maxBrowserTransportIdleTimeoutMinutes = 120;
   static const defaultEnabledSources = {
     AnimeSource.animepahe,
     AnimeSource.nyaa,
@@ -454,6 +457,7 @@ class SourcePreferences {
   final NyaaManualSearchFilters nyaaDefaultFilters;
   final bool skipNyaaReviewWhenUnambiguous;
   final bool skipUnavailableNyaaEpisodes;
+  final int browserTransportIdleTimeoutMinutes;
 
   const SourcePreferences({
     this.enabledSources = defaultEnabledSources,
@@ -461,6 +465,8 @@ class SourcePreferences {
     this.nyaaDefaultFilters = const NyaaManualSearchFilters(),
     this.skipNyaaReviewWhenUnambiguous = false,
     this.skipUnavailableNyaaEpisodes = false,
+    this.browserTransportIdleTimeoutMinutes =
+        defaultBrowserTransportIdleTimeoutMinutes,
   });
 
   factory SourcePreferences.fromJson(Map<String, dynamic> json) {
@@ -486,6 +492,13 @@ class SourcePreferences {
         json['skipUnavailableNyaaEpisodes'],
         false,
       ),
+      browserTransportIdleTimeoutMinutes:
+          normalizeBrowserTransportIdleTimeoutMinutes(
+            _intValue(
+              json['browserTransportIdleTimeoutMinutes'],
+              defaultBrowserTransportIdleTimeoutMinutes,
+            ),
+          ),
     );
   }
 
@@ -495,6 +508,7 @@ class SourcePreferences {
     'nyaaDefaultFilters': nyaaFiltersToJson(nyaaDefaultFilters),
     'skipNyaaReviewWhenUnambiguous': skipNyaaReviewWhenUnambiguous,
     'skipUnavailableNyaaEpisodes': skipUnavailableNyaaEpisodes,
+    'browserTransportIdleTimeoutMinutes': browserTransportIdleTimeoutMinutes,
   };
 
   AnimeSource? get preferredEnabledSource {
@@ -510,6 +524,7 @@ class SourcePreferences {
     NyaaManualSearchFilters? nyaaDefaultFilters,
     bool? skipNyaaReviewWhenUnambiguous,
     bool? skipUnavailableNyaaEpisodes,
+    int? browserTransportIdleTimeoutMinutes,
   }) {
     final nextEnabled = enabledSources ?? this.enabledSources;
     return SourcePreferences(
@@ -522,8 +537,23 @@ class SourcePreferences {
           skipNyaaReviewWhenUnambiguous ?? this.skipNyaaReviewWhenUnambiguous,
       skipUnavailableNyaaEpisodes:
           skipUnavailableNyaaEpisodes ?? this.skipUnavailableNyaaEpisodes,
+      browserTransportIdleTimeoutMinutes:
+          browserTransportIdleTimeoutMinutes == null
+          ? this.browserTransportIdleTimeoutMinutes
+          : normalizeBrowserTransportIdleTimeoutMinutes(
+              browserTransportIdleTimeoutMinutes,
+            ),
     );
   }
+
+  Duration get browserTransportIdleTimeout =>
+      Duration(minutes: browserTransportIdleTimeoutMinutes);
+
+  static int normalizeBrowserTransportIdleTimeoutMinutes(int minutes) =>
+      minutes.clamp(
+        minBrowserTransportIdleTimeoutMinutes,
+        maxBrowserTransportIdleTimeoutMinutes,
+      );
 }
 
 @immutable
