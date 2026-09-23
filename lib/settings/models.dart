@@ -444,12 +444,13 @@ class SourcePreferences {
   static const defaultEnabledSources = {
     AnimeSource.animepahe,
     AnimeSource.nyaa,
+    AnimeSource.tokyoinsider,
   };
 
   static const defaultPriority = [
     AnimeSource.animepahe,
-    AnimeSource.tokyoinsider,
     AnimeSource.nyaa,
+    AnimeSource.tokyoinsider,
   ];
 
   final Set<AnimeSource> enabledSources;

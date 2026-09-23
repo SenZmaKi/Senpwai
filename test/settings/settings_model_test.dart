@@ -18,8 +18,13 @@ void main() {
       expect(settings.sources.enabledSources, {
         AnimeSource.animepahe,
         AnimeSource.nyaa,
+        AnimeSource.tokyoinsider,
       });
-      expect(settings.sources.priority.first, AnimeSource.animepahe);
+      expect(settings.sources.priority, [
+        AnimeSource.animepahe,
+        AnimeSource.nyaa,
+        AnimeSource.tokyoinsider,
+      ]);
       expect(settings.storage.imageCacheMaxBytes, 50 * 1024 * 1024);
       expect(settings.anilist.trackerCheckIntervalHours, 1);
       expect(settings.notifications.enabled, isTrue);

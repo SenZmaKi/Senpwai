@@ -521,6 +521,42 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
         }
         reviewedBatch = resolvedBatch;
       }
+      if (reviewedBatch.unavailableEpisodeNumbers.isNotEmpty) {
+        notifier.setSubmissionStage(DownloadSubmissionStage.reviewing);
+        final unavailable = reviewedBatch.unavailableEpisodeNumbers;
+        final found = [
+          for (final job in reviewedBatch.jobs)
+            if (job is PreparedHttpDownloadJob && job.episodeNumber != null)
+              job.episodeNumber!,
+        ]..sort();
+        final shouldDownload = await showConfirmDialog(
+          context,
+          title: 'Some episodes were not found',
+          content: Text.rich(
+            TextSpan(
+              style: DefaultTextStyle.of(context).style,
+              children: [
+                TextSpan(
+                  text:
+                      'Not found: ${_episodeListLabel(unavailable)}.\n\nFound: ',
+                ),
+                TextSpan(
+                  text: _episodeListLabel(found),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(text: '. Download the found episodes?'),
+              ],
+            ),
+          ),
+          confirmLabel: 'Download found',
+          cancelLabel: 'Cancel',
+        );
+        if (!context.mounted) return;
+        if (!shouldDownload) {
+          notifier.resetSubmissionStage();
+          return;
+        }
+      }
       if (reviewedBatch.jobs.isEmpty) {
         notifier.resetSubmissionStage();
         AppToast.showInfo(
@@ -585,6 +621,24 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       }
     }
   }
+}
+
+String _episodeListLabel(List<int> episodes) {
+  final ranges = <String>[];
+  var rangeStart = episodes.first;
+  var rangeEnd = rangeStart;
+  for (final episode in episodes.skip(1)) {
+    if (episode == rangeEnd + 1) {
+      rangeEnd = episode;
+      continue;
+    }
+    ranges.add(
+      rangeStart == rangeEnd ? '$rangeStart' : '$rangeStart–$rangeEnd',
+    );
+    rangeStart = rangeEnd = episode;
+  }
+  ranges.add(rangeStart == rangeEnd ? '$rangeStart' : '$rangeStart–$rangeEnd');
+  return '${episodes.length == 1 ? 'episode' : 'episodes'} ${ranges.join(', ')}';
 }
 
 Future<String?> _folderPickerInitialDirectory(String? targetFolder) async {

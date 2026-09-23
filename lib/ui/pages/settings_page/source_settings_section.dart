@@ -55,7 +55,9 @@ class SourceSettingsSection extends StatelessWidget {
                   child: SettingsTile(
                     icon: Icons.drag_indicator_rounded,
                     title: source.label,
-                    titleSuffix: source == AnimeSource.animepahe
+                    titleSuffix:
+                        source == AnimeSource.animepahe ||
+                            source == AnimeSource.tokyoinsider
                         ? const BrowserTransportInfoIcon()
                         : null,
                     subtitle: sources.enabledSources.contains(source)

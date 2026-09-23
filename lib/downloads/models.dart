@@ -199,24 +199,30 @@ class PreparedDownloadBatch {
   final List<PreparedDownloadJob> jobs;
   final List<DownloadNotice> notices;
   final List<NyaaEpisodeResolutionIssue> nyaaEpisodeIssues;
+  final List<int> unavailableEpisodeNumbers;
 
   const PreparedDownloadBatch({
     required this.jobs,
     this.notices = const [],
     this.nyaaEpisodeIssues = const [],
+    this.unavailableEpisodeNumbers = const [],
   });
 
-  bool get requiresUserInteraction => nyaaEpisodeIssues.isNotEmpty;
+  bool get requiresUserInteraction =>
+      nyaaEpisodeIssues.isNotEmpty || unavailableEpisodeNumbers.isNotEmpty;
 
   PreparedDownloadBatch copyWith({
     List<PreparedDownloadJob>? jobs,
     List<DownloadNotice>? notices,
     List<NyaaEpisodeResolutionIssue>? nyaaEpisodeIssues,
+    List<int>? unavailableEpisodeNumbers,
   }) {
     return PreparedDownloadBatch(
       jobs: jobs ?? this.jobs,
       notices: notices ?? this.notices,
       nyaaEpisodeIssues: nyaaEpisodeIssues ?? this.nyaaEpisodeIssues,
+      unavailableEpisodeNumbers:
+          unavailableEpisodeNumbers ?? this.unavailableEpisodeNumbers,
     );
   }
 }

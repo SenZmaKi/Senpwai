@@ -51,6 +51,7 @@ class AnimeDownloadCoordinator {
       AnimeSource.tokyoinsider => _tokyoinsiderPlanner.plan(
         request: request,
         animeMatch: tokyoinsiderMatch,
+        onProgress: onProgress,
       ),
       AnimeSource.nyaa => _nyaaPlanner.plan(request, onProgress: onProgress),
     };

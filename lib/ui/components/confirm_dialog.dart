@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 Future<bool> showConfirmDialog(
   BuildContext context, {
   required String title,
-  required String message,
+  String? message,
+  Widget? content,
   String confirmLabel = 'Confirm',
   String cancelLabel = 'Cancel',
   bool destructive = false,
 }) async {
+  assert(message != null || content != null);
   final theme = Theme.of(context);
   final accent = destructive
       ? theme.colorScheme.error
@@ -30,7 +32,7 @@ Future<bool> showConfirmDialog(
             Expanded(child: Text(title)),
           ],
         ),
-        content: Text(message),
+        content: content ?? Text(message!),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),

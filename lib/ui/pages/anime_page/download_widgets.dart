@@ -89,7 +89,7 @@ class SourceDropdown extends StatelessWidget {
                     color: source.color,
                   ),
                 ),
-                if (source == AnimeSource.animepahe) ...[
+                if (_usesBrowserTransport(source)) ...[
                   const SizedBox(width: 6),
                   const BrowserTransportInfoIcon(size: 15),
                 ],
@@ -128,7 +128,7 @@ class SourceDropdown extends StatelessWidget {
                           : theme.colorScheme.onSurface.withValues(alpha: 0.35),
                     ),
                   ),
-                  if (source == AnimeSource.animepahe) ...[
+                  if (_usesBrowserTransport(source)) ...[
                     const SizedBox(width: 6),
                     const BrowserTransportInfoIcon(size: 15),
                   ],
@@ -157,6 +157,9 @@ class SourceDropdown extends StatelessWidget {
 }
 
 // ── Section label ─────────────────────────────────────────────────────────────
+
+bool _usesBrowserTransport(AnimeSource source) =>
+    source == AnimeSource.animepahe || source == AnimeSource.tokyoinsider;
 
 class DownloadSectionLabel extends StatelessWidget {
   final String label;

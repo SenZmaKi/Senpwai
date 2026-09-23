@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class BrowserTransportInfoIcon extends StatelessWidget {
   static const message =
-      'AnimePahe uses an embedded browser for some requests. It opens only '
+      'This source uses an embedded browser for some requests. It opens only '
       'when needed and may temporarily use more memory.';
 
   final double size;

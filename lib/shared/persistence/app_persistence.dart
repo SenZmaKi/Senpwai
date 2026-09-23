@@ -168,6 +168,7 @@ class AppPersistence {
     GlobalDio.updateBrowserOrigins({
       ..._browserOrigins(directory.animePahe),
       ..._browserOrigins(directory.kwik),
+      ..._browserOrigins(directory.tokyoInsider),
     });
   }
 

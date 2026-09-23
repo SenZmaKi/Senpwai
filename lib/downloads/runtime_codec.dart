@@ -135,6 +135,7 @@ class DownloadRuntimeCodec {
     return {
       'jobs': batch.jobs.map(encodePreparedJob).toList(),
       'notices': batch.notices.map(encodeNotice).toList(),
+      'unavailableEpisodeNumbers': batch.unavailableEpisodeNumbers,
     };
   }
 
@@ -146,6 +147,9 @@ class DownloadRuntimeCodec {
       notices: _list(
         map['notices'],
       ).map((notice) => decodeNotice(_map(notice))).toList(),
+      unavailableEpisodeNumbers: _list(
+        map['unavailableEpisodeNumbers'],
+      ).map(_int).toList(),
     );
   }
 
