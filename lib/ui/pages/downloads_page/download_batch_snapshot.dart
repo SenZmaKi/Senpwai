@@ -8,10 +8,20 @@ class DownloadBatchSnapshot {
 
   const DownloadBatchSnapshot({required this.batch, required this.items});
 
+  int get itemCount => items.fold(
+    0,
+    (count, item) =>
+        count + (item.torrentFiles.isEmpty ? 1 : item.torrentFiles.length),
+  );
+
   int get activeCount => items.where((i) => !i.status.isTerminal).length;
   int get doneCount => items.length - activeCount;
-  int get completedCount =>
-      items.where((i) => i.status == DownloadQueueStatus.completed).length;
+  int get completedCount => items.fold(0, (count, item) {
+    if (item.torrentFiles.isNotEmpty) {
+      return count + item.torrentFiles.where((file) => file.isComplete).length;
+    }
+    return count + (item.status == DownloadQueueStatus.completed ? 1 : 0);
+  });
   int get failedCount =>
       items.where((i) => i.status == DownloadQueueStatus.failed).length;
   int get queuedCount =>

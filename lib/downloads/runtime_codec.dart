@@ -42,6 +42,7 @@ class DownloadRuntimeCodec {
     'torrentStats': item.torrentStats == null
         ? null
         : encodeTorrentStats(item.torrentStats!),
+    'torrentFiles': item.torrentFiles.map(encodeTorrentFile).toList(),
     'seedingTargetReached': item.seedingTargetReached,
   };
 
@@ -69,6 +70,9 @@ class DownloadRuntimeCodec {
       torrentStats: map['torrentStats'] == null
           ? null
           : decodeTorrentStats(_map(map['torrentStats'])),
+      torrentFiles: _list(
+        map['torrentFiles'],
+      ).map((file) => decodeTorrentFile(_map(file))).toList(),
       seedingTargetReached: map['seedingTargetReached'] == true,
     );
   }
@@ -108,6 +112,22 @@ class DownloadRuntimeCodec {
       listSeeds: _int(map['listSeeds']),
       listPeers: _int(map['listPeers']),
       totalUploaded: _int(map['totalUploaded']),
+    );
+  }
+
+  static Map<String, Object?> encodeTorrentFile(TorrentFileProgress file) => {
+    'path': file.path,
+    'totalBytes': file.totalBytes,
+    'downloadedBytes': file.downloadedBytes,
+    'isActive': file.isActive,
+  };
+
+  static TorrentFileProgress decodeTorrentFile(Map<Object?, Object?> map) {
+    return TorrentFileProgress(
+      path: _string(map['path']),
+      totalBytes: _int(map['totalBytes']),
+      downloadedBytes: _int(map['downloadedBytes']),
+      isActive: map['isActive'] == true,
     );
   }
 

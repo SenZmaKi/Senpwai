@@ -43,6 +43,10 @@ class BrowserHttpClientAdapter implements HttpClientAdapter {
         'Browser form submission only supports POST requests.',
       );
     }
+    if (executionMode == BrowserExecutionMode.navigate &&
+        options.method.toUpperCase() != 'GET') {
+      throw UnsupportedError('Browser navigation only supports GET requests.');
+    }
     final body = requestStream == null
         ? null
         : await _withOptionalTimeout(
@@ -54,13 +58,23 @@ class BrowserHttpClientAdapter implements HttpClientAdapter {
       BrowserTransportRequest(
         uri: options.uri,
         bootstrapUri:
-            routingPolicy.browserOriginFor(options.uri.host) ?? options.uri,
+            routingPolicy.browserOriginFor(options.uri.host) ??
+            options.uri.replace(path: '/', query: null, fragment: null),
         method: options.method,
         headers: _browserHeaders(options.headers),
         executionMode: executionMode,
         navigationPolicy:
             options.extra[browserNavigationPolicyExtraKey]
                 as BrowserNavigationPolicy?,
+        onUserCancel: options.cancelToken == null
+            ? null
+            : () {
+                if (!options.cancelToken!.isCancelled) {
+                  options.cancelToken!.cancel(
+                    'Browser verification closed by the user.',
+                  );
+                }
+              },
         referrer: _headerUri(options.headers, 'referer'),
         body: body,
         readyTimeout: _effectiveTimeout(options.connectTimeout),

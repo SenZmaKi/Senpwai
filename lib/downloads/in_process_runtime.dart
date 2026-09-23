@@ -657,11 +657,15 @@ class InProcessDownloadRuntime implements DownloadRuntime {
         ),
       );
       handle.unsetFlags(LibtorrentTorrentFlags.autoManaged);
-      final priorities = List<int>.filled(handle.getFiles().length, 0);
-      for (final fileIndex in job.selectedFileIndices) {
-        priorities[fileIndex] = 7;
-      }
-      handle.prioritizeFiles(priorities);
+      final torrentFiles = handle.getFiles();
+      final selectedFileSizes = <int, int>{
+        for (final file in torrentFiles) file.index: file.size,
+      };
+      final selectedFilePaths = <int, String>{
+        for (var i = 0; i < job.selectedFileIndices.length; i++)
+          if (i < job.selectedFilePaths.length)
+            job.selectedFileIndices[i]: job.selectedFilePaths[i],
+      };
 
       late final _ActiveTorrentDownload activeDownload;
       final subscription = handle.listenProgress(
@@ -683,6 +687,11 @@ class InProcessDownloadRuntime implements DownloadRuntime {
           }
 
           final fileProgress = handle.getFileProgress();
+          _prioritizeTorrentEpisodes(activeDownload, fileProgress);
+          final torrentFileProgress = _torrentFileProgress(
+            activeDownload,
+            fileProgress,
+          );
           var downloadedBytes = 0;
           for (final fileIndex in job.selectedFileIndices) {
             if (fileIndex >= 0 && fileIndex < fileProgress.length) {
@@ -726,6 +735,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
                 downloadedBytes: job.totalBytes,
                 bytesPerSecond: 0,
                 torrentStats: liveStats,
+                torrentFiles: torrentFileProgress,
                 seedingTargetReached:
                     seedingEnabled && activeDownload.seedingStartedAt != null,
               ),
@@ -741,6 +751,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
                 bytesPerSecond: 0,
                 downloadedBytes: downloadedBytes,
                 torrentStats: liveStats,
+                torrentFiles: torrentFileProgress,
                 clearError: true,
               );
             }
@@ -752,6 +763,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
               return item.copyWith(
                 downloadedBytes: downloadedBytes,
                 torrentStats: liveStats,
+                torrentFiles: torrentFileProgress,
                 clearError: true,
               );
             }
@@ -779,6 +791,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
                       totalUploaded: liveStats.totalUploaded,
                     )
                   : liveStats,
+              torrentFiles: torrentFileProgress,
               clearError: true,
             );
           });
@@ -789,6 +802,13 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       activeDownload = _ActiveTorrentDownload(
         handle: handle,
         subscription: subscription,
+        selectedFileIndices: job.selectedFileIndices,
+        selectedFileSizes: selectedFileSizes,
+        selectedFilePaths: selectedFilePaths,
+      );
+      _prioritizeTorrentEpisodes(
+        activeDownload,
+        List<int>.filled(torrentFiles.length, 0),
       );
       _torrentDownloads[id] = activeDownload;
 
@@ -806,6 +826,10 @@ class InProcessDownloadRuntime implements DownloadRuntime {
           bytesPerSecond: 0,
           createdAt: DateTime.now(),
           filePaths: job.selectedFilePaths,
+          torrentFiles: _torrentFileProgress(
+            activeDownload,
+            List<int>.filled(torrentFiles.length, 0),
+          ),
         ),
       );
 
@@ -952,6 +976,9 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     final session = _torrentSession;
     if (session != null) {
       _applyTorrentSettings(session, settings);
+    }
+    for (final runtime in _torrentDownloads.values) {
+      _prioritizeTorrentEpisodes(runtime, runtime.handle.getFileProgress());
     }
     _reconcileActiveDownloadLimits();
     _reconcileSeedSlots();
@@ -1284,6 +1311,56 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     } catch (_) {}
   }
 
+  void _prioritizeTorrentEpisodes(
+    _ActiveTorrentDownload runtime,
+    List<int> fileProgress,
+  ) {
+    final activeLimit = _torrentSettings.maxActiveDownloads;
+    var remainingSlots = activeLimit == -1
+        ? runtime.selectedFileIndices.length
+        : activeLimit;
+    final activeIndices = <int>{};
+    for (final fileIndex in runtime.selectedFileIndices) {
+      final fileSize = runtime.selectedFileSizes[fileIndex] ?? 0;
+      final downloaded = fileIndex >= 0 && fileIndex < fileProgress.length
+          ? fileProgress[fileIndex]
+          : 0;
+      if (fileSize > 0 && downloaded >= fileSize) continue;
+      if (remainingSlots <= 0) break;
+      activeIndices.add(fileIndex);
+      remainingSlots--;
+    }
+    if (runtime.prioritizedFileIndices.length == activeIndices.length &&
+        runtime.prioritizedFileIndices.containsAll(activeIndices)) {
+      return;
+    }
+    final priorities = List<int>.filled(fileProgress.length, 0);
+    for (final fileIndex in activeIndices) {
+      if (fileIndex >= 0 && fileIndex < priorities.length) {
+        priorities[fileIndex] = 7;
+      }
+    }
+    runtime.handle.prioritizeFiles(priorities);
+    runtime.prioritizedFileIndices = activeIndices;
+  }
+
+  List<TorrentFileProgress> _torrentFileProgress(
+    _ActiveTorrentDownload runtime,
+    List<int> fileProgress,
+  ) {
+    return [
+      for (final fileIndex in runtime.selectedFileIndices)
+        TorrentFileProgress(
+          path: runtime.selectedFilePaths[fileIndex] ?? '',
+          totalBytes: runtime.selectedFileSizes[fileIndex] ?? 0,
+          downloadedBytes: fileIndex >= 0 && fileIndex < fileProgress.length
+              ? fileProgress[fileIndex]
+              : 0,
+          isActive: runtime.prioritizedFileIndices.contains(fileIndex),
+        ),
+    ];
+  }
+
   DownloadQueueItem? _findItem(String id) {
     for (final item in state.items) {
       if (item.id == id) return item;
@@ -1584,11 +1661,21 @@ class _ActiveHttpDownload {
 class _ActiveTorrentDownload {
   final TorrentHandle handle;
   final StreamSubscription<TorrentStatus> subscription;
+  final List<int> selectedFileIndices;
+  final Map<int, int> selectedFileSizes;
+  final Map<int, String> selectedFilePaths;
+  Set<int> prioritizedFileIndices = const {};
   DateTime? seedingStartedAt;
   bool pausedForSeedSlot = false;
   bool pausedForDownloadSlot = false;
 
-  _ActiveTorrentDownload({required this.handle, required this.subscription});
+  _ActiveTorrentDownload({
+    required this.handle,
+    required this.subscription,
+    required this.selectedFileIndices,
+    required this.selectedFileSizes,
+    required this.selectedFilePaths,
+  });
 }
 
 class _ActiveMockDownload {

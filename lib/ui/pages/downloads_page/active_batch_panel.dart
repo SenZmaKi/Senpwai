@@ -150,7 +150,7 @@ class _PanelHeader extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '${snapshot.batch.source.label}  ·  ${snapshot.items.length} items'
+                '${snapshot.batch.source.label}  ·  ${snapshot.itemCount} items'
                 '  ·  ${snapshot.activeCount} active',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

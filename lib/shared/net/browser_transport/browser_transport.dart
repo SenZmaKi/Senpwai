@@ -17,6 +17,7 @@ class BrowserTransportRequest {
   final Uint8List? body;
   final BrowserExecutionMode executionMode;
   final BrowserNavigationPolicy? navigationPolicy;
+  final VoidCallback? onUserCancel;
   final Uri? referrer;
   final Duration readyTimeout;
   final Duration timeout;
@@ -28,6 +29,7 @@ class BrowserTransportRequest {
     required this.headers,
     this.executionMode = BrowserExecutionMode.fetch,
     this.navigationPolicy,
+    this.onUserCancel,
     this.referrer,
     this.body,
     required this.readyTimeout,
@@ -66,6 +68,7 @@ class BrowserTransportService extends ChangeNotifier {
   final Map<String, BrowserHostSession> _sessions = {};
   final Map<String, Timer> _idleTimers = {};
   final Map<String, int> _activeRequests = {};
+  final Map<String, Set<VoidCallback>> _userCancellationCallbacks = {};
   Duration _idleTimeout = const Duration(minutes: 10);
   int _nextRequestId = 0;
 
@@ -105,10 +108,21 @@ class BrowserTransportService extends ChangeNotifier {
     );
     _idleTimers.remove(host)?.cancel();
     _activeRequests[host] = (_activeRequests[host] ?? 0) + 1;
+    final userCancel = request.onUserCancel;
+    if (userCancel != null) {
+      (_userCancellationCallbacks[host] ??= {}).add(userCancel);
+    }
     notifyListeners();
     try {
       return await session.send(request, cancelFuture: cancelFuture);
     } finally {
+      if (userCancel != null) {
+        final callbacks = _userCancellationCallbacks[host];
+        callbacks?.remove(userCancel);
+        if (callbacks?.isEmpty ?? false) {
+          _userCancellationCallbacks.remove(host);
+        }
+      }
       final remaining = (_activeRequests[host] ?? 1) - 1;
       if (remaining <= 0) {
         _activeRequests.remove(host);
@@ -119,9 +133,21 @@ class BrowserTransportService extends ChangeNotifier {
     }
   }
 
+  void cancelSessionRequests(String host) {
+    final callbacks = _userCancellationCallbacks[host.toLowerCase()]?.toList();
+    if (callbacks == null || callbacks.isEmpty) return;
+    for (final cancel in callbacks) {
+      cancel();
+    }
+  }
+
   Future<void> clearSessions() async {
     await CookieManager.instance().deleteAllCookies();
-    await InAppWebViewController.clearAllCache();
+    // flutter_inappwebview_windows exposes clearAllCache in Dart but does not
+    // register the manager-channel method in its native implementation.
+    if (defaultTargetPlatform != TargetPlatform.windows) {
+      await InAppWebViewController.clearAllCache();
+    }
     await Future.wait(_sessions.values.map((session) => session.reset()));
   }
 
@@ -133,6 +159,7 @@ class BrowserTransportService extends ChangeNotifier {
     for (final host in removed) {
       _idleTimers.remove(host)?.cancel();
       _activeRequests.remove(host);
+      _userCancellationCallbacks.remove(host);
       final session = _sessions.remove(host);
       if (session != null) unawaited(session.close());
     }
@@ -165,11 +192,11 @@ class BrowserTransportService extends ChangeNotifier {
 
 class BrowserHostSession {
   static const _handlerName = 'senpwaiBrowserTransportResponse';
-  static const _responseChallengeMarkers = <String>[
-    '<title>just a moment...</title>',
+  static const _activeDocumentChallengeMarkers = <String>[
     'window._cf_chl_opt',
     'id="challenge-error-text"',
     'cf-chl-widget-',
+    'challenges.cloudflare.com',
   ];
 
   final String host;
@@ -223,10 +250,7 @@ class BrowserHostSession {
       final html = (await controller.evaluateJavascript(
         source: 'document.documentElement?.outerHTML ?? ""',
       ))?.toString();
-      final title = (await controller.evaluateJavascript(
-        source: 'document.title ?? ""',
-      ))?.toString();
-      final challenged = _documentLooksChallenged(html ?? '', title ?? '');
+      final challenged = _documentLooksChallenged(html ?? '');
       requiresInteraction = challenged;
       _log.infoWithMetadata(
         challenged ? 'Browser challenge page loaded' : 'Browser session ready',
@@ -260,6 +284,7 @@ class BrowserHostSession {
   }
 
   void handleLoadError(WebResourceRequest request, WebResourceError error) {
+    if (_navigationStopCount > 0) return;
     if (request.isForMainFrame != false &&
         _expectedNavigationAbortUrl == request.url.toString() &&
         error.type == WebResourceErrorType.CONNECTION_ABORTED) {
@@ -295,6 +320,11 @@ class BrowserHostSession {
     if (request.executionMode == BrowserExecutionMode.submitForm) {
       return _runExclusiveNavigation(
         () => _submitForm(request, cancelFuture: cancelFuture),
+      );
+    }
+    if (request.executionMode == BrowserExecutionMode.navigate) {
+      return _runExclusiveNavigation(
+        () => _navigate(request, cancelFuture: cancelFuture),
       );
     }
     BrowserTransportResponse response;
@@ -383,8 +413,24 @@ class BrowserHostSession {
       'body': base64Encode(request.body ?? Uint8List(0)),
     });
     try {
-      await controller.evaluateJavascript(
-        source: _formSubmissionScript(payload),
+      // Start the script without awaiting it so the response completer has an
+      // error listener before cancellation can complete it. Awaiting script
+      // evaluation first left a small window where a cancellation error was
+      // reported as an unhandled asynchronous exception.
+      unawaited(
+        controller
+            .evaluateJavascript(source: _formSubmissionScript(payload))
+            .catchError((Object error, StackTrace stackTrace) {
+              if (!completer.isCompleted) {
+                completer.completeError(
+                  BrowserTransportException(
+                    'Could not submit browser form: $error',
+                  ),
+                  stackTrace,
+                );
+              }
+              return null;
+            }),
       );
       return await completer.future.timeout(
         request.timeout,
@@ -414,6 +460,64 @@ class BrowserHostSession {
       urlRequest: URLRequest(url: WebUri(target.toString())),
     );
     await _ready.future.timeout(timeout);
+  }
+
+  Future<BrowserTransportResponse> _navigate(
+    BrowserTransportRequest request, {
+    Future<void>? cancelFuture,
+  }) async {
+    final controller = _controller;
+    if (controller == null) {
+      throw const BrowserTransportException('Browser session is not mounted.');
+    }
+
+    final navigationReady = Completer<void>();
+    _ready = navigationReady;
+    final cancellation = cancelFuture?.then<void>((_) async {
+      await _stopNavigation(controller);
+      throw const BrowserTransportException('Request cancelled.');
+    });
+    unawaited(
+      controller
+          .loadUrl(
+            urlRequest: URLRequest(
+              url: WebUri(request.uri.toString()),
+              headers: request.referrer == null
+                  ? null
+                  : {'Referer': request.referrer.toString()},
+            ),
+          )
+          .catchError((Object error, StackTrace stackTrace) {
+            if (!navigationReady.isCompleted) {
+              navigationReady.completeError(error, stackTrace);
+            }
+          }),
+    );
+    await Future.any([
+      navigationReady.future,
+      if (cancellation != null) cancellation,
+    ]).timeout(
+      request.timeout,
+      onTimeout: () async {
+        await _stopNavigation(controller);
+        throw BrowserTransportException(
+          'Browser navigation timed out: ${request.uri}',
+        );
+      },
+    );
+
+    final html = (await controller.evaluateJavascript(
+      source: 'document.documentElement?.outerHTML ?? ""',
+    ))?.toString();
+    final finalUrl = await controller.getUrl();
+    return BrowserTransportResponse(
+      statusCode: 200,
+      body: Uint8List.fromList(utf8.encode(html ?? '')),
+      finalUri: Uri.tryParse(finalUrl?.toString() ?? '') ?? request.uri,
+      headers: const {
+        'content-type': ['text/html; charset=utf-8'],
+      },
+    );
   }
 
   String _formSubmissionScript(String payload) =>
@@ -487,6 +591,7 @@ class BrowserHostSession {
     if (controller == null) {
       throw const BrowserTransportException('Browser session is not mounted.');
     }
+    await _ensureSessionOrigin(request.readyTimeout);
     final id = nextRequestId();
     final completer = Completer<BrowserTransportResponse>();
     _pending[id] = completer;
@@ -519,6 +624,25 @@ class BrowserHostSession {
         );
       },
     );
+  }
+
+  Future<void> _ensureSessionOrigin(Duration timeout) async {
+    final controller = _controller;
+    if (controller == null) return;
+    final current = await controller.getUrl();
+    if (current?.host.toLowerCase() == host) return;
+
+    _ready = Completer<void>();
+    requiresInteraction = false;
+    onChanged();
+    _log.infoWithMetadata(
+      'Restoring browser session origin',
+      metadata: {'host': host, 'currentHost': current?.host},
+    );
+    await controller.loadUrl(
+      urlRequest: URLRequest(url: WebUri(bootstrapUri.toString())),
+    );
+    await _ready.future.timeout(timeout);
   }
 
   String _fetchScript(String payload) =>
@@ -688,25 +812,35 @@ class BrowserHostSession {
 
   bool _isChallengeResponse(BrowserTransportResponse response) {
     final mitigated = response.headers['cf-mitigated']?.join(',').toLowerCase();
-    return mitigated == 'challenge' ||
-        ((response.statusCode == 403 || response.statusCode == 503) &&
-            _hasResponseChallengeMarker(
-              utf8.decode(response.body, allowMalformed: true),
-            ));
+    if (mitigated == 'challenge') return true;
+    final html = utf8.decode(response.body, allowMalformed: true);
+    if (_hasInteractiveCloudflareChallenge(html)) return true;
+
+    // Cloudflare's non-interactive block pages do not consistently include
+    // challenge DOM markers. Restrict their title-based signature to an HTTP
+    // error response so a site's own interstitial cannot be mistaken for a
+    // challenge merely because it displays the blocked destination's title.
+    if (response.statusCode < 400) return false;
+    final lower = html.toLowerCase();
+    final title = _documentTitle(html);
+    return (title?.contains('attention required') ?? false) &&
+        (lower.contains('cloudflare') || lower.contains('captcha'));
   }
 
-  bool _documentLooksChallenged(String html, String title) {
-    final normalizedTitle = title
-        .replaceAll(RegExp(r'^"|"$'), '')
-        .toLowerCase();
-    if (!normalizedTitle.contains('just a moment')) return false;
-    return _hasResponseChallengeMarker(html);
+  bool _documentLooksChallenged(String html) {
+    return _hasInteractiveCloudflareChallenge(html);
   }
 
-  bool _hasResponseChallengeMarker(String value) {
-    final lower = value.toLowerCase();
-    return _responseChallengeMarkers.any(lower.contains);
+  bool _hasInteractiveCloudflareChallenge(String html) {
+    final lower = html.toLowerCase();
+    return _activeDocumentChallengeMarkers.any(lower.contains);
   }
+
+  String? _documentTitle(String html) => RegExp(
+    r'<title[^>]*>(.*?)</title>',
+    caseSensitive: false,
+    dotAll: true,
+  ).firstMatch(html)?.group(1)?.toLowerCase();
 
   BrowserNavigationPolicy? _activeNavigationPolicy;
 

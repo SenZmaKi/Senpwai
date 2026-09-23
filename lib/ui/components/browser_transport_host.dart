@@ -111,6 +111,17 @@ class _BrowserSessionView extends StatelessWidget {
                       ),
                     ],
                   ),
+                  actions: [
+                    Semantics(
+                      label: 'Cancel browser verification',
+                      button: true,
+                      child: IconButton(
+                        onPressed: () => BrowserTransportService.instance
+                            .cancelSessionRequests(session.host),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ),
+                  ],
                 ),
                 const LinearProgressIndicator(),
                 Expanded(child: webView),

@@ -7,6 +7,7 @@ import 'package:senpwai/ui/components/confirm_dialog.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_formatters.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_status_style.dart';
+import 'package:senpwai/ui/pages/downloads_page/torrent_file_rows.dart';
 import 'package:senpwai/ui/components/pulsing_progress_bar.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
@@ -47,6 +48,7 @@ class BatchItemRow extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _Heading(item: item, position: position, style: style),
+          if (item.torrentFiles.length > 1) TorrentFileRows(item: item),
           SizedBox(height: mobile ? 8 : 10),
           _ProgressLine(item: item, style: style),
           SizedBox(height: mobile ? 6 : 8),

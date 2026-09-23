@@ -140,6 +140,7 @@ class DownloadLink {
   final int episodeNumber;
   final String filename;
   final String url;
+  final String refererUrl;
   final int estimatedSizeBytes;
   final Language audioLanguage;
   final Resolution resolution;
@@ -149,6 +150,7 @@ class DownloadLink {
     required this.episodeNumber,
     required this.filename,
     required this.url,
+    required this.refererUrl,
     required this.estimatedSizeBytes,
     required this.audioLanguage,
     required this.resolution,
@@ -156,7 +158,7 @@ class DownloadLink {
 
   @override
   String toString() {
-    return "DownloadLink(animeTItle: $animeTitle, episodeNumber: $episodeNumber, filename: $filename, url: $url, estimatedSizeBytes: $estimatedSizeBytes, audioLanguage: $audioLanguage, resolution: $resolution)";
+    return "DownloadLink(animeTItle: $animeTitle, episodeNumber: $episodeNumber, filename: $filename, url: $url, refererUrl: $refererUrl, estimatedSizeBytes: $estimatedSizeBytes, audioLanguage: $audioLanguage, resolution: $resolution)";
   }
 }
 
@@ -354,6 +356,7 @@ class Source {
     required html.Element element,
     required String animeTitle,
     required int episodeNumber,
+    required String refererUrl,
   }) {
     final url = element.attributes["href"];
     if (url == null) {
@@ -383,6 +386,7 @@ class Source {
       episodeNumber: episodeNumber,
       filename: filename,
       url: url,
+      refererUrl: refererUrl,
       resolution: resolution,
       audioLanguage: audioLanguage,
       estimatedSizeBytes: estimatedSizeBytes,
@@ -451,6 +455,7 @@ class Source {
             element: element,
             animeTitle: animeTitle,
             episodeNumber: episodeNumber,
+            refererUrl: episodePageUrl,
           ),
         )
         .toList();
@@ -635,14 +640,7 @@ class Source {
     required DownloadLink downloadLink,
   }) async {
     await SourceDirectory.waitForRefresh();
-    final response = await _dio.get<String>(
-      downloadLink.url,
-      options: Options(
-        extra: NetConfig.getInstance()
-            .buildCacheOptions(policy: CachePolicy.noCache)
-            .toExtra(),
-      ),
-    );
+    final response = await _fetchPaheBridgePage(downloadLink);
     final htmlPageText = response.data;
     if (htmlPageText == null) {
       throw SourceException(
@@ -654,14 +652,19 @@ class Source {
         },
       );
     }
-    final kwikMatch = Constants.kwikLinkRegex.firstMatch(htmlPageText);
-    if (kwikMatch == null) {
+    final responseUri = response.realUri;
+    final navigatedToKwik =
+        responseUri.host == Constants.kwikDomain &&
+        responseUri.path.startsWith('/f/');
+    final kwikPageLink = navigatedToKwik
+        ? responseUri.toString()
+        : Constants.kwikLinkRegex.firstMatch(htmlPageText)?.group(0);
+    if (kwikPageLink == null) {
       throw SourceException(
         message: "No match found for kwik page link",
         metadata: {"downloadLink": downloadLink, "htmlPageText": htmlPageText},
       );
     }
-    final kwikPageLink = kwikMatch.group(0)!;
     final directDownloadLink = await _fetchDirectDownloadLinkFromKwikPage(
       downloadLink: downloadLink,
       kwikPageLink: kwikPageLink,
@@ -677,4 +680,18 @@ class Source {
     );
     return directDownloadLink;
   }
+
+  Future<Response<String>> _fetchPaheBridgePage(DownloadLink downloadLink) =>
+      _dio.get<String>(
+        downloadLink.url,
+        options: Options(
+          headers: {'Referer': downloadLink.refererUrl},
+          extra: {
+            ...NetConfig.getInstance()
+                .buildCacheOptions(policy: CachePolicy.noCache)
+                .toExtra(),
+            transportPreferenceExtraKey: TransportPreference.browser,
+          },
+        ),
+      );
 }

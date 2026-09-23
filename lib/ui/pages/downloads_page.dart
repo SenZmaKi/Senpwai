@@ -64,7 +64,7 @@ class DownloadsPage extends ConsumerWidget {
         SliverPadding(
           padding: EdgeInsets.fromLTRB(pad, 0, pad, 6),
           sliver: SliverToBoxAdapter(
-            child: _ItemsHeader(itemCount: active.items.length),
+            child: _ItemsHeader(itemCount: active.itemCount),
           ),
         ),
         SliverPadding(

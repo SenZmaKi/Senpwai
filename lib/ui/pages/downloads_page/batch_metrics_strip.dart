@@ -68,7 +68,7 @@ class BatchMetricsStrip extends StatelessWidget {
         _Metric(
           icon: Icons.check_circle_outline_rounded,
           label: 'Done',
-          value: '${snapshot.completedCount}/${snapshot.items.length}',
+          value: '${snapshot.completedCount}/${snapshot.itemCount}',
           color: theme.colorScheme.secondary,
         ),
         if (snapshot.failedCount > 0)

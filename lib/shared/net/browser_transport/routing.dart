@@ -6,7 +6,7 @@ const browserNavigationPolicyExtraKey = 'browserNavigationPolicy';
 
 enum TransportPreference { automatic, native, browser }
 
-enum BrowserExecutionMode { fetch, submitForm }
+enum BrowserExecutionMode { fetch, navigate, submitForm }
 
 class BrowserNavigationPolicy {
   final bool Function(Uri uri) accepts;

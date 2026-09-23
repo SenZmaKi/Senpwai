@@ -263,6 +263,24 @@ class TorrentLiveStats {
   );
 }
 
+class TorrentFileProgress {
+  final String path;
+  final int totalBytes;
+  final int downloadedBytes;
+  final bool isActive;
+
+  const TorrentFileProgress({
+    required this.path,
+    required this.totalBytes,
+    required this.downloadedBytes,
+    required this.isActive,
+  });
+
+  bool get isComplete => totalBytes > 0 && downloadedBytes >= totalBytes;
+  double get progress =>
+      totalBytes <= 0 ? 0 : downloadedBytes.clamp(0, totalBytes) / totalBytes;
+}
+
 class DownloadQueueItem {
   final String id;
   final String batchId;
@@ -280,6 +298,7 @@ class DownloadQueueItem {
   final DateTime createdAt;
   final List<String> filePaths;
   final TorrentLiveStats? torrentStats;
+  final List<TorrentFileProgress> torrentFiles;
   final bool seedingTargetReached;
 
   const DownloadQueueItem({
@@ -299,6 +318,7 @@ class DownloadQueueItem {
     this.errorDescription,
     this.errorCopyPayload,
     this.torrentStats,
+    this.torrentFiles = const [],
     this.seedingTargetReached = false,
   });
 
@@ -325,6 +345,7 @@ class DownloadQueueItem {
     bool clearError = false,
     List<String>? filePaths,
     TorrentLiveStats? torrentStats,
+    List<TorrentFileProgress>? torrentFiles,
     bool? seedingTargetReached,
   }) {
     return DownloadQueueItem(
@@ -348,6 +369,7 @@ class DownloadQueueItem {
           ? null
           : (errorCopyPayload ?? this.errorCopyPayload),
       torrentStats: torrentStats ?? this.torrentStats,
+      torrentFiles: torrentFiles ?? this.torrentFiles,
       seedingTargetReached: seedingTargetReached ?? this.seedingTargetReached,
     );
   }

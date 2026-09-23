@@ -1,6 +1,7 @@
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/shared/net/download/download.dart';
+import 'package:senpwai/shared/net/request_cancellation_scope.dart';
 import 'package:senpwai/sources/animepahe.dart' as animepahe;
 import 'package:senpwai/sources/shared/shared.dart';
 
@@ -85,15 +86,18 @@ class AnimePaheDownloadPlanner {
         )
         .where((session) => requestedEpisodes.contains(session.number))
         .toList();
+    throwIfRequestScopeCancelled();
     final notices = <DownloadNotice>[];
     final jobs = <PreparedDownloadJob>[];
     for (final episodeSession in selectedSessions) {
+      throwIfRequestScopeCancelled();
       report('Preparing episode ${episodeSession.number}');
       final downloadLinks = await _source.fetchDownloadLinks(
         animeTitle: animeMatch.title,
         animeSession: animeMatch.session,
         episodeSession: episodeSession,
       );
+      throwIfRequestScopeCancelled();
       if (downloadLinks.isEmpty) {
         throw DownloadUserError(
           title: 'AnimePahe link missing',
@@ -111,10 +115,12 @@ class AnimePaheDownloadPlanner {
       final directLink = await _source.fetchDirectDownloadLink(
         downloadLink: selectedLink,
       );
+      throwIfRequestScopeCancelled();
       final resolvedTarget = await Download.probeSingleFile(
         url: directLink.url,
         headers: {'Referer': directLink.refererUrl},
       );
+      throwIfRequestScopeCancelled();
       final plannedTarget = _targetPlanner.planEpisodeFile(
         directory: request.downloadFolder,
         jobTitle: request.fileTitle,

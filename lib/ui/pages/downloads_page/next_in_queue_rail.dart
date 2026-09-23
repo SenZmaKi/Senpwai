@@ -267,7 +267,7 @@ class _QueueRow extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 '${snapshot.batch.source.label}  ·  '
-                '${snapshot.items.length} items  ·  '
+                '${snapshot.itemCount} items  ·  '
                 '${formatDownloadBytes(snapshot.totalBytes)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

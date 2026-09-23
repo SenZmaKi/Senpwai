@@ -194,7 +194,7 @@ class _Body extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '${snapshot.batch.source.label}  ·  ${snapshot.items.length} items  ·  '
+          '${snapshot.batch.source.label}  ·  ${snapshot.itemCount} items  ·  '
           '${formatDownloadBytes(snapshot.totalBytes)}  ·  '
           '${relativeDownloadTime(snapshot.batch.createdAt)}',
           maxLines: 1,
