@@ -198,24 +198,25 @@ class _StorageSettingsSectionState
                 ),
                 SettingsTile(
                   icon: Icons.cloud_off_outlined,
-                  title: 'Clear Cloudflare Sessions',
-                  subtitle: _size(usage?.cloudflareSessionBytes),
+                  title: 'Clear Browser Sessions',
+                  subtitle: 'Cookies and protected-site data',
                   searchQuery: sq,
                   trailing: const Icon(Icons.chevron_right, size: 20),
                   onTap: () => unawaited(
                     _confirmAndRun(
-                      title: 'Clear Cloudflare sessions?',
+                      title: 'Clear browser sessions?',
                       message:
-                          'Cloudflare cookies and bypass sessions will be removed.',
+                          'Protected-site browser cookies and sessions will be removed.',
                       action: AppPersistence.clearNetworkSession,
-                      successMessage: 'Cloudflare sessions cleared',
+                      successMessage: 'Browser sessions cleared',
                     ),
                   ),
                 ),
                 SettingsTile(
                   icon: Icons.layers_clear_outlined,
                   title: 'Clear App Cache & Sessions',
-                  subtitle: _size(usage?.appCacheAndSessionBytes),
+                  subtitle:
+                      '${_size(usage?.appCacheAndSessionBytes)} app-managed · plus browser site data',
                   searchQuery: sq,
                   trailing: const Icon(Icons.chevron_right, size: 20),
                   onTap: () => unawaited(

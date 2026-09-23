@@ -16,6 +16,11 @@ import 'package:senpwai/updates/platform_installer.dart';
 import 'package:senpwai/updates/update_repository.dart';
 import 'package:senpwai/updates/update_transfer.dart';
 
+const _updateChannel = String.fromEnvironment(
+  'UPDATE_CHANNEL',
+  defaultValue: 'stable',
+);
+
 final _log = Logger('senpwai.updates');
 
 class UpdateController extends Notifier<UpdateState> {
@@ -155,6 +160,9 @@ class UpdateController extends Notifier<UpdateState> {
       final candidate = manifest.latestCompatible(
         currentVersion: state.currentVersion,
         currentBuild: state.currentBuild,
+        channels: _updateChannel == 'prerelease'
+            ? const {'stable', 'prerelease'}
+            : const {'stable'},
       );
       if (candidate == null) {
         state = state.copyWith(
@@ -290,11 +298,34 @@ class UpdateController extends Notifier<UpdateState> {
       );
       return null;
     }
+    final preparedMatchesRelease =
+        prepared.version == release.version.toString() &&
+        prepared.build == release.build &&
+        prepared.artifact.fileName == artifact.fileName &&
+        prepared.artifact.sizeBytes == artifact.sizeBytes &&
+        prepared.artifact.sha256 == artifact.sha256;
+    if (!preparedMatchesRelease) {
+      state = state.copyWith(
+        phase: UpdatePhase.failed,
+        error:
+            'The prepared update does not match the selected release. '
+            'Download it again.',
+      );
+      return null;
+    }
+    final preparedArtifact = _repository.artifactFile(artifact);
+    if (!await preparedArtifact.exists()) {
+      state = state.copyWith(
+        phase: UpdatePhase.failed,
+        error: 'The prepared update is missing. Download it again.',
+      );
+      return null;
+    }
     _busy = true;
     state = state.copyWith(phase: UpdatePhase.installing, clearError: true);
     try {
       final disposition = await _installer.installAndRestart(
-        File(prepared.filePath),
+        preparedArtifact,
         release,
       );
       if (disposition == UpdateInstallDisposition.externalInstallerOpened) {

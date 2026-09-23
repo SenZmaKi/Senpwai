@@ -1,10 +1,9 @@
-// ignore_for_file: avoid_print, implementation_imports
+// ignore_for_file: avoid_print
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cf_bypass/src/cf_detection.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
@@ -14,6 +13,41 @@ import 'package:dotenv/dotenv.dart' as dotenv;
 import 'package:senpwai/shared/net/http2_preferred_adapter.dart';
 
 const _skipCookieManagerExtraKey = 'skipCookieManager';
+
+enum CfProtectionKind { none, challenge, blocked }
+
+class CfDetectionResult {
+  final CfProtectionKind kind;
+  final List<String> matchedIndicators;
+
+  const CfDetectionResult(this.kind, this.matchedIndicators);
+
+  bool get isProtected => kind != CfProtectionKind.none;
+}
+
+CfDetectionResult detectCloudflare(
+  int statusCode,
+  String body,
+  Map<String, String> headers,
+) {
+  final indicators = <String>[];
+  final lower = body.toLowerCase();
+  if (headers['cf-mitigated']?.toLowerCase() == 'challenge') {
+    indicators.add('cf-mitigated');
+  }
+  for (final marker in ['cf-chl-', 'challenge-platform', 'just a moment']) {
+    if (lower.contains(marker)) indicators.add(marker);
+  }
+  final protected = indicators.isNotEmpty;
+  return CfDetectionResult(
+    protected
+        ? (statusCode == 403
+              ? CfProtectionKind.challenge
+              : CfProtectionKind.blocked)
+        : CfProtectionKind.none,
+    indicators,
+  );
+}
 
 Future<void> main(List<String> args) async {
   final options = ReplayOptions.parse(args);
@@ -175,14 +209,10 @@ class AnimePaheReplay {
     stopwatch.stop();
 
     final responseBody = response.data is String ? response.data as String : '';
-    final detection = CfDetector.detect(
-      CfDetectionRequest(
-        url: uri.toString(),
-        statusCode: response.statusCode ?? 0,
-        body: responseBody,
-        headers: _flatHeaders(response.headers),
-        source: 'animepahe-cf-replay',
-      ),
+    final detection = detectCloudflare(
+      response.statusCode ?? 0,
+      responseBody,
+      _flatHeaders(response.headers),
     );
 
     final setCookieNames = _setCookieNames(response.headers);

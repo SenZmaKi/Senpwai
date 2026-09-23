@@ -114,12 +114,12 @@ class UpdateManifest {
   ({AppRelease release, UpdateArtifact artifact})? latestCompatible({
     required String currentVersion,
     required int currentBuild,
-    String channel = 'stable',
+    Set<String> channels = const {'stable'},
   }) {
     final installedVersion = Version.parse(currentVersion);
     final compatible = <({AppRelease release, UpdateArtifact artifact})>[];
     for (final release in releases) {
-      if (release.channel != channel ||
+      if (!channels.contains(release.channel) ||
           !_isNewer(
             release.version,
             release.build,

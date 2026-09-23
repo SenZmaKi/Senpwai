@@ -1,15 +1,12 @@
 import 'dart:ui';
 
-import 'package:cf_bypass/cf_bypass.dart' hide LoggerExtensions;
 import 'package:flutter/material.dart';
 import 'package:senpwai/notifications/app_notification_service.dart';
-import 'package:senpwai/shared/dev_config.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/ui/components/app.dart';
 import 'package:senpwai/ui/components/toast.dart';
-import 'package:senpwai/ui/pages/anime_page/cf_bypass_coordinator.dart';
 import 'package:senpwai/ui/shared/app_error_diagnostics.dart';
 import 'package:senpwai/ui/shared/launch_at_startup_manager.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
@@ -24,8 +21,6 @@ Future<void> initApp() async {
   await AppNotificationService.instance.configurePresentation(
     navigatorKey: App.navigatorKey,
   );
-  applyDevConfig();
-  _initCfBypassSolver();
   _initNetworkErrorHandling();
   await LaunchAtStartupManager.getInstance().init(
     AppPersistence.settings.window.launchAtStartup,
@@ -68,23 +63,6 @@ void _configureErrorHandling() {
     }
     return true;
   };
-}
-
-void _initCfBypassSolver() {
-  GlobalDio.getInstance();
-  GlobalDio.cfBypassInterceptor?.setSolver((challenge) async {
-    final navigator = App.navigatorKey.currentState;
-    if (navigator == null) {
-      return CfBypassResult(
-        success: false,
-        url: challenge.url,
-        finalUrl: challenge.url,
-        error: 'No app navigator available',
-        cookies: [],
-      );
-    }
-    return CfBypassCoordinator.instance.enqueue(navigator, challenge);
-  });
 }
 
 void _initNetworkErrorHandling() {

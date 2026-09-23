@@ -6,7 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
-import 'package:senpwai/shared/net/interceptors/cf_bypass.dart';
+import 'package:senpwai/shared/net/browser_transport/routing.dart';
 import 'package:senpwai/shared/net/interceptors/cookie_manager.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
@@ -25,7 +25,7 @@ Options sourceDirectoryRequestOptions({required String? eTag}) => Options(
         .buildCacheOptions(policy: CachePolicy.noCache)
         .toExtra(),
     skipCookieManagerExtraKey: true,
-    skipCfBypassExtraKey: true,
+    transportPreferenceExtraKey: TransportPreference.native,
   },
   validateStatus: (status) => status == HttpStatus.ok || status == 304,
 );
@@ -39,6 +39,7 @@ class SourceDirectory {
   static SourceDirectory _instance = SourceDirectory.defaults();
   static Future<void>? _refreshFuture;
   static final _updates = StreamController<SourceDirectory>.broadcast();
+  static final _changes = StreamController<SourceDirectory>.broadcast();
   static SourceDirectory? _pendingUpdate;
   static bool _hadCachedDirectory = false;
 
@@ -85,6 +86,10 @@ class SourceDirectory {
 
   static Stream<SourceDirectory> get updates => _updates.stream;
 
+  /// Every runtime configuration change, including the first remote directory
+  /// loaded on a fresh installation.
+  static Stream<SourceDirectory> get changes => _changes.stream;
+
   /// Returns an update that completed before the UI began listening.
   static SourceDirectory? takePendingUpdate() {
     final update = _pendingUpdate;
@@ -117,6 +122,9 @@ class SourceDirectory {
       final didChange = _instance.version != result.directory!.version;
       _instance = result.directory!;
       await repository.save(envelope: result.envelope!, eTag: result.eTag);
+      if (didChange) {
+        _changes.add(result.directory!);
+      }
       if (_hadCachedDirectory && didChange) {
         _pendingUpdate = result.directory;
         _updates.add(result.directory!);

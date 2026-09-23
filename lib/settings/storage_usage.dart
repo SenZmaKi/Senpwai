@@ -5,13 +5,13 @@ import 'package:senpwai/shared/persistence/app_paths.dart';
 class AppStorageUsage {
   final int imageCacheBytes;
   final int httpCacheBytes;
-  final int cloudflareSessionBytes;
+  final int networkSessionBytes;
   final int appCacheAndSessionBytes;
 
   const AppStorageUsage({
     required this.imageCacheBytes,
     required this.httpCacheBytes,
-    required this.cloudflareSessionBytes,
+    required this.networkSessionBytes,
     required this.appCacheAndSessionBytes,
   });
 }
@@ -22,16 +22,13 @@ Future<AppStorageUsage> calculateAppStorageUsage(AppPaths paths) async {
     paths.imageCacheMetadataDirectory,
   ]);
   final httpCacheBytes = await _directorySize(paths.networkDioCacheDirectory);
-  final cloudflareSessionBytes = await _sumPaths([
-    paths.cfSessionsFile,
-    paths.networkCookiesDirectory,
-  ]);
+  final networkSessionBytes = await _sumPaths([paths.networkCookiesDirectory]);
   return AppStorageUsage(
     imageCacheBytes: imageCacheBytes,
     httpCacheBytes: httpCacheBytes,
-    cloudflareSessionBytes: cloudflareSessionBytes,
+    networkSessionBytes: networkSessionBytes,
     appCacheAndSessionBytes:
-        imageCacheBytes + httpCacheBytes + cloudflareSessionBytes,
+        imageCacheBytes + httpCacheBytes + networkSessionBytes,
   );
 }
 

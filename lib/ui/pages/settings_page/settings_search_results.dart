@@ -196,7 +196,7 @@ class SettingsSearchResults extends ConsumerWidget {
       'Download Notification Style ${notifications.downloadStyle.label}',
       'Storage Memory Cache manage cache limits clear disk usage',
       'Image Cache Limit HTTP Cache Age',
-      'Clear Image Cache Clear HTTP Cache Clear Cloudflare Sessions',
+      'Clear Image Cache Clear HTTP Cache Clear Browser Sessions',
       'Clear App Cache Sessions',
       'About Senpwai Version 1.0.0 updates releases check for updates social links discord github reddit sponsors support open source licenses bug report feature request',
     ]);

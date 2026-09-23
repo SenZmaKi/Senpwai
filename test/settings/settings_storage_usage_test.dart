@@ -16,18 +16,18 @@ void main() {
     await File(
       path.join(paths.networkDioCacheDirectory.path, 'http.bin'),
     ).writeAsString('123');
-    await paths.cfSessionsFile.writeAsString('12');
+    await File(
+      path.join(paths.networkCookiesDirectory.path, 'cookies.json'),
+    ).writeAsString('12');
 
     final usage = await calculateAppStorageUsage(paths);
 
     expect(usage.imageCacheBytes, greaterThanOrEqualTo(4));
     expect(usage.httpCacheBytes, 3);
-    expect(usage.cloudflareSessionBytes, greaterThanOrEqualTo(2));
+    expect(usage.networkSessionBytes, greaterThanOrEqualTo(2));
     expect(
       usage.appCacheAndSessionBytes,
-      usage.imageCacheBytes +
-          usage.httpCacheBytes +
-          usage.cloudflareSessionBytes,
+      usage.imageCacheBytes + usage.httpCacheBytes + usage.networkSessionBytes,
     );
   });
 }

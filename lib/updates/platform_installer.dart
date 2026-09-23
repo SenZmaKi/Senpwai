@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:senpwai/updates/models.dart';
@@ -7,6 +8,7 @@ import 'package:senpwai/updates/models.dart';
 enum UpdateInstallDisposition {
   externalInstallerOpened,
   applicationWillRestart,
+  externalProcessWillTerminate,
   quitThenRelaunch,
 }
 
@@ -75,41 +77,39 @@ class WindowsUpdateInstaller extends UpdatePlatformInstaller {
     File artifact,
     AppRelease release,
   ) async {
-    final handoff = File(path.join(artifact.parent.path, 'install-update.ps1'));
-    await handoff.writeAsString(r'''
-param(
-  [Parameter(Mandatory = $true)] [string] $Installer,
-  [Parameter(Mandatory = $true)] [int] $AppProcessId
-)
+    final expectedArtifact = release.artifactForCurrentPlatform();
+    if (expectedArtifact == null ||
+        expectedArtifact.fileName != path.basename(artifact.path)) {
+      throw const FormatException(
+        'The prepared Windows installer does not match this release.',
+      );
+    }
+    await _verifyArtifact(artifact, expectedArtifact);
 
-$appProcess = Get-Process -Id $AppProcessId -ErrorAction SilentlyContinue
-if ($null -ne $appProcess) {
-  $appProcess.WaitForExit()
-}
-
-Start-Process -FilePath $Installer -ArgumentList @(
-  '/VERYSILENT',
-  '/SUPPRESSMSGBOXES',
-  '/NORESTART',
-  '/LAUNCH'
-) -Wait
-''');
-    await Process.start('powershell.exe', [
-      '-NoLogo',
-      '-NoProfile',
-      '-NonInteractive',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-WindowStyle',
-      'Hidden',
-      '-File',
-      handoff.path,
-      '-Installer',
-      artifact.path,
-      '-AppProcessId',
-      pid.toString(),
+    await Process.start(artifact.path, [
+      '/SILENT',
+      '/NORESTART',
+      '/CLOSEAPPLICATIONS',
+      '/FORCECLOSEAPPLICATIONS',
+      '/LAUNCH',
     ], mode: ProcessStartMode.detached);
-    return UpdateInstallDisposition.quitThenRelaunch;
+    return UpdateInstallDisposition.externalProcessWillTerminate;
+  }
+
+  static Future<void> _verifyArtifact(
+    File artifact,
+    UpdateArtifact expected,
+  ) async {
+    final size = await artifact.length();
+    if (size != expected.sizeBytes) {
+      throw FormatException(
+        'Update size mismatch: expected ${expected.sizeBytes} bytes, received $size.',
+      );
+    }
+    final digest = await sha256.bind(artifact.openRead()).first;
+    if (digest.toString() != expected.sha256) {
+      throw const FormatException('Update checksum verification failed.');
+    }
   }
 }
 

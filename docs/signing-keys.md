@@ -26,8 +26,9 @@ The public keys provisioned before the v3.0.0 launch are:
 
 - `deploy-source-directory.yml` signs `source-directory.json` with the source
   directory key and `update-manifest.json` with the update-manifest key.
-- `release.yml` signs the macOS ZIP referenced by `appcast.xml` with the Sparkle
-  key.
+- `release.yml` signs the combined Android, Linux, and Windows update manifest
+  with the update-manifest key and signs the macOS ZIP referenced by the stable
+  or prerelease Sparkle appcast with the Sparkle key.
 - GitHub's workflow token publishes Pages and Releases. It is not an artifact
   signing key.
 - macOS currently uses ad-hoc bundle signing. The Sparkle key authenticates the

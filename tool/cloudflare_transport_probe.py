@@ -8,6 +8,7 @@ variables and are never included in probe output.
 import argparse
 import json
 import os
+import shutil
 import struct
 import subprocess
 import sys
@@ -352,8 +353,21 @@ def dart_probe(args, cookie, user_agent):
             "CF_PROBE_TIMEOUT_SECONDS": str(args.timeout),
         }
     )
+    dart = shutil.which("dart.exe")
+    if dart is None:
+        launcher = shutil.which("dart")
+        if launcher and Path(launcher).suffix.lower() in (".bat", ".cmd"):
+            bundled_dart = (
+                Path(launcher).parent / "cache/dart-sdk/bin/dart.exe"
+            )
+            if bundled_dart.exists():
+                dart = str(bundled_dart)
+        else:
+            dart = launcher
+    if dart is None:
+        raise RuntimeError("Dart executable was not found on PATH")
     result = subprocess.run(
-        ["dart", "run", str(args.dart_probe)],
+        [dart, "run", str(args.dart_probe)],
         env=environment,
         capture_output=True,
         text=True,

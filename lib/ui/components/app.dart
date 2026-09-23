@@ -22,6 +22,7 @@ import 'package:senpwai/ui/pages/search_page/search_page.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_page.dart';
 import 'package:senpwai/ui/components/app_shell.dart';
 import 'package:senpwai/ui/components/update_restart_dialog.dart';
+import 'package:senpwai/ui/components/browser_transport_host.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:toastification/toastification.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
@@ -72,6 +73,8 @@ class App extends ConsumerWidget {
             ref.read(AppPageNotifier.provider.notifier).showDownloads(),
         child: MaterialApp(
           navigatorKey: navigatorKey,
+          builder: (context, child) =>
+              BrowserTransportHost(child: child ?? const SizedBox.shrink()),
           title: 'Senpwai',
           initialRoute: '/',
           theme: themeConfig.buildLightTheme(),

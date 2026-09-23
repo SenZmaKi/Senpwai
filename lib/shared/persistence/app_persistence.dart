@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/net/download/download_config.dart';
+import 'package:senpwai/shared/net/browser_transport/browser_transport.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
-import 'package:senpwai/shared/persistence/cf_bypass_session_store.dart';
 import 'package:senpwai/shared/persistence/secure_token_store.dart';
 import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:senpwai/shared/persistence/window_state_repository.dart';
@@ -19,7 +19,6 @@ class AppPersistence {
   static AppSettings? _settings;
   static TrackingRepository? _trackingRepository;
   static List<TrackedAnime>? _trackedAnime;
-  static CfBypassSessionStore? _cfBypassSessionStore;
   static SecureTokenStore? _secureTokenStore;
   static WindowStateRepository? _windowStateRepository;
 
@@ -95,14 +94,6 @@ class AppPersistence {
     _settings = value;
   }
 
-  static CfBypassSessionStore get cfBypassSessionStore {
-    final resolved = _cfBypassSessionStore;
-    if (resolved == null) {
-      throw StateError('AppPersistence.initialize must be called first.');
-    }
-    return resolved;
-  }
-
   static Future<void> initialize({Directory? rootDirectory}) async {
     if (_paths != null) return;
 
@@ -120,7 +111,6 @@ class AppPersistence {
       file: initializedPaths.trackedAnimeFile,
     );
     final loadedTrackedAnime = await trackingRepository.load();
-    final cfStore = CfBypassSessionStore(file: initializedPaths.cfSessionsFile);
     final tokenStore = SecureTokenStore(
       settingsRepository: settingsRepository,
       readSettings: () => _settings ?? loadedSettings,
@@ -143,7 +133,6 @@ class AppPersistence {
     _settings = settings;
     _trackingRepository = trackingRepository;
     _trackedAnime = loadedTrackedAnime;
-    _cfBypassSessionStore = cfStore;
     _secureTokenStore = tokenStore;
     _windowStateRepository = windowStateRepository;
 
@@ -158,27 +147,39 @@ class AppPersistence {
       initializedPaths,
       maxSizeBytes: settings.storage.imageCacheMaxBytes,
     );
-    await GlobalDio.initialize(
-      paths: initializedPaths,
-      cfBypassSessionStore: cfStore,
-    );
+    await GlobalDio.initialize(paths: initializedPaths);
     await SourceDirectory.initialize(paths: initializedPaths);
     _updateSourceDirectoryConcurrency(SourceDirectory.instance);
-    SourceDirectory.updates.listen(_updateSourceDirectoryConcurrency);
+    SourceDirectory.changes.listen(_updateSourceDirectoryConcurrency);
   }
 
   static void _updateSourceDirectoryConcurrency(SourceDirectory directory) {
     GlobalDio.updateHostConcurrencyLimits({
       for (final host in directory.nyaa.allowedHosts)
         host: directory.nyaa.maxConcurrentRequests ?? 5,
+      for (final host in directory.animePahe.allowedHosts)
+        host: directory.animePahe.maxConcurrentRequests ?? 4,
+      for (final host in directory.kwik.allowedHosts)
+        host: directory.kwik.maxConcurrentRequests ?? 1,
+    });
+    GlobalDio.updateBrowserOrigins({
+      ..._browserOrigins(directory.animePahe),
+      ..._browserOrigins(directory.kwik),
     });
   }
 
+  static Map<String, Uri> _browserOrigins(SourceEndpoint endpoint) {
+    final baseUri = Uri.parse(endpoint.baseUrl);
+    return {
+      for (final host in endpoint.allowedHosts)
+        host: host == baseUri.host ? baseUri : Uri.https(host, '/'),
+    };
+  }
+
   static Future<void> clearNetworkSession() async {
-    GlobalDio.cfBypassInterceptor?.clearRememberedSessions();
     await Future.wait([
-      cfBypassSessionStore.clear(),
       GlobalDio.cookieJar.deleteAll(),
+      BrowserTransportService.instance.clearSessions(),
     ]);
   }
 

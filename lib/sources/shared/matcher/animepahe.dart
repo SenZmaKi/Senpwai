@@ -1,12 +1,11 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
+import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/log.dart';
-import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/sources/animepahe.dart' as animepahe;
 import 'package:senpwai/sources/shared/matcher/shared.dart';
+import 'package:senpwai/sources/shared/shared.dart' as shared;
 
 final _log = Logger("senpwai.sources.matcher.animepahe");
 
@@ -41,12 +40,6 @@ class AnimepaheMatcher {
             "url": error.requestOptions.uri.toString(),
             "finalUrl": error.response?.realUri.toString(),
             "statusCode": error.response?.statusCode,
-            "requestCookieNames": _cookieNames(error.requestOptions),
-            "requestHasUserAgent": _hasHeader(
-              error.requestOptions,
-              HttpHeaders.userAgentHeader,
-            ),
-            "responseSetCookieNames": _setCookieNames(error.response),
             "error": error.toString(),
           },
         );
@@ -64,14 +57,7 @@ class AnimepaheMatcher {
         <({String title, List<animepahe.AnimeResult> results})>[];
     var nextCandidate = 0;
     while (nextCandidate < titleCandidates.length) {
-      final hasValidatedSession =
-          GlobalDio.cfBypassInterceptor?.hasSessionForHost(
-            animepahe.Constants.paheDomain,
-          ) ==
-          true;
-      final end = hasValidatedSession
-          ? titleCandidates.length
-          : nextCandidate + 1;
+      final end = titleCandidates.length;
       searchResults.addAll(
         await Future.wait(
           titleCandidates.sublist(nextCandidate, end).map(searchTitle),
@@ -91,43 +77,78 @@ class AnimepaheMatcher {
       }
     }
 
-    sortMatches(allMatches, titleCandidates, (r) => r.title);
+    _sortMatches(allMatches, anime, titleCandidates);
+    final topMatch = allMatches.firstOrNull;
     _log.fineWithMetadata(
       "AnimePahe matching complete",
       metadata: {
         "anilistId": anime.id,
+        "anilistSeason": anime.season?.toDisplayLabel(),
+        "anilistSeasonYear": anime.seasonYear,
         "matchCount": allMatches.length,
-        "topScore": allMatches.isNotEmpty ? allMatches.first.score : null,
+        "topTitle": topMatch?.result.title,
+        "topSeason": topMatch?.result.season,
+        "topYear": topMatch?.result.year,
+        "topSession": topMatch?.result.session,
+        "topScore": topMatch?.score,
       },
     );
     return allMatches;
   }
 
-  List<String> _cookieNames(RequestOptions options) {
-    final cookieHeader = options.headers.entries
-        .where((entry) => entry.key.toLowerCase() == HttpHeaders.cookieHeader)
-        .map((entry) => entry.value.toString())
-        .join('; ');
-    return cookieHeader
-        .split(';')
-        .map((cookie) => cookie.trim())
-        .where((cookie) => cookie.contains('='))
-        .map((cookie) => cookie.substring(0, cookie.indexOf('=')))
-        .toSet()
-        .toList()
-      ..sort();
+  void _sortMatches(
+    List<SourceMatch<animepahe.AnimeResult>> matches,
+    AnilistAnimeBase<dynamic> anime,
+    List<String> titleCandidates,
+  ) {
+    final referenceTitleLength = titleCandidates
+        .map((title) => title.length)
+        .reduce((a, b) => a < b ? a : b);
+
+    matches.sort((a, b) {
+      // Metadata may rank plausible title matches, but must never promote a
+      // candidate that failed the normal title-confidence threshold.
+      final titleEligibility = _isTitleEligible(
+        b,
+      ).compareTo(_isTitleEligible(a));
+      if (titleEligibility != 0) return titleEligibility;
+
+      final yearCompatibility = _yearCompatibility(
+        b.result,
+        anime.seasonYear,
+      ).compareTo(_yearCompatibility(a.result, anime.seasonYear));
+      if (yearCompatibility != 0) return yearCompatibility;
+
+      final seasonCompatibility =
+          _seasonCompatibility(
+            b.result,
+            anime.season?.toDisplayLabel(),
+          ).compareTo(
+            _seasonCompatibility(a.result, anime.season?.toDisplayLabel()),
+          );
+      if (seasonCompatibility != 0) return seasonCompatibility;
+
+      final titleScore = b.score.compareTo(a.score);
+      if (titleScore != 0) return titleScore;
+
+      final aLengthDifference = (a.result.title.length - referenceTitleLength)
+          .abs();
+      final bLengthDifference = (b.result.title.length - referenceTitleLength)
+          .abs();
+      return aLengthDifference.compareTo(bLengthDifference);
+    });
   }
 
-  bool _hasHeader(RequestOptions options, String name) => options.headers.keys
-      .any((header) => header.toLowerCase() == name.toLowerCase());
+  int _isTitleEligible(SourceMatch<animepahe.AnimeResult> match) =>
+      match.score >= shared.Constants.minMatchScore ? 1 : 0;
 
-  List<String> _setCookieNames(Response<dynamic>? response) {
-    final headers = response?.headers[HttpHeaders.setCookieHeader] ?? const [];
-    return headers
-        .map((header) => header.split('=').first.trim())
-        .where((name) => name.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+  int _yearCompatibility(animepahe.AnimeResult result, int? seasonYear) {
+    if (seasonYear == null) return 0;
+    return result.year == seasonYear ? 1 : -1;
+  }
+
+  int _seasonCompatibility(animepahe.AnimeResult result, String? seasonLabel) {
+    if (seasonLabel == null) return 0;
+    return result.season.toLowerCase() == seasonLabel.toLowerCase() ? 1 : -1;
   }
 }

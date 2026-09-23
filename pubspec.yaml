@@ -62,9 +62,7 @@ dependencies:
     screen_retriever: ^0.2.0
     flutter_native_splash: ^2.4.7
     async: ^2.13.0
-    cf_bypass:
-        git:
-            url: https://github.com/SenZmaKi/cf_bypass
+    flutter_inappwebview: ^6.2.0-beta.3
     file_picker: ^9.2.1
     dotenv: ^4.2.0
     external_path: ^2.2.0

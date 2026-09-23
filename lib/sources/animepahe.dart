@@ -6,6 +6,7 @@ import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
+import 'package:senpwai/shared/net/browser_transport/routing.dart';
 import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:html/dom.dart' as html;
 import 'package:senpwai/shared/shared.dart' as shared;
@@ -512,7 +513,7 @@ class Source {
     if (formElement == null) {
       throw SourceException(
         message: "No form element found in decrypted content",
-        metadata: {"formHtml": formHtml},
+        metadata: const {},
       );
     }
 
@@ -520,7 +521,7 @@ class Source {
     if (postUrl == null) {
       throw SourceException(
         message: "No action attribute found in form element",
-        metadata: {"formHtml": formHtml},
+        metadata: const {},
       );
     }
 
@@ -528,7 +529,7 @@ class Source {
     if (inputElement == null) {
       throw SourceException(
         message: "No input element found in decrypted content",
-        metadata: {"formHtml": formHtml},
+        metadata: const {},
       );
     }
 
@@ -536,7 +537,7 @@ class Source {
     if (token == null) {
       throw SourceException(
         message: "No value attribute found in input element",
-        metadata: {"formHtml": formHtml},
+        metadata: const {},
       );
     }
 
@@ -569,19 +570,7 @@ class Source {
     }
 
     final formHtml = _extractAndDecryptKwikForm(htmlPageText);
-    log.fineWithMetadata(
-      "Extracted and decrypted kwik form",
-      metadata: {"kwikPageLink": kwikPageLink, "formHtml": formHtml},
-    );
     final (postUrl, token) = _extractPostUrlAndToken(formHtml);
-    log.fineWithMetadata(
-      "Extracted post url and token from kwik form",
-      metadata: {
-        "kwikPageLink": kwikPageLink,
-        "postUrl": postUrl,
-        "token": token,
-      },
-    );
 
     final postResponse = await _dio.post<String>(
       postUrl,
@@ -589,6 +578,12 @@ class Source {
       options: Options(
         followRedirects: false,
         validateStatus: (status) => status != null && status < 400,
+        extra: {
+          browserExecutionModeExtraKey: BrowserExecutionMode.submitForm,
+          browserNavigationPolicyExtraKey: BrowserNavigationPolicy(
+            accepts: _isKwikDownloadDestination,
+          ),
+        },
         headers: {
           'Origin':
               '${Uri.parse(kwikPageLink).scheme}://${Uri.parse(kwikPageLink).host}',
@@ -622,6 +617,18 @@ class Source {
       },
     );
     return directDownloadLink;
+  }
+
+  bool _isKwikDownloadDestination(Uri uri) {
+    if (uri.scheme != 'https' || uri.host == Constants.kwikDomain) {
+      return false;
+    }
+    final fileName = uri.queryParameters['file'];
+    if (fileName != null && fileName.trim().isNotEmpty) return true;
+    return RegExp(
+      r'\.(?:mp4|mkv|webm)$',
+      caseSensitive: false,
+    ).hasMatch(uri.path);
   }
 
   Future<DirectDownloadLink> fetchDirectDownloadLink({

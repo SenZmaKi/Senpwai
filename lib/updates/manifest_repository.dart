@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
-import 'package:senpwai/shared/net/interceptors/cf_bypass.dart';
+import 'package:senpwai/shared/net/browser_transport/routing.dart';
 import 'package:senpwai/shared/net/interceptors/cookie_manager.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
@@ -32,7 +32,7 @@ class UpdateManifestRepository {
               .buildCacheOptions(policy: CachePolicy.noCache)
               .toExtra(),
           skipCookieManagerExtraKey: true,
-          skipCfBypassExtraKey: true,
+          transportPreferenceExtraKey: TransportPreference.native,
         },
       ),
     );
