@@ -184,6 +184,7 @@ class BrowserHostSession {
   Future<void>? _recovery;
   Future<void> _navigationTail = Future.value();
   String? _expectedNavigationAbortUrl;
+  int _navigationStopCount = 0;
   bool requiresInteraction = false;
 
   BrowserHostSession({
@@ -215,6 +216,7 @@ class BrowserHostSession {
   Future<void> pageTitleChanged() => _inspectDocument(completeReady: false);
 
   Future<void> _inspectDocument({required bool completeReady}) async {
+    if (_navigationStopCount > 0) return;
     final controller = _controller;
     if (controller == null) return;
     try {
@@ -360,12 +362,13 @@ class BrowserHostSession {
     _pendingFormSubmission = completer;
     if (cancelFuture != null) {
       unawaited(
-        cancelFuture.then((_) {
+        cancelFuture.then((_) async {
+          if (completer.isCompleted) return;
+          await _stopNavigation(controller);
           if (!completer.isCompleted) {
             completer.completeError(
               const BrowserTransportException('Request cancelled.'),
             );
-            unawaited(_controller?.stopLoading());
           }
         }),
       );
@@ -385,8 +388,8 @@ class BrowserHostSession {
       );
       return await completer.future.timeout(
         request.timeout,
-        onTimeout: () {
-          unawaited(_controller?.stopLoading());
+        onTimeout: () async {
+          await _stopNavigation(controller);
           throw BrowserTransportException(
             'Browser form submission timed out: ${request.uri}',
           );
@@ -650,9 +653,24 @@ class BrowserHostSession {
       );
     }
     final controller = _controller;
-    _controller = null;
     requiresInteraction = false;
-    await controller?.stopLoading();
+    if (controller != null) await _stopNavigation(controller);
+    if (identical(_controller, controller)) _controller = null;
+  }
+
+  Future<void> _stopNavigation(InAppWebViewController controller) async {
+    _navigationStopCount++;
+    _expectedNavigationAbortUrl = null;
+    try {
+      await controller.stopLoading();
+    } catch (error) {
+      _log.fineWithMetadata(
+        'Browser navigation was already stopped',
+        metadata: {'host': host, 'error': error.toString()},
+      );
+    } finally {
+      _navigationStopCount--;
+    }
   }
 
   void _failPending(String message) {
