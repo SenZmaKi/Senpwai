@@ -1,3 +1,6 @@
+@Tags(['browser'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/sources/animepahe.dart' as animepahe;

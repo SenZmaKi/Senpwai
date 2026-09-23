@@ -1,3 +1,6 @@
+@Tags(['network'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dotenv/dotenv.dart' as dotenv;
 import 'package:senpwai/anilist/anilist.dart';

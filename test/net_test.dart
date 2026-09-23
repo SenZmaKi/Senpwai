@@ -29,7 +29,7 @@ void main() {
       );
       expect(cached.inMilliseconds, lessThan(uncached.inMilliseconds));
       NetConfig.getInstance().logCache();
-    });
+    }, tags: ['network']);
 
     test(
       "POST requests to same endpoint with different bodies use different cache entries",
@@ -84,11 +84,12 @@ void main() {
           await server.close(force: true);
         }
       },
+      tags: ['local-http'],
     );
   });
 
   test("fetch example.com", () async {
     final response = await GlobalDio.getInstance().get(testUrl);
     expect(response.statusCode, 200);
-  });
+  }, tags: ['network']);
 }

@@ -1,3 +1,6 @@
+@Tags(['network'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:senpwai/sources/nyaa.dart' as nyaa;
 

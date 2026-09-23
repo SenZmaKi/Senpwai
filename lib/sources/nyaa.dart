@@ -133,7 +133,7 @@ class Source {
     );
   }
 
-  List<AnimeResult> _parseSearchResults(Document htmlPage) {
+  static List<AnimeResult> _parseSearchResults(Document htmlPage) {
     final malformedReasons = <String, int>{};
 
     void recordMalformed(String reason) {
@@ -220,7 +220,7 @@ class Source {
     return results;
   }
 
-  int _parseSizeBytes(String sizeStr) {
+  static int _parseSizeBytes(String sizeStr) {
     final parts = sizeStr.split(" ");
     final unitName = parts[1];
     final unitToBytes = switch (unitName) {
@@ -244,4 +244,4 @@ Iterable<Element> _animeEnglishTranslatedRows(Document htmlPage) =>
     htmlPage.querySelectorAll("table tbody tr");
 
 List<AnimeResult> parseSearchResultsHtml(String html) =>
-    Source.getInstance()._parseSearchResults(parse(html));
+    Source._parseSearchResults(parse(html));

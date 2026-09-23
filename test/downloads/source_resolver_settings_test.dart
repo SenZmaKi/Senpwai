@@ -5,7 +5,11 @@ import 'package:senpwai/downloads/source_resolver.dart';
 import 'package:senpwai/downloads/source_resolver/nyaa.dart';
 import 'package:senpwai/settings/settings.dart';
 
+import '../support/support.dart';
+
 void main() {
+  setUpAll(setupTestApp);
+
   test('source resolver honors enabled sources and priority', () async {
     final resolver = DownloadSourceResolver(
       settings: const SourcePreferences(

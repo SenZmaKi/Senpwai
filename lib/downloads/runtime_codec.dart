@@ -177,7 +177,10 @@ class DownloadRuntimeCodec {
         'torrentName': job.torrentName,
         'selectedFileIndices': job.selectedFileIndices,
         'selectedFilePaths': job.selectedFilePaths,
-        'renamedFilePaths': job.renamedFilePaths,
+        'renamedFilePaths': {
+          for (final entry in job.renamedFilePaths.entries)
+            entry.key.toString(): entry.value,
+        },
       },
     };
   }

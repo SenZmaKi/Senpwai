@@ -1,3 +1,6 @@
+@Tags(['browser'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:senpwai/sources/tokyoinsider.dart' as tokyoinsider;
 

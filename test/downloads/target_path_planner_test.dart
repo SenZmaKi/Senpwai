@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as path;
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/settings/models.dart';
@@ -74,9 +75,9 @@ void main() {
   test('resolveAnimeLocation searches configured roots in order', () async {
     final temp = await Directory.systemTemp.createTemp('senpwai-target-');
     addTearDown(() async => temp.delete(recursive: true));
-    final firstRoot = Directory('${temp.path}/first');
-    final secondRoot = Directory('${temp.path}/second');
-    final existing = Directory('${secondRoot.path}/Frieren');
+    final firstRoot = Directory(path.join(temp.path, 'first'));
+    final secondRoot = Directory(path.join(temp.path, 'second'));
+    final existing = Directory(path.join(secondRoot.path, 'Frieren'));
     await existing.create(recursive: true);
 
     final location = await planner.resolveAnimeLocation(
@@ -91,8 +92,10 @@ void main() {
   test('resolveAnimeLocation picks existing season folder', () async {
     final temp = await Directory.systemTemp.createTemp('senpwai-target-');
     addTearDown(() async => temp.delete(recursive: true));
-    final root = Directory('${temp.path}/library');
-    final season = Directory('${root.path}/Attack on Titan/Season 02');
+    final root = Directory(path.join(temp.path, 'library'));
+    final season = Directory(
+      path.join(root.path, 'Attack on Titan', 'Season 02'),
+    );
     await season.create(recursive: true);
 
     final location = await planner.resolveAnimeLocation(
@@ -106,7 +109,7 @@ void main() {
   test('season file title is stable before and after folders exist', () async {
     final temp = await Directory.systemTemp.createTemp('senpwai-target-');
     addTearDown(() async => temp.delete(recursive: true));
-    final root = Directory('${temp.path}/library')..createSync();
+    final root = Directory(path.join(temp.path, 'library'))..createSync();
     final anime = _anime(english: 'Grand Blue Dreaming Season 3');
 
     final initial = await planner.resolveAnimeLocation(
@@ -118,7 +121,7 @@ void main() {
     expect(initial.fileSeasonNumber, 3);
     expect(
       initial.episodeDirectory,
-      '${root.path}/Grand Blue Dreaming/Season 03',
+      path.join(root.path, 'Grand Blue Dreaming', 'Season 03'),
     );
 
     await Directory(initial.episodeDirectory).create(recursive: true);
@@ -142,8 +145,8 @@ void main() {
   test('resolveAnimeLocation honors custom anime folder override', () async {
     final temp = await Directory.systemTemp.createTemp('senpwai-target-');
     addTearDown(() async => temp.delete(recursive: true));
-    final root = Directory('${temp.path}/library');
-    final custom = Directory('${temp.path}/custom/Grand Blue S03')
+    final root = Directory(path.join(temp.path, 'library'));
+    final custom = Directory(path.join(temp.path, 'custom', 'Grand Blue S03'))
       ..createSync(recursive: true);
 
     final location = await planner.resolveAnimeLocation(
@@ -167,9 +170,10 @@ void main() {
     () async {
       final temp = await Directory.systemTemp.createTemp('senpwai-target-');
       addTearDown(() async => temp.delete(recursive: true));
-      final root = Directory('${temp.path}/library')..createSync();
-      final direct = Directory('${root.path}/Grand Blue Dreaming Season 3')
-        ..createSync();
+      final root = Directory(path.join(temp.path, 'library'))..createSync();
+      final direct = Directory(
+        path.join(root.path, 'Grand Blue Dreaming Season 3'),
+      )..createSync();
 
       final location = await planner.resolveAnimeLocation(
         anime: _anime(english: 'Grand Blue Dreaming Season 3'),

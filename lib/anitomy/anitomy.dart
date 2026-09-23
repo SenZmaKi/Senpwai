@@ -61,6 +61,10 @@ final _seasonSuffixPattern = RegExp(
   r'^第?\s*(\d{1,3})\s*(?:期|cour|クール)$',
   caseSensitive: false,
 );
+final _japaneseTitleSeasonSuffixPattern = RegExp(
+  r'\s+第?\s*(\d{1,3})\s*(?:期|クール)\s*$',
+  caseSensitive: false,
+);
 
 bool _looksLikeSeasonMarker(String elementValue) =>
     _seasonSuffixPattern.hasMatch(elementValue.trim());
@@ -118,15 +122,23 @@ AnitomyParseResult parseFilename(String filename) {
           rawEpisode,
           category: anitomy.ElementCategory.episodeNumber,
         );
-  final title = _parseCategory(
+  final rawTitle = _parseCategory(
     elements: elements,
     category: anitomy.ElementCategory.animeTitle,
     parser: (elementValue) => elementValue,
   );
+  final titleSeasonMatch = rawTitle == null
+      ? null
+      : _japaneseTitleSeasonSuffixPattern.firstMatch(rawTitle);
+  final resolvedSeason =
+      season ?? int.tryParse(titleSeasonMatch?.group(1) ?? '');
+  final title = titleSeasonMatch == null
+      ? rawTitle
+      : rawTitle!.replaceFirst(_japaneseTitleSeasonSuffixPattern, '').trim();
   final language = _parseCategory(
     elements: elements,
     category: anitomy.ElementCategory.language,
-    parser: (elementValue) => switch (elementValue) {
+    parser: (elementValue) => switch (elementValue.toUpperCase()) {
       "ENGLISH" => Language.english,
       "JAPANESE" => Language.japanese,
       _ => null,
@@ -159,7 +171,7 @@ AnitomyParseResult parseFilename(String filename) {
   );
 
   final anitomyParseResult = AnitomyParseResult(
-    season: season,
+    season: resolvedSeason,
     episode: episode,
     title: title,
     language: language,
