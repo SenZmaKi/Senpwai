@@ -133,10 +133,14 @@ class _CacheSettingsSectionState extends ConsumerState<CacheSettingsSection> {
                       'browser transport session memory idle timeout animepahe webview',
                   searchQuery: sq,
                   trailing: NumberSettingField(
-                    value:
-                        widget.settings.sources.browserTransportIdleTimeoutMinutes,
-                    min: SourcePreferences.minBrowserTransportIdleTimeoutMinutes,
-                    max: SourcePreferences.maxBrowserTransportIdleTimeoutMinutes,
+                    value: widget
+                        .settings
+                        .sources
+                        .browserTransportIdleTimeoutMinutes,
+                    min:
+                        SourcePreferences.minBrowserTransportIdleTimeoutMinutes,
+                    max:
+                        SourcePreferences.maxBrowserTransportIdleTimeoutMinutes,
                     unit: 'min',
                     onSubmitted:
                         widget.notifier.setBrowserTransportIdleTimeoutMinutes,

@@ -27,11 +27,7 @@ enum SettingsCategory {
     'AniList & auto-downloader',
   ),
   cache('Cache', Icons.storage_rounded, 'Freshness, storage limits & cleanup'),
-  system(
-    'System',
-    Icons.computer_rounded,
-    'Notifications & reset',
-  ),
+  system('System', Icons.computer_rounded, 'Notifications & reset'),
   about(
     'Updates & About',
     Icons.info_outline_rounded,

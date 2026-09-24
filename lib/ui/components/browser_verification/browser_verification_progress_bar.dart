@@ -21,9 +21,11 @@ class BrowserVerificationProgressBar extends StatelessWidget {
     final isComplete = progress >= 1.0;
 
     final primaryColor = theme.colorScheme.primary;
-    final trackColor = senpwai?.downloadColors.progressTrack ??
+    final trackColor =
+        senpwai?.downloadColors.progressTrack ??
         theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6);
-    final pulseColor = senpwai?.downloadColors.pulseHighlight ??
+    final pulseColor =
+        senpwai?.downloadColors.pulseHighlight ??
         (theme.brightness == Brightness.dark
             ? const Color(0x44FFFFFF)
             : const Color(0x33000000));
