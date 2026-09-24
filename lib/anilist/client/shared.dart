@@ -65,7 +65,11 @@ class AnilistGraphqlClient {
               ? null
               : {"Authorization": "Bearer $accessToken"},
           extra: NetConfig.getInstance()
-              .buildCacheOptions(allowPostMethod: true, policy: cachePolicy)
+              .buildCacheOptions(
+                allowPostMethod: true,
+                policy: cachePolicy,
+                maxStale: NetConfig.getInstance().catalogueCacheTtl,
+              )
               .toExtra(),
         ),
       );

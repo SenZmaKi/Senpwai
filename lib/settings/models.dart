@@ -3,6 +3,7 @@ import 'package:collection/collection.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
+import 'package:senpwai/shared/net/http_cache_defaults.dart';
 import 'package:senpwai/sources/shared/matcher/nyaa.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
@@ -769,14 +770,23 @@ class AnilistPreferences {
 @immutable
 class StoragePreferences {
   static const defaultImageCacheMaxBytes = 50 * 1024 * 1024;
-  static const defaultHttpCacheMaxAgeSeconds = 60 * 60;
+  static const defaultLiveSearchCacheTtlSeconds =
+      HttpCacheDefaults.liveSearchTtlSeconds;
+  static const defaultCatalogueCacheTtlSeconds =
+      HttpCacheDefaults.catalogueTtlSeconds;
+  static const defaultReferenceCacheTtlSeconds =
+      HttpCacheDefaults.referenceTtlSeconds;
 
   final int imageCacheMaxBytes;
-  final int httpCacheMaxAgeSeconds;
+  final int liveSearchCacheTtlSeconds;
+  final int catalogueCacheTtlSeconds;
+  final int referenceCacheTtlSeconds;
 
   const StoragePreferences({
     this.imageCacheMaxBytes = defaultImageCacheMaxBytes,
-    this.httpCacheMaxAgeSeconds = defaultHttpCacheMaxAgeSeconds,
+    this.liveSearchCacheTtlSeconds = defaultLiveSearchCacheTtlSeconds,
+    this.catalogueCacheTtlSeconds = defaultCatalogueCacheTtlSeconds,
+    this.referenceCacheTtlSeconds = defaultReferenceCacheTtlSeconds,
   });
 
   factory StoragePreferences.fromJson(Map<String, dynamic> json) =>
@@ -785,36 +795,46 @@ class StoragePreferences {
           json['imageCacheMaxBytes'],
           defaultImageCacheMaxBytes,
         ),
-        httpCacheMaxAgeSeconds: normalizeHttpCacheMaxAgeSeconds(
-          _intValue(
-            json['httpCacheMaxAgeSeconds'],
-            defaultHttpCacheMaxAgeSeconds,
-          ),
+        liveSearchCacheTtlSeconds: _positiveIntValue(
+          json['liveSearchCacheTtlSeconds'],
+          defaultLiveSearchCacheTtlSeconds,
+        ),
+        catalogueCacheTtlSeconds: _positiveIntValue(
+          json['catalogueCacheTtlSeconds'],
+          defaultCatalogueCacheTtlSeconds,
+        ),
+        referenceCacheTtlSeconds: _positiveIntValue(
+          json['referenceCacheTtlSeconds'],
+          defaultReferenceCacheTtlSeconds,
         ),
       );
 
   Map<String, dynamic> toJson() => {
     'imageCacheMaxBytes': imageCacheMaxBytes,
-    'httpCacheMaxAgeSeconds': httpCacheMaxAgeSeconds,
+    'liveSearchCacheTtlSeconds': liveSearchCacheTtlSeconds,
+    'catalogueCacheTtlSeconds': catalogueCacheTtlSeconds,
+    'referenceCacheTtlSeconds': referenceCacheTtlSeconds,
   };
 
-  Duration get httpCacheMaxAge => Duration(seconds: httpCacheMaxAgeSeconds);
-
-  static int normalizeHttpCacheMaxAgeSeconds(int seconds) =>
-      seconds <= 0 ? defaultHttpCacheMaxAgeSeconds : seconds;
-
-  static Duration normalizeHttpCacheMaxAge(Duration duration) =>
-      Duration(seconds: normalizeHttpCacheMaxAgeSeconds(duration.inSeconds));
+  Duration get liveSearchCacheTtl =>
+      Duration(seconds: liveSearchCacheTtlSeconds);
+  Duration get catalogueCacheTtl => Duration(seconds: catalogueCacheTtlSeconds);
+  Duration get referenceCacheTtl => Duration(seconds: referenceCacheTtlSeconds);
 
   StoragePreferences copyWith({
     int? imageCacheMaxBytes,
-    int? httpCacheMaxAgeSeconds,
+    int? liveSearchCacheTtlSeconds,
+    int? catalogueCacheTtlSeconds,
+    int? referenceCacheTtlSeconds,
   }) {
     return StoragePreferences(
       imageCacheMaxBytes: imageCacheMaxBytes ?? this.imageCacheMaxBytes,
-      httpCacheMaxAgeSeconds: httpCacheMaxAgeSeconds == null
-          ? this.httpCacheMaxAgeSeconds
-          : normalizeHttpCacheMaxAgeSeconds(httpCacheMaxAgeSeconds),
+      liveSearchCacheTtlSeconds:
+          liveSearchCacheTtlSeconds ?? this.liveSearchCacheTtlSeconds,
+      catalogueCacheTtlSeconds:
+          catalogueCacheTtlSeconds ?? this.catalogueCacheTtlSeconds,
+      referenceCacheTtlSeconds:
+          referenceCacheTtlSeconds ?? this.referenceCacheTtlSeconds,
     );
   }
 }

@@ -74,17 +74,6 @@ void main() {
       );
     });
 
-    test('normalizes invalid HTTP cache age from json', () {
-      final settings = AppSettings.fromJson({
-        'storage': {'httpCacheMaxAgeSeconds': -1},
-      });
-
-      expect(
-        settings.storage.httpCacheMaxAgeSeconds,
-        StoragePreferences.defaultHttpCacheMaxAgeSeconds,
-      );
-    });
-
     test('preserves zero image cache limit as unlimited', () {
       final settings = AppSettings.fromJson({
         'storage': {'imageCacheMaxBytes': 0},

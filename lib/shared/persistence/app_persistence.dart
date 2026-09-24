@@ -140,8 +140,11 @@ class AppPersistence {
       settings.downloads.maxDownloadBytesPerSecond.toDouble(),
     );
     NetConfig.initialize(paths: initializedPaths);
-    NetConfig.getInstance().updateCacheMaxStale(
-      settings.storage.httpCacheMaxAge,
+    final netConfig = NetConfig.getInstance();
+    netConfig.updateCacheTtls(
+      liveSearch: settings.storage.liveSearchCacheTtl,
+      catalogue: settings.storage.catalogueCacheTtl,
+      reference: settings.storage.referenceCacheTtl,
     );
     AppImageCache.initialize(
       initializedPaths,
@@ -195,11 +198,11 @@ class AppPersistence {
     await AppImageCache.manager.emptyCache();
   }
 
+  static Future<void> clearCaches() async {
+    await Future.wait([clearImageCache(), clearHttpCache()]);
+  }
+
   static Future<void> clearAppCacheAndSessions() async {
-    await Future.wait([
-      clearImageCache(),
-      clearHttpCache(),
-      clearNetworkSession(),
-    ]);
+    await Future.wait([clearCaches(), clearNetworkSession()]);
   }
 }

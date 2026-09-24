@@ -247,21 +247,31 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(2),
                 child: PulsingProgressBar(
-                  height: 2,
+                  height: 3,
                   value:
                       state.planningProgress == null ||
-                          state.planningProgress!.completedEpisodes == 0
-                      ? null
-                      : state.planningProgress!.fraction,
+                              state.planningProgress!.completedEpisodes == 0
+                          ? null
+                          : state.planningProgress!.fraction,
                   color: theme.colorScheme.onPrimary,
                   trackColor: theme.colorScheme.onPrimary.withValues(
-                    alpha: 0.18,
+                    alpha: 0.22,
                   ),
-                  pulseColor: theme.colorScheme.primary.withValues(alpha: 0.28),
+                  pulseColor:
+                      ThemeData.estimateBrightnessForColor(
+                            theme.colorScheme.onPrimary,
+                          ) ==
+                          Brightness.light
+                          ? const Color(0x66FFFFFF)
+                          : const Color(0x44FFFFFF),
+                  segments: (state.planningProgress?.totalEpisodes ?? 0) > 1
+                      ? state.planningProgress!.totalEpisodes
+                      : null,
+                  tickColor: theme.colorScheme.primary,
                   semanticsLabel: state.planningProgress?.activity,
                   semanticsValue: state.planningProgress == null
                       ? null
-                      : '${(state.planningProgress!.fraction * 100).round()}',
+                      : '${(state.planningProgress!.fraction * 100).round()}%',
                 ),
               ),
             ),

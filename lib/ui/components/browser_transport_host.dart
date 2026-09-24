@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:senpwai/shared/net/browser_transport/browser_transport.dart';
+import 'package:senpwai/ui/components/browser_verification/browser_verification_shell.dart';
 
 class BrowserTransportHost extends StatefulWidget {
   final Widget child;
@@ -53,7 +54,7 @@ class _BrowserTransportHostState extends State<BrowserTransportHost> {
   }
 }
 
-class _BrowserSessionView extends StatelessWidget {
+class _BrowserSessionView extends StatefulWidget {
   final BrowserHostSession session;
   final bool visible;
 
@@ -64,10 +65,31 @@ class _BrowserSessionView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  State<_BrowserSessionView> createState() => _BrowserSessionViewState();
+}
+
+class _BrowserSessionViewState extends State<_BrowserSessionView> {
+  InAppWebViewController? _controller;
+  double _progress = 0.0;
+  late final OverlayEntry _overlayEntry;
+
+  @override
+  void initState() {
+    super.initState();
+    _overlayEntry = OverlayEntry(builder: (context) => _buildShell(context));
+  }
+
+  @override
+  void didUpdateWidget(covariant _BrowserSessionView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _overlayEntry.markNeedsBuild();
+  }
+
+
+  Widget _buildShell(BuildContext context) {
     final webView = InAppWebView(
       initialUrlRequest: URLRequest(
-        url: WebUri(session.bootstrapUri.toString()),
+        url: WebUri(widget.session.bootstrapUri.toString()),
       ),
       initialSettings: InAppWebViewSettings(
         javaScriptEnabled: true,
@@ -78,56 +100,48 @@ class _BrowserSessionView extends StatelessWidget {
         useHybridComposition: true,
         darkMode: Theme.of(context).brightness == Brightness.dark,
       ),
-      onWebViewCreated: (controller) => unawaited(session.attach(controller)),
-      onLoadStop: (_, __) => unawaited(session.pageFinished()),
-      onTitleChanged: (_, __) => unawaited(session.pageTitleChanged()),
+      onWebViewCreated: (controller) {
+        _controller = controller;
+        unawaited(widget.session.attach(controller));
+      },
+      onProgressChanged: (_, progress) {
+        if (mounted) {
+          setState(() => _progress = progress / 100.0);
+          _overlayEntry.markNeedsBuild();
+        }
+      },
+      onLoadStop: (_, __) => unawaited(widget.session.pageFinished()),
+      onTitleChanged: (_, __) => unawaited(widget.session.pageTitleChanged()),
       shouldOverrideUrlLoading: (_, action) async =>
-          session.handleNavigation(action),
+          widget.session.handleNavigation(action),
       onReceivedError: (_, request, error) {
-        session.handleLoadError(request, error);
+        widget.session.handleLoadError(request, error);
       },
     );
 
+    return BrowserVerificationShell(
+      host: widget.session.host,
+      progress: _progress,
+      onReload: () => _controller?.reload(),
+      onCancel: () => unawaited(
+        BrowserTransportService.instance.cancelSessionRequests(
+          widget.session.host,
+        ),
+      ),
+      child: webView,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Positioned.fill(
       child: Visibility(
-        visible: visible,
+        visible: widget.visible,
         maintainState: true,
         maintainAnimation: true,
         maintainSize: true,
-        child: Material(
-          color: Theme.of(context).colorScheme.surface,
-          child: SafeArea(
-            child: Column(
-              children: [
-                AppBar(
-                  automaticallyImplyLeading: false,
-                  title: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Browser verification'),
-                      Text(
-                        session.host,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    Semantics(
-                      label: 'Cancel browser verification',
-                      button: true,
-                      child: IconButton(
-                        onPressed: () => BrowserTransportService.instance
-                            .cancelSessionRequests(session.host),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ),
-                  ],
-                ),
-                const LinearProgressIndicator(),
-                Expanded(child: webView),
-              ],
-            ),
-          ),
+        child: Overlay(
+          initialEntries: [_overlayEntry],
         ),
       ),
     );

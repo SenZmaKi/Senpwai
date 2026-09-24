@@ -10,6 +10,7 @@ import 'package:logging/logging.dart';
 import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:senpwai/shared/log.dart';
 
@@ -148,7 +149,17 @@ class AnimeListCache {
   AnimeListCache({required this._dio});
 
   Future<void> _initializeCache() async {
-    final response = await _dio.get("${Constants.baseUrl}/anime/list");
+    final response = await _dio.get(
+      "${Constants.baseUrl}/anime/list",
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(
+              policy: CachePolicy.forceCache,
+              maxStale: NetConfig.getInstance().referenceCacheTtl,
+            )
+            .toExtra(),
+      ),
+    );
     final htmlPage = parseHtml(response.data);
     final targetElements = htmlPage.querySelectorAll(
       "div.c_h2 > a, div.c_h2b > a",
@@ -482,7 +493,14 @@ class Source {
     required String animeTitle,
   }) async {
     await SourceDirectory.waitForRefresh();
-    final response = await _dio.get(animeUrl);
+    final response = await _dio.get(
+      animeUrl,
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
+      ),
+    );
     final htmlPage = parseHtml(response.data);
     final encodedElements = _parseEncodedDownloadRows(htmlPage);
     final legacyElements = parsePageResults(htmlPage);
@@ -535,7 +553,14 @@ class Source {
     required EpisodePage episodePage,
   }) async {
     await SourceDirectory.waitForRefresh();
-    final response = await _dio.get(episodePage.url);
+    final response = await _dio.get(
+      episodePage.url,
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
+      ),
+    );
     final htmlPage = parseHtml(response.data);
     final encodedElements = _parseEncodedFileRows(htmlPage);
     final legacyElements = parsePageResults(htmlPage);

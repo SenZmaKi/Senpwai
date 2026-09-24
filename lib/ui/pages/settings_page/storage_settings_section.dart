@@ -9,7 +9,6 @@ import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_controls.dart';
-import 'package:senpwai/ui/pages/settings_page/settings_formatters.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 
 class StorageSettingsSection extends ConsumerStatefulWidget {
@@ -31,270 +30,133 @@ class StorageSettingsSection extends ConsumerStatefulWidget {
 
 class _StorageSettingsSectionState
     extends ConsumerState<StorageSettingsSection> {
-  late Future<AppStorageUsage> _usageFuture = _loadUsage();
-  int _httpCacheAgeResetToken = 0;
-
-  Future<AppStorageUsage> _loadUsage() =>
-      calculateAppStorageUsage(AppPersistence.paths);
-
-  void _refresh() {
-    setState(() {
-      _usageFuture = _loadUsage();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final sq = widget.searchQuery;
-    return FutureBuilder<AppStorageUsage>(
-      future: _usageFuture,
-      builder: (context, snapshot) {
-        final usage = snapshot.data;
-        final notifications = widget.settings.notifications;
-
-        return Column(
+    final notifications = widget.settings.notifications;
+    return Column(
+      children: [
+        SettingsGroupCard(
+          title: 'Notifications',
+          icon: Icons.notifications_outlined,
+          description: 'App status updates and download completion alerts',
+          searchQuery: sq,
           children: [
-            SettingsGroupCard(
-              title: 'Notifications',
-              icon: Icons.notifications_outlined,
-              description: 'App status updates and download completion alerts',
+            SettingsTile(
+              icon: Icons.notifications_none_rounded,
+              title: 'System Notifications',
+              subtitle: _notificationsSubtitle(notifications),
               searchQuery: sq,
-              children: [
-                SettingsTile(
-                  icon: Icons.notifications_none_rounded,
-                  title: 'System Notifications',
-                  subtitle: _notificationsSubtitle(notifications),
-                  searchQuery: sq,
-                  trailing: AsyncSwitch(
-                    value: notifications.enabled,
-                    onChanged: (enabled) =>
-                        AppNotificationService.instance.setEnabledFromSettings(
-                          notifier: widget.notifier,
-                          enabled: enabled,
-                        ),
-                  ),
-                ),
-                SettingsTile(
-                  icon: Icons.stacked_bar_chart_rounded,
-                  title: 'Download Notification Style',
-                  subtitle: _downloadNotificationStyleSubtitle(
-                    notifications.downloadStyle,
-                  ),
-                  searchQuery: sq,
-                  trailing: SettingsDropdown<DownloadNotificationStyle>(
-                    value: notifications.downloadStyle,
-                    items: [
-                      for (final value in DownloadNotificationStyle.values)
-                        DropdownMenuItem(
-                          value: value,
-                          child: Text(value.label),
-                        ),
-                    ],
-                    onChanged: (value) => unawaited(
-                      widget.notifier.setDownloadNotificationStyle(value),
+              trailing: AsyncSwitch(
+                value: notifications.enabled,
+                onChanged: (enabled) =>
+                    AppNotificationService.instance.setEnabledFromSettings(
+                      notifier: widget.notifier,
+                      enabled: enabled,
                     ),
-                  ),
-                  enabled: notifications.enabled,
-                ),
-                if (Platform.isWindows)
-                  SettingsTile(
-                    icon: Icons.download_rounded,
-                    title: 'Windows Download Progress Notification',
-                    subtitle:
-                        'Show live progress; taskbar progress stays on either way',
-                    searchQuery: sq,
-                    trailing: AsyncSwitch(
-                      value: notifications.showWindowsProgressNotification,
-                      onChanged: (show) => widget.notifier
-                          .setShowWindowsProgressNotification(show),
-                    ),
-                    enabled: notifications.enabled,
-                  ),
-              ],
+              ),
             ),
-            SettingsGroupCard(
-              title: 'Storage & Memory',
-              icon: Icons.storage_rounded,
-              description: 'Manage caches, site sessions, and disk usage',
+            SettingsTile(
+              icon: Icons.stacked_bar_chart_rounded,
+              title: 'Download Notification Style',
+              subtitle: _downloadNotificationStyleSubtitle(
+                notifications.downloadStyle,
+              ),
               searchQuery: sq,
-              children: [
-                SettingsTile(
-                  icon: Icons.image_outlined,
-                  title: 'Image Cache Limit',
-                  subtitle:
-                      '${_imageCacheLimitLabel(widget.settings.storage.imageCacheMaxBytes)} · Usage: ${_size(usage?.imageCacheBytes)}',
-                  searchQuery: sq,
-                  trailing: LimitSettingControl(
-                    mode: _imageCacheLimitMode(
-                      widget.settings.storage.imageCacheMaxBytes,
-                    ),
-                    allowsDisabled: false,
-                    onModeChanged: (mode) => unawaited(
-                      widget.notifier.setImageCacheMaxBytes(
-                        mode == LimitMode.unlimited
-                            ? 0
-                            : _imageCacheLimitForCustomValue(
-                                widget.settings.storage.imageCacheMaxBytes,
-                              ),
-                      ),
-                    ),
-                    valueField: NumberSettingField(
-                      value: _imageCacheMegabytesForCustomValue(
-                        widget.settings.storage.imageCacheMaxBytes,
-                      ),
-                      min: 1,
-                      unit: 'MB',
-                      zeroValueModeShortcut: true,
-                      onSubmitted: (value) => unawaited(
-                        widget.notifier.setImageCacheMaxBytes(megabytes(value)),
-                      ),
-                    ),
-                  ),
+              trailing: SettingsDropdown<DownloadNotificationStyle>(
+                value: notifications.downloadStyle,
+                items: [
+                  for (final value in DownloadNotificationStyle.values)
+                    DropdownMenuItem(value: value, child: Text(value.label)),
+                ],
+                onChanged: (value) => unawaited(
+                  widget.notifier.setDownloadNotificationStyle(value),
                 ),
-                SettingsTile(
-                  icon: Icons.http_rounded,
-                  title: 'HTTP Cache Age',
-                  subtitle: 'Usage: ${_size(usage?.httpCacheBytes)}',
-                  searchQuery: sq,
-                  trailing: NumberSettingField(
-                    value: widget.settings.storage.httpCacheMaxAge.inHours,
-                    min: -999999,
-                    allowNegative: true,
-                    resetToken: _httpCacheAgeResetToken,
-                    unit: 'hours',
-                    onSubmitted: (value) => unawaited(_setHttpCacheAge(value)),
-                  ),
-                ),
-                SettingsTile(
-                  icon: Icons.memory_rounded,
-                  title: 'Browser Transport Timeout',
-                  subtitle:
-                      'Close inactive embedded browser sessions to reduce memory use',
-                  keywords:
-                      'browser transport session memory idle timeout animepahe webview',
-                  searchQuery: sq,
-                  trailing: NumberSettingField(
-                    value: widget
-                        .settings
-                        .sources
-                        .browserTransportIdleTimeoutMinutes,
-                    min:
-                        SourcePreferences.minBrowserTransportIdleTimeoutMinutes,
-                    max:
-                        SourcePreferences.maxBrowserTransportIdleTimeoutMinutes,
-                    unit: 'min',
-                    onSubmitted:
-                        widget.notifier.setBrowserTransportIdleTimeoutMinutes,
-                  ),
-                ),
-                SettingsTile(
-                  icon: Icons.delete_sweep_outlined,
-                  title: 'Clear Image Cache',
-                  subtitle: _size(usage?.imageCacheBytes),
-                  searchQuery: sq,
-                  trailing: const Icon(Icons.chevron_right, size: 20),
-                  onTap: () => unawaited(
-                    _confirmAndRun(
-                      title: 'Clear image cache?',
-                      message:
-                          'Cached covers and banners will be downloaded again.',
-                      action: AppPersistence.clearImageCache,
-                      successMessage: 'Image cache cleared',
-                    ),
-                  ),
-                ),
-                SettingsTile(
-                  icon: Icons.cleaning_services_outlined,
-                  title: 'Clear HTTP Cache',
-                  subtitle: _size(usage?.httpCacheBytes),
-                  searchQuery: sq,
-                  trailing: const Icon(Icons.chevron_right, size: 20),
-                  onTap: () => unawaited(
-                    _confirmAndRun(
-                      title: 'Clear HTTP cache?',
-                      message: 'Cached network responses will be removed.',
-                      action: AppPersistence.clearHttpCache,
-                      successMessage: 'HTTP cache cleared',
-                    ),
-                  ),
-                ),
-                SettingsTile(
-                  icon: Icons.cloud_off_outlined,
-                  title: 'Clear Browser Sessions',
-                  subtitle: 'Cookies and protected-site data',
-                  searchQuery: sq,
-                  trailing: const Icon(Icons.chevron_right, size: 20),
-                  onTap: () => unawaited(
-                    _confirmAndRun(
-                      title: 'Clear browser sessions?',
-                      message:
-                          'Protected-site browser cookies and sessions will be removed.',
-                      action: AppPersistence.clearNetworkSession,
-                      successMessage: 'Browser sessions cleared',
-                    ),
-                  ),
-                ),
-                SettingsTile(
-                  icon: Icons.layers_clear_outlined,
-                  title: 'Clear App Cache & Sessions',
-                  subtitle:
-                      '${_size(usage?.appCacheAndSessionBytes)} app-managed · plus browser site data',
-                  searchQuery: sq,
-                  trailing: const Icon(Icons.chevron_right, size: 20),
-                  onTap: () => unawaited(
-                    _confirmAndRun(
-                      title: 'Clear app cache and sessions?',
-                      message:
-                          'This keeps settings, AniList login, and downloaded anime.',
-                      action: AppPersistence.clearAppCacheAndSessions,
-                      successMessage: 'App cache and sessions cleared',
-                    ),
-                  ),
-                ),
-              ],
+              ),
+              enabled: notifications.enabled,
             ),
-            SettingsGroupCard(
-              title: 'Reset Settings',
-              icon: Icons.restart_alt_rounded,
-              description: 'Restore Senpwai preferences to their defaults',
-              searchQuery: sq,
-              children: [
-                SettingsTile(
-                  icon: Icons.restart_alt_rounded,
-                  title: 'Reset All Settings',
-                  subtitle:
-                      'Keep downloads, library, AniList account, and cache',
-                  keywords: 'restore defaults proxy credentials preferences',
-                  searchQuery: sq,
-                  trailing: const Icon(Icons.chevron_right, size: 20),
-                  onTap: () => unawaited(_confirmAndResetSettings()),
+            if (Platform.isWindows)
+              SettingsTile(
+                icon: Icons.download_rounded,
+                title: 'Windows Download Progress Notification',
+                subtitle:
+                    'Show live progress; taskbar progress stays on either way',
+                searchQuery: sq,
+                trailing: AsyncSwitch(
+                  value: notifications.showWindowsProgressNotification,
+                  onChanged: widget.notifier.setShowWindowsProgressNotification,
                 ),
-              ],
+                enabled: notifications.enabled,
+              ),
+          ],
+        ),
+        SettingsGroupCard(
+          title: 'Browser Sessions',
+          icon: Icons.language_rounded,
+          description: 'Embedded browser memory and protected-site data',
+          searchQuery: sq,
+          children: [
+            SettingsTile(
+              icon: Icons.memory_rounded,
+              title: 'Browser Transport Timeout',
+              subtitle:
+                  'Close inactive embedded browser sessions to reduce memory use',
+              keywords:
+                  'browser transport session memory idle timeout animepahe webview',
+              searchQuery: sq,
+              trailing: NumberSettingField(
+                value:
+                    widget.settings.sources.browserTransportIdleTimeoutMinutes,
+                min: SourcePreferences.minBrowserTransportIdleTimeoutMinutes,
+                max: SourcePreferences.maxBrowserTransportIdleTimeoutMinutes,
+                unit: 'min',
+                onSubmitted:
+                    widget.notifier.setBrowserTransportIdleTimeoutMinutes,
+              ),
+            ),
+            SettingsTile(
+              icon: Icons.cloud_off_outlined,
+              title: 'Clear Browser Sessions',
+              subtitle: 'Cookies and protected-site data',
+              searchQuery: sq,
+              trailing: const Icon(Icons.chevron_right, size: 20),
+              onTap: () => unawaited(_confirmAndClearSessions()),
             ),
           ],
-        );
-      },
+        ),
+        SettingsGroupCard(
+          title: 'Reset Settings',
+          icon: Icons.restart_alt_rounded,
+          description: 'Restore Senpwai preferences to their defaults',
+          searchQuery: sq,
+          children: [
+            SettingsTile(
+              icon: Icons.restart_alt_rounded,
+              title: 'Reset All Settings',
+              subtitle: 'Keep downloads, library, AniList account, and cache',
+              keywords: 'restore defaults proxy credentials preferences',
+              searchQuery: sq,
+              trailing: const Icon(Icons.chevron_right, size: 20),
+              onTap: () => unawaited(_confirmAndResetSettings()),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  Future<void> _confirmAndRun({
-    required String title,
-    required String message,
-    required Future<void> Function() action,
-    required String successMessage,
-  }) async {
+  Future<void> _confirmAndClearSessions() async {
     final confirmed = await showConfirmDialog(
       context,
-      title: title,
-      message: message,
+      title: 'Clear browser sessions?',
+      message: 'Protected-site browser cookies and sessions will be removed.',
       confirmLabel: 'Clear',
       destructive: true,
     );
     if (!confirmed) return;
-    await action();
+    await AppPersistence.clearNetworkSession();
     if (!mounted) return;
-    _refresh();
-    AppToast.showInfo(context, title: successMessage);
+    AppToast.showInfo(context, title: 'Browser sessions cleared');
   }
 
   Future<void> _confirmAndResetSettings() async {
@@ -311,37 +173,7 @@ class _StorageSettingsSectionState
     if (!mounted) return;
     AppToast.showInfo(context, title: 'Settings reset');
   }
-
-  String _size(int? bytes) =>
-      bytes == null ? 'Calculating...' : formatBytes(bytes);
-
-  Future<void> _setHttpCacheAge(int hours) async {
-    final wasReset = await widget.notifier.setHttpCacheMaxAge(
-      Duration(hours: hours),
-    );
-    if (!mounted || !wasReset) return;
-    setState(() => _httpCacheAgeResetToken++);
-    AppToast.showWarning(
-      context,
-      title: 'HTTP cache age reset',
-      description: 'Enter an age greater than 0 hours.',
-    );
-  }
 }
-
-int _bytesToMegabytes(int bytes) => (bytes / (1024 * 1024)).round();
-
-LimitMode _imageCacheLimitMode(int value) =>
-    value <= 0 ? LimitMode.unlimited : LimitMode.limited;
-
-int _imageCacheLimitForCustomValue(int value) =>
-    value > 0 ? value : StoragePreferences.defaultImageCacheMaxBytes;
-
-int _imageCacheMegabytesForCustomValue(int bytes) =>
-    _bytesToMegabytes(_imageCacheLimitForCustomValue(bytes));
-
-String _imageCacheLimitLabel(int bytes) =>
-    bytes == 0 ? 'Unlimited' : 'Limit: ${formatBytes(bytes)}';
 
 String _notificationsSubtitle(NotificationPreferences notifications) {
   if (!notifications.enabled) {
@@ -352,11 +184,10 @@ String _notificationsSubtitle(NotificationPreferences notifications) {
   return 'Download progress and status updates';
 }
 
-String _downloadNotificationStyleSubtitle(DownloadNotificationStyle style) {
-  return switch (style) {
-    DownloadNotificationStyle.batchCompletion =>
-      'Show one result when a batch finishes',
-    DownloadNotificationStyle.episodeCompletion =>
-      'Show batch progress, then episode results',
-  };
-}
+String _downloadNotificationStyleSubtitle(DownloadNotificationStyle style) =>
+    switch (style) {
+      DownloadNotificationStyle.batchCompletion =>
+        'Show one result when a batch finishes',
+      DownloadNotificationStyle.episodeCompletion =>
+        'Show batch progress, then episode results',
+    };

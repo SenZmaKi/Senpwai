@@ -45,8 +45,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     DownloadConfig.getInstance().updateMaxBytesPerSecond(
       settings.downloads.maxDownloadBytesPerSecond.toDouble(),
     );
-    NetConfig.getInstance().updateCacheMaxStale(
-      settings.storage.httpCacheMaxAge,
+    final netConfig = NetConfig.getInstance();
+    netConfig.updateCacheTtls(
+      liveSearch: settings.storage.liveSearchCacheTtl,
+      catalogue: settings.storage.catalogueCacheTtl,
+      reference: settings.storage.referenceCacheTtl,
     );
     AppImageCache.applyMaxSizeBytes(settings.storage.imageCacheMaxBytes);
     BrowserTransportService.instance.updateIdleTimeout(
@@ -458,17 +461,29 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
-  Future<bool> setHttpCacheMaxAge(Duration duration) async {
-    final normalized = StoragePreferences.normalizeHttpCacheMaxAge(duration);
-    await _commit(
-      state.copyWith(
-        storage: state.storage.copyWith(
-          httpCacheMaxAgeSeconds: normalized.inSeconds,
-        ),
+  Future<void> setLiveSearchCacheTtl(Duration duration) => _commit(
+    state.copyWith(
+      storage: state.storage.copyWith(
+        liveSearchCacheTtlSeconds: duration.inSeconds,
       ),
-    );
-    return normalized != duration;
-  }
+    ),
+  );
+
+  Future<void> setCatalogueCacheTtl(Duration duration) => _commit(
+    state.copyWith(
+      storage: state.storage.copyWith(
+        catalogueCacheTtlSeconds: duration.inSeconds,
+      ),
+    ),
+  );
+
+  Future<void> setReferenceCacheTtl(Duration duration) => _commit(
+    state.copyWith(
+      storage: state.storage.copyWith(
+        referenceCacheTtlSeconds: duration.inSeconds,
+      ),
+    ),
+  );
 
   Future<void> setNotificationsEnabled(bool enabled) {
     return _commit(

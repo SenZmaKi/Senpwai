@@ -1,10 +1,12 @@
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:logging/logging.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/net/net_config.dart';
 
 const _animeFillerListHome = 'https://www.animefillerlist.com';
 
@@ -100,7 +102,10 @@ class AnimeFillerService {
   }
 
   Future<Map<String, List<_FillerShow>>> _fetchShowIndex() async {
-    final response = await _dio.get<String>('$_animeFillerListHome/shows');
+    final response = await _dio.get<String>(
+      '$_animeFillerListHome/shows',
+      options: _referenceCacheOptions(),
+    );
     final document = html_parser.parse(response.data);
     final showList = document.querySelector('#ShowList');
     if (showList == null) {
@@ -127,7 +132,10 @@ class AnimeFillerService {
 
   Future<_FillerPage> _getFillerPage(String path) async {
     final uri = Uri.parse(_animeFillerListHome).resolve(path);
-    final response = await _dio.get<String>(uri.toString());
+    final response = await _dio.get<String>(
+      uri.toString(),
+      options: _referenceCacheOptions(),
+    );
     final document = html_parser.parse(response.data);
     final pageTitle = document.querySelector('h1')?.text.trim();
     final episodeTable = document.querySelector('table.EpisodeList');
@@ -150,6 +158,15 @@ class AnimeFillerService {
     return page;
   }
 }
+
+Options _referenceCacheOptions() => Options(
+  extra: NetConfig.getInstance()
+      .buildCacheOptions(
+        policy: CachePolicy.forceCache,
+        maxStale: NetConfig.getInstance().referenceCacheTtl,
+      )
+      .toExtra(),
+);
 
 bool _isSequel(AnilistTitle title) {
   for (final candidate in title.toTitleCandidates()) {

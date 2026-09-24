@@ -19,13 +19,18 @@ void main() {
   group("cache", () {
     test("cache fetches faster", () async {
       final dio = GlobalDio.getInstance();
+      final cacheOptions = Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.forceCache)
+            .toExtra(),
+      );
       final uncached = await timeIt(
         label: "Fetching example.com (uncached)",
-        fn: () => dio.get(testUrl),
+        fn: () => dio.get(testUrl, options: cacheOptions),
       );
       final cached = await timeIt(
         label: "Fetching example.com (cached)",
-        fn: () => dio.get(testUrl),
+        fn: () => dio.get(testUrl, options: cacheOptions),
       );
       expect(cached.inMilliseconds, lessThan(uncached.inMilliseconds));
       NetConfig.getInstance().logCache();
@@ -56,7 +61,10 @@ void main() {
           NetConfig.getInstance().attachToDio(dio);
           final url = 'http://127.0.0.1:${server.port}/graphql';
           final cacheExtra = NetConfig.getInstance()
-              .buildCacheOptions(allowPostMethod: true)
+              .buildCacheOptions(
+                allowPostMethod: true,
+                policy: CachePolicy.forceCache,
+              )
               .toExtra();
 
           final first = await dio.post<Map<String, dynamic>>(

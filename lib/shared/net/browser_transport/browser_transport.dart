@@ -133,12 +133,24 @@ class BrowserTransportService extends ChangeNotifier {
     }
   }
 
-  void cancelSessionRequests(String host) {
-    final callbacks = _userCancellationCallbacks[host.toLowerCase()]?.toList();
-    if (callbacks == null || callbacks.isEmpty) return;
-    for (final cancel in callbacks) {
+  Future<void> cancelSessionRequests(String host) async {
+    final normalizedHost = host.toLowerCase();
+    final callbacks = _userCancellationCallbacks
+        .remove(normalizedHost)
+        ?.toList();
+    for (final cancel in callbacks ?? const <VoidCallback>[]) {
       cancel();
     }
+
+    _idleTimers.remove(normalizedHost)?.cancel();
+    final session = _sessions.remove(normalizedHost);
+    if (session == null) return;
+
+    // Remove the session before stopping its WebView so the verification page
+    // closes immediately. Closing also fails requests that do not have a Dio
+    // CancelToken, ensuring the user action always ends the verification.
+    notifyListeners();
+    await session.close();
   }
 
   Future<void> clearSessions() async {
@@ -251,11 +263,20 @@ class BrowserHostSession {
         source: 'document.documentElement?.outerHTML ?? ""',
       ))?.toString();
       final challenged = _documentLooksChallenged(html ?? '');
+      final currentUrl = await controller.getUrl();
       requiresInteraction = challenged;
       _log.infoWithMetadata(
         challenged ? 'Browser challenge page loaded' : 'Browser session ready',
-        metadata: {'host': host},
+        metadata: {
+          'host': host,
+          'url': currentUrl?.toString(),
+          'loadCompleted': completeReady,
+          'formSubmissionPending': _pendingFormSubmission != null,
+        },
       );
+      if (completeReady && !challenged) {
+        await _failFinishedFormWithoutRedirect(controller);
+      }
       if (completeReady && !challenged && !_ready.isCompleted) {
         _ready.complete();
       }
@@ -270,6 +291,28 @@ class BrowserHostSession {
         );
       }
     }
+  }
+
+  Future<void> _failFinishedFormWithoutRedirect(
+    InAppWebViewController controller,
+  ) async {
+    final completer = _pendingFormSubmission;
+    if (completer == null || completer.isCompleted) return;
+
+    final currentUri = Uri.tryParse(
+      (await controller.getUrl())?.toString() ?? '',
+    );
+    if (currentUri == null || currentUri.host.toLowerCase() != host) return;
+
+    final error = BrowserTransportException(
+      'Browser form submission finished without a download redirect: '
+      '$currentUri',
+    );
+    _log.warningWithMetadata(
+      'Browser form submission did not redirect',
+      metadata: {'host': host, 'url': currentUri.toString()},
+    );
+    completer.completeError(error);
   }
 
   void pageFailed(Object error) {
@@ -386,7 +429,21 @@ class BrowserHostSession {
     }
     _activeNavigationPolicy = navigationPolicy;
 
+    _log.infoWithMetadata(
+      'Preparing browser form submission',
+      metadata: {
+        'host': host,
+        'url': request.uri.toString(),
+        'referrer': request.referrer?.toString(),
+        'bodyBytes': request.body?.length ?? 0,
+        'timeoutMs': request.timeout.inMilliseconds,
+      },
+    );
     await _ensureDocument(request.referrer, request.readyTimeout);
+    _log.infoWithMetadata(
+      'Browser form document ready',
+      metadata: {'host': host, 'url': (await controller.getUrl())?.toString()},
+    );
 
     final completer = Completer<BrowserTransportResponse>();
     _pendingFormSubmission = completer;
@@ -413,10 +470,14 @@ class BrowserHostSession {
       'body': base64Encode(request.body ?? Uint8List(0)),
     });
     try {
-      // Start the script without awaiting it so the response completer has an
-      // error listener before cancellation can complete it. Awaiting script
-      // evaluation first left a small window where a cancellation error was
-      // reported as an unhandled asynchronous exception.
+      _log.infoWithMetadata(
+        'Dispatching browser form submission',
+        metadata: {
+          'host': host,
+          'url': request.uri.toString(),
+          'method': request.method,
+        },
+      );
       unawaited(
         controller
             .evaluateJavascript(source: _formSubmissionScript(payload))
@@ -432,21 +493,75 @@ class BrowserHostSession {
               return null;
             }),
       );
+      _log.infoWithMetadata(
+        'Browser form submission dispatched',
+        metadata: {'host': host, 'url': request.uri.toString()},
+      );
       return await completer.future.timeout(
         request.timeout,
         onTimeout: () async {
+          _log.warningWithMetadata(
+            'Browser form submission timed out',
+            metadata: {
+              'host': host,
+              'requestUrl': request.uri.toString(),
+              'currentUrl': (await controller.getUrl())?.toString(),
+              'timeoutMs': request.timeout.inMilliseconds,
+            },
+          );
           await _stopNavigation(controller);
           throw BrowserTransportException(
             'Browser form submission timed out: ${request.uri}',
           );
         },
       );
+    } catch (error, stackTrace) {
+      _log.severeWithMetadata(
+        'Browser form submission failed',
+        metadata: {
+          'host': host,
+          'requestUrl': request.uri.toString(),
+          'errorType': error.runtimeType.toString(),
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
     } finally {
       if (identical(_pendingFormSubmission, completer)) {
         _pendingFormSubmission = null;
       }
     }
   }
+
+  String _formSubmissionScript(String payload) =>
+      '''
+    (() => {
+      const request = $payload;
+      const binary = atob(request.body);
+      const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+      const text = new TextDecoder().decode(bytes);
+      let fields;
+      if ((request.contentType || '').toLowerCase().includes('json')) {
+        fields = Object.entries(text ? JSON.parse(text) : {});
+      } else {
+        fields = Array.from(new URLSearchParams(text).entries());
+      }
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = request.url;
+      form.enctype = 'application/x-www-form-urlencoded';
+      for (const [name, value] of fields) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = String(value);
+        form.appendChild(input);
+      }
+      document.body.appendChild(form);
+      form.submit();
+    })();
+  ''';
 
   Future<void> _ensureDocument(Uri? target, Duration timeout) async {
     if (target == null || target.host.toLowerCase() != host) return;
@@ -455,6 +570,14 @@ class BrowserHostSession {
     final current = await controller.getUrl();
     if (current?.toString() == target.toString()) return;
 
+    _log.infoWithMetadata(
+      'Loading browser form referrer',
+      metadata: {
+        'host': host,
+        'currentUrl': current?.toString(),
+        'targetUrl': target.toString(),
+      },
+    );
     _ready = Completer<void>();
     await controller.loadUrl(
       urlRequest: URLRequest(url: WebUri(target.toString())),
@@ -520,37 +643,24 @@ class BrowserHostSession {
     );
   }
 
-  String _formSubmissionScript(String payload) =>
-      '''
-    (() => {
-      const request = $payload;
-      const binary = atob(request.body);
-      const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-      const text = new TextDecoder().decode(bytes);
-      let fields;
-      if ((request.contentType || '').toLowerCase().includes('json')) {
-        fields = Object.entries(text ? JSON.parse(text) : {});
-      } else {
-        fields = Array.from(new URLSearchParams(text).entries());
-      }
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = request.url;
-      for (const [name, value] of fields) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = name;
-        input.value = String(value);
-        form.appendChild(input);
-      }
-      document.body.appendChild(form);
-      form.submit();
-    })();
-  ''';
-
   NavigationActionPolicy handleNavigation(NavigationAction action) {
     final completer = _pendingFormSubmission;
     final uri = action.request.url;
+    if (action.isForMainFrame && uri != null) {
+      final accepted =
+          completer != null && (_activeNavigationPolicy?.accepts(uri) ?? false);
+      _log.infoWithMetadata(
+        'Browser main-frame navigation observed',
+        metadata: {
+          'host': host,
+          'method': action.request.method,
+          'url': uri.toString(),
+          'formSubmissionPending': completer != null,
+          'leavesSessionHost': uri.host.toLowerCase() != host,
+          'acceptedAsResult': accepted,
+        },
+      );
+    }
     if (completer == null ||
         uri == null ||
         !action.isForMainFrame ||

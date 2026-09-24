@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 /// A determinate progress bar with a horizontal "energy" band that sweeps
 /// across the filled portion to convey live download motion.
 /// Falls back to a full-width sweep when [value] is null (indeterminate).
+/// Supports optional discrete [segments] and [tickColor] for multi-item progress.
 class PulsingProgressBar extends StatefulWidget {
   final double? value;
   final double height;
@@ -16,6 +17,8 @@ class PulsingProgressBar extends StatefulWidget {
   final Duration pulseDuration;
   final String? semanticsLabel;
   final String? semanticsValue;
+  final int? segments;
+  final Color? tickColor;
 
   const PulsingProgressBar({
     super.key,
@@ -29,6 +32,8 @@ class PulsingProgressBar extends StatefulWidget {
     this.pulseDuration = const Duration(milliseconds: 1500),
     this.semanticsLabel,
     this.semanticsValue,
+    this.segments,
+    this.tickColor,
   });
 
   @override
@@ -99,6 +104,8 @@ class _PulsingProgressBarState extends State<PulsingProgressBar>
                       pulseColor: widget.pulseColor,
                       phase: _ctrl.value,
                       pulsing: widget.pulsing,
+                      segments: widget.segments,
+                      tickColor: widget.tickColor,
                     ),
                     child: SizedBox(
                       width: double.infinity,
@@ -122,6 +129,8 @@ class _BarPainter extends CustomPainter {
   final Color pulseColor;
   final double phase;
   final bool pulsing;
+  final int? segments;
+  final Color? tickColor;
 
   _BarPainter({
     required this.value,
@@ -130,6 +139,8 @@ class _BarPainter extends CustomPainter {
     required this.pulseColor,
     required this.phase,
     required this.pulsing,
+    this.segments,
+    this.tickColor,
   });
 
   @override
@@ -140,35 +151,46 @@ class _BarPainter extends CustomPainter {
     final fillWidth = value == null
         ? size.width
         : value!.clamp(0, 1) * size.width;
-    if (fillWidth <= 0) return;
+    if (fillWidth > 0) {
+      final fillRect = Rect.fromLTWH(0, 0, fillWidth, size.height);
+      canvas.drawRect(fillRect, Paint()..color = color);
 
-    final fillRect = Rect.fromLTWH(0, 0, fillWidth, size.height);
-    canvas.drawRect(fillRect, Paint()..color = color);
+      if (pulsing) {
+        final bandWidth = math.max(60.0, fillWidth * 0.45);
+        final centerX = -bandWidth + phase * (fillWidth + bandWidth * 2);
+        final bandRect = Rect.fromLTWH(
+          centerX - bandWidth / 2,
+          0,
+          bandWidth,
+          size.height,
+        );
+        final shader = LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            pulseColor.withValues(alpha: 0),
+            pulseColor,
+            pulseColor.withValues(alpha: 0),
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(bandRect);
+        final paint = Paint()..shader = shader;
+        canvas.save();
+        canvas.clipRect(fillRect);
+        canvas.drawRect(bandRect, paint);
+        canvas.restore();
+      }
+    }
 
-    if (!pulsing) return;
-    final bandWidth = math.max(60.0, fillWidth * 0.45);
-    final centerX = -bandWidth + phase * (fillWidth + bandWidth * 2);
-    final bandRect = Rect.fromLTWH(
-      centerX - bandWidth / 2,
-      0,
-      bandWidth,
-      size.height,
-    );
-    final shader = LinearGradient(
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-      colors: [
-        pulseColor.withValues(alpha: 0),
-        pulseColor,
-        pulseColor.withValues(alpha: 0),
-      ],
-      stops: const [0.0, 0.5, 1.0],
-    ).createShader(bandRect);
-    final paint = Paint()..shader = shader;
-    canvas.save();
-    canvas.clipRect(fillRect);
-    canvas.drawRect(bandRect, paint);
-    canvas.restore();
+    if (segments != null && segments! > 1 && segments! <= 60) {
+      final dividerPaint = Paint()
+        ..color = tickColor ?? trackColor
+        ..strokeWidth = 1.0;
+      for (var i = 1; i < segments!; i++) {
+        final x = (i / segments!) * size.width;
+        canvas.drawLine(Offset(x, 0), Offset(x, size.height), dividerPaint);
+      }
+    }
   }
 
   @override
@@ -178,5 +200,7 @@ class _BarPainter extends CustomPainter {
       old.trackColor != trackColor ||
       old.pulseColor != pulseColor ||
       old.phase != phase ||
-      old.pulsing != pulsing;
+      old.pulsing != pulsing ||
+      old.segments != segments ||
+      old.tickColor != tickColor;
 }

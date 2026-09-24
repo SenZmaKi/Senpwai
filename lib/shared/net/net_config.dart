@@ -5,6 +5,7 @@ import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:http_cache_file_store/http_cache_file_store.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/net/http_cache_defaults.dart';
 import 'package:senpwai/shared/net/http_transport.dart';
 import 'package:senpwai/shared/net/user_agents.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
@@ -26,7 +27,9 @@ String _cacheKeyBuilder({
 }
 
 class NetConfig {
-  Duration cacheMaxStale = Duration(hours: 1);
+  Duration liveSearchCacheTtl = HttpCacheDefaults.liveSearchTtl;
+  Duration catalogueCacheTtl = HttpCacheDefaults.catalogueTtl;
+  Duration referenceCacheTtl = HttpCacheDefaults.referenceTtl;
   late final HttpTransportConfig transport;
   final AppPaths? paths;
   CacheStore? cacheStore;
@@ -49,7 +52,8 @@ class NetConfig {
 
   CacheOptions buildCacheOptions({
     bool allowPostMethod = false,
-    CachePolicy policy = CachePolicy.forceCache,
+    CachePolicy policy = CachePolicy.request,
+    Duration? maxStale,
   }) {
     cacheStore ??= paths == null
         ? MemCacheStore()
@@ -57,7 +61,7 @@ class NetConfig {
     return CacheOptions(
       store: cacheStore,
       policy: policy,
-      maxStale: cacheMaxStale,
+      maxStale: maxStale,
       allowPostMethod: allowPostMethod,
       keyBuilder: _cacheKeyBuilder,
     );
@@ -68,8 +72,14 @@ class NetConfig {
     dio.interceptors.add(DioCacheInterceptor(options: buildCacheOptions()));
   }
 
-  void updateCacheMaxStale(Duration maxStale) {
-    cacheMaxStale = maxStale;
+  void updateCacheTtls({
+    required Duration liveSearch,
+    required Duration catalogue,
+    required Duration reference,
+  }) {
+    liveSearchCacheTtl = liveSearch;
+    catalogueCacheTtl = catalogue;
+    referenceCacheTtl = reference;
   }
 
   void logCache() async {

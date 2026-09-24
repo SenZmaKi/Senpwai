@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' show parse;
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:senpwai/shared/shared.dart' as shared;
 import 'package:senpwai/shared/log.dart';
@@ -71,6 +73,14 @@ class Source {
     final response = await _dio.get(
       Constants.baseUrl,
       queryParameters: {"q": term, "s": "seeders", "o": "desc", "p": page},
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(
+              policy: CachePolicy.forceCache,
+              maxStale: NetConfig.getInstance().liveSearchCacheTtl,
+            )
+            .toExtra(),
+      ),
     );
     final htmlPage = traceSync(
       'nyaa.parse_html',

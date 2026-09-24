@@ -8,6 +8,7 @@ import 'package:senpwai/tracking/notifier.dart';
 import 'package:senpwai/ui/pages/settings_page/about_settings_section.dart';
 import 'package:senpwai/ui/pages/settings_page/appearance_settings.dart';
 import 'package:senpwai/ui/pages/settings_page/content_download_settings.dart';
+import 'package:senpwai/ui/pages/settings_page/cache_settings_section.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_search.dart';
 import 'package:senpwai/ui/pages/settings_page/source_settings_section.dart';
 import 'package:senpwai/ui/pages/settings_page/storage_settings_section.dart';
@@ -83,6 +84,11 @@ class SettingsSearchResults extends ConsumerWidget {
             searchQuery: query,
           ),
           TrackingSettingsSection(
+            settings: settings,
+            notifier: notifier,
+            searchQuery: query,
+          ),
+          CacheSettingsSection(
             settings: settings,
             notifier: notifier,
             searchQuery: query,
@@ -195,10 +201,10 @@ class SettingsSearchResults extends ConsumerWidget {
       'Notifications app status updates download completion alerts Windows progress notification',
       'System Notifications ${notifications.enabled ? 'enabled' : 'disabled'}',
       'Download Notification Style ${notifications.downloadStyle.label}',
-      'Storage Memory Cache manage cache limits clear disk usage',
-      'Image Cache Limit HTTP Cache Age',
-      'Clear Image Cache Clear HTTP Cache Clear Browser Sessions',
-      'Clear App Cache Sessions',
+      'Cache freshness storage limits disk usage ttl duration maximum stale',
+      'Image Cache Limit Live Search Results Catalogue Data Reference Data',
+      'Clear Image Cache Clear HTTP Cache Clear All Caches',
+      'Browser Sessions cookies protected site data Clear Browser Sessions',
       'About Senpwai Version 1.0.0 updates releases check for updates social links discord github reddit sponsors support open source licenses bug report feature request',
     ]);
   }

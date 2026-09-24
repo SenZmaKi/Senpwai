@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:libtorrent_dart/libtorrent_dart.dart';
 import 'package:path/path.dart' as path;
 import 'package:senpwai/anilist/enums.dart';
@@ -11,6 +12,7 @@ import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/net/net_config.dart';
 import 'package:senpwai/sources/nyaa.dart' as nyaa;
 import 'package:senpwai/sources/shared/matcher/nyaa.dart';
 import 'package:senpwai/sources/shared/matcher/shared.dart';
@@ -576,7 +578,15 @@ class NyaaDownloadPlanner {
   Future<Uint8List> _fetchTorrentData(String url) async {
     final response = await _dio.get<List<int>>(
       url,
-      options: Options(responseType: ResponseType.bytes),
+      options: Options(
+        responseType: ResponseType.bytes,
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(
+              policy: CachePolicy.forceCache,
+              maxStale: NetConfig.getInstance().referenceCacheTtl,
+            )
+            .toExtra(),
+      ),
     );
     final data = response.data;
     if (data == null || data.isEmpty) {

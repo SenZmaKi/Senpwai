@@ -208,6 +208,14 @@ class Source {
     final response = await _dio.get(
       url,
       queryParameters: {"q": term, "page": page},
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(
+              policy: CachePolicy.forceCache,
+              maxStale: NetConfig.getInstance().liveSearchCacheTtl,
+            )
+            .toExtra(),
+      ),
     );
     final data = response.data;
     final results = data["data"] as List<dynamic>;
@@ -246,6 +254,11 @@ class Source {
         "sort": "episode_asc",
         "page": pageNum,
       },
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
+      ),
     );
     return response.data;
   }
@@ -443,7 +456,14 @@ class Source {
       animeSession,
       episodeSession.session,
     );
-    final response = await _dio.get(episodePageUrl);
+    final response = await _dio.get(
+      episodePageUrl,
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
+      ),
+    );
     final htmlPage = parseHtml(response.data);
     final downloadAElements = htmlPage.querySelectorAll(
       'a.dropdown-item[target="_blank"]',
@@ -558,6 +578,9 @@ class Source {
       kwikPageLink,
       options: Options(
         responseType: ResponseType.plain,
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
         headers: {
           'Accept':
               'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -576,11 +599,23 @@ class Source {
 
     final formHtml = _extractAndDecryptKwikForm(htmlPageText);
     final (postUrl, token) = _extractPostUrlAndToken(formHtml);
+    final postUri = Uri.parse(postUrl);
+    log.infoWithMetadata(
+      'Submitting Kwik download form',
+      metadata: {
+        'kwikPageHost': Uri.parse(kwikPageLink).host,
+        'kwikPagePath': Uri.parse(kwikPageLink).path,
+        'postHost': postUri.host,
+        'postPath': postUri.path,
+        'tokenLength': token.length,
+      },
+    );
 
     final postResponse = await _dio.post<String>(
       postUrl,
       data: {'_token': token},
       options: Options(
+        receiveTimeout: const Duration(seconds: 30),
         followRedirects: false,
         validateStatus: (status) => status != null && status < 400,
         extra: {
@@ -598,6 +633,20 @@ class Source {
     );
 
     final directDownloadUrl = postResponse.headers.value('location');
+    final directDownloadUri = directDownloadUrl == null
+        ? null
+        : Uri.tryParse(directDownloadUrl);
+    log.infoWithMetadata(
+      'Kwik download form completed',
+      metadata: {
+        'statusCode': postResponse.statusCode,
+        'responseHost': postResponse.realUri.host,
+        'responsePath': postResponse.realUri.path,
+        'locationPresent': directDownloadUrl != null,
+        'locationHost': directDownloadUri?.host,
+        'locationPath': directDownloadUri?.path,
+      },
+    );
     if (directDownloadUrl == null) {
       throw SourceException(
         message: "No Location header found in post response",
