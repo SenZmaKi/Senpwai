@@ -33,7 +33,11 @@ class _CacheSettingsSectionState extends ConsumerState<CacheSettingsSection> {
   Future<AppStorageUsage> _loadUsage() =>
       calculateAppStorageUsage(AppPersistence.paths);
 
-  void _refresh() => setState(() => _usageFuture = _loadUsage());
+  void _refresh() {
+    setState(() {
+      _usageFuture = _loadUsage();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,6 +119,40 @@ class _CacheSettingsSectionState extends ConsumerState<CacheSettingsSection> {
               ],
             ),
             SettingsGroupCard(
+              title: 'Browser Sessions',
+              icon: Icons.language_rounded,
+              description: 'Embedded browser memory and protected-site data',
+              searchQuery: sq,
+              children: [
+                SettingsTile(
+                  icon: Icons.memory_rounded,
+                  title: 'Browser Transport Timeout',
+                  subtitle:
+                      'Close inactive embedded browser sessions to reduce memory use',
+                  keywords:
+                      'browser transport session memory idle timeout animepahe webview',
+                  searchQuery: sq,
+                  trailing: NumberSettingField(
+                    value:
+                        widget.settings.sources.browserTransportIdleTimeoutMinutes,
+                    min: SourcePreferences.minBrowserTransportIdleTimeoutMinutes,
+                    max: SourcePreferences.maxBrowserTransportIdleTimeoutMinutes,
+                    unit: 'min',
+                    onSubmitted:
+                        widget.notifier.setBrowserTransportIdleTimeoutMinutes,
+                  ),
+                ),
+                SettingsTile(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'Clear Browser Sessions',
+                  subtitle: 'Cookies and protected-site data',
+                  searchQuery: sq,
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () => unawaited(_confirmAndClearSessions()),
+                ),
+              ],
+            ),
+            SettingsGroupCard(
               title: 'Cache Maintenance',
               icon: Icons.cleaning_services_outlined,
               description: 'Remove stored responses and artwork',
@@ -190,6 +228,20 @@ class _CacheSettingsSectionState extends ConsumerState<CacheSettingsSection> {
       _confirmAndClear(title: title, message: message, action: action),
     ),
   );
+
+  Future<void> _confirmAndClearSessions() async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Clear browser sessions?',
+      message: 'Protected-site browser cookies and sessions will be removed.',
+      confirmLabel: 'Clear',
+      destructive: true,
+    );
+    if (!confirmed) return;
+    await AppPersistence.clearNetworkSession();
+    if (!mounted) return;
+    AppToast.showInfo(context, title: 'Browser sessions cleared');
+  }
 
   Future<void> _confirmAndClear({
     required String title,

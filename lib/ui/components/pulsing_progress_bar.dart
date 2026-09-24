@@ -151,12 +151,13 @@ class _BarPainter extends CustomPainter {
     final fillWidth = value == null
         ? size.width
         : value!.clamp(0, 1) * size.width;
+
     if (fillWidth > 0) {
       final fillRect = Rect.fromLTWH(0, 0, fillWidth, size.height);
       canvas.drawRect(fillRect, Paint()..color = color);
 
       if (pulsing) {
-        final bandWidth = math.max(60.0, fillWidth * 0.45);
+        final bandWidth = math.max(40.0, fillWidth * 0.45);
         final centerX = -bandWidth + phase * (fillWidth + bandWidth * 2);
         final bandRect = Rect.fromLTWH(
           centerX - bandWidth / 2,
@@ -174,12 +175,41 @@ class _BarPainter extends CustomPainter {
           ],
           stops: const [0.0, 0.5, 1.0],
         ).createShader(bandRect);
-        final paint = Paint()..shader = shader;
+        final paint = Paint()
+          ..shader = shader
+          ..blendMode = BlendMode.screen;
         canvas.save();
         canvas.clipRect(fillRect);
         canvas.drawRect(bandRect, paint);
         canvas.restore();
       }
+    } else if (pulsing) {
+      // Empty state (0% progress): sweep a subtle pulse across the track to indicate active preparation.
+      final bandWidth = math.max(40.0, size.width * 0.4);
+      final centerX = -bandWidth + phase * (size.width + bandWidth * 2);
+      final bandRect = Rect.fromLTWH(
+        centerX - bandWidth / 2,
+        0,
+        bandWidth,
+        size.height,
+      );
+      final shader = LinearGradient(
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        colors: [
+          pulseColor.withValues(alpha: 0),
+          pulseColor,
+          pulseColor.withValues(alpha: 0),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(bandRect);
+      final paint = Paint()
+        ..shader = shader
+        ..blendMode = BlendMode.screen;
+      canvas.save();
+      canvas.clipRect(fullRect);
+      canvas.drawRect(bandRect, paint);
+      canvas.restore();
     }
 
     if (segments != null && segments! > 1 && segments! <= 60) {

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 /// action controls (reload, cancel), and reassurance context banner.
 class BrowserVerificationHeader extends StatelessWidget {
   final String host;
+  final int verificationCount;
   final bool isMobile;
   final VoidCallback onReload;
   final VoidCallback onCancel;
@@ -13,6 +14,7 @@ class BrowserVerificationHeader extends StatelessWidget {
   const BrowserVerificationHeader({
     super.key,
     required this.host,
+    required this.verificationCount,
     required this.isMobile,
     required this.onReload,
     required this.onCancel,
@@ -53,14 +55,27 @@ class BrowserVerificationHeader extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'Browser Verification',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.2,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Browser Verification',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (verificationCount > 1) ...[
+                            const SizedBox(width: 8),
+                            _QueueBadge(
+                              verificationCount: verificationCount,
+                              colorScheme: colorScheme,
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 2),
                       _HostPill(host: host, colorScheme: colorScheme),
@@ -75,7 +90,11 @@ class BrowserVerificationHeader extends StatelessWidget {
               ],
             ),
           ),
-          _VerificationNoticeBanner(colorScheme: colorScheme, isMobile: isMobile),
+          _VerificationNoticeBanner(
+            colorScheme: colorScheme,
+            isMobile: isMobile,
+            verificationCount: verificationCount,
+          ),
         ],
       ),
     );
@@ -163,6 +182,37 @@ class _HostPill extends StatelessWidget {
   }
 }
 
+class _QueueBadge extends StatelessWidget {
+  final int verificationCount;
+  final ColorScheme colorScheme;
+
+  const _QueueBadge({
+    required this.verificationCount,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '$verificationCount sites require verification',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: colorScheme.primary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          '$verificationCount sites',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _HeaderActionButtons extends StatelessWidget {
   final VoidCallback onReload;
   final VoidCallback onCancel;
@@ -182,14 +232,15 @@ class _HeaderActionButtons extends StatelessWidget {
         IconButton(
           tooltip: 'Reload challenge',
           iconSize: 20,
-          style: IconButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            foregroundColor: colorScheme.onSurface.withValues(alpha: 0.75),
-          ).copyWith(
-            mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
-          ),
+          style:
+              IconButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                foregroundColor: colorScheme.onSurface.withValues(alpha: 0.75),
+              ).copyWith(
+                mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+              ),
           onPressed: onReload,
           icon: const Icon(Icons.refresh_rounded),
         ),
@@ -197,15 +248,16 @@ class _HeaderActionButtons extends StatelessWidget {
         IconButton(
           tooltip: 'Cancel verification',
           iconSize: 20,
-          style: IconButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            backgroundColor: colorScheme.error.withValues(alpha: 0.1),
-            foregroundColor: colorScheme.error,
-          ).copyWith(
-            mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
-          ),
+          style:
+              IconButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                backgroundColor: colorScheme.error.withValues(alpha: 0.1),
+                foregroundColor: colorScheme.error,
+              ).copyWith(
+                mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+              ),
           onPressed: onCancel,
           icon: const Icon(Icons.close_rounded),
         ),
@@ -217,10 +269,12 @@ class _HeaderActionButtons extends StatelessWidget {
 class _VerificationNoticeBanner extends StatelessWidget {
   final ColorScheme colorScheme;
   final bool isMobile;
+  final int verificationCount;
 
   const _VerificationNoticeBanner({
     required this.colorScheme,
     required this.isMobile,
+    required this.verificationCount,
   });
 
   @override
@@ -242,12 +296,18 @@ class _VerificationNoticeBanner extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              'Complete the challenge below. Closes automatically when verified.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontSize: 11.5,
-                color: colorScheme.onSurface.withValues(alpha: 0.75),
-                fontWeight: FontWeight.w500,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: Text(
+                verificationCount > 1
+                    ? 'Complete this challenge first. ${verificationCount - 1} more ${verificationCount == 2 ? 'site is' : 'sites are'} waiting and will appear here next.'
+                    : 'Complete the challenge below. This window closes automatically when verified.',
+                key: ValueKey(verificationCount),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 11.5,
+                  color: colorScheme.onSurface.withValues(alpha: 0.75),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),

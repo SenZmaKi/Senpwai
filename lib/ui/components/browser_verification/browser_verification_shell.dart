@@ -12,6 +12,7 @@ import 'package:senpwai/ui/shared/theme/theme_extension.dart';
 /// elevated window with frosted backdrop scrim on tablet/desktop displays.
 class BrowserVerificationShell extends StatelessWidget {
   final String host;
+  final int verificationCount;
   final Widget child;
   final double progress;
   final VoidCallback onReload;
@@ -20,6 +21,7 @@ class BrowserVerificationShell extends StatelessWidget {
   const BrowserVerificationShell({
     super.key,
     required this.host,
+    required this.verificationCount,
     required this.child,
     required this.progress,
     required this.onReload,
@@ -98,6 +100,7 @@ class BrowserVerificationShell extends StatelessWidget {
                     children: [
                       BrowserVerificationHeader(
                         host: host,
+                        verificationCount: verificationCount,
                         isMobile: mobile,
                         onReload: onReload,
                         onCancel: onCancel,

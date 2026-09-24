@@ -4,11 +4,12 @@ import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/shared/platform_file_opener.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
+import 'package:senpwai/ui/components/pulsing_progress_bar.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_formatters.dart';
+import 'package:senpwai/ui/pages/downloads_page/download_item_widgets.dart';
 import 'package:senpwai/ui/pages/downloads_page/download_status_style.dart';
 import 'package:senpwai/ui/pages/downloads_page/torrent_file_rows.dart';
-import 'package:senpwai/ui/components/pulsing_progress_bar.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
 
@@ -29,12 +30,12 @@ class BatchItemRow extends ConsumerWidget {
     final senpwai = theme.extension<SenpwaiThemeExtension>();
     final style = DownloadStatusStyle.of(theme, item.status);
     final radius = (senpwai?.cardRadius ?? 8) * 0.75;
-
     final mobile = isMobile(context);
+
     return Container(
       padding: mobile
-          ? const EdgeInsets.fromLTRB(12, 10, 6, 10)
-          : const EdgeInsets.fromLTRB(14, 12, 8, 12),
+          ? const EdgeInsets.fromLTRB(12, 10, 8, 10)
+          : const EdgeInsets.fromLTRB(14, 12, 10, 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(radius),
@@ -48,11 +49,14 @@ class BatchItemRow extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _Heading(item: item, position: position, style: style),
-          if (item.torrentFiles.length > 1) TorrentFileRows(item: item),
           SizedBox(height: mobile ? 8 : 10),
           _ProgressLine(item: item, style: style),
           SizedBox(height: mobile ? 6 : 8),
           _MetricsAndControls(item: item),
+          if (item.torrentFiles.length > 1) ...[
+            SizedBox(height: mobile ? 10 : 12),
+            TorrentFileRows(item: item),
+          ],
         ],
       ),
     );
@@ -74,10 +78,15 @@ class _Heading extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final mobile = isMobile(context);
+    final fileCount = item.torrentFiles.length;
+    final subtitle = fileCount > 1
+        ? '${item.source.label}  ·  $fileCount files'
+        : item.source.label;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _OrdinalBadge(position: position, color: style.color),
+        DownloadOrdinalBadge(position: position, color: style.color),
         SizedBox(width: mobile ? 8 : 10),
         Expanded(
           child: Column(
@@ -95,7 +104,7 @@ class _Heading extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                item.source.label,
+                subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -107,37 +116,6 @@ class _Heading extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _OrdinalBadge extends StatelessWidget {
-  final int position;
-  final Color color;
-  const _OrdinalBadge({required this.position, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final senpwai = theme.extension<SenpwaiThemeExtension>();
-    final radius = (senpwai?.cardRadius ?? 4).clamp(0, 8).toDouble();
-    final size = isMobile(context) ? 22.0 : 26.0;
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Text(
-        '$position',
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
     );
   }
 }
@@ -156,6 +134,7 @@ class _ProgressLine extends StatelessWidget {
         item.status == DownloadQueueStatus.queued ||
         item.status == DownloadQueueStatus.preparing;
     final barRadius = (senpwai.cardRadius * 0.5).clamp(0, 6).toDouble();
+
     return PulsingProgressBar(
       value: isIndeterminate ? null : item.progress.clamp(0.0, 1.0),
       height: 6,
@@ -205,19 +184,23 @@ class _MetricsAndControls extends ConsumerWidget {
             runSpacing: mobile ? 4 : 6,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _Tile(icon: Icons.percent_rounded, value: pct, emphasize: true),
-              _Tile(
+              DownloadMetricTile(
+                icon: Icons.percent_rounded,
+                value: pct,
+                emphasize: true,
+              ),
+              DownloadMetricTile(
                 icon: Icons.sd_storage_outlined,
                 value:
                     '${formatDownloadBytes(item.downloadedBytes)} / ${formatDownloadBytes(item.totalBytes)}',
               ),
-              _Tile(
+              DownloadMetricTile(
                 icon: Icons.download_rounded,
                 value: speed,
                 tint: showLive ? theme.colorScheme.primary : null,
               ),
               if (showTorrentLive)
-                _Tile(
+                DownloadMetricTile(
                   icon: Icons.upload_rounded,
                   value: upSpeed,
                   tint: torrent.uploadBytesPerSecond > 0
@@ -225,7 +208,7 @@ class _MetricsAndControls extends ConsumerWidget {
                       : null,
                 ),
               if (showTorrentLive)
-                _Tile(
+                DownloadMetricTile(
                   icon: Icons.cloud_done_rounded,
                   value: torrent.listSeeds > 0
                       ? '${torrent.numSeeds}/${torrent.listSeeds}'
@@ -233,19 +216,19 @@ class _MetricsAndControls extends ConsumerWidget {
                   tooltip: 'Connected seeds / swarm seeds',
                 ),
               if (showTorrentLive)
-                _Tile(
+                DownloadMetricTile(
                   icon: Icons.people_alt_rounded,
                   value: torrent.listPeers > 0
                       ? '${torrent.numPeers}/${torrent.listPeers}'
                       : '${torrent.numPeers}',
                   tooltip: 'Connected peers / swarm peers',
                 ),
-              _Tile(icon: Icons.timer_outlined, value: eta),
+              DownloadMetricTile(icon: Icons.timer_outlined, value: eta),
             ],
           ),
         ),
         if (canOpenFile)
-          _IconAction(
+          DownloadActionIconButton(
             icon: Icons.open_in_new_rounded,
             tooltip: 'Open downloaded file',
             color: theme.colorScheme.primary,
@@ -263,20 +246,20 @@ class _MetricsAndControls extends ConsumerWidget {
             },
           ),
         if (isDownloading || isSeeding)
-          _IconAction(
+          DownloadActionIconButton(
             icon: Icons.pause_rounded,
             tooltip: 'Pause',
             onTap: () => notifier.pause(item.id),
           ),
         if (isPaused)
-          _IconAction(
+          DownloadActionIconButton(
             icon: Icons.play_arrow_rounded,
             tooltip: 'Resume',
             color: theme.colorScheme.primary,
             onTap: () => notifier.resume(item.id),
           ),
         if (!item.status.isTerminal)
-          _IconAction(
+          DownloadActionIconButton(
             icon: Icons.close_rounded,
             tooltip: isSeeding ? 'Stop seeding' : 'Cancel',
             color: theme.colorScheme.error.withValues(alpha: 0.75),
@@ -297,7 +280,7 @@ class _MetricsAndControls extends ConsumerWidget {
             },
           ),
         if (item.errorCopyPayload != null)
-          _IconAction(
+          DownloadActionIconButton(
             icon: Icons.bug_report_rounded,
             tooltip: 'Show error',
             color: theme.colorScheme.error.withValues(alpha: 0.75),
@@ -310,98 +293,13 @@ class _MetricsAndControls extends ConsumerWidget {
           ),
         if (item.status.isTerminal &&
             item.status != DownloadQueueStatus.completed)
-          _IconAction(
+          DownloadActionIconButton(
             icon: Icons.close_rounded,
             tooltip: 'Dismiss',
             color: theme.colorScheme.outline,
             onTap: () => notifier.dismiss(item.id),
           ),
       ],
-    );
-  }
-}
-
-class _Tile extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final bool emphasize;
-  final Color? tint;
-  final String? tooltip;
-  const _Tile({
-    required this.icon,
-    required this.value,
-    this.emphasize = false,
-    this.tint,
-    this.tooltip,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final mobile = isMobile(context);
-    final color =
-        tint ??
-        (emphasize
-            ? theme.colorScheme.onSurface
-            : theme.colorScheme.onSurface.withValues(alpha: 0.65));
-    final row = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: mobile ? 11 : 13,
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.42),
-        ),
-        SizedBox(width: mobile ? 3 : 4),
-        Text(
-          emphasize ? '$value%' : value,
-          style:
-              (mobile
-                      ? theme.textTheme.labelSmall
-                      : theme.textTheme.labelMedium)
-                  ?.copyWith(
-                    color: color,
-                    fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-        ),
-      ],
-    );
-    if (tooltip == null) return row;
-    return Tooltip(message: tooltip!, child: row);
-  }
-}
-
-class _IconAction extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final Color? color;
-  final VoidCallback onTap;
-
-  const _IconAction({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-    this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tint = color ?? theme.colorScheme.onSurface.withValues(alpha: 0.7);
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: onTap,
-        icon: Icon(icon, size: 18),
-        style: IconButton.styleFrom(
-          foregroundColor: tint,
-          minimumSize: const Size(34, 34),
-          padding: EdgeInsets.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-      ),
     );
   }
 }

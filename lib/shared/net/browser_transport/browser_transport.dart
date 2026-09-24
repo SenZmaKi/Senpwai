@@ -427,6 +427,29 @@ class BrowserHostSession {
         'Unsupported browser form content type: $contentType',
       );
     }
+
+    var cancelled = false;
+    Completer<BrowserTransportResponse>? submissionCompleter;
+    if (cancelFuture != null) {
+      unawaited(
+        cancelFuture.then((_) async {
+          cancelled = true;
+          await _stopNavigation(controller);
+
+          // Stopping a referrer load does not produce a reliable load event on
+          // every platform. Do not leave the session gated by that abandoned
+          // navigation, or the next request will wait for readiness forever.
+          if (!_ready.isCompleted) _ready.complete();
+
+          final completer = submissionCompleter;
+          if (completer != null && !completer.isCompleted) {
+            completer.completeError(
+              const BrowserTransportException('Request cancelled.'),
+            );
+          }
+        }),
+      );
+    }
     _activeNavigationPolicy = navigationPolicy;
 
     _log.infoWithMetadata(
@@ -440,26 +463,20 @@ class BrowserHostSession {
       },
     );
     await _ensureDocument(request.referrer, request.readyTimeout);
+    if (cancelled) {
+      throw const BrowserTransportException('Request cancelled.');
+    }
     _log.infoWithMetadata(
       'Browser form document ready',
       metadata: {'host': host, 'url': (await controller.getUrl())?.toString()},
     );
+    if (cancelled) {
+      throw const BrowserTransportException('Request cancelled.');
+    }
 
     final completer = Completer<BrowserTransportResponse>();
+    submissionCompleter = completer;
     _pendingFormSubmission = completer;
-    if (cancelFuture != null) {
-      unawaited(
-        cancelFuture.then((_) async {
-          if (completer.isCompleted) return;
-          await _stopNavigation(controller);
-          if (!completer.isCompleted) {
-            completer.completeError(
-              const BrowserTransportException('Request cancelled.'),
-            );
-          }
-        }),
-      );
-    }
 
     final payload = jsonEncode({
       'url': request.uri.toString(),

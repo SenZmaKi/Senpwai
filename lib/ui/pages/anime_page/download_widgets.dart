@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/source_resolver.dart';
-import 'package:senpwai/ui/components/browser_transport_info_icon.dart';
 import 'package:senpwai/ui/pages/anime_page/anime_source_ui.dart';
 
 // ── Source dropdown ───────────────────────────────────────────────────────────
@@ -89,10 +88,6 @@ class SourceDropdown extends StatelessWidget {
                     color: source.color,
                   ),
                 ),
-                if (_usesBrowserTransport(source)) ...[
-                  const SizedBox(width: 6),
-                  const BrowserTransportInfoIcon(size: 15),
-                ],
               ],
             );
           }).toList(),
@@ -128,10 +123,6 @@ class SourceDropdown extends StatelessWidget {
                           : theme.colorScheme.onSurface.withValues(alpha: 0.35),
                     ),
                   ),
-                  if (_usesBrowserTransport(source)) ...[
-                    const SizedBox(width: 6),
-                    const BrowserTransportInfoIcon(size: 15),
-                  ],
                   if (isLoading) ...[
                     const SizedBox(width: 8),
                     SizedBox(
@@ -157,9 +148,6 @@ class SourceDropdown extends StatelessWidget {
 }
 
 // ── Section label ─────────────────────────────────────────────────────────────
-
-bool _usesBrowserTransport(AnimeSource source) =>
-    source == AnimeSource.animepahe || source == AnimeSource.tokyoinsider;
 
 class DownloadSectionLabel extends StatelessWidget {
   final String label;

@@ -30,7 +30,7 @@ enum SettingsCategory {
   system(
     'System',
     Icons.computer_rounded,
-    'Notifications, browser sessions & reset',
+    'Notifications & reset',
   ),
   about(
     'Updates & About',

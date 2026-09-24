@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/notifications/app_notification_service.dart';
 import 'package:senpwai/settings/settings.dart';
-import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_controls.dart';
@@ -91,40 +90,6 @@ class _StorageSettingsSectionState
           ],
         ),
         SettingsGroupCard(
-          title: 'Browser Sessions',
-          icon: Icons.language_rounded,
-          description: 'Embedded browser memory and protected-site data',
-          searchQuery: sq,
-          children: [
-            SettingsTile(
-              icon: Icons.memory_rounded,
-              title: 'Browser Transport Timeout',
-              subtitle:
-                  'Close inactive embedded browser sessions to reduce memory use',
-              keywords:
-                  'browser transport session memory idle timeout animepahe webview',
-              searchQuery: sq,
-              trailing: NumberSettingField(
-                value:
-                    widget.settings.sources.browserTransportIdleTimeoutMinutes,
-                min: SourcePreferences.minBrowserTransportIdleTimeoutMinutes,
-                max: SourcePreferences.maxBrowserTransportIdleTimeoutMinutes,
-                unit: 'min',
-                onSubmitted:
-                    widget.notifier.setBrowserTransportIdleTimeoutMinutes,
-              ),
-            ),
-            SettingsTile(
-              icon: Icons.cloud_off_outlined,
-              title: 'Clear Browser Sessions',
-              subtitle: 'Cookies and protected-site data',
-              searchQuery: sq,
-              trailing: const Icon(Icons.chevron_right, size: 20),
-              onTap: () => unawaited(_confirmAndClearSessions()),
-            ),
-          ],
-        ),
-        SettingsGroupCard(
           title: 'Reset Settings',
           icon: Icons.restart_alt_rounded,
           description: 'Restore Senpwai preferences to their defaults',
@@ -143,20 +108,6 @@ class _StorageSettingsSectionState
         ),
       ],
     );
-  }
-
-  Future<void> _confirmAndClearSessions() async {
-    final confirmed = await showConfirmDialog(
-      context,
-      title: 'Clear browser sessions?',
-      message: 'Protected-site browser cookies and sessions will be removed.',
-      confirmLabel: 'Clear',
-      destructive: true,
-    );
-    if (!confirmed) return;
-    await AppPersistence.clearNetworkSession();
-    if (!mounted) return;
-    AppToast.showInfo(context, title: 'Browser sessions cleared');
   }
 
   Future<void> _confirmAndResetSettings() async {

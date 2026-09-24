@@ -36,6 +36,9 @@ class _BrowserTransportHostState extends State<BrowserTransportHost> {
   @override
   Widget build(BuildContext context) {
     final visibleSession = _transport.visibleSession;
+    final verificationCount = _transport.sessions
+        .where((session) => session.requiresInteraction)
+        .length;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -48,6 +51,7 @@ class _BrowserTransportHostState extends State<BrowserTransportHost> {
             key: ObjectKey(session),
             session: session,
             visible: identical(session, visibleSession),
+            verificationCount: verificationCount,
           ),
       ],
     );
@@ -57,11 +61,13 @@ class _BrowserTransportHostState extends State<BrowserTransportHost> {
 class _BrowserSessionView extends StatefulWidget {
   final BrowserHostSession session;
   final bool visible;
+  final int verificationCount;
 
   const _BrowserSessionView({
     super.key,
     required this.session,
     required this.visible,
+    required this.verificationCount,
   });
 
   @override
@@ -84,7 +90,6 @@ class _BrowserSessionViewState extends State<_BrowserSessionView> {
     super.didUpdateWidget(oldWidget);
     _overlayEntry.markNeedsBuild();
   }
-
 
   Widget _buildShell(BuildContext context) {
     final webView = InAppWebView(
@@ -121,6 +126,7 @@ class _BrowserSessionViewState extends State<_BrowserSessionView> {
 
     return BrowserVerificationShell(
       host: widget.session.host,
+      verificationCount: widget.verificationCount,
       progress: _progress,
       onReload: () => _controller?.reload(),
       onCancel: () => unawaited(
@@ -140,9 +146,7 @@ class _BrowserSessionViewState extends State<_BrowserSessionView> {
         maintainState: true,
         maintainAnimation: true,
         maintainSize: true,
-        child: Overlay(
-          initialEntries: [_overlayEntry],
-        ),
+        child: Overlay(initialEntries: [_overlayEntry]),
       ),
     );
   }
