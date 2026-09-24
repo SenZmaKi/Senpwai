@@ -17,6 +17,35 @@ import 'package:senpwai/tracking/models.dart';
 
 typedef TrackingEnqueueBatch =
     Future<EnqueuedDownloadsResult> Function(PreparedDownloadBatch batch);
+typedef TrackingAnimeLoader = Future<AnilistAnime?> Function(int anilistId);
+typedef TrackingLastEpisodeResolver =
+    Future<int> Function(
+      TrackedAnime tracked,
+      DownloadManagerState downloadState,
+    );
+typedef TrackingFillerLoader =
+    Future<Set<int>> Function(AnilistAnimeBase anime, int episodeCount);
+typedef TrackingBatchPreparer =
+    Future<TrackingPreparedBatch> Function(
+      TrackedAnime tracked,
+      AnilistAnime anime,
+      AppSettings settings,
+      int startEpisode,
+      int endEpisode,
+      List<int> requestedEpisodes,
+    );
+
+class TrackingPreparedBatch {
+  final PreparedDownloadBatch batch;
+  final AnimeSource source;
+  final String downloadFolder;
+
+  const TrackingPreparedBatch({
+    required this.batch,
+    required this.source,
+    required this.downloadFolder,
+  });
+}
 
 final _log = Logger('senpwai.tracking.tracker');
 
@@ -37,22 +66,42 @@ class TrackingCheckResult {
 }
 
 class AnimeTracker {
-  final AnilistUnauthenticatedClient _anilistClient;
-  final DownloadTargetPlanner _targetPlanner;
-  final AnimeDownloadCoordinator _coordinator;
-  final AnimeFillerService _fillerService;
+  final AnilistUnauthenticatedClient? _anilistClient;
+  final DownloadTargetPlanner? _targetPlanner;
+  final AnimeDownloadCoordinator? _coordinator;
+  final AnimeFillerService? _fillerService;
+  final TrackingAnimeLoader? _animeLoader;
+  final TrackingLastEpisodeResolver? _lastEpisodeResolver;
+  final TrackingFillerLoader? _fillerLoader;
+  final TrackingBatchPreparer? _batchPreparer;
+  final DateTime Function() _now;
 
   AnimeTracker({
     AnilistUnauthenticatedClient? anilistClient,
     DownloadTargetPlanner targetPlanner = const DownloadTargetPlanner(),
     AnimeDownloadCoordinator? coordinator,
     AnimeFillerService? fillerService,
-  }) : _anilistClient = anilistClient ?? AnilistUnauthenticatedClient(),
-       _targetPlanner = targetPlanner,
-       _coordinator =
-           coordinator ??
-           AnimeDownloadCoordinator(targetPlanner: targetPlanner),
-       _fillerService = fillerService ?? AnimeFillerService.instance;
+    TrackingAnimeLoader? loadAnime,
+    TrackingLastEpisodeResolver? resolveLastEpisode,
+    TrackingFillerLoader? loadFillers,
+    TrackingBatchPreparer? prepareBatch,
+    DateTime Function()? now,
+  }) : _anilistClient = loadAnime == null
+           ? (anilistClient ?? AnilistUnauthenticatedClient())
+           : anilistClient,
+       _targetPlanner = prepareBatch == null ? targetPlanner : null,
+       _coordinator = prepareBatch == null
+           ? (coordinator ??
+                 AnimeDownloadCoordinator(targetPlanner: targetPlanner))
+           : coordinator,
+       _fillerService = loadFillers == null
+           ? (fillerService ?? AnimeFillerService.instance)
+           : fillerService,
+       _animeLoader = loadAnime,
+       _lastEpisodeResolver = resolveLastEpisode,
+       _fillerLoader = loadFillers,
+       _batchPreparer = prepareBatch,
+       _now = now ?? DateTime.now;
 
   Future<TrackingCheckResult> check({
     required List<TrackedAnime> trackedAnime,
@@ -60,7 +109,7 @@ class AnimeTracker {
     required DownloadManagerState downloadState,
     required TrackingEnqueueBatch enqueueBatch,
   }) async {
-    final now = DateTime.now();
+    final now = _now();
     var queuedBatchCount = 0;
     var queuedEpisodeCount = 0;
     var checkedCount = 0;
@@ -138,13 +187,13 @@ class AnimeTracker {
     required DateTime checkedAt,
   }) async {
     final freshAnime =
-        await _anilistClient.getAnimeById(tracked.anilistId) ??
+        await (_animeLoader?.call(tracked.anilistId) ??
+            _anilistClient!.getAnimeById(tracked.anilistId)) ??
         tracked.animeSnapshot;
     final availableEpisodes = availableEpisodesForTracking(freshAnime);
-    final havedEpisode = await _lastHavedEpisode(
-      tracked: tracked,
-      downloadState: downloadState,
-    );
+    final havedEpisode =
+        await (_lastEpisodeResolver?.call(tracked, downloadState) ??
+            _lastHavedEpisode(tracked: tracked, downloadState: downloadState));
 
     if (availableEpisodes <= havedEpisode) {
       if (freshAnime.status == AnilistAiringStatus.finished) {
@@ -166,10 +215,11 @@ class AnimeTracker {
     final startEpisode = havedEpisode + 1;
     final endEpisode = availableEpisodes;
     final fillerEpisodes = settings.downloads.skipFillers
-        ? await _fillerService.getFillerEpisodes(
-            anime: freshAnime,
-            episodeCount: availableEpisodes,
-          )
+        ? await (_fillerLoader?.call(freshAnime, availableEpisodes) ??
+              _fillerService!.getFillerEpisodes(
+                anime: freshAnime,
+                episodeCount: availableEpisodes,
+              ))
         : const <int>{};
     final requestedEpisodes = [
       for (var episode = startEpisode; episode <= endEpisode; episode++)
@@ -192,41 +242,26 @@ class AnimeTracker {
       );
     }
 
-    final resolver = DownloadSourceResolver(settings: settings.sources);
-    final matches = await resolver.resolveAll(freshAnime);
-    final source = resolver.selectPreferredSource(
-      matches: matches,
-      sourceSelectedByUser: tracked.sourceSelectedByUser,
-      selectedSource: tracked.preferredSource,
-    );
-    if (source == null) {
-      throw StateError('No enabled source is available for this anime.');
-    }
-
-    final folder = tracked.downloadFolder.trim().isNotEmpty
-        ? tracked.downloadFolder
-        : (await _targetPlanner.resolveAnimeLocation(
-            anime: freshAnime,
-            downloadRoots: settings.downloads.effectiveRootDirectories,
-            customAnimeFolders: settings.downloads.customAnimeFolders,
-          )).episodeDirectory;
-    final fileIdentity = DownloadTargetPlanner.fileIdentityFor(freshAnime);
-    final batch = await _coordinator.plan(
-      request: DownloadRequest(
-        anime: freshAnime,
-        source: source,
-        startEpisode: startEpisode,
-        endEpisode: endEpisode,
-        episodeNumbers: requestedEpisodes,
-        downloadFolder: folder,
-        fileTitle: fileIdentity.fileTitle,
-        fileSeasonNumber: fileIdentity.seasonNumber,
-        resolution: tracked.resolution,
-        language: tracked.language,
-      ),
-      animepaheMatch: matches.animepaheMatch.result?.result,
-      tokyoinsiderMatch: matches.tokyoinsiderMatch.result?.result,
-    );
+    final prepared =
+        await (_batchPreparer?.call(
+              tracked,
+              freshAnime,
+              settings,
+              startEpisode,
+              endEpisode,
+              requestedEpisodes,
+            ) ??
+            _prepareBatch(
+              tracked,
+              freshAnime,
+              settings,
+              startEpisode,
+              endEpisode,
+              requestedEpisodes,
+            ));
+    final source = prepared.source;
+    final folder = prepared.downloadFolder;
+    final batch = prepared.batch;
     if (batch.requiresUserInteraction) {
       final description = _nyaaReviewDescription(
         freshAnime.title.display,
@@ -292,6 +327,56 @@ class AnimeTracker {
       queuedBatch: true,
       queuedEpisodes: requestedEpisodes.length,
       events: events,
+    );
+  }
+
+  Future<TrackingPreparedBatch> _prepareBatch(
+    TrackedAnime tracked,
+    AnilistAnime freshAnime,
+    AppSettings settings,
+    int startEpisode,
+    int endEpisode,
+    List<int> requestedEpisodes,
+  ) async {
+    final resolver = DownloadSourceResolver(settings: settings.sources);
+    final matches = await resolver.resolveAll(freshAnime);
+    final source = resolver.selectPreferredSource(
+      matches: matches,
+      sourceSelectedByUser: tracked.sourceSelectedByUser,
+      selectedSource: tracked.preferredSource,
+    );
+    if (source == null) {
+      throw StateError('No enabled source is available for this anime.');
+    }
+
+    final folder = tracked.downloadFolder.trim().isNotEmpty
+        ? tracked.downloadFolder
+        : (await _targetPlanner!.resolveAnimeLocation(
+            anime: freshAnime,
+            downloadRoots: settings.downloads.effectiveRootDirectories,
+            customAnimeFolders: settings.downloads.customAnimeFolders,
+          )).episodeDirectory;
+    final fileIdentity = DownloadTargetPlanner.fileIdentityFor(freshAnime);
+    final batch = await _coordinator!.plan(
+      request: DownloadRequest(
+        anime: freshAnime,
+        source: source,
+        startEpisode: startEpisode,
+        endEpisode: endEpisode,
+        episodeNumbers: requestedEpisodes,
+        downloadFolder: folder,
+        fileTitle: fileIdentity.fileTitle,
+        fileSeasonNumber: fileIdentity.seasonNumber,
+        resolution: tracked.resolution,
+        language: tracked.language,
+      ),
+      animepaheMatch: matches.animepaheMatch.result?.result,
+      tokyoinsiderMatch: matches.tokyoinsiderMatch.result?.result,
+    );
+    return TrackingPreparedBatch(
+      batch: batch,
+      source: source,
+      downloadFolder: folder,
     );
   }
 
