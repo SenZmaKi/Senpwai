@@ -9,16 +9,12 @@ tags:
   network:
     skip: Requires live third-party network services.
 
-  # Loopback HTTP integration tests run in CI on Linux. Some Windows hosts
-  # intercept localhost requests before Dart's HttpServer receives them.
-  local-http: {}
+  # These integration tests bind a loopback HTTP server. Some local and CI
+  # environments intercept those requests before Dart's HttpServer receives
+  # them. Run with: flutter test --tags local-http --run-skipped
+  local-http:
+    skip: Requires direct access to a loopback HTTP server.
 
   # Declared here so the existing AniList filters are recognized by the runner.
   authenticated: {}
   unauthenticated: {}
-
-on_os:
-  windows:
-    tags:
-      local-http:
-        skip: Loopback HTTP is intercepted on this Windows environment.

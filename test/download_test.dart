@@ -209,300 +209,298 @@ void main() {
     });
   });
 
-  group(
-    'Download integration',
-    () {
-      test(
-        'completes correctly for single and multipart downloads',
-        timeout: Timeout(Duration(minutes: 2)),
-        () async {
-          for (final parts in [1, 4, 8]) {
-            await _withTempDirectory('senpwai-dl-complete-$parts-', (
-              tempDir,
-            ) async {
-              final download = _makeDownload(tempDir, numberOfParts: parts);
-              await download.startAndWait();
-
-              expect(download.state.status, DownloadStatus.completed);
-              await _expectPayloadMatchesFixture(download);
-            });
-          }
-        },
-      );
-
-      test(
-        'falls back to a single stream when server ignores range requests',
-        timeout: Timeout(Duration(minutes: 2)),
-        () async {
-          final server = DownloadServer(
-            payload: _payload,
-            supportsRangeRequests: false,
-          );
-          await server.start();
-          try {
-            await _withTempDirectory('senpwai-dl-no-range-', (tempDir) async {
-              final download = _makeDownload(
-                tempDir,
-                numberOfParts: 8,
-                url: server.downloadUrl,
-              );
-
-              await download.startAndWait();
-
-              expect(download.state.status, DownloadStatus.completed);
-              await _expectPayloadMatchesFixture(download);
-            });
-          } finally {
-            await server.close();
-          }
-        },
-      );
-
-      test(
-        'detects range support while probing a single file',
-        timeout: Timeout(Duration(minutes: 2)),
-        () async {
-          final noRangeServer = DownloadServer(
-            payload: _payload,
-            supportsRangeRequests: false,
-          );
-          await noRangeServer.start();
-          try {
-            final rangeTarget = await Download.probeSingleFile(
-              url: _server.downloadUrl,
-            );
-            final noRangeTarget = await Download.probeSingleFile(
-              url: noRangeServer.downloadUrl,
-            );
-
-            expect(rangeTarget.sizeBytes, _payload.length);
-            expect(rangeTarget.supportsRangeRequests, true);
-            expect(noRangeTarget.sizeBytes, _payload.length);
-            expect(noRangeTarget.supportsRangeRequests, false);
-          } finally {
-            await noRangeServer.close();
-          }
-        },
-      );
-
-      test(
-        'progress sums to total bytes and renders MBps rate',
-        timeout: Timeout(Duration(minutes: 2)),
-        () async {
-          await _withTempDirectory('senpwai-dl-progress-', (tempDir) async {
-            final download = _makeDownload(tempDir, numberOfParts: 4);
-            final progressBar = FillingBar(
-              total: _payload.length,
-              desc: 'download progress',
-              rate: true,
-            );
-
-            var totalReported = 0;
-            var sawPositiveRate = false;
-
-            final progressSub = download.state.progressStream.listen((
-              progress,
-            ) {
-              totalReported += progress.bytesDownloaded;
-              progressBar.update(
-                totalReported,
-                bytesPerSecond: download.state.rateTracker.bytesPerSecond,
-              );
-            }, onDone: progressBar.complete);
-
-            final rateSub = download.state.rateTracker.updateStream.listen((
-              bps,
-            ) {
-              if (bps > 0) {
-                sawPositiveRate = true;
-              }
-            });
-
-            await download.startAndWait();
-            await progressSub.cancel();
-            await rateSub.cancel();
-            progressBar.complete();
-
-            expect(download.state.status, DownloadStatus.completed);
-            expect(totalReported, _payload.length);
-            expect(sawPositiveRate, true);
-          });
-        },
-      );
-
-      test(
-        'download throttling',
-        timeout: Timeout(Duration(minutes: 2)),
-        () async {
-          await _withTempDirectory('senpwai-dl-throttle-', (tempDir) async {
-            final maxBytesPerSecond = 10.0 * shared.Constants.megaByte;
-            DownloadConfig.getInstance().updateMaxBytesPerSecond(
-              maxBytesPerSecond,
-            );
-
-            final download = _makeDownload(tempDir, numberOfParts: 4);
-            var sawRateUpdate = false;
-
-            final sub = DownloadRateTracker.globalUpdateStream.listen((bps) {
-              if (bps <= 0) return;
-              sawRateUpdate = true;
-
-              const exceedAllowanceFactor = 1.5;
-              expect(
-                bps,
-                lessThanOrEqualTo(maxBytesPerSecond * exceedAllowanceFactor),
-              );
-              _printRate(bps, maxBytesPerSecond);
-            });
-
-            stdout.write('\n');
-            await download.startAndWait();
-            stdout.write('\n');
-
-            await sub.cancel();
-
-            expect(download.state.status, DownloadStatus.completed);
-            expect(sawRateUpdate, true);
-            await _expectPayloadMatchesFixture(download);
-          });
-        },
-      );
-
-      test(
-        'pause then resume halts and then completes',
-        timeout: Timeout(Duration(minutes: 2)),
-        () async {
-          await _withTempDirectory('senpwai-dl-pause-', (tempDir) async {
-            final download = _makeDownload(tempDir, numberOfParts: 1);
-            final progressBar = FillingBar(
-              total: _payload.length,
-              desc: 'pause/resume',
-              rate: true,
-            );
-
-            var totalDownloaded = 0;
-            final firstProgress = Completer<void>();
-
-            final progressSub = download.state.progressStream.listen((
-              progress,
-            ) {
-              totalDownloaded += progress.bytesDownloaded;
-              progressBar.update(
-                totalDownloaded,
-                bytesPerSecond: download.state.rateTracker.bytesPerSecond,
-              );
-              if (!firstProgress.isCompleted && totalDownloaded > 0) {
-                firstProgress.complete();
-              }
-            }, onDone: progressBar.complete);
-
-            final startFuture = download.startAndWait();
-            await firstProgress.future.timeout(Duration(seconds: 15));
-
-            download.state.pause();
-            expect(download.state.status, DownloadStatus.paused);
-
-            await Future<void>.delayed(Duration(milliseconds: 500));
-            final bytesAfterPause = totalDownloaded;
-            await Future<void>.delayed(Duration(milliseconds: 500));
-            expect(totalDownloaded, bytesAfterPause);
-
-            download.state.resume();
-            expect(download.state.status, DownloadStatus.downloading);
-
-            await startFuture;
-            await progressSub.cancel();
-            progressBar.complete();
-
-            expect(download.state.status, DownloadStatus.completed);
-            await _expectPayloadMatchesFixture(download);
-          });
-        },
-      );
-
-      test(
-        'cancel stops download and removes partial file',
-        timeout: Timeout(Duration(minutes: 2)),
-        () async {
-          await _withTempDirectory('senpwai-dl-cancel-', (tempDir) async {
-            final download = _makeDownload(tempDir, numberOfParts: 1);
-            final firstProgress = Completer<void>();
-
-            final sub = download.state.progressStream.listen((_) {
-              if (!firstProgress.isCompleted) {
-                firstProgress.complete();
-              }
-            });
-
-            final startFuture = download.startAndWait();
-            await firstProgress.future.timeout(Duration(seconds: 15));
-
-            await download.state.cancel();
-            await startFuture;
-            await sub.cancel();
-
-            expect(download.state.status, DownloadStatus.cancelled);
-            expect(await download.params.targetFile.exists(), false);
-          });
-        },
-      );
-
-      test(
-        'second start returns same future and does not restart',
-        timeout: Timeout(Duration(minutes: 2)),
-        () async {
-          await _withTempDirectory('senpwai-dl-double-start-', (tempDir) async {
-            final download = _makeDownload(tempDir, numberOfParts: 1);
-            final first = download.startAndWait();
-            final second = download.startAndWait();
-
-            expect(identical(first, second), true);
-            await Future.wait([first, second]);
-
-            expect(download.state.status, DownloadStatus.completed);
-            await _expectPayloadMatchesFixture(download);
-          });
-        },
-      );
-
-      test(
-        'creates download directory when missing',
-        timeout: Timeout(Duration(minutes: 2)),
-        () async {
-          await _withTempDirectory('senpwai-dl-mkdir-', (tempDir) async {
-            final nestedDir = Directory('${tempDir.path}/nested/deep/dir');
-            final download = _makeDownload(nestedDir, numberOfParts: 2);
-
+  group('Download integration', () {
+    test(
+      'completes correctly for single and multipart downloads',
+      timeout: Timeout(Duration(minutes: 2)),
+      tags: ['local-http'],
+      () async {
+        for (final parts in [1, 4, 8]) {
+          await _withTempDirectory('senpwai-dl-complete-$parts-', (
+            tempDir,
+          ) async {
+            final download = _makeDownload(tempDir, numberOfParts: parts);
             await download.startAndWait();
 
-            expect(await nestedDir.exists(), true);
             expect(download.state.status, DownloadStatus.completed);
             await _expectPayloadMatchesFixture(download);
           });
-        },
-      );
+        }
+      },
+    );
 
-      test(
-        'network errors transition download to failed status',
-        timeout: Timeout(Duration(minutes: 2)),
-        () async {
-          await _withTempDirectory('senpwai-dl-failed-', (tempDir) async {
+    test(
+      'falls back to a single stream when server ignores range requests',
+      timeout: Timeout(Duration(minutes: 2)),
+      tags: ['local-http'],
+      () async {
+        final server = DownloadServer(
+          payload: _payload,
+          supportsRangeRequests: false,
+        );
+        await server.start();
+        try {
+          await _withTempDirectory('senpwai-dl-no-range-', (tempDir) async {
             final download = _makeDownload(
               tempDir,
-              numberOfParts: 1,
-              url: 'http://127.0.0.1:1/unreachable.bin',
-              title: 'failed-artifact',
+              numberOfParts: 8,
+              url: server.downloadUrl,
             );
 
             await download.startAndWait();
 
-            expect(download.state.status, DownloadStatus.failed);
+            expect(download.state.status, DownloadStatus.completed);
+            await _expectPayloadMatchesFixture(download);
           });
-        },
-      );
-    },
-    skip: Platform.isWindows
-        ? 'Loopback HTTP is intercepted on Windows.'
-        : false,
-  );
+        } finally {
+          await server.close();
+        }
+      },
+    );
+
+    test(
+      'detects range support while probing a single file',
+      timeout: Timeout(Duration(minutes: 2)),
+      tags: ['local-http'],
+      () async {
+        final noRangeServer = DownloadServer(
+          payload: _payload,
+          supportsRangeRequests: false,
+        );
+        await noRangeServer.start();
+        try {
+          final rangeTarget = await Download.probeSingleFile(
+            url: _server.downloadUrl,
+          );
+          final noRangeTarget = await Download.probeSingleFile(
+            url: noRangeServer.downloadUrl,
+          );
+
+          expect(rangeTarget.sizeBytes, _payload.length);
+          expect(rangeTarget.supportsRangeRequests, true);
+          expect(noRangeTarget.sizeBytes, _payload.length);
+          expect(noRangeTarget.supportsRangeRequests, false);
+        } finally {
+          await noRangeServer.close();
+        }
+      },
+    );
+
+    test(
+      'progress sums to total bytes and renders MBps rate',
+      timeout: Timeout(Duration(minutes: 2)),
+      tags: ['local-http'],
+      () async {
+        await _withTempDirectory('senpwai-dl-progress-', (tempDir) async {
+          final download = _makeDownload(tempDir, numberOfParts: 4);
+          final progressBar = FillingBar(
+            total: _payload.length,
+            desc: 'download progress',
+            rate: true,
+          );
+
+          var totalReported = 0;
+          var sawPositiveRate = false;
+
+          final progressSub = download.state.progressStream.listen((progress) {
+            totalReported += progress.bytesDownloaded;
+            progressBar.update(
+              totalReported,
+              bytesPerSecond: download.state.rateTracker.bytesPerSecond,
+            );
+          }, onDone: progressBar.complete);
+
+          final rateSub = download.state.rateTracker.updateStream.listen((bps) {
+            if (bps > 0) {
+              sawPositiveRate = true;
+            }
+          });
+
+          await download.startAndWait();
+          await progressSub.cancel();
+          await rateSub.cancel();
+          progressBar.complete();
+
+          expect(download.state.status, DownloadStatus.completed);
+          expect(totalReported, _payload.length);
+          expect(sawPositiveRate, true);
+        });
+      },
+    );
+
+    test(
+      'download throttling',
+      timeout: Timeout(Duration(minutes: 2)),
+      tags: ['local-http'],
+      () async {
+        await _withTempDirectory('senpwai-dl-throttle-', (tempDir) async {
+          final maxBytesPerSecond = 10.0 * shared.Constants.megaByte;
+          DownloadConfig.getInstance().updateMaxBytesPerSecond(
+            maxBytesPerSecond,
+          );
+
+          final download = _makeDownload(tempDir, numberOfParts: 4);
+          var sawRateUpdate = false;
+
+          final sub = DownloadRateTracker.globalUpdateStream.listen((bps) {
+            if (bps <= 0) return;
+            sawRateUpdate = true;
+
+            const exceedAllowanceFactor = 1.5;
+            expect(
+              bps,
+              lessThanOrEqualTo(maxBytesPerSecond * exceedAllowanceFactor),
+            );
+            _printRate(bps, maxBytesPerSecond);
+          });
+
+          stdout.write('\n');
+          await download.startAndWait();
+          stdout.write('\n');
+
+          await sub.cancel();
+
+          expect(download.state.status, DownloadStatus.completed);
+          expect(sawRateUpdate, true);
+          await _expectPayloadMatchesFixture(download);
+        });
+      },
+    );
+
+    test(
+      'pause then resume halts and then completes',
+      timeout: Timeout(Duration(minutes: 2)),
+      tags: ['local-http'],
+      () async {
+        await _withTempDirectory('senpwai-dl-pause-', (tempDir) async {
+          final download = _makeDownload(tempDir, numberOfParts: 1);
+          final progressBar = FillingBar(
+            total: _payload.length,
+            desc: 'pause/resume',
+            rate: true,
+          );
+
+          var totalDownloaded = 0;
+          final firstProgress = Completer<void>();
+
+          final progressSub = download.state.progressStream.listen((progress) {
+            totalDownloaded += progress.bytesDownloaded;
+            progressBar.update(
+              totalDownloaded,
+              bytesPerSecond: download.state.rateTracker.bytesPerSecond,
+            );
+            if (!firstProgress.isCompleted && totalDownloaded > 0) {
+              firstProgress.complete();
+            }
+          }, onDone: progressBar.complete);
+
+          final startFuture = download.startAndWait();
+          await firstProgress.future.timeout(Duration(seconds: 15));
+
+          download.state.pause();
+          expect(download.state.status, DownloadStatus.paused);
+
+          await Future<void>.delayed(Duration(milliseconds: 500));
+          final bytesAfterPause = totalDownloaded;
+          await Future<void>.delayed(Duration(milliseconds: 500));
+          expect(totalDownloaded, bytesAfterPause);
+
+          download.state.resume();
+          expect(download.state.status, DownloadStatus.downloading);
+
+          await startFuture;
+          await progressSub.cancel();
+          progressBar.complete();
+
+          expect(download.state.status, DownloadStatus.completed);
+          await _expectPayloadMatchesFixture(download);
+        });
+      },
+    );
+
+    test(
+      'cancel stops download and removes partial file',
+      timeout: Timeout(Duration(minutes: 2)),
+      tags: ['local-http'],
+      () async {
+        await _withTempDirectory('senpwai-dl-cancel-', (tempDir) async {
+          final download = _makeDownload(tempDir, numberOfParts: 1);
+          final firstProgress = Completer<void>();
+
+          final sub = download.state.progressStream.listen((_) {
+            if (!firstProgress.isCompleted) {
+              firstProgress.complete();
+            }
+          });
+
+          final startFuture = download.startAndWait();
+          await firstProgress.future.timeout(Duration(seconds: 15));
+
+          await download.state.cancel();
+          await startFuture;
+          await sub.cancel();
+
+          expect(download.state.status, DownloadStatus.cancelled);
+          expect(await download.params.targetFile.exists(), false);
+        });
+      },
+    );
+
+    test(
+      'second start returns same future and does not restart',
+      timeout: Timeout(Duration(minutes: 2)),
+      tags: ['local-http'],
+      () async {
+        await _withTempDirectory('senpwai-dl-double-start-', (tempDir) async {
+          final download = _makeDownload(tempDir, numberOfParts: 1);
+          final first = download.startAndWait();
+          final second = download.startAndWait();
+
+          expect(identical(first, second), true);
+          await Future.wait([first, second]);
+
+          expect(download.state.status, DownloadStatus.completed);
+          await _expectPayloadMatchesFixture(download);
+        });
+      },
+    );
+
+    test(
+      'creates download directory when missing',
+      timeout: Timeout(Duration(minutes: 2)),
+      tags: ['local-http'],
+      () async {
+        await _withTempDirectory('senpwai-dl-mkdir-', (tempDir) async {
+          final nestedDir = Directory('${tempDir.path}/nested/deep/dir');
+          final download = _makeDownload(nestedDir, numberOfParts: 2);
+
+          await download.startAndWait();
+
+          expect(await nestedDir.exists(), true);
+          expect(download.state.status, DownloadStatus.completed);
+          await _expectPayloadMatchesFixture(download);
+        });
+      },
+    );
+
+    test(
+      'network errors transition download to failed status',
+      timeout: Timeout(Duration(minutes: 2)),
+      tags: ['local-http'],
+      () async {
+        await _withTempDirectory('senpwai-dl-failed-', (tempDir) async {
+          final download = _makeDownload(
+            tempDir,
+            numberOfParts: 1,
+            url: 'http://127.0.0.1:1/unreachable.bin',
+            title: 'failed-artifact',
+          );
+
+          await download.startAndWait();
+
+          expect(download.state.status, DownloadStatus.failed);
+        });
+      },
+    );
+  }, skip: 'Run explicitly with --tags local-http --run-skipped.');
 }
