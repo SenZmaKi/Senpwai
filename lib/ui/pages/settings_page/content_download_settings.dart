@@ -7,6 +7,9 @@ import 'package:senpwai/ui/pages/settings_page/anime_library_folders_tile.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_controls.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_formatters.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
+import 'package:senpwai/ui/components/toast.dart';
+
+enum _ConnectionMode { automatic, manual }
 
 class ContentDownloadSettings extends StatelessWidget {
   final AppSettings settings;
@@ -192,6 +195,73 @@ class ContentDownloadSettings extends StatelessWidget {
                   onSubmitted: (value) =>
                       unawaited(notifier.setHttpMaxActiveDownloads(value)),
                 ),
+              ),
+            ),
+            SettingsTile(
+              icon: Icons.account_tree_rounded,
+              title: 'Connections per Download',
+              subtitle:
+                  settings.downloads.connectionsPerDownload ==
+                      DownloadPreferences.automaticConnectionsPerDownload
+                  ? 'Automatic uses more connections for larger files'
+                  : '${settings.downloads.connectionsPerDownload} connections for each HTTP download',
+              searchQuery: searchQuery,
+              trailing: Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  SettingsDropdown<_ConnectionMode>(
+                    value:
+                        settings.downloads.connectionsPerDownload ==
+                            DownloadPreferences.automaticConnectionsPerDownload
+                        ? _ConnectionMode.automatic
+                        : _ConnectionMode.manual,
+                    items: const [
+                      DropdownMenuItem(
+                        value: _ConnectionMode.automatic,
+                        child: Text('Automatic'),
+                      ),
+                      DropdownMenuItem(
+                        value: _ConnectionMode.manual,
+                        child: Text('Manual'),
+                      ),
+                    ],
+                    onChanged: (mode) => unawaited(
+                      notifier.setHttpConnectionsPerDownload(
+                        mode == _ConnectionMode.automatic
+                            ? DownloadPreferences
+                                  .automaticConnectionsPerDownload
+                            : 4,
+                      ),
+                    ),
+                  ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child:
+                        settings.downloads.connectionsPerDownload ==
+                            DownloadPreferences.automaticConnectionsPerDownload
+                        ? const SizedBox.shrink(
+                            key: ValueKey('automatic_connections'),
+                          )
+                        : NumberSettingField(
+                            key: const ValueKey('manual_connections'),
+                            value: settings.downloads.connectionsPerDownload,
+                            unit: 'parts',
+                            min: DownloadPreferences.minConnectionsPerDownload,
+                            max: DownloadPreferences.maxConnectionsPerDownload,
+                            onInvalidSubmitted: (_) => AppToast.showError(
+                              context,
+                              title: 'Invalid connection count',
+                              description: 'Enter a number from 1 to 20.',
+                            ),
+                            onSubmitted: (value) => unawaited(
+                              notifier.setHttpConnectionsPerDownload(value),
+                            ),
+                          ),
+                  ),
+                ],
               ),
             ),
           ],

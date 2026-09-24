@@ -33,6 +33,8 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
                 settings.downloads.maxDownloadBytesPerSecond,
             initialMaxActiveHttpDownloads:
                 settings.downloads.maxActiveDownloads,
+            initialHttpConnectionsPerDownload:
+                settings.downloads.connectionsPerDownload,
             downloadUserAgent: _downloadUserAgent,
             initialTorrentSettings: settings.torrent,
             initialNotificationSettings: settings.notifications,
@@ -43,6 +45,8 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
                 settings.downloads.maxDownloadBytesPerSecond,
             initialMaxActiveHttpDownloads:
                 settings.downloads.maxActiveDownloads,
+            initialHttpConnectionsPerDownload:
+                settings.downloads.connectionsPerDownload,
             downloadUserAgent: _downloadUserAgent,
             initialTorrentSettings: settings.torrent,
             appDataRootPath: AppPersistence.paths.rootDirectory.path,
@@ -62,12 +66,14 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
         (s) => (
           maxBytesPerSecond: s.downloads.maxDownloadBytesPerSecond,
           maxActiveDownloads: s.downloads.maxActiveDownloads,
+          connectionsPerDownload: s.downloads.connectionsPerDownload,
         ),
       ),
       (_, next) {
         _runtime.updateHttpDownloadSettings(
           maxBytesPerSecond: next.maxBytesPerSecond,
           maxActiveDownloads: next.maxActiveDownloads,
+          connectionsPerDownload: next.connectionsPerDownload,
           userAgent: _downloadUserAgent,
         );
       },

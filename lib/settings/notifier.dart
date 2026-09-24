@@ -251,6 +251,21 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setHttpConnectionsPerDownload(int connections) {
+    if (connections != DownloadPreferences.automaticConnectionsPerDownload &&
+        (connections < DownloadPreferences.minConnectionsPerDownload ||
+            connections > DownloadPreferences.maxConnectionsPerDownload)) {
+      return Future.value();
+    }
+    return _commit(
+      state.copyWith(
+        downloads: state.downloads.copyWith(
+          connectionsPerDownload: connections,
+        ),
+      ),
+    );
+  }
+
   Future<void> setSkipFillers(bool skip) {
     return _commit(
       state.copyWith(downloads: state.downloads.copyWith(skipFillers: skip)),

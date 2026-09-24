@@ -292,7 +292,7 @@ class DownloadRuntimeCodec {
     return TorrentPreferences(
       maxDownloadBytesPerSecond: _int(map['maxDownloadBytesPerSecond']),
       maxUploadBytesPerSecond: _int(map['maxUploadBytesPerSecond']),
-      maxActiveDownloads: _queueLimit(map['maxActiveDownloads'], 1),
+      maxActiveDownloads: _queueLimit(map['maxActiveDownloads'], 2),
       maxActiveSeeds: _queueLimit(map['maxActiveSeeds'], 5),
       maxConnections: _positiveInt(map['maxConnections'], 200),
       seedRatioLimit: _nonNegativeInt(map['seedRatioLimit'], 200),

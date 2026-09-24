@@ -342,11 +342,16 @@ class ContentPreferences {
 
 @immutable
 class DownloadPreferences {
+  static const automaticConnectionsPerDownload = 0;
+  static const minConnectionsPerDownload = 1;
+  static const maxConnectionsPerDownload = 20;
+
   final String? defaultRootDirectory;
   final List<String> rootDirectories;
   final List<CustomAnimeFolder> customAnimeFolders;
   final int maxDownloadBytesPerSecond;
   final int maxActiveDownloads;
+  final int connectionsPerDownload;
   final bool skipFillers;
 
   const DownloadPreferences({
@@ -354,7 +359,8 @@ class DownloadPreferences {
     this.rootDirectories = const [],
     this.customAnimeFolders = const [],
     this.maxDownloadBytesPerSecond = 0,
-    this.maxActiveDownloads = 1,
+    this.maxActiveDownloads = 2,
+    this.connectionsPerDownload = automaticConnectionsPerDownload,
     this.skipFillers = false,
   });
 
@@ -374,7 +380,10 @@ class DownloadPreferences {
         json['maxDownloadBytesPerSecond'],
         0,
       ),
-      maxActiveDownloads: _queueLimitValue(json['maxActiveDownloads'], 1),
+      maxActiveDownloads: _queueLimitValue(json['maxActiveDownloads'], 2),
+      connectionsPerDownload: _connectionsPerDownloadValue(
+        json['connectionsPerDownload'],
+      ),
       skipFillers: _boolValue(json['skipFillers'], false),
     );
   }
@@ -387,6 +396,7 @@ class DownloadPreferences {
         .toList(),
     'maxDownloadBytesPerSecond': maxDownloadBytesPerSecond,
     'maxActiveDownloads': maxActiveDownloads,
+    'connectionsPerDownload': connectionsPerDownload,
     'skipFillers': skipFillers,
   };
 
@@ -401,6 +411,7 @@ class DownloadPreferences {
     List<CustomAnimeFolder>? customAnimeFolders,
     int? maxDownloadBytesPerSecond,
     int? maxActiveDownloads,
+    int? connectionsPerDownload,
     bool? skipFillers,
     bool clearDefaultRootDirectory = false,
   }) {
@@ -416,6 +427,8 @@ class DownloadPreferences {
       maxDownloadBytesPerSecond:
           maxDownloadBytesPerSecond ?? this.maxDownloadBytesPerSecond,
       maxActiveDownloads: maxActiveDownloads ?? this.maxActiveDownloads,
+      connectionsPerDownload:
+          connectionsPerDownload ?? this.connectionsPerDownload,
       skipFillers: skipFillers ?? this.skipFillers,
     );
   }
@@ -588,7 +601,7 @@ class TorrentPreferences {
   const TorrentPreferences({
     this.maxDownloadBytesPerSecond = 0,
     this.maxUploadBytesPerSecond = 0,
-    this.maxActiveDownloads = 1,
+    this.maxActiveDownloads = 2,
     this.maxActiveSeeds = 5,
     this.maxConnections = 200,
     this.seedRatioLimit = 200,
@@ -622,7 +635,7 @@ class TorrentPreferences {
           json['maxUploadBytesPerSecond'],
           0,
         ),
-        maxActiveDownloads: _queueLimitValue(json['maxActiveDownloads'], 1),
+        maxActiveDownloads: _queueLimitValue(json['maxActiveDownloads'], 2),
         maxActiveSeeds: _queueLimitValue(json['maxActiveSeeds'], 5),
         maxConnections: _positiveIntValue(json['maxConnections'], 200),
         seedRatioLimit: _nonNegativeIntValue(json['seedRatioLimit'], 200),
@@ -1061,6 +1074,18 @@ int _positiveIntValue(Object? value, int fallback) {
 int _queueLimitValue(Object? value, int fallback) {
   final parsed = value is num ? value.toInt() : fallback;
   return parsed < -1 ? fallback : parsed;
+}
+
+int _connectionsPerDownloadValue(Object? value) {
+  if (value is! int) return DownloadPreferences.automaticConnectionsPerDownload;
+  if (value == DownloadPreferences.automaticConnectionsPerDownload) {
+    return value;
+  }
+  if (value < DownloadPreferences.minConnectionsPerDownload ||
+      value > DownloadPreferences.maxConnectionsPerDownload) {
+    return DownloadPreferences.automaticConnectionsPerDownload;
+  }
+  return value;
 }
 
 int _portValue(Object? value, int fallback) {

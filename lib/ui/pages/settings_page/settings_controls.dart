@@ -161,12 +161,14 @@ class NumberSettingField extends StatefulWidget {
   final bool zeroValueModeShortcut;
   final int resetToken;
   final ValueChanged<int> onSubmitted;
+  final ValueChanged<String>? onInvalidSubmitted;
 
   const NumberSettingField({
     super.key,
     required this.value,
     required this.unit,
     required this.onSubmitted,
+    this.onInvalidSubmitted,
     this.min = 0,
     this.max,
     this.allowNegative = false,
@@ -289,6 +291,7 @@ class _NumberSettingFieldState extends State<NumberSettingField> {
     final parsed = int.tryParse(input);
     if (parsed == null) {
       _controller.text = widget.value.toString();
+      widget.onInvalidSubmitted?.call(input);
       return;
     }
     if (parsed == 0 && widget.zeroValueModeShortcut) {
@@ -299,6 +302,11 @@ class _NumberSettingFieldState extends State<NumberSettingField> {
     final shouldClampMin = !widget.allowNegative || parsed >= widget.min;
     final lowerBound = shouldClampMin ? widget.min : parsed;
     final clamped = parsed.clamp(lowerBound, widget.max ?? parsed).toInt();
+    if (widget.onInvalidSubmitted != null && clamped != parsed) {
+      _controller.text = widget.value.toString();
+      widget.onInvalidSubmitted!(input);
+      return;
+    }
     _controller.text = clamped.toString();
     widget.onSubmitted(clamped);
   }

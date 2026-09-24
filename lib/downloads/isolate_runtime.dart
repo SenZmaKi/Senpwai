@@ -25,6 +25,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
 
   int _maxDownloadBytesPerSecond;
   int _maxActiveHttpDownloads;
+  int _httpConnectionsPerDownload;
   String _downloadUserAgent;
   TorrentPreferences _torrentSettings;
   var _stateSnapshot = const DownloadManagerState();
@@ -42,12 +43,14 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   DownloadIsolateRuntime({
     required int initialMaxDownloadBytesPerSecond,
     required int initialMaxActiveHttpDownloads,
+    required int initialHttpConnectionsPerDownload,
     required this._downloadUserAgent,
     required TorrentPreferences initialTorrentSettings,
     required this.appDataRootPath,
     required this.onError,
   }) : _maxDownloadBytesPerSecond = initialMaxDownloadBytesPerSecond,
        _maxActiveHttpDownloads = initialMaxActiveHttpDownloads,
+       _httpConnectionsPerDownload = initialHttpConnectionsPerDownload,
        _torrentSettings = initialTorrentSettings {
     unawaited(_start().catchError((_) {}));
   }
@@ -154,15 +157,18 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   void updateHttpDownloadSettings({
     required int maxBytesPerSecond,
     required int maxActiveDownloads,
+    required int connectionsPerDownload,
     required String userAgent,
   }) {
     _maxDownloadBytesPerSecond = maxBytesPerSecond;
     _maxActiveHttpDownloads = maxActiveDownloads;
+    _httpConnectionsPerDownload = connectionsPerDownload;
     _downloadUserAgent = userAgent;
     unawaited(
       _sendVoidCommand('updateHttpDownloadSettings', {
         'maxBytesPerSecond': maxBytesPerSecond,
         'maxActiveDownloads': maxActiveDownloads,
+        'connectionsPerDownload': connectionsPerDownload,
         'userAgent': userAgent,
       }),
     );
@@ -266,6 +272,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
         ),
         'maxDownloadBytesPerSecond': _maxDownloadBytesPerSecond,
         'maxActiveHttpDownloads': _maxActiveHttpDownloads,
+        'httpConnectionsPerDownload': _httpConnectionsPerDownload,
         'downloadUserAgent': _downloadUserAgent,
         'appDataRootPath': appDataRootPath,
       });
@@ -435,7 +442,10 @@ Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
       ),
       initialMaxActiveHttpDownloads: _queueLimit(
         config['maxActiveHttpDownloads'],
-        1,
+        2,
+      ),
+      initialHttpConnectionsPerDownload: _connectionsPerDownload(
+        config['httpConnectionsPerDownload'],
       ),
       initialTorrentSettings: DownloadRuntimeCodec.decodeTorrentSettings(
         _map(config['settings']),
@@ -557,7 +567,10 @@ Future<void> _handleDownloadCommand(
       case 'updateHttpDownloadSettings':
         runtime.updateHttpDownloadSettings(
           maxBytesPerSecond: _int(payload['maxBytesPerSecond']),
-          maxActiveDownloads: _queueLimit(payload['maxActiveDownloads'], 1),
+          maxActiveDownloads: _queueLimit(payload['maxActiveDownloads'], 2),
+          connectionsPerDownload: _connectionsPerDownload(
+            payload['connectionsPerDownload'],
+          ),
           userAgent: _string(payload['userAgent']),
         );
         result = null;
@@ -605,6 +618,15 @@ int _int(Object? value) => value is int ? value : 0;
 
 int _queueLimit(Object? value, int fallback) {
   if (value is! int || value < -1) return fallback;
+  return value;
+}
+
+int _connectionsPerDownload(Object? value) {
+  if (value is! int ||
+      value < DownloadPreferences.automaticConnectionsPerDownload ||
+      value > DownloadPreferences.maxConnectionsPerDownload) {
+    return DownloadPreferences.automaticConnectionsPerDownload;
+  }
   return value;
 }
 

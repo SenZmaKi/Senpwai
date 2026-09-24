@@ -158,6 +158,7 @@ class SettingsSearchResults extends ConsumerWidget {
       ...settings.downloads.effectiveRootDirectories,
       'HTTP Download Limit ${settings.downloads.maxDownloadBytesPerSecond}',
       'Active HTTP Downloads maximum parallel downloads ${settings.downloads.maxActiveDownloads}',
+      'Connections per Download multipart HTTP splitting automatic manual ${settings.downloads.connectionsPerDownload}',
       'Bandwidth Queue Limits upload download speeds maximum parallel downloads',
       'Torrent Download Limit ${torrent.maxDownloadBytesPerSecond}',
       'Torrent Upload Limit ${torrent.maxUploadBytesPerSecond}',

@@ -189,7 +189,7 @@ void main() {
         'anonymousMode': 'yes',
       });
 
-      expect(settings.maxActiveDownloads, 1);
+      expect(settings.maxActiveDownloads, 2);
       expect(settings.maxActiveSeeds, -1);
       expect(settings.maxConnections, 200);
       expect(settings.seedRatioLimit, 200);

@@ -48,6 +48,7 @@ abstract class DownloadRuntime {
   void updateHttpDownloadSettings({
     required int maxBytesPerSecond,
     required int maxActiveDownloads,
+    required int connectionsPerDownload,
     required String userAgent,
   });
   void updateTorrentSettings(TorrentPreferences settings);
@@ -70,6 +71,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   Session? _torrentSession;
   late TorrentPreferences _torrentSettings;
   int _maxActiveHttpDownloads;
+  int _httpConnectionsPerDownload;
   DownloadManagerState _state = const DownloadManagerState();
   final _httpProgressRate = TimelineRateCounter('downloads.http_progress_rate');
   Timer? _progressPublishTimer;
@@ -80,11 +82,13 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     required String downloadUserAgent,
     required int initialMaxDownloadBytesPerSecond,
     required int initialMaxActiveHttpDownloads,
+    required int initialHttpConnectionsPerDownload,
     required TorrentPreferences initialTorrentSettings,
     required AppPaths paths,
     required this.onError,
   }) : _downloadDio = createDownloadDio(userAgent: downloadUserAgent),
        _maxActiveHttpDownloads = initialMaxActiveHttpDownloads,
+       _httpConnectionsPerDownload = initialHttpConnectionsPerDownload,
        _torrentSettings = initialTorrentSettings {
     _updateTransfer = UpdateTransfer(paths: paths, dio: _downloadDio);
     DownloadConfig.getInstance().updateMaxBytesPerSecond(
@@ -507,7 +511,11 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       url: job.resolvedUrl,
       targetFile: File(job.targetFilePath),
       sizeBytes: job.totalBytes,
-      numberOfParts: _recommendedPartCount(job.totalBytes),
+      numberOfParts:
+          _httpConnectionsPerDownload ==
+              DownloadPreferences.automaticConnectionsPerDownload
+          ? _recommendedPartCount(job.totalBytes)
+          : _httpConnectionsPerDownload,
       headers: job.headers,
     );
     final download = Download(params: params, dio: _downloadDio);
@@ -959,12 +967,14 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   void updateHttpDownloadSettings({
     required int maxBytesPerSecond,
     required int maxActiveDownloads,
+    required int connectionsPerDownload,
     required String userAgent,
   }) {
     DownloadConfig.getInstance().updateMaxBytesPerSecond(
       maxBytesPerSecond.toDouble(),
     );
     _maxActiveHttpDownloads = maxActiveDownloads;
+    _httpConnectionsPerDownload = connectionsPerDownload;
     _downloadDio.options.headers['User-Agent'] = userAgent;
     _reconcileActiveDownloadLimits();
     _maybePromote();

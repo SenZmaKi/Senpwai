@@ -56,6 +56,12 @@ const _settingSearchAliases = <String, List<String>>{
     'parallel downloads',
     'download queue',
   ],
+  'connections per download': [
+    'multipart',
+    'parts',
+    'segments',
+    'http connections',
+  ],
   'torrent download limit': ['torrent speed', 'download bandwidth'],
   'torrent upload limit': ['upload speed', 'upload bandwidth'],
   'active torrent downloads': ['simultaneous torrents', 'torrent queue'],
