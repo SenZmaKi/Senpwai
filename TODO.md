@@ -1,6 +1,5 @@
 # On release
 
-* Persist cf cookies and maybe cross network cookies?
 * 
 
 # Maybe later
