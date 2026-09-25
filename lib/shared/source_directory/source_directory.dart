@@ -34,8 +34,7 @@ Options sourceDirectoryRequestOptions({required String? eTag}) => Options(
 /// parsers or executable behavior: a source redesign still requires an app
 /// update.
 class SourceDirectory {
-  static const _directoryUri =
-      'https://senpwai.com/source-directory.json';
+  static const _directoryUri = 'https://senpwai.com/source-directory.json';
   static SourceDirectory _instance = SourceDirectory.defaults();
   static Future<void>? _refreshFuture;
   static final _updates = StreamController<SourceDirectory>.broadcast();
@@ -66,6 +65,7 @@ class SourceDirectory {
       baseUrl: 'https://animepahe.pw',
       apiEntryPoint: 'https://animepahe.pw/api?m=',
       allowedHosts: {'animepahe.pw'},
+      maxConcurrentRequests: 10,
     ),
     kwik: const SourceEndpoint(
       baseUrl: 'https://kwik.cx',
@@ -79,6 +79,7 @@ class SourceDirectory {
     tokyoInsider: const SourceEndpoint(
       baseUrl: 'https://www.tokyoinsider.com',
       allowedHosts: {'www.tokyoinsider.com'},
+      maxConcurrentRequests: 10,
     ),
   );
 

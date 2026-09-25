@@ -143,7 +143,8 @@ class AnimeListCache {
   Set<AnimeResult>? _cache;
   final log = Logger("senpwai.anime.sources.tokyoinsider.animelistcache");
   final _expiryDuration = Duration(days: 1);
-  bool _isInitialized = false;
+  Future<void>? _cacheLoad;
+  Timer? _refreshTimer;
   final Dio _dio;
 
   AnimeListCache({required this._dio});
@@ -178,13 +179,39 @@ class AnimeListCache {
     );
   }
 
+  Future<void> _loadCache() {
+    final existing = _cacheLoad;
+    if (existing != null) return existing;
+
+    late final Future<void> load;
+    load = _initializeCache().whenComplete(() {
+      if (identical(_cacheLoad, load)) _cacheLoad = null;
+    });
+    _cacheLoad = load;
+    return load;
+  }
+
   Future<void> _initialize() async {
-    if (_isInitialized) {
-      return;
+    if (_cache != null) return;
+    await _loadCache();
+    _refreshTimer ??= Timer.periodic(
+      _expiryDuration,
+      (_) => unawaited(_refreshCache()),
+    );
+  }
+
+  Future<void> _refreshCache() async {
+    try {
+      await _loadCache();
+    } catch (error, stackTrace) {
+      log.warningWithMetadata(
+        'Could not refresh TokyoInsider anime list; retaining cached data',
+        metadata: {
+          'error': error.toString(),
+          'stackTrace': stackTrace.toString(),
+        },
+      );
     }
-    await _initializeCache();
-    Timer.periodic(_expiryDuration, (_) => _initializeCache());
-    _isInitialized = true;
   }
 
   Future<List<AnimeResult>> search({required SearchParams params}) async {

@@ -164,15 +164,22 @@ class AppPersistence {
       for (final host in directory.nyaa.allowedHosts)
         host: directory.nyaa.maxConcurrentRequests ?? 5,
       for (final host in directory.animePahe.allowedHosts)
-        host: directory.animePahe.maxConcurrentRequests ?? 4,
+        host: _sourceRequestCap(directory.animePahe),
       for (final host in directory.kwik.allowedHosts)
         host: directory.kwik.maxConcurrentRequests ?? 1,
+      for (final host in directory.tokyoInsider.allowedHosts)
+        host: _sourceRequestCap(directory.tokyoInsider),
     });
     GlobalDio.updateBrowserOrigins({
       ..._browserOrigins(directory.animePahe),
       ..._browserOrigins(directory.kwik),
       ..._browserOrigins(directory.tokyoInsider),
     });
+  }
+
+  static int _sourceRequestCap(SourceEndpoint endpoint) {
+    final configured = endpoint.maxConcurrentRequests ?? 10;
+    return configured > 10 ? 10 : configured;
   }
 
   static Map<String, Uri> _browserOrigins(SourceEndpoint endpoint) {

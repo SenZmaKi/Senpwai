@@ -54,17 +54,28 @@ enum DownloadNoticeLevel { info, warning }
 class DownloadPlanningProgress {
   final int completedEpisodes;
   final int totalEpisodes;
+  final int? completedSteps;
+  final int? totalSteps;
   final String activity;
 
   const DownloadPlanningProgress({
     required this.completedEpisodes,
     required this.totalEpisodes,
+    this.completedSteps,
+    this.totalSteps,
     required this.activity,
   });
 
-  double get fraction => totalEpisodes <= 0
-      ? 0
-      : (completedEpisodes / totalEpisodes).clamp(0.0, 1.0);
+  double get fraction {
+    final steps = completedSteps;
+    final stepTotal = totalSteps;
+    if (steps != null && stepTotal != null && stepTotal > 0) {
+      return (steps / stepTotal).clamp(0.0, 1.0);
+    }
+    return totalEpisodes <= 0
+        ? 0
+        : (completedEpisodes / totalEpisodes).clamp(0.0, 1.0);
+  }
 }
 
 typedef DownloadPlanningProgressCallback =

@@ -1,7 +1,9 @@
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/planners/fallback_notice_collector.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/shared/net/download/download.dart';
 import 'package:senpwai/shared/net/request_cancellation_scope.dart';
+import 'package:senpwai/shared/parallel.dart';
 import 'package:senpwai/sources/animepahe.dart' as animepahe;
 import 'package:senpwai/sources/shared/shared.dart';
 
@@ -33,10 +35,14 @@ class AnimePaheDownloadPlanner {
 
     final totalEpisodes = requestedEpisodes.length;
     var completedEpisodes = 0;
+    var completedSteps = 0;
+    final totalSteps = totalEpisodes * 3;
     void report(String activity) => onProgress?.call(
       DownloadPlanningProgress(
         completedEpisodes: completedEpisodes,
         totalEpisodes: totalEpisodes,
+        completedSteps: completedSteps,
+        totalSteps: totalSteps,
         activity: activity,
       ),
     );
@@ -61,18 +67,22 @@ class AnimePaheDownloadPlanner {
       );
     }
 
-    final episodeSessionsByPage = await Future.wait([
-      for (
-        var pageNum = pageRange.startPageNum;
-        pageNum <= pageRange.endPageNum;
-        pageNum++
-      )
-        _source.fetchEpisodeSessions(
-          animeSession: animeMatch.session,
-          pageNum: pageNum,
-          pageJson: pageNum == 1 ? pageRange.firstPageJson : null,
-        ),
-    ]);
+    final episodeSessionsByPage = await parallelMapOrdered(
+      [
+        for (
+          var pageNum = pageRange.startPageNum;
+          pageNum <= pageRange.endPageNum;
+          pageNum++
+        )
+          pageNum,
+      ],
+      maxConcurrent: maxParallelSourceRequests,
+      operation: (pageNum) => _source.fetchEpisodeSessions(
+        animeSession: animeMatch.session,
+        pageNum: pageNum,
+        pageJson: pageNum == 1 ? pageRange.firstPageJson : null,
+      ),
+    );
     final episodeSessions = episodeSessionsByPage
         .expand((page) => page)
         .toList();
@@ -88,16 +98,30 @@ class AnimePaheDownloadPlanner {
         .toList();
     throwIfRequestScopeCancelled();
     final notices = <DownloadNotice>[];
-    final jobs = <PreparedDownloadJob>[];
-    for (final episodeSession in selectedSessions) {
-      throwIfRequestScopeCancelled();
-      report('Preparing episode ${episodeSession.number}');
-      final downloadLinks = await _source.fetchDownloadLinks(
-        animeTitle: animeMatch.title,
-        animeSession: animeMatch.session,
-        episodeSession: episodeSession,
-      );
-      throwIfRequestScopeCancelled();
+    final fallbackNotices = FallbackNoticeCollector(
+      sourceName: AnimeSource.animepahe.label,
+    );
+    report('Loading episode links');
+    final episodeLinks = await parallelMapOrdered(
+      selectedSessions,
+      maxConcurrent: maxParallelSourceRequests,
+      operation: (episodeSession) async {
+        throwIfRequestScopeCancelled();
+        final links = await _source.fetchDownloadLinks(
+          animeTitle: animeMatch.title,
+          animeSession: animeMatch.session,
+          episodeSession: episodeSession,
+        );
+        throwIfRequestScopeCancelled();
+        completedSteps++;
+        report('Loaded episode ${episodeSession.number} links');
+        return (episodeSession: episodeSession, links: links);
+      },
+    );
+
+    final selectedLinks = <animepahe.DownloadLink>[];
+    for (final (:episodeSession, :links) in episodeLinks) {
+      final downloadLinks = links;
       if (downloadLinks.isEmpty) {
         throw DownloadUserError(
           title: 'AnimePahe link missing',
@@ -106,55 +130,79 @@ class AnimePaheDownloadPlanner {
         );
       }
 
-      final selectedLink = _selectLink(
-        downloadLinks,
-        request,
-        notices,
-        episodeSession.number,
-      );
-      final directLink = await _source.fetchDirectDownloadLink(
-        downloadLink: selectedLink,
-      );
-      throwIfRequestScopeCancelled();
-      final resolvedTarget = await Download.probeSingleFile(
-        url: directLink.url,
-        headers: {'Referer': directLink.refererUrl},
-      );
-      throwIfRequestScopeCancelled();
-      final plannedTarget = _targetPlanner.planEpisodeFile(
-        directory: request.downloadFolder,
-        jobTitle: request.fileTitle,
-        episodeNumber: directLink.episodeNumber,
-        seasonNumber: request.fileSeasonNumber,
-        sourceFileName: directLink.filename,
-        resolvedUrl: resolvedTarget.resolvedUrl,
-        suggestedFileName: resolvedTarget.suggestedFileName,
-        contentType: resolvedTarget.contentType,
-      );
-      jobs.add(
-        PreparedHttpDownloadJob(
-          source: AnimeSource.animepahe,
-          animeTitle: request.anime.title.display,
-          displayTitle: plannedTarget.fileName,
-          destinationDirectory: plannedTarget.directory,
-          totalBytes: resolvedTarget.sizeBytes,
-          resolvedUrl: resolvedTarget.resolvedUrl,
-          fileName: plannedTarget.fileName,
-          headers: {'Referer': directLink.refererUrl},
-          episodeNumber: directLink.episodeNumber,
+      selectedLinks.add(
+        _selectLink(
+          downloadLinks,
+          request,
+          fallbackNotices,
+          episodeSession.number,
         ),
       );
-      completedEpisodes++;
-      report('Prepared episode ${episodeSession.number}');
     }
 
+    // Each worker enters the single Kwik navigation lane, then releases it
+    // before probing the resolved media URL. This keeps Kwik serialized while
+    // allowing up to five native probes to overlap with later resolutions.
+    final kwikLane = AsyncLimiter(1);
+    final jobs =
+        await parallelMapOrdered<animepahe.DownloadLink, PreparedDownloadJob>(
+          selectedLinks,
+          maxConcurrent: maxParallelSourceRequests,
+          operation: (selectedLink) async {
+            throwIfRequestScopeCancelled();
+            final directLink = await kwikLane.run(() async {
+              throwIfRequestScopeCancelled();
+              report('Resolving episode ${selectedLink.episodeNumber}');
+              final link = await _source.fetchDirectDownloadLink(
+                downloadLink: selectedLink,
+              );
+              throwIfRequestScopeCancelled();
+              completedSteps++;
+              report('Resolved episode ${selectedLink.episodeNumber}');
+              return link;
+            });
+            report('Checking episode ${directLink.episodeNumber}');
+            final resolvedTarget = await Download.probeSingleFile(
+              url: directLink.url,
+              headers: {'Referer': directLink.refererUrl},
+            );
+            throwIfRequestScopeCancelled();
+            final plannedTarget = _targetPlanner.planEpisodeFile(
+              directory: request.downloadFolder,
+              jobTitle: request.fileTitle,
+              episodeNumber: directLink.episodeNumber,
+              seasonNumber: request.fileSeasonNumber,
+              sourceFileName: directLink.filename,
+              resolvedUrl: resolvedTarget.resolvedUrl,
+              suggestedFileName: resolvedTarget.suggestedFileName,
+              contentType: resolvedTarget.contentType,
+            );
+            final job = PreparedHttpDownloadJob(
+              source: AnimeSource.animepahe,
+              animeTitle: request.anime.title.display,
+              displayTitle: plannedTarget.fileName,
+              destinationDirectory: plannedTarget.directory,
+              totalBytes: resolvedTarget.sizeBytes,
+              resolvedUrl: resolvedTarget.resolvedUrl,
+              fileName: plannedTarget.fileName,
+              headers: {'Referer': directLink.refererUrl},
+              episodeNumber: directLink.episodeNumber,
+            );
+            completedSteps++;
+            completedEpisodes++;
+            report('Prepared episode ${directLink.episodeNumber}');
+            return job;
+          },
+        );
+
+    notices.addAll(fallbackNotices.build());
     return PreparedDownloadBatch(jobs: jobs, notices: notices);
   }
 
   animepahe.DownloadLink _selectLink(
     List<animepahe.DownloadLink> links,
     DownloadRequest request,
-    List<DownloadNotice> notices,
+    FallbackNoticeCollector fallbackNotices,
     int episodeNumber,
   ) {
     final languageMatches = links
@@ -164,19 +212,16 @@ class AnimePaheDownloadPlanner {
         ? languageMatches
         : links;
     if (languageMatches.isEmpty) {
-      notices.add(
-        DownloadNotice(
-          level: DownloadNoticeLevel.warning,
-          title: 'Audio fallback',
-          description:
-              'AnimePahe episode $episodeNumber is not available in ${request.language}; using ${activeLanguagePool.first.audioLanguage}.',
-        ),
+      fallbackNotices.recordAudio(
+        episodeNumber: episodeNumber,
+        requested: request.language.toString(),
+        selected: activeLanguagePool.first.audioLanguage.toString(),
       );
     }
     return _pickClosestResolution(
       activeLanguagePool,
       request.resolution,
-      notices,
+      fallbackNotices,
       episodeNumber,
     );
   }
@@ -184,7 +229,7 @@ class AnimePaheDownloadPlanner {
   animepahe.DownloadLink _pickClosestResolution(
     List<animepahe.DownloadLink> links,
     Resolution preferredResolution,
-    List<DownloadNotice> notices,
+    FallbackNoticeCollector fallbackNotices,
     int episodeNumber,
   ) {
     links.sort((a, b) {
@@ -195,13 +240,10 @@ class AnimePaheDownloadPlanner {
     });
     final chosen = links.first;
     if (chosen.resolution != preferredResolution) {
-      notices.add(
-        DownloadNotice(
-          level: DownloadNoticeLevel.warning,
-          title: 'Quality fallback',
-          description:
-              'AnimePahe episode $episodeNumber is not available in $preferredResolution; using ${chosen.resolution}.',
-        ),
+      fallbackNotices.recordQuality(
+        episodeNumber: episodeNumber,
+        requested: preferredResolution.toString(),
+        selected: chosen.resolution.toString(),
       );
     }
     return chosen;
