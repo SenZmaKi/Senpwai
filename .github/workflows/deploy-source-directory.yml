@@ -57,7 +57,7 @@ jobs:
           set -euo pipefail
           if curl --fail --silent --show-error --location \
             --proto '=https' --tlsv1.2 \
-            https://senzmaki.github.io/Senpwai/update-manifest.json \
+            https://senpwai.com/update-manifest.json \
             --output ../../site/update-manifest.json; then
             exit 0
           fi

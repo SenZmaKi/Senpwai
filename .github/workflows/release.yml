@@ -98,7 +98,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${{ needs.prepare.outputs.prerelease }}" == "true" ]]; then
-            expected_feed="https://senzmaki.github.io/Senpwai/${APPCAST_NAME}"
+            expected_feed="https://senpwai.com/${APPCAST_NAME}"
             /usr/libexec/PlistBuddy -c "Set :SUFeedURL $expected_feed" macos/Runner/Info.plist
           else
             expected_feed="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${APPCAST_NAME}"
@@ -168,7 +168,7 @@ jobs:
           empty_manifest="$RUNNER_TEMP/empty-update-manifest.json"
           zip_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${ZIP_NAME}"
           if [[ "${{ needs.prepare.outputs.prerelease }}" == "true" ]]; then
-            appcast_url="https://senzmaki.github.io/Senpwai/${APPCAST_NAME}"
+            appcast_url="https://senpwai.com/${APPCAST_NAME}"
           else
             appcast_url="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${APPCAST_NAME}"
           fi
@@ -741,7 +741,7 @@ jobs:
           dart pub get
           cd "$GITHUB_WORKSPACE"
           curl --fail --location --retry 4 --retry-all-errors \
-            https://senzmaki.github.io/Senpwai/update-manifest.json \
+            https://senpwai.com/update-manifest.json \
             --output "$signed_manifest"
           (
             cd source-directory/signer

@@ -2,7 +2,7 @@
 
 The Flutter app fetches the signed directory from:
 
-`https://senzmaki.github.io/Senpwai/source-directory.json`
+`https://senpwai.com/source-directory.json`
 
 Update `source_directory.payload.json` when a source host moves. Keep values
 declarative: HTTPS endpoints, source-owned allowed hosts, and Nyaa's request

@@ -35,7 +35,7 @@ Options sourceDirectoryRequestOptions({required String? eTag}) => Options(
 /// update.
 class SourceDirectory {
   static const _directoryUri =
-      'https://senzmaki.github.io/Senpwai/source-directory.json';
+      'https://senpwai.com/source-directory.json';
   static SourceDirectory _instance = SourceDirectory.defaults();
   static Future<void>? _refreshFuture;
   static final _updates = StreamController<SourceDirectory>.broadcast();

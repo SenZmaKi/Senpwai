@@ -16,7 +16,7 @@ typedef UpdateManifestDecoder =
 class UpdateManifestRepository {
   static const manifestUri = String.fromEnvironment(
     'UPDATE_MANIFEST_URL',
-    defaultValue: 'https://senzmaki.github.io/Senpwai/update-manifest.json',
+    defaultValue: 'https://senpwai.com/update-manifest.json',
   );
 
   final AppPaths paths;

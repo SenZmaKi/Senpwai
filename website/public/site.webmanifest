@@ -4,7 +4,7 @@
   "description": "An open-source anime downloader.",
   "icons": [
     {
-      "src": "/images/senpwai-icon.webp",
+      "src": "images/senpwai-icon.webp",
       "sizes": "2048x2048",
       "type": "image/webp",
       "purpose": "any maskable"
