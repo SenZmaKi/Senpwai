@@ -4,6 +4,11 @@
   "description": "An open-source anime downloader.",
   "icons": [
     {
+      "src": "favicon.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    },
+    {
       "src": "images/senpwai-icon.webp",
       "sizes": "2048x2048",
       "type": "image/webp",
