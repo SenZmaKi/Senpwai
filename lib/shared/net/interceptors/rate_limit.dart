@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/net/interceptors/concurrency.dart';
 
 final _log = Logger("senpwai.net.interceptors.rate_limit");
 
@@ -160,6 +161,10 @@ class RateLimitInterceptor extends Interceptor {
         },
       );
 
+      // Dio runs error interceptors FIFO. Rate limiting is registered before
+      // the concurrency interceptor, so explicitly release the original
+      // request's lease before retrying through the same Dio instance.
+      ConcurrencyInterceptor.release(err.requestOptions);
       await _waitForHostCooldown(host, delay);
 
       try {

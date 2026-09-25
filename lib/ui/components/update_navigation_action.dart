@@ -8,11 +8,13 @@ import 'package:senpwai/updates/updates.dart';
 class UpdateNavigationAction extends ConsumerWidget {
   final Future<void> Function() onReady;
   final bool showLabel;
+  final bool compact;
 
   const UpdateNavigationAction({
     super.key,
     required this.onReady,
     this.showLabel = true,
+    this.compact = false,
   });
 
   @override
@@ -32,21 +34,24 @@ class UpdateNavigationAction extends ConsumerWidget {
             onTap: _isActionable(state.phase)
                 ? () => unawaited(handleUpdateAction(ref, state, onReady))
                 : null,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(compact ? 10 : 12),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 4 : 8,
+                vertical: compact ? 4 : 7,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  UpdateNavigationIndicator(state: state),
+                  UpdateNavigationIndicator(state: state, compact: compact),
                   if (showLabel) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: compact ? 2 : 4),
                     Text(
                       updateShortLabel(state),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: 11,
+                        fontSize: compact ? 10 : 11,
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
@@ -63,8 +68,13 @@ class UpdateNavigationAction extends ConsumerWidget {
 
 class UpdateNavigationIndicator extends StatelessWidget {
   final UpdateState state;
+  final bool compact;
 
-  const UpdateNavigationIndicator({super.key, required this.state});
+  const UpdateNavigationIndicator({
+    super.key,
+    required this.state,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -81,15 +91,15 @@ class UpdateNavigationIndicator extends StatelessWidget {
         ? '${(progress * 100).round()}%'
         : null;
     return SizedBox.square(
-      dimension: 38,
+      dimension: compact ? 30 : 38,
       child: Stack(
         alignment: Alignment.center,
         children: [
           SizedBox.square(
-            dimension: 36,
+            dimension: compact ? 28 : 36,
             child: CircularProgressIndicator(
               value: progress,
-              strokeWidth: 2.6,
+              strokeWidth: compact ? 2.0 : 2.6,
               strokeCap: StrokeCap.round,
               color: state.phase == UpdatePhase.failed
                   ? colorScheme.error
@@ -101,11 +111,15 @@ class UpdateNavigationIndicator extends StatelessWidget {
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.stop_rounded, size: 14, color: colorScheme.primary),
+                Icon(
+                  Icons.stop_rounded,
+                  size: compact ? 11 : 14,
+                  color: colorScheme.primary,
+                ),
                 Text(
                   percentage,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontSize: 8,
+                    fontSize: compact ? 7 : 8,
                     height: 0.9,
                     fontWeight: FontWeight.w800,
                     color: colorScheme.primary,
@@ -116,7 +130,7 @@ class UpdateNavigationIndicator extends StatelessWidget {
           else
             Icon(
               updateIcon(state),
-              size: 19,
+              size: compact ? 15 : 19,
               color: state.phase == UpdatePhase.failed
                   ? colorScheme.error
                   : colorScheme.primary,

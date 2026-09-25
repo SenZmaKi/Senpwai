@@ -42,7 +42,7 @@ class GlobalDio {
 
   static void updateBrowserOrigins(Map<String, Uri> origins) {
     browserRoutingPolicy.replaceBrowserOrigins(origins);
-    BrowserTransportService.instance.retainHosts(origins.keys);
+    BrowserTransportService.instance.reconcileOrigins(origins);
   }
 
   static Future<void> initialize({required AppPaths paths}) async {

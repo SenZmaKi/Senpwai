@@ -10,25 +10,29 @@ import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/ui/components/update_navigation_action.dart';
 import 'package:senpwai/updates/updates.dart';
 
-Widget _buildAvatarIcon(AnilistViewer? viewer, bool isAuthLoading) {
+Widget _buildAvatarIcon(
+  AnilistViewer? viewer,
+  bool isAuthLoading, {
+  bool compact = false,
+}) {
   if (isAuthLoading) {
-    return const SizedBox(
-      width: 24,
-      height: 24,
-      child: CircularProgressIndicator(strokeWidth: 2),
+    return SizedBox(
+      width: compact ? 20 : 24,
+      height: compact ? 20 : 24,
+      child: const CircularProgressIndicator(strokeWidth: 2),
     );
   }
   final avatarUrl = normalizeImageUrl(viewer?.avatarUrl);
   if (avatarUrl != null) {
     return CircleAvatar(
-      radius: 12,
+      radius: compact ? 10 : 12,
       backgroundImage: CachedNetworkImageProvider(
         avatarUrl,
         cacheManager: AppImageCache.manager,
       ),
     );
   }
-  return const Icon(Icons.login);
+  return Icon(Icons.login, size: compact ? 20 : 24);
 }
 
 class AppShell extends StatelessWidget {
@@ -144,36 +148,59 @@ class _DesktopRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: SizedBox(
-        width: 96,
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            for (var index = 0; index < destinations.length; index++)
-              _RailTile(
-                icon: destinations[index].icon,
-                selectedIcon: destinations[index].selectedIcon,
-                label: destinations[index].label,
-                selected: currentIndex == index,
-                onTap: () => onDestinationChanged(index),
-              ),
-            const Spacer(),
-            UpdateNavigationAction(onReady: onUpdateReady),
-            Tooltip(
-              message: viewer == null
-                  ? 'Log in to AniList'
-                  : 'Open AniList profile',
-              child: _RailTile(
-                iconWidget: _buildAvatarIcon(viewer, isAuthLoading),
-                label: isAuthLoading ? 'Loading' : (viewer?.name ?? 'Login'),
-                onTap: onAvatarTap,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxHeight < 500;
+        final verticalSpacing = isCompact ? 6.0 : 12.0;
+
+        return SizedBox(
+          width: isCompact ? 84 : 96,
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  children: [
+                    SizedBox(height: verticalSpacing),
+                    for (var index = 0; index < destinations.length; index++)
+                      _RailTile(
+                        icon: destinations[index].icon,
+                        selectedIcon: destinations[index].selectedIcon,
+                        label: destinations[index].label,
+                        selected: currentIndex == index,
+                        onTap: () => onDestinationChanged(index),
+                        compact: isCompact,
+                      ),
+                    const Spacer(),
+                    UpdateNavigationAction(
+                      onReady: onUpdateReady,
+                      compact: isCompact,
+                    ),
+                    Tooltip(
+                      message: viewer == null
+                          ? 'Log in to AniList'
+                          : 'Open AniList profile',
+                      child: _RailTile(
+                        iconWidget: _buildAvatarIcon(
+                          viewer,
+                          isAuthLoading,
+                          compact: isCompact,
+                        ),
+                        label: isAuthLoading
+                            ? 'Loading'
+                            : (viewer?.name ?? 'Login'),
+                        onTap: onAvatarTap,
+                        compact: isCompact,
+                      ),
+                    ),
+                    SizedBox(height: verticalSpacing),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -237,6 +264,7 @@ class _RailTile extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final bool compact;
 
   const _RailTile({
     this.icon,
@@ -245,6 +273,7 @@ class _RailTile extends StatelessWidget {
     required this.label,
     this.selected = false,
     required this.onTap,
+    this.compact = false,
   });
 
   @override
@@ -253,17 +282,23 @@ class _RailTile extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6 : 10,
+        vertical: compact ? 2 : 4,
+      ),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(compact ? 10 : 12),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: EdgeInsets.symmetric(
+              vertical: compact ? 5 : 8,
+              horizontal: compact ? 4 : 8,
+            ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(compact ? 10 : 12),
               color: selected
                   ? colorScheme.primary.withValues(alpha: 0.15)
                   : Colors.transparent,
@@ -274,16 +309,17 @@ class _RailTile extends StatelessWidget {
                 iconWidget ??
                     Icon(
                       selected ? selectedIcon! : icon!,
+                      size: compact ? 20 : 24,
                       color: selected
                           ? colorScheme.primary
                           : colorScheme.onSurface.withValues(alpha: 0.4),
                     ),
-                const SizedBox(height: 4),
+                SizedBox(height: compact ? 2 : 4),
                 Text(
                   label,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 11,
+                    fontSize: compact ? 10 : 11,
                     color: selected
                         ? colorScheme.primary
                         : colorScheme.onSurface.withValues(alpha: 0.5),

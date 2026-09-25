@@ -5,30 +5,66 @@ import 'package:dio/dio.dart';
 
 /// Counting semaphore — limits how many operations run at the same time.
 class _Semaphore {
-  final int _max;
+  int _max;
   int _active = 0;
-  final Queue<void Function()> _waiters = Queue();
+  final Queue<Completer<void>> _waiters = Queue();
 
   _Semaphore(this._max);
 
-  Future<void> acquire() async {
+  void updateMax(int max) {
+    _max = max;
+    _drainWaiters();
+  }
+
+  Future<bool> acquire(Future<void>? cancelled) async {
     if (_active < _max) {
       _active++;
-      return;
+      return true;
     }
     final completer = Completer<void>();
-    _waiters.add(completer.complete);
-    await completer.future;
-    // The slot was transferred by release(); do NOT increment _active again.
+    _waiters.add(completer);
+    if (cancelled == null) {
+      await completer.future;
+      return true;
+    }
+    final acquired = await Future.any<bool>([
+      completer.future.then((_) => true),
+      cancelled.then((_) => false),
+    ]);
+    if (acquired) return true;
+    if (_waiters.remove(completer)) return false;
+
+    // The waiter was granted concurrently with cancellation. Return the slot
+    // instead of leaking it into a request that will never be dispatched.
+    release();
+    return false;
   }
 
   void release() {
-    if (_waiters.isNotEmpty) {
-      // Transfer the slot directly to the next waiter — don't decrement.
-      _waiters.removeFirst().call();
-    } else {
+    if (_active > 0) {
       _active--;
     }
+    _drainWaiters();
+  }
+
+  void _drainWaiters() {
+    while (_active < _max && _waiters.isNotEmpty) {
+      _active++;
+      _waiters.removeFirst().complete();
+    }
+  }
+}
+
+class _SemaphoreLease {
+  final _Semaphore semaphore;
+  bool _released = false;
+
+  _SemaphoreLease(this.semaphore);
+
+  void release() {
+    if (_released) return;
+    _released = true;
+    semaphore.release();
   }
 }
 
@@ -51,7 +87,10 @@ class ConcurrencyInterceptor extends Interceptor {
     : _hostLimits = Map.of(hostLimits);
 
   void updateHostLimits(Map<String, int> hostLimits) {
-    _semaphores.removeWhere((host, _) => _hostLimits[host] != hostLimits[host]);
+    _semaphores.removeWhere((host, _) => !hostLimits.containsKey(host));
+    for (final entry in hostLimits.entries) {
+      _semaphores[entry.key]?.updateMax(entry.value);
+    }
     _hostLimits
       ..clear()
       ..addAll(hostLimits);
@@ -69,8 +108,22 @@ class ConcurrencyInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     final semaphore = _semaphoreFor(options.uri.host);
-    options.extra[_semaphoreExtraKey] = semaphore;
-    await semaphore?.acquire();
+    final cancelToken = options.cancelToken;
+    if (cancelToken?.isCancelled ?? false) {
+      handler.reject(cancelToken!.cancelError!);
+      return;
+    }
+    final acquired =
+        await semaphore?.acquire(cancelToken?.whenCancel.then<void>((_) {})) ??
+        true;
+    if (!acquired || (cancelToken?.isCancelled ?? false)) {
+      if (acquired) semaphore?.release();
+      handler.reject(cancelToken!.cancelError!);
+      return;
+    }
+    options.extra[_semaphoreExtraKey] = semaphore == null
+        ? null
+        : _SemaphoreLease(semaphore);
     handler.next(options);
   }
 
@@ -79,8 +132,7 @@ class ConcurrencyInterceptor extends Interceptor {
     Response<dynamic> response,
     ResponseInterceptorHandler handler,
   ) {
-    (response.requestOptions.extra[_semaphoreExtraKey] as _Semaphore?)
-        ?.release();
+    release(response.requestOptions);
     handler.next(response);
   }
 
@@ -89,10 +141,11 @@ class ConcurrencyInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
-    ((err.response?.requestOptions ?? err.requestOptions)
-                .extra[_semaphoreExtraKey]
-            as _Semaphore?)
-        ?.release();
+    release(err.response?.requestOptions ?? err.requestOptions);
     handler.next(err);
+  }
+
+  static void release(RequestOptions options) {
+    (options.extra[_semaphoreExtraKey] as _SemaphoreLease?)?.release();
   }
 }

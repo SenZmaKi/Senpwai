@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -60,6 +61,76 @@ class BrowserTransportException implements Exception {
   String toString() => 'BrowserTransportException: $message';
 }
 
+enum _ReadinessState { loading, ready, failed, closed }
+
+class _DocumentChanged implements Exception {
+  const _DocumentChanged();
+}
+
+class _OperationWaiter {
+  final bool exclusive;
+  final Completer<void> completer = Completer<void>();
+
+  _OperationWaiter({required this.exclusive});
+}
+
+class _SessionOperationLock {
+  final Queue<_OperationWaiter> _waiters = Queue<_OperationWaiter>();
+  int _readers = 0;
+  bool _writerActive = false;
+
+  Future<T> shared<T>(Future<T> Function() operation) async {
+    await _acquire(exclusive: false);
+    try {
+      return await operation();
+    } finally {
+      _readers--;
+      _drain();
+    }
+  }
+
+  Future<T> exclusive<T>(Future<T> Function() operation) async {
+    await _acquire(exclusive: true);
+    try {
+      return await operation();
+    } finally {
+      _writerActive = false;
+      _drain();
+    }
+  }
+
+  Future<void> _acquire({required bool exclusive}) {
+    if (_waiters.isEmpty &&
+        !_writerActive &&
+        (exclusive ? _readers == 0 : true)) {
+      if (exclusive) {
+        _writerActive = true;
+      } else {
+        _readers++;
+      }
+      return Future<void>.value();
+    }
+    final waiter = _OperationWaiter(exclusive: exclusive);
+    _waiters.add(waiter);
+    return waiter.completer.future;
+  }
+
+  void _drain() {
+    if (_writerActive || _waiters.isEmpty) return;
+    final first = _waiters.first;
+    if (first.exclusive) {
+      if (_readers > 0) return;
+      _writerActive = true;
+      _waiters.removeFirst().completer.complete();
+      return;
+    }
+    while (_waiters.isNotEmpty && !_waiters.first.exclusive) {
+      _readers++;
+      _waiters.removeFirst().completer.complete();
+    }
+  }
+}
+
 class BrowserTransportService extends ChangeNotifier {
   BrowserTransportService._();
 
@@ -71,6 +142,7 @@ class BrowserTransportService extends ChangeNotifier {
   final Map<String, Set<VoidCallback>> _userCancellationCallbacks = {};
   Duration _idleTimeout = const Duration(minutes: 10);
   int _nextRequestId = 0;
+  Future<void>? _maintenance;
 
   List<BrowserHostSession> get sessions => List.unmodifiable(_sessions.values);
   BrowserHostSession? get visibleSession => _sessions.values
@@ -91,6 +163,8 @@ class BrowserTransportService extends ChangeNotifier {
     BrowserTransportRequest request, {
     Future<void>? cancelFuture,
   }) async {
+    final maintenance = _maintenance;
+    if (maintenance != null) await maintenance;
     final host = request.uri.host.toLowerCase();
     if (request.bootstrapUri.host.toLowerCase() != host) {
       throw BrowserTransportException(
@@ -154,6 +228,18 @@ class BrowserTransportService extends ChangeNotifier {
   }
 
   Future<void> clearSessions() async {
+    final existing = _maintenance;
+    if (existing != null) return existing;
+
+    late final Future<void> operation;
+    operation = _clearSessions().whenComplete(() {
+      if (identical(_maintenance, operation)) _maintenance = null;
+    });
+    _maintenance = operation;
+    return operation;
+  }
+
+  Future<void> _clearSessions() async {
     await CookieManager.instance().deleteAllCookies();
     // flutter_inappwebview_windows exposes clearAllCache in Dart but does not
     // register the manager-channel method in its native implementation.
@@ -163,19 +249,34 @@ class BrowserTransportService extends ChangeNotifier {
     await Future.wait(_sessions.values.map((session) => session.reset()));
   }
 
-  void retainHosts(Iterable<String> hosts) {
-    final retained = hosts.map((host) => host.toLowerCase()).toSet();
-    final removed = _sessions.keys
-        .where((host) => !retained.contains(host))
-        .toList();
+  void reconcileOrigins(Map<String, Uri> origins) {
+    final normalized = {
+      for (final entry in origins.entries) entry.key.toLowerCase(): entry.value,
+    };
+    final removed = _sessions.keys.where((host) {
+      final origin = normalized[host];
+      final session = _sessions[host];
+      return origin == null || session?.bootstrapUri != origin;
+    }).toList();
     for (final host in removed) {
       _idleTimers.remove(host)?.cancel();
-      _activeRequests.remove(host);
       _userCancellationCallbacks.remove(host);
       final session = _sessions.remove(host);
       if (session != null) unawaited(session.close());
     }
     if (removed.isNotEmpty) notifyListeners();
+  }
+
+  Future<void> retireSession(
+    BrowserHostSession session, {
+    required String reason,
+  }) async {
+    final host = session.host;
+    if (!identical(_sessions[host], session)) return;
+    _idleTimers.remove(host)?.cancel();
+    _sessions.remove(host);
+    notifyListeners();
+    await session.close(reason: reason);
   }
 
   void _sessionChanged(String host) {
@@ -204,6 +305,7 @@ class BrowserTransportService extends ChangeNotifier {
 
 class BrowserHostSession {
   static const _handlerName = 'senpwaiBrowserTransportResponse';
+  static const _documentSettleDuration = Duration(milliseconds: 500);
   static const _activeDocumentChallengeMarkers = <String>[
     'window._cf_chl_opt',
     'id="challenge-error-text"',
@@ -220,10 +322,13 @@ class BrowserHostSession {
 
   InAppWebViewController? _controller;
   Completer<void> _ready = Completer<void>();
+  _ReadinessState _readinessState = _ReadinessState.loading;
   Future<void>? _recovery;
-  Future<void> _navigationTail = Future.value();
+  final _operationLock = _SessionOperationLock();
   String? _expectedNavigationAbortUrl;
   int _navigationStopCount = 0;
+  int _documentGeneration = 0;
+  bool _loadFinished = false;
   bool requiresInteraction = false;
 
   BrowserHostSession({
@@ -250,20 +355,65 @@ class BrowserHostSession {
     );
   }
 
-  Future<void> pageFinished() => _inspectDocument(completeReady: true);
+  void pageStarted() {
+    if (_readinessState == _ReadinessState.closed) return;
+    _documentGeneration++;
+    _loadFinished = false;
+    if (_readinessState != _ReadinessState.loading) {
+      _startReadinessEpoch(requiresUserInteraction: requiresInteraction);
+    }
+    _failPendingFetches('Browser document navigated during request.');
+  }
 
-  Future<void> pageTitleChanged() => _inspectDocument(completeReady: false);
+  void pageFinished() {
+    if (_readinessState == _ReadinessState.closed) return;
+    _loadFinished = true;
+    _documentGeneration++;
+    _scheduleSettledInspection();
+  }
 
-  Future<void> _inspectDocument({required bool completeReady}) async {
-    if (_navigationStopCount > 0) return;
+  Future<void> pageTitleChanged() {
+    if (_readinessState == _ReadinessState.closed) return Future<void>.value();
+    _documentGeneration++;
+    if (_loadFinished) _scheduleSettledInspection();
+    return _inspectDocument(
+      completeReady: false,
+      expectedGeneration: _documentGeneration,
+    );
+  }
+
+  void _scheduleSettledInspection() {
+    final generation = _documentGeneration;
+    unawaited(
+      Future<void>.delayed(_documentSettleDuration).then((_) async {
+        if (!_loadFinished || generation != _documentGeneration) return;
+        await _inspectDocument(
+          completeReady: true,
+          expectedGeneration: generation,
+        );
+      }),
+    );
+  }
+
+  Future<void> _inspectDocument({
+    required bool completeReady,
+    required int expectedGeneration,
+  }) async {
+    if (_navigationStopCount > 0 ||
+        _readinessState == _ReadinessState.closed ||
+        expectedGeneration != _documentGeneration) {
+      return;
+    }
     final controller = _controller;
     if (controller == null) return;
     try {
       final html = (await controller.evaluateJavascript(
         source: 'document.documentElement?.outerHTML ?? ""',
       ))?.toString();
+      if (expectedGeneration != _documentGeneration) return;
       final challenged = _documentLooksChallenged(html ?? '');
       final currentUrl = await controller.getUrl();
+      if (expectedGeneration != _documentGeneration) return;
       requiresInteraction = challenged;
       _log.infoWithMetadata(
         challenged ? 'Browser challenge page loaded' : 'Browser session ready',
@@ -278,10 +428,15 @@ class BrowserHostSession {
         await _failFinishedFormWithoutRedirect(controller);
       }
       if (completeReady && !challenged && !_ready.isCompleted) {
+        _readinessState = _ReadinessState.ready;
         _ready.complete();
       }
       onChanged();
     } catch (error) {
+      if (expectedGeneration != _documentGeneration ||
+          _readinessState == _ReadinessState.closed) {
+        return;
+      }
       if (completeReady) {
         pageFailed(error);
       } else {
@@ -316,13 +471,17 @@ class BrowserHostSession {
   }
 
   void pageFailed(Object error) {
+    if (_readinessState == _ReadinessState.closed) return;
+    requiresInteraction = true;
     _log.warningWithMetadata(
       'Browser session failed to load',
       metadata: {'host': host, 'error': error.toString()},
     );
     if (!_ready.isCompleted) {
+      _readinessState = _ReadinessState.failed;
       _ready.completeError(BrowserTransportException(error.toString()));
     }
+    _failPendingFetches('Browser session failed to load: $error');
     onChanged();
   }
 
@@ -354,25 +513,29 @@ class BrowserHostSession {
         'Session for $host cannot request ${request.uri.host}.',
       );
     }
-    await _ready.future.timeout(
-      request.readyTimeout,
-      onTimeout: () => throw const BrowserTransportException(
-        'Browser session did not become ready.',
-      ),
-    );
+    await _waitUntilReady(request.readyTimeout, cancelFuture: cancelFuture);
+    if (cancelled) {
+      throw const BrowserTransportException('Request cancelled.');
+    }
     if (request.executionMode == BrowserExecutionMode.submitForm) {
-      return _runExclusiveNavigation(
-        () => _submitForm(request, cancelFuture: cancelFuture),
-      );
+      return _runExclusiveNavigation(() {
+        if (cancelled) {
+          throw const BrowserTransportException('Request cancelled.');
+        }
+        return _submitForm(request, cancelFuture: cancelFuture);
+      });
     }
     if (request.executionMode == BrowserExecutionMode.navigate) {
-      return _runExclusiveNavigation(
-        () => _navigate(request, cancelFuture: cancelFuture),
-      );
+      return _runExclusiveNavigation(() {
+        if (cancelled) {
+          throw const BrowserTransportException('Request cancelled.');
+        }
+        return _navigate(request, cancelFuture: cancelFuture);
+      });
     }
     BrowserTransportResponse response;
     try {
-      response = await _fetch(request, cancelFuture: cancelFuture);
+      response = await _fetchRequest(request, cancelFuture: cancelFuture);
     } catch (_) {
       if (cancelled) rethrow;
       final recovery = _recovery;
@@ -382,9 +545,8 @@ class BrowserHostSession {
     }
     if (!_isChallengeResponse(response)) return response;
 
-    await (_recovery ??= _recover(
-      request.uri,
-      request.readyTimeout,
+    await (_recovery ??= _runExclusiveNavigation(
+      () => _recover(request.uri, request.readyTimeout),
     ).whenComplete(() => _recovery = null));
     return _fetchAfterRecovery(request, cancelFuture: cancelFuture);
   }
@@ -393,7 +555,7 @@ class BrowserHostSession {
     BrowserTransportRequest request, {
     Future<void>? cancelFuture,
   }) async {
-    final response = await _fetch(request, cancelFuture: cancelFuture);
+    final response = await _fetchRequest(request, cancelFuture: cancelFuture);
     if (_isChallengeResponse(response)) {
       throw BrowserTransportException(
         'Browser challenge remained after verification: ${request.uri}',
@@ -595,7 +757,7 @@ class BrowserHostSession {
         'targetUrl': target.toString(),
       },
     );
-    _ready = Completer<void>();
+    _startReadinessEpoch();
     await controller.loadUrl(
       urlRequest: URLRequest(url: WebUri(target.toString())),
     );
@@ -611,8 +773,8 @@ class BrowserHostSession {
       throw const BrowserTransportException('Browser session is not mounted.');
     }
 
-    final navigationReady = Completer<void>();
-    _ready = navigationReady;
+    _startReadinessEpoch();
+    final navigationReady = _ready;
     final cancellation = cancelFuture?.then<void>((_) async {
       await _stopNavigation(controller);
       throw const BrowserTransportException('Request cancelled.');
@@ -686,6 +848,7 @@ class BrowserHostSession {
     }
 
     _expectedNavigationAbortUrl = uri.toString();
+    _markReadyAfterCancelledNavigation();
     if (!completer.isCompleted) {
       final policy = _activeNavigationPolicy;
       if (policy == null || !policy.accepts(uri)) {
@@ -710,6 +873,62 @@ class BrowserHostSession {
     return NavigationActionPolicy.CANCEL;
   }
 
+  void _markReadyAfterCancelledNavigation() {
+    if (_readinessState == _ReadinessState.closed) return;
+    _documentGeneration++;
+    _loadFinished = true;
+    _readinessState = _ReadinessState.ready;
+    requiresInteraction = false;
+    if (!_ready.isCompleted) _ready.complete();
+    onChanged();
+  }
+
+  Future<BrowserTransportResponse> _fetchRequest(
+    BrowserTransportRequest request, {
+    Future<void>? cancelFuture,
+  }) async {
+    var cancelled = false;
+    if (cancelFuture != null) {
+      unawaited(cancelFuture.then((_) => cancelled = true));
+    }
+    while (true) {
+      await _waitUntilReady(request.readyTimeout, cancelFuture: cancelFuture);
+      await _ensureSessionOrigin(request.readyTimeout);
+      if (cancelled) {
+        throw const BrowserTransportException('Request cancelled.');
+      }
+      try {
+        return await _operationLock.shared(() {
+          if (cancelled) {
+            throw const BrowserTransportException('Request cancelled.');
+          }
+          if (_readinessState != _ReadinessState.ready) {
+            throw const _DocumentChanged();
+          }
+          return _fetch(request, cancelFuture: cancelFuture);
+        });
+      } on _DocumentChanged {
+        continue;
+      }
+    }
+  }
+
+  Future<void> _waitUntilReady(Duration timeout, {Future<void>? cancelFuture}) {
+    final ready = _ready.future.timeout(
+      timeout,
+      onTimeout: () => throw const BrowserTransportException(
+        'Browser session did not become ready.',
+      ),
+    );
+    if (cancelFuture == null) return ready;
+    return Future.any<void>([
+      ready,
+      cancelFuture.then<void>(
+        (_) => throw const BrowserTransportException('Request cancelled.'),
+      ),
+    ]);
+  }
+
   Future<BrowserTransportResponse> _fetch(
     BrowserTransportRequest request, {
     Future<void>? cancelFuture,
@@ -718,7 +937,6 @@ class BrowserHostSession {
     if (controller == null) {
       throw const BrowserTransportException('Browser session is not mounted.');
     }
-    await _ensureSessionOrigin(request.readyTimeout);
     final id = nextRequestId();
     final completer = Completer<BrowserTransportResponse>();
     _pending[id] = completer;
@@ -759,17 +977,19 @@ class BrowserHostSession {
     final current = await controller.getUrl();
     if (current?.host.toLowerCase() == host) return;
 
-    _ready = Completer<void>();
-    requiresInteraction = false;
-    onChanged();
-    _log.infoWithMetadata(
-      'Restoring browser session origin',
-      metadata: {'host': host, 'currentHost': current?.host},
-    );
-    await controller.loadUrl(
-      urlRequest: URLRequest(url: WebUri(bootstrapUri.toString())),
-    );
-    await _ready.future.timeout(timeout);
+    await _runExclusiveNavigation(() async {
+      final latest = await controller.getUrl();
+      if (latest?.host.toLowerCase() == host) return;
+      _startReadinessEpoch();
+      _log.infoWithMetadata(
+        'Restoring browser session origin',
+        metadata: {'host': host, 'currentHost': latest?.host},
+      );
+      await controller.loadUrl(
+        urlRequest: URLRequest(url: WebUri(bootstrapUri.toString())),
+      );
+      await _ready.future.timeout(timeout);
+    });
   }
 
   String _fetchScript(String payload) =>
@@ -827,16 +1047,17 @@ class BrowserHostSession {
   void _completeJavaScriptResponse(Map<String, dynamic> data) {
     final id = data['id'] as int?;
     if (id == null) return;
-    final completer = _pending.remove(id);
+    final completer = _pending[id];
     if (completer == null || completer.isCompleted) return;
     final error = data['error'] as String?;
     if (error != null) {
+      _pending.remove(id);
       completer.completeError(BrowserTransportException(error));
       return;
     }
-    final rawHeaders = data['headers'] as Map? ?? const {};
-    completer.complete(
-      BrowserTransportResponse(
+    try {
+      final rawHeaders = data['headers'] as Map? ?? const {};
+      final response = BrowserTransportResponse(
         statusCode: data['status'] as int? ?? 0,
         body: base64Decode(data['body'] as String? ?? ''),
         finalUri: Uri.tryParse(data['url'] as String? ?? '') ?? origin,
@@ -844,8 +1065,16 @@ class BrowserHostSession {
           for (final entry in rawHeaders.entries)
             entry.key.toString().toLowerCase(): [entry.value.toString()],
         },
-      ),
-    );
+      );
+      _pending.remove(id);
+      completer.complete(response);
+    } catch (error, stackTrace) {
+      _pending.remove(id);
+      completer.completeError(
+        BrowserTransportException('Could not decode browser response: $error'),
+        stackTrace,
+      );
+    }
   }
 
   Future<void> _cancel(int id) async {
@@ -855,9 +1084,16 @@ class BrowserHostSession {
         const BrowserTransportException('Request cancelled.'),
       );
     }
-    await _controller?.evaluateJavascript(
-      source: 'window.__senpwaiAbortControllers?.get($id)?.abort();',
-    );
+    try {
+      await _controller?.evaluateJavascript(
+        source: 'window.__senpwaiAbortControllers?.get($id)?.abort();',
+      );
+    } catch (error) {
+      _log.fineWithMetadata(
+        'Could not abort browser request',
+        metadata: {'host': host, 'requestId': id, 'error': error.toString()},
+      );
+    }
   }
 
   Future<void> _recover(Uri challengedUri, Duration timeout) async {
@@ -865,9 +1101,7 @@ class BrowserHostSession {
     if (controller == null) {
       throw const BrowserTransportException('Browser session is not mounted.');
     }
-    _ready = Completer<void>();
-    requiresInteraction = true;
-    onChanged();
+    _startReadinessEpoch(requiresUserInteraction: true);
     _log.infoWithMetadata(
       'Opening browser challenge',
       metadata: {'host': host, 'url': challengedUri.toString()},
@@ -879,34 +1113,48 @@ class BrowserHostSession {
   }
 
   Future<void> reset() async {
-    final controller = _controller;
-    if (controller == null) return;
     _failPending('Browser session was reset.');
     if (!_ready.isCompleted) {
       _ready.completeError(
         const BrowserTransportException('Browser session was reset.'),
       );
     }
-    _ready = Completer<void>();
-    requiresInteraction = false;
-    onChanged();
-    await controller.stopLoading();
-    await controller.loadUrl(
-      urlRequest: URLRequest(url: WebUri(bootstrapUri.toString())),
-    );
+    await _runExclusiveNavigation(() async {
+      final controller = _controller;
+      if (controller == null) return;
+      _startReadinessEpoch();
+      await controller.stopLoading();
+      await controller.loadUrl(
+        urlRequest: URLRequest(url: WebUri(bootstrapUri.toString())),
+      );
+    });
   }
 
-  Future<void> close() async {
-    _failPending('Browser session was closed.');
+  Future<void> close({String reason = 'Browser session was closed.'}) async {
+    _readinessState = _ReadinessState.closed;
+    _documentGeneration++;
+    _failPending(reason);
     if (!_ready.isCompleted) {
-      _ready.completeError(
-        const BrowserTransportException('Browser session was closed.'),
-      );
+      _ready.completeError(BrowserTransportException(reason));
     }
     final controller = _controller;
     requiresInteraction = false;
     if (controller != null) await _stopNavigation(controller);
     if (identical(_controller, controller)) _controller = null;
+  }
+
+  void _startReadinessEpoch({bool requiresUserInteraction = false}) {
+    if (_readinessState == _ReadinessState.closed) return;
+    if (!_ready.isCompleted) {
+      _ready.completeError(
+        const BrowserTransportException('Browser document was replaced.'),
+      );
+    }
+    _ready = Completer<void>();
+    _readinessState = _ReadinessState.loading;
+    _loadFinished = false;
+    requiresInteraction = requiresUserInteraction;
+    onChanged();
   }
 
   Future<void> _stopNavigation(InAppWebViewController controller) async {
@@ -926,15 +1174,21 @@ class BrowserHostSession {
 
   void _failPending(String message) {
     final error = BrowserTransportException(message);
-    for (final completer in _pending.values) {
-      if (!completer.isCompleted) completer.completeError(error);
-    }
-    _pending.clear();
+    _failPendingFetches(message);
     final formSubmission = _pendingFormSubmission;
     if (formSubmission != null && !formSubmission.isCompleted) {
       formSubmission.completeError(error);
     }
     _pendingFormSubmission = null;
+  }
+
+  void _failPendingFetches(String message) {
+    if (_pending.isEmpty) return;
+    final error = BrowserTransportException(message);
+    for (final completer in _pending.values) {
+      if (!completer.isCompleted) completer.completeError(error);
+    }
+    _pending.clear();
   }
 
   bool _isChallengeResponse(BrowserTransportResponse response) {
@@ -972,16 +1226,13 @@ class BrowserHostSession {
   BrowserNavigationPolicy? _activeNavigationPolicy;
 
   Future<T> _runExclusiveNavigation<T>(Future<T> Function() operation) async {
-    final previous = _navigationTail;
-    final released = Completer<void>();
-    _navigationTail = released.future;
-    await previous.catchError((_) {});
-    try {
-      return await operation();
-    } finally {
-      _activeNavigationPolicy = null;
-      if (!released.isCompleted) released.complete();
-    }
+    return _operationLock.exclusive(() async {
+      try {
+        return await operation();
+      } finally {
+        _activeNavigationPolicy = null;
+      }
+    });
   }
 }
 

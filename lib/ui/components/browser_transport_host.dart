@@ -115,12 +115,25 @@ class _BrowserSessionViewState extends State<_BrowserSessionView> {
           _overlayEntry.markNeedsBuild();
         }
       },
-      onLoadStop: (_, __) => unawaited(widget.session.pageFinished()),
+      onLoadStart: (_, __) {
+        widget.session.pageStarted();
+      },
+      onLoadStop: (_, __) {
+        widget.session.pageFinished();
+      },
       onTitleChanged: (_, __) => unawaited(widget.session.pageTitleChanged()),
       shouldOverrideUrlLoading: (_, action) async =>
           widget.session.handleNavigation(action),
       onReceivedError: (_, request, error) {
         widget.session.handleLoadError(request, error);
+      },
+      onRenderProcessGone: (_, detail) {
+        unawaited(
+          BrowserTransportService.instance.retireSession(
+            widget.session,
+            reason: 'Browser renderer exited (crashed: ${detail.didCrash}).',
+          ),
+        );
       },
     );
 
