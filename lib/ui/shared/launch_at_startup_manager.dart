@@ -34,7 +34,7 @@ class LaunchAtStartupManager {
     launchAtStartup.setup(
       appName: 'Senpwai',
       appPath: Platform.resolvedExecutable,
-      packageName: 'com.senzmaki.senpwai',
+      packageName: 'com.senpwai.app',
     );
     _configured = true;
   }
