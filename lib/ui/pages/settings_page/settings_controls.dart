@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:senpwai/ui/shared/responsive.dart';
 
 class SettingsDropdown<T> extends StatelessWidget {
   final T value;
@@ -101,53 +102,68 @@ class LimitSettingControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dropdown = SettingsDropdown<LimitMode>(
+      value: mode,
+      items: [
+        if (allowsUnlimited)
+          DropdownMenuItem(
+            value: LimitMode.unlimited,
+            child: Text(unlimitedLabel),
+          ),
+        const DropdownMenuItem(
+          value: LimitMode.limited,
+          child: Text('Custom Limit'),
+        ),
+        if (allowsDisabled)
+          const DropdownMenuItem(
+            value: LimitMode.disabled,
+            child: Text('Disabled'),
+          ),
+      ],
+      onChanged: onModeChanged,
+    );
+
+    final valueSwitcher = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SizeTransition(
+          sizeFactor: animation,
+          axis: Axis.horizontal,
+          alignment: Alignment.topLeft,
+          child: child,
+        ),
+      ),
+      child: mode == LimitMode.limited && valueField != null
+          ? KeyedSubtree(
+              key: const ValueKey('limit_value_field'),
+              child: valueField!,
+            )
+          : const SizedBox.shrink(key: ValueKey('limit_value_empty')),
+    );
+
+    if (isMobile(context)) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          dropdown,
+          if (mode == LimitMode.limited && valueField != null) ...[
+            const SizedBox(height: 8),
+            valueSwitcher,
+          ],
+        ],
+      );
+    }
+
     return Wrap(
       alignment: WrapAlignment.end,
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 8,
       runSpacing: 6,
-      children: [
-        SettingsDropdown<LimitMode>(
-          value: mode,
-          items: [
-            if (allowsUnlimited)
-              DropdownMenuItem(
-                value: LimitMode.unlimited,
-                child: Text(unlimitedLabel),
-              ),
-            const DropdownMenuItem(
-              value: LimitMode.limited,
-              child: Text('Custom Limit'),
-            ),
-            if (allowsDisabled)
-              const DropdownMenuItem(
-                value: LimitMode.disabled,
-                child: Text('Disabled'),
-              ),
-          ],
-          onChanged: onModeChanged,
-        ),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: SizeTransition(
-              sizeFactor: animation,
-              axis: Axis.horizontal,
-              alignment: Alignment.topLeft,
-              child: child,
-            ),
-          ),
-          child: mode == LimitMode.limited && valueField != null
-              ? KeyedSubtree(
-                  key: const ValueKey('limit_value_field'),
-                  child: valueField!,
-                )
-              : const SizedBox.shrink(key: ValueKey('limit_value_empty')),
-        ),
-      ],
+      children: [dropdown, valueSwitcher],
     );
   }
 }

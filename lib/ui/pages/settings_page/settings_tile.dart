@@ -246,7 +246,8 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 460;
+        final stacksControl =
+            constraints.maxWidth < 560 && trailing != null && onTap == null;
 
         final leading =
             leadingWidget ??
@@ -261,7 +262,7 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
                 : const SizedBox(width: 20, height: 20));
 
         Widget buildTileContent() {
-          if (isCompact && trailing != null) {
+          if (stacksControl) {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               child: Column(
@@ -293,28 +294,21 @@ class SettingsTile extends StatelessWidget implements SettingsSearchable {
                           ],
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      trailing!,
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Padding(
                     padding: const EdgeInsets.only(left: 34),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            subtitle,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.55,
-                              ),
-                              fontSize: 12,
-                            ),
-                          ),
+                    child: Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.55,
                         ),
-                        const SizedBox(width: 12),
-                        trailing!,
-                      ],
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
