@@ -452,6 +452,14 @@ class CustomAnimeFolder {
 
 @immutable
 class SourcePreferences {
+  static const minRequestConcurrency = 1;
+  static const recommendedRequestConcurrency = 10;
+  static const recommendedNyaaRequestConcurrency = 5;
+  static const recommendedKwikRequestConcurrency = 2;
+  static const defaultAnimePaheRequestConcurrency = 10;
+  static const defaultKwikRequestConcurrency = 2;
+  static const defaultNyaaRequestConcurrency = 5;
+  static const defaultTokyoInsiderRequestConcurrency = 10;
   static const defaultBrowserTransportIdleTimeoutMinutes = 10;
   static const minBrowserTransportIdleTimeoutMinutes = 1;
   static const maxBrowserTransportIdleTimeoutMinutes = 120;
@@ -473,6 +481,10 @@ class SourcePreferences {
   final bool skipNyaaReviewWhenUnambiguous;
   final bool skipUnavailableNyaaEpisodes;
   final int browserTransportIdleTimeoutMinutes;
+  final int animePaheRequestConcurrency;
+  final int kwikRequestConcurrency;
+  final int nyaaRequestConcurrency;
+  final int tokyoInsiderRequestConcurrency;
 
   const SourcePreferences({
     this.enabledSources = defaultEnabledSources,
@@ -482,6 +494,10 @@ class SourcePreferences {
     this.skipUnavailableNyaaEpisodes = false,
     this.browserTransportIdleTimeoutMinutes =
         defaultBrowserTransportIdleTimeoutMinutes,
+    this.animePaheRequestConcurrency = defaultAnimePaheRequestConcurrency,
+    this.kwikRequestConcurrency = defaultKwikRequestConcurrency,
+    this.nyaaRequestConcurrency = defaultNyaaRequestConcurrency,
+    this.tokyoInsiderRequestConcurrency = defaultTokyoInsiderRequestConcurrency,
   });
 
   factory SourcePreferences.fromJson(Map<String, dynamic> json) {
@@ -514,6 +530,30 @@ class SourcePreferences {
               defaultBrowserTransportIdleTimeoutMinutes,
             ),
           ),
+      animePaheRequestConcurrency: normalizeRequestConcurrency(
+        _intValue(
+          json['animePaheRequestConcurrency'],
+          defaultAnimePaheRequestConcurrency,
+        ),
+      ),
+      kwikRequestConcurrency: normalizeRequestConcurrency(
+        _intValue(
+          json['kwikRequestConcurrency'],
+          defaultKwikRequestConcurrency,
+        ),
+      ),
+      nyaaRequestConcurrency: normalizeNyaaRequestConcurrency(
+        _intValue(
+          json['nyaaRequestConcurrency'],
+          defaultNyaaRequestConcurrency,
+        ),
+      ),
+      tokyoInsiderRequestConcurrency: normalizeRequestConcurrency(
+        _intValue(
+          json['tokyoInsiderRequestConcurrency'],
+          defaultTokyoInsiderRequestConcurrency,
+        ),
+      ),
     );
   }
 
@@ -524,6 +564,10 @@ class SourcePreferences {
     'skipNyaaReviewWhenUnambiguous': skipNyaaReviewWhenUnambiguous,
     'skipUnavailableNyaaEpisodes': skipUnavailableNyaaEpisodes,
     'browserTransportIdleTimeoutMinutes': browserTransportIdleTimeoutMinutes,
+    'animePaheRequestConcurrency': animePaheRequestConcurrency,
+    'kwikRequestConcurrency': kwikRequestConcurrency,
+    'nyaaRequestConcurrency': nyaaRequestConcurrency,
+    'tokyoInsiderRequestConcurrency': tokyoInsiderRequestConcurrency,
   };
 
   AnimeSource? get preferredEnabledSource {
@@ -540,6 +584,10 @@ class SourcePreferences {
     bool? skipNyaaReviewWhenUnambiguous,
     bool? skipUnavailableNyaaEpisodes,
     int? browserTransportIdleTimeoutMinutes,
+    int? animePaheRequestConcurrency,
+    int? kwikRequestConcurrency,
+    int? nyaaRequestConcurrency,
+    int? tokyoInsiderRequestConcurrency,
   }) {
     final nextEnabled = enabledSources ?? this.enabledSources;
     return SourcePreferences(
@@ -558,6 +606,18 @@ class SourcePreferences {
           : normalizeBrowserTransportIdleTimeoutMinutes(
               browserTransportIdleTimeoutMinutes,
             ),
+      animePaheRequestConcurrency: normalizeRequestConcurrency(
+        animePaheRequestConcurrency ?? this.animePaheRequestConcurrency,
+      ),
+      kwikRequestConcurrency: normalizeRequestConcurrency(
+        kwikRequestConcurrency ?? this.kwikRequestConcurrency,
+      ),
+      nyaaRequestConcurrency: normalizeNyaaRequestConcurrency(
+        nyaaRequestConcurrency ?? this.nyaaRequestConcurrency,
+      ),
+      tokyoInsiderRequestConcurrency: normalizeRequestConcurrency(
+        tokyoInsiderRequestConcurrency ?? this.tokyoInsiderRequestConcurrency,
+      ),
     );
   }
 
@@ -569,6 +629,12 @@ class SourcePreferences {
         minBrowserTransportIdleTimeoutMinutes,
         maxBrowserTransportIdleTimeoutMinutes,
       );
+
+  static int normalizeRequestConcurrency(int value) =>
+      value < minRequestConcurrency ? minRequestConcurrency : value;
+
+  static int normalizeNyaaRequestConcurrency(int value) =>
+      normalizeRequestConcurrency(value);
 }
 
 @immutable

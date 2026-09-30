@@ -55,6 +55,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     BrowserTransportService.instance.updateIdleTimeout(
       settings.sources.browserTransportIdleTimeout,
     );
+    AppPersistence.applySourceConcurrencySettings(settings.sources);
   }
 
   Future<void> setBrightnessMode(BrightnessMode mode) {
@@ -291,6 +292,38 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
         sources: state.sources.copyWith(
           browserTransportIdleTimeoutMinutes: minutes,
         ),
+      ),
+    );
+  }
+
+  Future<void> setAnimePaheRequestConcurrency(int value) {
+    return _commit(
+      state.copyWith(
+        sources: state.sources.copyWith(animePaheRequestConcurrency: value),
+      ),
+    );
+  }
+
+  Future<void> setKwikRequestConcurrency(int value) {
+    return _commit(
+      state.copyWith(
+        sources: state.sources.copyWith(kwikRequestConcurrency: value),
+      ),
+    );
+  }
+
+  Future<void> setNyaaRequestConcurrency(int value) {
+    return _commit(
+      state.copyWith(
+        sources: state.sources.copyWith(nyaaRequestConcurrency: value),
+      ),
+    );
+  }
+
+  Future<void> setTokyoInsiderRequestConcurrency(int value) {
+    return _commit(
+      state.copyWith(
+        sources: state.sources.copyWith(tokyoInsiderRequestConcurrency: value),
       ),
     );
   }

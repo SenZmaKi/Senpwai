@@ -76,7 +76,7 @@ class AnimePaheDownloadPlanner {
         )
           pageNum,
       ],
-      maxConcurrent: maxParallelSourceRequests,
+      maxConcurrent: SourceConcurrencyLimits.instance.animePahe,
       operation: (pageNum) => _source.fetchEpisodeSessions(
         animeSession: animeMatch.session,
         pageNum: pageNum,
@@ -104,7 +104,7 @@ class AnimePaheDownloadPlanner {
     report('Loading episode links');
     final episodeLinks = await parallelMapOrdered(
       selectedSessions,
-      maxConcurrent: maxParallelSourceRequests,
+      maxConcurrent: SourceConcurrencyLimits.instance.animePahe,
       operation: (episodeSession) async {
         throwIfRequestScopeCancelled();
         final links = await _source.fetchDownloadLinks(
@@ -140,60 +140,76 @@ class AnimePaheDownloadPlanner {
       );
     }
 
-    // Each worker enters the single Kwik navigation lane, then releases it
-    // before probing the resolved media URL. This keeps Kwik serialized while
-    // allowing up to five native probes to overlap with later resolutions.
-    final kwikLane = AsyncLimiter(1);
-    final jobs =
-        await parallelMapOrdered<animepahe.DownloadLink, PreparedDownloadJob>(
-          selectedLinks,
-          maxConcurrent: maxParallelSourceRequests,
-          operation: (selectedLink) async {
-            throwIfRequestScopeCancelled();
-            final directLink = await kwikLane.run(() async {
+    // Kwik form submissions lease isolated browser sessions. Keep that
+    // renderer workload bounded independently from native media probes.
+    final animePaheConcurrency = SourceConcurrencyLimits.instance.animePahe;
+    final kwikConcurrency = SourceConcurrencyLimits.instance.kwik;
+    final pipelineConcurrency = animePaheConcurrency > kwikConcurrency
+        ? animePaheConcurrency
+        : kwikConcurrency;
+    final kwikLane = AsyncLimiter(kwikConcurrency);
+    final probeLane = AsyncLimiter(animePaheConcurrency);
+    final kwikBatch = _source.openKwikLinkResolverBatch();
+    var remainingKwikLinks = selectedLinks.length;
+    late final List<PreparedDownloadJob> jobs;
+    try {
+      jobs =
+          await parallelMapOrdered<animepahe.DownloadLink, PreparedDownloadJob>(
+            selectedLinks,
+            maxConcurrent: pipelineConcurrency,
+            operation: (selectedLink) async {
               throwIfRequestScopeCancelled();
-              report('Resolving episode ${selectedLink.episodeNumber}');
-              final link = await _source.fetchDirectDownloadLink(
-                downloadLink: selectedLink,
-              );
-              throwIfRequestScopeCancelled();
-              completedSteps++;
-              report('Resolved episode ${selectedLink.episodeNumber}');
-              return link;
-            });
-            report('Checking episode ${directLink.episodeNumber}');
-            final resolvedTarget = await Download.probeSingleFile(
-              url: directLink.url,
-              headers: {'Referer': directLink.refererUrl},
-            );
-            throwIfRequestScopeCancelled();
-            final plannedTarget = _targetPlanner.planEpisodeFile(
-              directory: request.downloadFolder,
-              jobTitle: request.fileTitle,
-              episodeNumber: directLink.episodeNumber,
-              seasonNumber: request.fileSeasonNumber,
-              sourceFileName: directLink.filename,
-              resolvedUrl: resolvedTarget.resolvedUrl,
-              suggestedFileName: resolvedTarget.suggestedFileName,
-              contentType: resolvedTarget.contentType,
-            );
-            final job = PreparedHttpDownloadJob(
-              source: AnimeSource.animepahe,
-              animeTitle: request.anime.title.display,
-              displayTitle: plannedTarget.fileName,
-              destinationDirectory: plannedTarget.directory,
-              totalBytes: resolvedTarget.sizeBytes,
-              resolvedUrl: resolvedTarget.resolvedUrl,
-              fileName: plannedTarget.fileName,
-              headers: {'Referer': directLink.refererUrl},
-              episodeNumber: directLink.episodeNumber,
-            );
-            completedSteps++;
-            completedEpisodes++;
-            report('Prepared episode ${directLink.episodeNumber}');
-            return job;
-          },
-        );
+              final directLink = await kwikLane.run(() async {
+                throwIfRequestScopeCancelled();
+                report('Resolving episode ${selectedLink.episodeNumber}');
+                final link = await _source.fetchDirectDownloadLink(
+                  downloadLink: selectedLink,
+                );
+                throwIfRequestScopeCancelled();
+                completedSteps++;
+                report('Resolved episode ${selectedLink.episodeNumber}');
+                remainingKwikLinks--;
+                if (remainingKwikLinks == 0) await kwikBatch.close();
+                return link;
+              });
+              return probeLane.run(() async {
+                report('Checking episode ${directLink.episodeNumber}');
+                final resolvedTarget = await Download.probeSingleFile(
+                  url: directLink.url,
+                  headers: {'Referer': directLink.refererUrl},
+                );
+                throwIfRequestScopeCancelled();
+                final plannedTarget = _targetPlanner.planEpisodeFile(
+                  directory: request.downloadFolder,
+                  jobTitle: request.fileTitle,
+                  episodeNumber: directLink.episodeNumber,
+                  seasonNumber: request.fileSeasonNumber,
+                  sourceFileName: directLink.filename,
+                  resolvedUrl: resolvedTarget.resolvedUrl,
+                  suggestedFileName: resolvedTarget.suggestedFileName,
+                  contentType: resolvedTarget.contentType,
+                );
+                final job = PreparedHttpDownloadJob(
+                  source: AnimeSource.animepahe,
+                  animeTitle: request.anime.title.display,
+                  displayTitle: plannedTarget.fileName,
+                  destinationDirectory: plannedTarget.directory,
+                  totalBytes: resolvedTarget.sizeBytes,
+                  resolvedUrl: resolvedTarget.resolvedUrl,
+                  fileName: plannedTarget.fileName,
+                  headers: {'Referer': directLink.refererUrl},
+                  episodeNumber: directLink.episodeNumber,
+                );
+                completedSteps++;
+                completedEpisodes++;
+                report('Prepared episode ${directLink.episodeNumber}');
+                return job;
+              });
+            },
+          );
+    } finally {
+      await kwikBatch.close();
+    }
 
     notices.addAll(fallbackNotices.build());
     return PreparedDownloadBatch(jobs: jobs, notices: notices);

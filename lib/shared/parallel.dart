@@ -2,6 +2,30 @@ import 'dart:async';
 import 'dart:collection';
 
 const maxParallelSourceRequests = 10;
+const maxParallelKwikRequests = 2;
+
+class SourceConcurrencyLimits {
+  SourceConcurrencyLimits._();
+
+  static final instance = SourceConcurrencyLimits._();
+
+  int animePahe = maxParallelSourceRequests;
+  int kwik = maxParallelKwikRequests;
+  int nyaa = 5;
+  int tokyoInsider = maxParallelSourceRequests;
+
+  void update({
+    required int animePahe,
+    required int kwik,
+    required int nyaa,
+    required int tokyoInsider,
+  }) {
+    this.animePahe = animePahe;
+    this.kwik = kwik;
+    this.nyaa = nyaa;
+    this.tokyoInsider = tokyoInsider;
+  }
+}
 
 class AsyncLimiter {
   final int maxConcurrent;

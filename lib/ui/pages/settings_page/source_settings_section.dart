@@ -5,7 +5,9 @@ import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/components/browser_transport_info_icon.dart';
+import 'package:senpwai/ui/pages/anime_page/anime_source_ui.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_controls.dart';
+import 'package:senpwai/ui/pages/settings_page/source_parallelism_settings.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 
 class SourceSettingsSection extends StatelessWidget {
@@ -53,7 +55,17 @@ class SourceSettingsSection extends StatelessWidget {
                   key: ValueKey(source),
                   index: index,
                   child: SettingsTile(
-                    icon: Icons.drag_indicator_rounded,
+                    leadingWidget: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.asset(
+                        source.iconAsset,
+                        width: 20,
+                        height: 20,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) =>
+                            Icon(Icons.public, size: 20, color: source.color),
+                      ),
+                    ),
                     title: source.label,
                     titleSuffix:
                         source == AnimeSource.animepahe ||
@@ -77,6 +89,12 @@ class SourceSettingsSection extends StatelessWidget {
               },
             ),
           ],
+        ),
+        const SizedBox(height: 20),
+        SourceParallelismSettings(
+          settings: settings,
+          notifier: notifier,
+          searchQuery: searchQuery,
         ),
         const SizedBox(height: 20),
         SettingsGroupCard(

@@ -80,7 +80,7 @@ class TokyoInsiderDownloadPlanner {
     report('Loading episode links');
     final episodeLinks = await parallelMapOrdered(
       selectedPages,
-      maxConcurrent: maxParallelSourceRequests,
+      maxConcurrent: SourceConcurrencyLimits.instance.tokyoInsider,
       operation: (episodePage) async {
         throwIfRequestScopeCancelled();
         final links = await _source.fetchEpisodeDownloadLinks(
@@ -120,7 +120,7 @@ class TokyoInsiderDownloadPlanner {
           PreparedDownloadJob
         >(
           selectedLinks,
-          maxConcurrent: maxParallelSourceRequests,
+          maxConcurrent: SourceConcurrencyLimits.instance.tokyoInsider,
           operation: (selectedLink) async {
             throwIfRequestScopeCancelled();
             final resolvedTarget = await Download.probeSingleFile(

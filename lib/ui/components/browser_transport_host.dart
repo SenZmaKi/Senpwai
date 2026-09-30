@@ -38,6 +38,8 @@ class _BrowserTransportHostState extends State<BrowserTransportHost> {
     final visibleSession = _transport.visibleSession;
     final verificationCount = _transport.sessions
         .where((session) => session.requiresInteraction)
+        .map((session) => session.host)
+        .toSet()
         .length;
     return Stack(
       fit: StackFit.expand,

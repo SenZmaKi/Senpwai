@@ -6,6 +6,7 @@ import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/shared/shared.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
+import 'package:senpwai/shared/net/browser_transport/browser_transport.dart';
 import 'package:senpwai/shared/net/browser_transport/routing.dart';
 import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:html/dom.dart' as html;
@@ -729,6 +730,10 @@ class Source {
     );
     return directDownloadLink;
   }
+
+  BrowserFormSessionBatch openKwikLinkResolverBatch() => BrowserTransportService
+      .instance
+      .openFormSessionBatch(Constants.kwikDomain);
 
   Future<Response<String>> _fetchPaheBridgePage(DownloadLink downloadLink) =>
       _dio.get<String>(

@@ -26,7 +26,11 @@ enum SettingsCategory {
     Icons.radar_rounded,
     'AniList & auto-downloader',
   ),
-  cache('Cache', Icons.storage_rounded, 'Freshness, storage limits & cleanup'),
+  cache(
+    'Cache & Browser',
+    Icons.storage_rounded,
+    'Browser sessions, freshness, storage limits & cleanup',
+  ),
   system('System', Icons.computer_rounded, 'Notifications & reset'),
   about(
     'Updates & About',

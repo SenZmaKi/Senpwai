@@ -9,6 +9,7 @@ import 'package:senpwai/shared/persistence/app_image_cache.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/shared/persistence/secure_token_store.dart';
 import 'package:senpwai/shared/source_directory/source_directory.dart';
+import 'package:senpwai/shared/parallel.dart';
 import 'package:senpwai/shared/persistence/window_state_repository.dart';
 import 'package:senpwai/tracking/models.dart';
 import 'package:senpwai/tracking/repository.dart';
@@ -155,31 +156,36 @@ class AppPersistence {
       settings.sources.browserTransportIdleTimeout,
     );
     await SourceDirectory.initialize(paths: initializedPaths);
-    _updateSourceDirectoryConcurrency(SourceDirectory.instance);
-    SourceDirectory.changes.listen(_updateSourceDirectoryConcurrency);
+    applySourceConcurrencySettings(settings.sources);
+    SourceDirectory.changes.listen(
+      (_) => applySourceConcurrencySettings(AppPersistence.settings.sources),
+    );
   }
 
-  static void _updateSourceDirectoryConcurrency(SourceDirectory directory) {
+  static void applySourceConcurrencySettings(SourcePreferences preferences) {
+    final directory = SourceDirectory.instance;
+    final animePahe = preferences.animePaheRequestConcurrency;
+    final kwik = preferences.kwikRequestConcurrency;
+    final nyaa = preferences.nyaaRequestConcurrency;
+    final tokyoInsider = preferences.tokyoInsiderRequestConcurrency;
+    SourceConcurrencyLimits.instance.update(
+      animePahe: animePahe,
+      kwik: kwik,
+      nyaa: nyaa,
+      tokyoInsider: tokyoInsider,
+    );
     GlobalDio.updateHostConcurrencyLimits({
-      for (final host in directory.nyaa.allowedHosts)
-        host: directory.nyaa.maxConcurrentRequests ?? 5,
-      for (final host in directory.animePahe.allowedHosts)
-        host: _sourceRequestCap(directory.animePahe),
-      for (final host in directory.kwik.allowedHosts)
-        host: directory.kwik.maxConcurrentRequests ?? 1,
+      for (final host in directory.nyaa.allowedHosts) host: nyaa,
+      for (final host in directory.animePahe.allowedHosts) host: animePahe,
+      for (final host in directory.kwik.allowedHosts) host: kwik,
       for (final host in directory.tokyoInsider.allowedHosts)
-        host: _sourceRequestCap(directory.tokyoInsider),
+        host: tokyoInsider,
     });
     GlobalDio.updateBrowserOrigins({
       ..._browserOrigins(directory.animePahe),
       ..._browserOrigins(directory.kwik),
       ..._browserOrigins(directory.tokyoInsider),
     });
-  }
-
-  static int _sourceRequestCap(SourceEndpoint endpoint) {
-    final configured = endpoint.maxConcurrentRequests ?? 10;
-    return configured > 10 ? 10 : configured;
   }
 
   static Map<String, Uri> _browserOrigins(SourceEndpoint endpoint) {

@@ -137,6 +137,9 @@ class BrowserTransportService extends ChangeNotifier {
   static final instance = BrowserTransportService._();
 
   final Map<String, BrowserHostSession> _sessions = {};
+  final Map<String, List<BrowserHostSession>> _formSessions = {};
+  final Set<BrowserHostSession> _leasedFormSessions = {};
+  final Map<String, int> _formSessionBatchCounts = {};
   final Map<String, Timer> _idleTimers = {};
   final Map<String, int> _activeRequests = {};
   final Map<String, Set<VoidCallback>> _userCancellationCallbacks = {};
@@ -144,17 +147,19 @@ class BrowserTransportService extends ChangeNotifier {
   int _nextRequestId = 0;
   Future<void>? _maintenance;
 
-  List<BrowserHostSession> get sessions => List.unmodifiable(_sessions.values);
-  BrowserHostSession? get visibleSession => _sessions.values
-      .where((session) => session.requiresInteraction)
-      .firstOrNull;
+  List<BrowserHostSession> get sessions => List.unmodifiable([
+    ..._sessions.values,
+    for (final sessions in _formSessions.values) ...sessions,
+  ]);
+  BrowserHostSession? get visibleSession =>
+      sessions.where((session) => session.requiresInteraction).firstOrNull;
 
   void updateIdleTimeout(Duration timeout) {
     if (timeout <= Duration.zero) {
       throw ArgumentError.value(timeout, 'timeout', 'Must be positive.');
     }
     _idleTimeout = timeout;
-    for (final host in _sessions.keys) {
+    for (final host in {..._sessions.keys, ..._formSessions.keys}) {
       _scheduleIdleClose(host);
     }
   }
@@ -171,15 +176,14 @@ class BrowserTransportService extends ChangeNotifier {
         'Bootstrap origin ${request.bootstrapUri.host} does not match $host.',
       );
     }
-    final session = _sessions.putIfAbsent(
-      host,
-      () => BrowserHostSession(
-        host: host,
-        bootstrapUri: request.bootstrapUri,
-        onChanged: () => _sessionChanged(host),
-        nextRequestId: () => _nextRequestId++,
-      ),
-    );
+    final usesFormSession =
+        request.executionMode == BrowserExecutionMode.submitForm;
+    final session = usesFormSession
+        ? _acquireFormSession(host, request.bootstrapUri)
+        : _sessions.putIfAbsent(
+            host,
+            () => _createSession(host, request.bootstrapUri),
+          );
     _idleTimers.remove(host)?.cancel();
     _activeRequests[host] = (_activeRequests[host] ?? 0) + 1;
     final userCancel = request.onUserCancel;
@@ -190,6 +194,7 @@ class BrowserTransportService extends ChangeNotifier {
     try {
       return await session.send(request, cancelFuture: cancelFuture);
     } finally {
+      if (usesFormSession) _leasedFormSessions.remove(session);
       if (userCancel != null) {
         final callbacks = _userCancellationCallbacks[host];
         callbacks?.remove(userCancel);
@@ -207,6 +212,57 @@ class BrowserTransportService extends ChangeNotifier {
     }
   }
 
+  BrowserHostSession _createSession(String host, Uri bootstrapUri) =>
+      BrowserHostSession(
+        host: host,
+        bootstrapUri: bootstrapUri,
+        onChanged: () => _sessionChanged(host),
+        nextRequestId: () => _nextRequestId++,
+      );
+
+  BrowserHostSession _acquireFormSession(String host, Uri bootstrapUri) {
+    final sessions = _formSessions.putIfAbsent(host, () => []);
+    final session = sessions
+        .where((session) => !_leasedFormSessions.contains(session))
+        .firstOrNull;
+    final resolved = session ?? _createSession(host, bootstrapUri);
+    if (session == null) sessions.add(resolved);
+    _leasedFormSessions.add(resolved);
+    return resolved;
+  }
+
+  BrowserFormSessionBatch openFormSessionBatch(String host) {
+    final normalizedHost = host.toLowerCase();
+    _formSessionBatchCounts[normalizedHost] =
+        (_formSessionBatchCounts[normalizedHost] ?? 0) + 1;
+    return BrowserFormSessionBatch._(
+      () => _releaseFormSessionBatch(normalizedHost),
+    );
+  }
+
+  Future<void> _releaseFormSessionBatch(String host) async {
+    final remaining = (_formSessionBatchCounts[host] ?? 1) - 1;
+    if (remaining > 0) {
+      _formSessionBatchCounts[host] = remaining;
+      return;
+    }
+    _formSessionBatchCounts.remove(host);
+    await _closeFormSessions(host);
+  }
+
+  Future<void> _closeFormSessions(String host) async {
+    final normalizedHost = host.toLowerCase();
+    final sessions = _formSessions.remove(normalizedHost) ?? const [];
+    _leasedFormSessions.removeAll(sessions);
+    if (sessions.isEmpty) return;
+    notifyListeners();
+    await Future.wait(
+      sessions.map(
+        (session) => session.close(reason: 'Browser form batch finished.'),
+      ),
+    );
+  }
+
   Future<void> cancelSessionRequests(String host) async {
     final normalizedHost = host.toLowerCase();
     final callbacks = _userCancellationCallbacks
@@ -217,14 +273,18 @@ class BrowserTransportService extends ChangeNotifier {
     }
 
     _idleTimers.remove(normalizedHost)?.cancel();
-    final session = _sessions.remove(normalizedHost);
-    if (session == null) return;
+    final sessions = <BrowserHostSession>[
+      if (_sessions.remove(normalizedHost) case final session?) session,
+      ...?_formSessions.remove(normalizedHost),
+    ];
+    _leasedFormSessions.removeAll(sessions);
+    if (sessions.isEmpty) return;
 
     // Remove the session before stopping its WebView so the verification page
     // closes immediately. Closing also fails requests that do not have a Dio
     // CancelToken, ensuring the user action always ends the verification.
     notifyListeners();
-    await session.close();
+    await Future.wait(sessions.map((session) => session.close()));
   }
 
   Future<void> clearSessions() async {
@@ -246,23 +306,31 @@ class BrowserTransportService extends ChangeNotifier {
     if (defaultTargetPlatform != TargetPlatform.windows) {
       await InAppWebViewController.clearAllCache();
     }
-    await Future.wait(_sessions.values.map((session) => session.reset()));
+    await Future.wait(sessions.map((session) => session.reset()));
   }
 
   void reconcileOrigins(Map<String, Uri> origins) {
     final normalized = {
       for (final entry in origins.entries) entry.key.toLowerCase(): entry.value,
     };
-    final removed = _sessions.keys.where((host) {
+    final removed = {..._sessions.keys, ..._formSessions.keys}.where((host) {
       final origin = normalized[host];
       final session = _sessions[host];
-      return origin == null || session?.bootstrapUri != origin;
+      final formSessions = _formSessions[host] ?? const [];
+      return origin == null ||
+          (session != null && session.bootstrapUri != origin) ||
+          formSessions.any((session) => session.bootstrapUri != origin);
     }).toList();
     for (final host in removed) {
       _idleTimers.remove(host)?.cancel();
       _userCancellationCallbacks.remove(host);
       final session = _sessions.remove(host);
       if (session != null) unawaited(session.close());
+      final formSessions = _formSessions.remove(host) ?? const [];
+      _leasedFormSessions.removeAll(formSessions);
+      for (final formSession in formSessions) {
+        unawaited(formSession.close());
+      }
     }
     if (removed.isNotEmpty) notifyListeners();
   }
@@ -272,9 +340,14 @@ class BrowserTransportService extends ChangeNotifier {
     required String reason,
   }) async {
     final host = session.host;
-    if (!identical(_sessions[host], session)) return;
+    final isPrimary = identical(_sessions[host], session);
+    final formSessions = _formSessions[host];
+    final isFormSession = formSessions?.remove(session) ?? false;
+    if (!isPrimary && !isFormSession) return;
     _idleTimers.remove(host)?.cancel();
-    _sessions.remove(host);
+    if (isPrimary) _sessions.remove(host);
+    if (formSessions?.isEmpty ?? false) _formSessions.remove(host);
+    _leasedFormSessions.remove(session);
     notifyListeners();
     await session.close(reason: reason);
   }
@@ -286,20 +359,39 @@ class BrowserTransportService extends ChangeNotifier {
 
   void _scheduleIdleClose(String host) {
     _idleTimers.remove(host)?.cancel();
-    final session = _sessions[host];
-    if (session == null || (_activeRequests[host] ?? 0) > 0) {
+    final hostSessions = <BrowserHostSession>[
+      if (_sessions[host] case final session?) session,
+      ...?_formSessions[host],
+    ];
+    if (hostSessions.isEmpty || (_activeRequests[host] ?? 0) > 0) {
       return;
     }
     _idleTimers[host] = Timer(_idleTimeout, () {
       _idleTimers.remove(host);
-      final current = _sessions[host];
-      if (!identical(current, session) || (_activeRequests[host] ?? 0) > 0) {
+      if ((_activeRequests[host] ?? 0) > 0) {
         return;
       }
       _sessions.remove(host);
-      unawaited(session.close());
+      _formSessions.remove(host);
+      _leasedFormSessions.removeAll(hostSessions);
+      for (final session in hostSessions) {
+        unawaited(session.close());
+      }
       notifyListeners();
     });
+  }
+}
+
+class BrowserFormSessionBatch {
+  final Future<void> Function() _release;
+  bool _released = false;
+
+  BrowserFormSessionBatch._(this._release);
+
+  Future<void> close() async {
+    if (_released) return;
+    _released = true;
+    await _release();
   }
 }
 
@@ -453,26 +545,20 @@ class BrowserHostSession {
   ) async {
     final completer = _pendingFormSubmission;
     if (completer == null || completer.isCompleted) return;
-
     final currentUri = Uri.tryParse(
       (await controller.getUrl())?.toString() ?? '',
     );
     if (currentUri == null || currentUri.host.toLowerCase() != host) return;
-
-    final error = BrowserTransportException(
-      'Browser form submission finished without a download redirect: '
-      '$currentUri',
+    completer.completeError(
+      BrowserTransportException(
+        'Browser form submission finished without a download redirect: '
+        '$currentUri',
+      ),
     );
-    _log.warningWithMetadata(
-      'Browser form submission did not redirect',
-      metadata: {'host': host, 'url': currentUri.toString()},
-    );
-    completer.completeError(error);
   }
 
   void pageFailed(Object error) {
     if (_readinessState == _ReadinessState.closed) return;
-    requiresInteraction = true;
     _log.warningWithMetadata(
       'Browser session failed to load',
       metadata: {'host': host, 'error': error.toString()},
@@ -497,7 +583,7 @@ class BrowserHostSession {
       );
       return;
     }
-    if (request.isForMainFrame != false) pageFailed(error);
+    if (request.isForMainFrame == true) pageFailed(error);
   }
 
   Future<BrowserTransportResponse> send(
@@ -597,12 +683,7 @@ class BrowserHostSession {
         cancelFuture.then((_) async {
           cancelled = true;
           await _stopNavigation(controller);
-
-          // Stopping a referrer load does not produce a reliable load event on
-          // every platform. Do not leave the session gated by that abandoned
-          // navigation, or the next request will wait for readiness forever.
           if (!_ready.isCompleted) _ready.complete();
-
           final completer = submissionCompleter;
           if (completer != null && !completer.isCompleted) {
             completer.completeError(
@@ -613,33 +694,13 @@ class BrowserHostSession {
       );
     }
     _activeNavigationPolicy = navigationPolicy;
-
-    _log.infoWithMetadata(
-      'Preparing browser form submission',
-      metadata: {
-        'host': host,
-        'url': request.uri.toString(),
-        'referrer': request.referrer?.toString(),
-        'bodyBytes': request.body?.length ?? 0,
-        'timeoutMs': request.timeout.inMilliseconds,
-      },
-    );
     await _ensureDocument(request.referrer, request.readyTimeout);
     if (cancelled) {
       throw const BrowserTransportException('Request cancelled.');
     }
-    _log.infoWithMetadata(
-      'Browser form document ready',
-      metadata: {'host': host, 'url': (await controller.getUrl())?.toString()},
-    );
-    if (cancelled) {
-      throw const BrowserTransportException('Request cancelled.');
-    }
-
     final completer = Completer<BrowserTransportResponse>();
     submissionCompleter = completer;
     _pendingFormSubmission = completer;
-
     final payload = jsonEncode({
       'url': request.uri.toString(),
       'contentType': request.headers.entries
@@ -649,14 +710,6 @@ class BrowserHostSession {
       'body': base64Encode(request.body ?? Uint8List(0)),
     });
     try {
-      _log.infoWithMetadata(
-        'Dispatching browser form submission',
-        metadata: {
-          'host': host,
-          'url': request.uri.toString(),
-          'method': request.method,
-        },
-      );
       unawaited(
         controller
             .evaluateJavascript(source: _formSubmissionScript(payload))
@@ -672,40 +725,15 @@ class BrowserHostSession {
               return null;
             }),
       );
-      _log.infoWithMetadata(
-        'Browser form submission dispatched',
-        metadata: {'host': host, 'url': request.uri.toString()},
-      );
       return await completer.future.timeout(
         request.timeout,
         onTimeout: () async {
-          _log.warningWithMetadata(
-            'Browser form submission timed out',
-            metadata: {
-              'host': host,
-              'requestUrl': request.uri.toString(),
-              'currentUrl': (await controller.getUrl())?.toString(),
-              'timeoutMs': request.timeout.inMilliseconds,
-            },
-          );
           await _stopNavigation(controller);
           throw BrowserTransportException(
             'Browser form submission timed out: ${request.uri}',
           );
         },
       );
-    } catch (error, stackTrace) {
-      _log.severeWithMetadata(
-        'Browser form submission failed',
-        metadata: {
-          'host': host,
-          'requestUrl': request.uri.toString(),
-          'errorType': error.runtimeType.toString(),
-        },
-        error: error,
-        stackTrace: stackTrace,
-      );
-      rethrow;
     } finally {
       if (identical(_pendingFormSubmission, completer)) {
         _pendingFormSubmission = null;
@@ -720,12 +748,9 @@ class BrowserHostSession {
       const binary = atob(request.body);
       const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
       const text = new TextDecoder().decode(bytes);
-      let fields;
-      if ((request.contentType || '').toLowerCase().includes('json')) {
-        fields = Object.entries(text ? JSON.parse(text) : {});
-      } else {
-        fields = Array.from(new URLSearchParams(text).entries());
-      }
+      const fields = (request.contentType || '').toLowerCase().includes('json')
+        ? Object.entries(text ? JSON.parse(text) : {})
+        : Array.from(new URLSearchParams(text).entries());
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = request.url;
@@ -748,15 +773,6 @@ class BrowserHostSession {
     if (controller == null) return;
     final current = await controller.getUrl();
     if (current?.toString() == target.toString()) return;
-
-    _log.infoWithMetadata(
-      'Loading browser form referrer',
-      metadata: {
-        'host': host,
-        'currentUrl': current?.toString(),
-        'targetUrl': target.toString(),
-      },
-    );
     _startReadinessEpoch();
     await controller.loadUrl(
       urlRequest: URLRequest(url: WebUri(target.toString())),
@@ -825,28 +841,12 @@ class BrowserHostSession {
   NavigationActionPolicy handleNavigation(NavigationAction action) {
     final completer = _pendingFormSubmission;
     final uri = action.request.url;
-    if (action.isForMainFrame && uri != null) {
-      final accepted =
-          completer != null && (_activeNavigationPolicy?.accepts(uri) ?? false);
-      _log.infoWithMetadata(
-        'Browser main-frame navigation observed',
-        metadata: {
-          'host': host,
-          'method': action.request.method,
-          'url': uri.toString(),
-          'formSubmissionPending': completer != null,
-          'leavesSessionHost': uri.host.toLowerCase() != host,
-          'acceptedAsResult': accepted,
-        },
-      );
-    }
     if (completer == null ||
         uri == null ||
         !action.isForMainFrame ||
         uri.host.toLowerCase() == host) {
       return NavigationActionPolicy.ALLOW;
     }
-
     _expectedNavigationAbortUrl = uri.toString();
     _markReadyAfterCancelledNavigation();
     if (!completer.isCompleted) {
@@ -1175,9 +1175,9 @@ class BrowserHostSession {
   void _failPending(String message) {
     final error = BrowserTransportException(message);
     _failPendingFetches(message);
-    final formSubmission = _pendingFormSubmission;
-    if (formSubmission != null && !formSubmission.isCompleted) {
-      formSubmission.completeError(error);
+    final submission = _pendingFormSubmission;
+    if (submission != null && !submission.isCompleted) {
+      submission.completeError(error);
     }
     _pendingFormSubmission = null;
   }
@@ -1223,8 +1223,6 @@ class BrowserHostSession {
     dotAll: true,
   ).firstMatch(html)?.group(1)?.toLowerCase();
 
-  BrowserNavigationPolicy? _activeNavigationPolicy;
-
   Future<T> _runExclusiveNavigation<T>(Future<T> Function() operation) async {
     return _operationLock.exclusive(() async {
       try {
@@ -1234,6 +1232,8 @@ class BrowserHostSession {
       }
     });
   }
+
+  BrowserNavigationPolicy? _activeNavigationPolicy;
 }
 
 extension<T> on Iterable<T> {
