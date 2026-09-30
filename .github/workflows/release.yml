@@ -537,6 +537,9 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          if ($env:ARCHITECTURE -eq 'arm64') {
+            $env:CL = "$env:CL /D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"
+          }
           flutter build windows --release `
             --build-name $env:VERSION `
             --build-number $env:BUILD_NUMBER `
