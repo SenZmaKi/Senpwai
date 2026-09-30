@@ -60,6 +60,7 @@ Future<void> main(List<String> args) async {
         client,
         Uri.https('oauth.reddit.com', '/api/submit'),
         {
+          'api_type': 'json',
           'title': title,
           'kind': 'self',
           'sr': 'Senpwai',
@@ -135,7 +136,7 @@ Future<String> _post(
   for (final entry in headers.entries) {
     request.headers.set(entry.key, entry.value);
   }
-  request.write(body);
+  request.add(utf8.encode(body));
   final response = await request.close();
   final text = await utf8.decoder.bind(response).join();
   if (response.statusCode < 200 || response.statusCode >= 300) {

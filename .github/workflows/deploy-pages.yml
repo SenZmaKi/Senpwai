@@ -205,4 +205,5 @@ jobs:
           gh workflow run announce-release.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref master \
-            -f release_tag="$RELEASE_TAG"
+            -f release_tag="$RELEASE_TAG" \
+            -f destination=all

@@ -7,6 +7,15 @@ on:
         description: Published release tag to announce
         required: true
         type: string
+      destination:
+        description: Announcement destination
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - discord
+          - reddit
 
 permissions:
   contents: read
@@ -68,6 +77,7 @@ jobs:
   discord:
     name: Announce on Discord
     needs: verify
+    if: ${{ inputs.destination == 'all' || inputs.destination == 'discord' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -76,11 +86,12 @@ jobs:
           sdk: stable
       - env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-        run: dart run tool/announce_release.dart discord "${{ needs.verify.outputs.version }}"
+        run: dart tool/announce_release.dart discord "${{ needs.verify.outputs.version }}"
 
   reddit:
     name: Announce on Reddit
     needs: verify
+    if: ${{ inputs.destination == 'all' || inputs.destination == 'reddit' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -92,4 +103,4 @@ jobs:
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
           REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
           REDDIT_PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
-        run: dart run tool/announce_release.dart reddit "${{ needs.verify.outputs.version }}"
+        run: dart tool/announce_release.dart reddit "${{ needs.verify.outputs.version }}"

@@ -36,7 +36,8 @@ After a release-related Pages deployment succeeds, it dispatches
 `.github/workflows/announce-release.yml`. Discord and Reddit are independent
 jobs, so GitHub's **Re-run failed jobs** action retries only the failed
 destination. The announcement workflow can also be started manually with a
-specific published release tag.
+specific published release tag and either all destinations or one selected
+destination.
 
 Stable clients only consume stable manifest entries. Prerelease clients consume
 both prerelease and stable entries so they automatically graduate to the final
