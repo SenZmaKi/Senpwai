@@ -23,10 +23,20 @@ The workflow builds these artifacts in parallel:
 - unsigned Windows Inno Setup installers for x64 and ARM64.
 
 After every build succeeds, the workflow creates a draft GitHub release with
-the checked-in notes and uploads all assets. It then publishes the release,
-deploys the signed update feeds, and posts the notes to Discord and Reddit.
-A prerelease version is published with GitHub's prerelease flag. Announcements
-run only after the release and update feed jobs succeed.
+the checked-in notes, an `update-entry.json`, and all platform assets. It then
+publishes the release and dispatches `.github/workflows/deploy-pages.yml`.
+A prerelease version is published with GitHub's prerelease flag.
+
+The Pages workflow is the only workflow allowed to replace `senpwai.com`. It
+combines repository content with the update entries and appcasts stored on
+published GitHub Releases, signs the complete metadata, and deploys one atomic
+Pages artifact. It never reads the existing live site as an input.
+
+After a release-related Pages deployment succeeds, it dispatches
+`.github/workflows/announce-release.yml`. Discord and Reddit are independent
+jobs, so GitHub's **Re-run failed jobs** action retries only the failed
+destination. The announcement workflow can also be started manually with a
+specific published release tag.
 
 Stable clients only consume stable manifest entries. Prerelease clients consume
 both prerelease and stable entries so they automatically graduate to the final

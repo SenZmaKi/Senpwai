@@ -653,6 +653,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
       VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
       IS_PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
     steps:
       - name: Check out repository
@@ -664,6 +666,82 @@ jobs:
           pattern: release-*
           path: release-assets
           merge-multiple: true
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Build release update entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          descriptor="$RUNNER_TEMP/release.json"
+          entry="$GITHUB_WORKSPACE/release-assets/update-entry.json"
+          empty_manifest="$RUNNER_TEMP/empty-update-manifest.json"
+          artifacts='[]'
+
+          for architecture in arm arm64 x64; do
+            name="Senpwai-${VERSION}-${architecture}.apk"
+            path="$GITHUB_WORKSPACE/release-assets/$name"
+            test -f "$path"
+            (cd "$(dirname "$path")" && sha256sum --check "${name}.sha256")
+            artifacts="$(jq \
+              --arg platform android \
+              --arg architecture "$architecture" \
+              --arg path "$path" \
+              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${name}" \
+              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
+              <<<"$artifacts")"
+          done
+
+          for mapping in 'x86_64:x64' 'aarch64:arm64'; do
+            package_architecture="${mapping%%:*}"
+            manifest_architecture="${mapping##*:}"
+            name="Senpwai-${VERSION}-${package_architecture}.AppImage"
+            path="$GITHUB_WORKSPACE/release-assets/$name"
+            test -f "$path"
+            (cd "$(dirname "$path")" && sha256sum --check "${name}.sha256")
+            artifacts="$(jq \
+              --arg platform linux \
+              --arg architecture "$manifest_architecture" \
+              --arg path "$path" \
+              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${name}" \
+              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
+              <<<"$artifacts")"
+          done
+
+          for architecture in x64 arm64; do
+            name="Senpwai-windows-${architecture}-setup.exe"
+            path="$GITHUB_WORKSPACE/release-assets/$name"
+            test -f "$path"
+            (cd "$(dirname "$path")" && sha256sum --check "${name}.sha256")
+            artifacts="$(jq \
+              --arg platform windows \
+              --arg architecture "$architecture" \
+              --arg path "$path" \
+              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${name}" \
+              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
+              <<<"$artifacts")"
+          done
+
+          jq -n \
+            --arg version "$VERSION" \
+            --argjson build "$BUILD_NUMBER" \
+            --arg channel "$RELEASE_CHANNEL" \
+            --arg notes "Senpwai $VERSION" \
+            --argjson artifacts "$artifacts" \
+            '{version: $version, build: $build, channel: $channel, mandatory: false, notes: $notes, artifacts: $artifacts}' \
+            > "$descriptor"
+          printf '%s\n' '{"schemaVersion":1,"releases":[]}' > "$empty_manifest"
+
+          cd source-directory/signer
+          dart pub get
+          dart run bin/build_update_feeds.dart \
+            --release "$descriptor" \
+            --manifest "$empty_manifest" \
+            --appcast "$RUNNER_TEMP/unused-appcast.xml"
+          cp "$empty_manifest" "$entry"
 
       - name: Create complete draft release
         shell: bash
@@ -695,180 +773,13 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --clobber
 
-  deploy-update-feed:
-    name: Deploy signed update feeds
-    needs: [prepare, publish]
-    runs-on: ubuntu-latest
-    concurrency:
-      group: pages
-      cancel-in-progress: false
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    env:
-      VERSION: ${{ needs.prepare.outputs.version }}
-      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
-      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-      RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
-      APPCAST_NAME: ${{ needs.prepare.outputs.prerelease == 'true' && 'appcast-prerelease.xml' || 'appcast.xml' }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Dart
-        uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: website/package-lock.json
-
-      - name: Download release assets
-        uses: actions/download-artifact@v8
-        with:
-          pattern: release-*
-          path: release-assets
-          merge-multiple: true
-
-      - name: Build combined update manifest
-        shell: bash
-        run: |
-          set -euo pipefail
-          descriptor="$RUNNER_TEMP/release.json"
-          manifest="$RUNNER_TEMP/update-manifest.payload.json"
-          signed_manifest="$RUNNER_TEMP/current-update-manifest.json"
-
-          cd source-directory/signer
-          dart pub get
-          cd "$GITHUB_WORKSPACE"
-          if curl --fail --location --retry 4 --retry-all-errors \
-            https://senpwai.com/update-manifest.json \
-            --output "$signed_manifest"; then
-            (
-              cd source-directory/signer
-              dart run bin/verify.dart \
-                --input "$signed_manifest" \
-                --output "$manifest" \
-                --public-key '/k0TtLWNnHf6fSg+X3QyZx1IUDcGb4f0ZMmjvHVK0hg='
-            )
-          else
-            cp update-manifest/update_manifest.payload.json "$manifest"
-          fi
-
-          artifacts='[]'
-
-          for architecture in arm arm64 x64; do
-            apk_name="Senpwai-${VERSION}-${architecture}.apk"
-            asset="${GITHUB_WORKSPACE}/release-assets/${apk_name}"
-            test -f "$asset"
-            (cd "$(dirname "$asset")" && sha256sum --check "${apk_name}.sha256")
-            artifacts="$(jq \
-              --arg platform android \
-              --arg architecture "$architecture" \
-              --arg path "$asset" \
-              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${apk_name}" \
-              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
-              <<<"$artifacts")"
-          done
-
-          for mapping in 'x86_64:x64' 'aarch64:arm64'; do
-            appimage_architecture="${mapping%%:*}"
-            manifest_architecture="${mapping##*:}"
-            appimage_name="Senpwai-${VERSION}-${appimage_architecture}.AppImage"
-            asset="${GITHUB_WORKSPACE}/release-assets/${appimage_name}"
-            test -f "$asset"
-            (
-              cd "$(dirname "$asset")"
-              sha256sum --check "${appimage_name}.sha256"
-            )
-            artifacts="$(jq \
-              --arg platform linux \
-              --arg architecture "$manifest_architecture" \
-              --arg path "$asset" \
-              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${appimage_name}" \
-              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
-              <<<"$artifacts")"
-          done
-
-          for architecture in x64 arm64; do
-            installer_name="Senpwai-windows-${architecture}-setup.exe"
-            asset="${GITHUB_WORKSPACE}/release-assets/${installer_name}"
-            test -f "$asset"
-            (cd "$(dirname "$asset")" && sha256sum --check "${installer_name}.sha256")
-            artifacts="$(jq \
-              --arg platform windows \
-              --arg architecture "$architecture" \
-              --arg path "$asset" \
-              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${installer_name}" \
-              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
-              <<<"$artifacts")"
-          done
-
-          jq -n \
-            --arg version "$VERSION" \
-            --argjson build "$BUILD_NUMBER" \
-            --arg notes "Senpwai $VERSION" \
-            --arg channel "$RELEASE_CHANNEL" \
-            --argjson artifacts "$artifacts" \
-            '{version: $version, build: $build, channel: $channel, mandatory: false, notes: $notes, artifacts: $artifacts}' \
-            > "$descriptor"
-          cd source-directory/signer
-          dart run bin/build_update_feeds.dart \
-            --release "$descriptor" \
-            --manifest "$manifest" \
-            --appcast "$RUNNER_TEMP/unused-appcast.xml"
-
-      - name: Build Pages content
-        shell: bash
-        env:
-          SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
-          UPDATE_MANIFEST_PRIVATE_KEY: ${{ secrets.UPDATE_MANIFEST_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
-          npm ci --prefix website
-          npm run astro --prefix website -- check
-          npm run --prefix website build
-          mkdir -p site
-          cp -R website/dist/. site/
-          cp "release-assets/$APPCAST_NAME" "site/$APPCAST_NAME"
-          if [[ "$RELEASE_CHANNEL" == "stable" ]]; then
-            cp "release-assets/$APPCAST_NAME" site/appcast-prerelease.xml
-          fi
-          cd source-directory/signer
-          dart run bin/sign.dart \
-            --input ../source_directory.payload.json \
-            --output ../../site/source-directory.json
-          dart run bin/sign.dart \
-            --input "$RUNNER_TEMP/update-manifest.payload.json" \
-            --output ../../site/update-manifest.json \
-            --private-key-environment UPDATE_MANIFEST_PRIVATE_KEY
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v6
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: site
-
-      - name: Deploy signed update feeds
-        id: deployment
-        uses: actions/deploy-pages@v5
-
   publish:
     name: Publish GitHub release
     needs: [prepare, stage-release]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
@@ -893,32 +804,20 @@ jobs:
               --latest
           fi
 
+      - name: Request Pages projection
+        shell: bash
+        run: |
+          gh workflow run deploy-pages.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref master \
+            -f release_tag="$RELEASE_TAG" \
+            -f announce=true
+
       - name: Add workflow summary
         shell: bash
         run: |
           {
             echo "## Senpwai $VERSION"
             echo
-            echo "Published $RELEASE_TAG with Android APKs, Linux x86_64/aarch64 AppImages, Windows x64/ARM64 installers, the macOS universal build, signed update feeds, and checksums."
+            echo "Published $RELEASE_TAG with Android APKs, Linux x86_64/aarch64 AppImages, Windows x64/ARM64 installers, the macOS universal build, update metadata, and checksums."
           } >> "$GITHUB_STEP_SUMMARY"
-
-  announce:
-    name: Announce published release
-    needs: [prepare, deploy-update-feed]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
-      - name: Announce on Discord
-        env:
-          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-        run: dart run tool/announce_release.dart discord "${{ needs.prepare.outputs.version }}"
-      - name: Announce on Reddit
-        env:
-          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-          REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
-          REDDIT_PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
-        run: dart run tool/announce_release.dart reddit "${{ needs.prepare.outputs.version }}"

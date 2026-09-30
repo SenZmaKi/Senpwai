@@ -24,11 +24,14 @@ The public keys provisioned before the v3.0.0 launch are:
 
 ## Workflow ownership
 
-- `deploy-source-directory.yml` signs `source-directory.json` with the source
-  directory key and `update-manifest.json` with the update-manifest key.
-- `release.yml` signs the combined Android, Linux, and Windows update manifest
-  with the update-manifest key and signs the macOS ZIP referenced by the stable
-  or prerelease Sparkle appcast with the Sparkle key.
+- `deploy-pages.yml` is the sole Pages owner. It signs `source-directory.json`
+  with the source-directory key and the release-derived `update-manifest.json`
+  with the update-manifest key.
+- `release.yml` publishes an unsigned `update-entry.json` describing the
+  checksummed Android, Linux, and Windows artifacts. It also signs the macOS ZIP
+  referenced by the stable or prerelease Sparkle appcast with the Sparkle key.
+- `announce-release.yml` verifies that the published release appears in the
+  signed live manifest before independently announcing to Discord and Reddit.
 - GitHub's workflow token publishes Pages and Releases. It is not an artifact
   signing key.
 - macOS currently uses ad-hoc bundle signing. The Sparkle key authenticates the

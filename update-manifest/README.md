@@ -1,7 +1,9 @@
 # Senpwai update feeds
 
-`update_manifest.payload.json` is the source of truth for Android, Windows, and
-Linux updates. GitHub Pages signs and publishes it as `update-manifest.json`.
+`update_manifest.payload.json` is the repository seed for Android, Windows, and
+Linux updates. Every published v3 release carries an `update-entry.json` asset.
+The Pages workflow combines the seed with all published release entries, then
+signs and publishes the result as `update-manifest.json`.
 The workflow uses the `UPDATE_MANIFEST_PRIVATE_KEY` Actions secret, and the app
 verifies the envelope with `updateManifestPublicKeyBase64`.
 
@@ -25,8 +27,11 @@ Artifact requirements:
   if that policy changes.
 
 Release assets are staged in a draft and checksummed before publication. The
-signed update feed is deployed after publication so its URLs resolve for users.
-The update manifest accepts only HTTPS GitHub release URLs.
+release workflow publishes an update entry and then requests the independent
+Pages workflow. Pages is the sole owner of `senpwai.com`; it builds the complete
+site from repository state and published GitHub Releases without reading from
+the existing live site. The update manifest accepts only HTTPS GitHub release
+URLs.
 
 For the current unpaid macOS distribution path, Xcode ad-hoc signs the app and
 the `Seal Nested Helpers` phase repairs LaunchAtLogin's post-signature bundle-ID
@@ -56,8 +61,10 @@ and the complete nested signature structure, packages a human-facing DMG and
 Sparkle ZIP, generates the signed appcast and checksums, and uploads the assets
 to a draft GitHub release.
 Only after every asset exists does the publish job make the release public and
-move GitHub's `latest` release pointer. Pages then deploys the signed update
-feed and prerelease appcast. The announcement job runs after Pages succeeds.
+move GitHub's `latest` release pointer. It then dispatches the independent Pages
+workflow. After Pages deploys and verifies the release is represented in the
+public manifest, it dispatches the announcement workflow. Discord and Reddit
+are separate jobs so a failed destination can be retried independently.
 
 ## Prereleases
 

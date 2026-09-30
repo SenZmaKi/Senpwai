@@ -1,0 +1,95 @@
+name: Announce release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published release tag to announce
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: announce-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify published release state
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Verify release and deployed manifest
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]
+          is_draft="$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft \
+            --jq .isDraft)"
+          [[ "$is_draft" == false ]]
+
+          dart pub get --directory source-directory/signer
+          curl --fail --silent --show-error --location \
+            --retry 4 --retry-all-errors \
+            https://senpwai.com/update-manifest.json \
+            --output "$RUNNER_TEMP/update-manifest.json"
+          (
+            cd source-directory/signer
+            dart run bin/verify.dart \
+              --input "$RUNNER_TEMP/update-manifest.json" \
+              --output "$RUNNER_TEMP/update-manifest.payload.json" \
+              --public-key '/k0TtLWNnHf6fSg+X3QyZx1IUDcGb4f0ZMmjvHVK0hg='
+          )
+
+          version="${RELEASE_TAG#v}"
+          jq -e --arg version "$version" \
+            '.releases[] | select(.version == $version)' \
+            "$RUNNER_TEMP/update-manifest.payload.json" >/dev/null
+          test -f "release-notes/$version.md"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  discord:
+    name: Announce on Discord
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: dart run tool/announce_release.dart discord "${{ needs.verify.outputs.version }}"
+
+  reddit:
+    name: Announce on Reddit
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
+          REDDIT_PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
+        run: dart run tool/announce_release.dart reddit "${{ needs.verify.outputs.version }}"

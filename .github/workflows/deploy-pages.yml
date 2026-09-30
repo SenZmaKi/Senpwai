@@ -1,0 +1,208 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - website/**
+      - source-directory/**
+      - update-manifest/**
+      - .github/workflows/deploy-pages.yml
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published release whose deployment should be announced
+        required: false
+        type: string
+      announce:
+        description: Announce the release after a successful deployment
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          dart pub get --directory source-directory/signer
+          npm ci --prefix website
+
+      - name: Check and build website
+        run: |
+          npm run astro --prefix website -- check
+          npm run --prefix website build
+
+      - name: Build update state from published releases
+        id: update-state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          state_dir="$RUNNER_TEMP/pages-state"
+          entries_dir="$state_dir/update-entries"
+          mkdir -p "$entries_dir"
+          cp update-manifest/update_manifest.payload.json "$state_dir/base-manifest.json"
+
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft == false) | .assets[] | select(.name == "update-entry.json") | [.id, .url] | @tsv' \
+            > "$state_dir/update-entry-assets.tsv"
+
+          while IFS=$'\t' read -r asset_id asset_url; do
+            [[ -n "$asset_id" ]] || continue
+            gh api "$asset_url" -H 'Accept: application/octet-stream' > "$entries_dir/$asset_id.json"
+          done < "$state_dir/update-entry-assets.tsv"
+
+          entry_files=("$entries_dir"/*.json)
+          if [[ -e "${entry_files[0]}" ]]; then
+            jq -s '
+              reduce .[] as $document (
+                {schemaVersion: 1, releases: []};
+                reduce ($document.releases // [])[] as $release (
+                  .;
+                  .releases = (
+                    [.releases[] | select(.version != $release.version or .build != $release.build)]
+                    + [$release]
+                  )
+                )
+              )
+              | .releases |= sort_by(.build)
+              | .generatedAt = (now | todateiso8601)
+              | .expiresAt = ((now + 31536000) | todateiso8601)
+            ' "$state_dir/base-manifest.json" "${entry_files[@]}" \
+              > "$state_dir/update-manifest.payload.json"
+          else
+            cp "$state_dir/base-manifest.json" "$state_dir/update-manifest.payload.json"
+          fi
+
+          if [[ -n "$RELEASE_TAG" ]]; then
+            release_json="$(gh release view "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json isDraft,tagName,assets)"
+            [[ "$(jq -r .isDraft <<<"$release_json")" == false ]]
+            jq -e '.assets[] | select(.name == "update-entry.json")' \
+              <<<"$release_json" >/dev/null
+            version="${RELEASE_TAG#v}"
+            jq -e --arg version "$version" \
+              '.releases[] | select(.version == $version)' \
+              "$state_dir/update-manifest.payload.json" >/dev/null
+          fi
+
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            | jq '[.[][]]' > "$state_dir/releases.json"
+
+          jq -r '
+            [.[]
+              | select(.draft == false and .prerelease == false)
+              | .assets[]
+              | select(.name == "appcast.xml")
+              | .url][0] // empty
+          ' "$state_dir/releases.json" > "$state_dir/stable-appcast-url"
+          jq -r '
+            [.[]
+              | select(.draft == false and .prerelease == true)
+              | .assets[]
+              | select(.name == "appcast-prerelease.xml")
+              | .url][0] // empty
+          ' "$state_dir/releases.json" > "$state_dir/prerelease-appcast-url"
+
+          stable_url="$(cat "$state_dir/stable-appcast-url")"
+          prerelease_url="$(cat "$state_dir/prerelease-appcast-url")"
+          if [[ -n "$stable_url" ]]; then
+            gh api "$stable_url" -H 'Accept: application/octet-stream' \
+              > "$state_dir/appcast.xml"
+          fi
+          if [[ -n "$prerelease_url" ]]; then
+            gh api "$prerelease_url" -H 'Accept: application/octet-stream' \
+              > "$state_dir/appcast-prerelease.xml"
+          fi
+
+          if [[ -f "$state_dir/appcast.xml" ]]; then
+            stable_build="$(sed -n 's/.*sparkle:version="\([0-9][0-9]*\)".*/\1/p' "$state_dir/appcast.xml" | head -n1)"
+            prerelease_build="$(sed -n 's/.*sparkle:version="\([0-9][0-9]*\)".*/\1/p' "$state_dir/appcast-prerelease.xml" 2>/dev/null | head -n1)"
+            if [[ -z "$prerelease_build" || "$stable_build" -ge "$prerelease_build" ]]; then
+              cp "$state_dir/appcast.xml" "$state_dir/appcast-prerelease.xml"
+            fi
+          fi
+
+          echo "state_dir=$state_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble and sign Pages artifact
+        shell: bash
+        env:
+          SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
+          UPDATE_MANIFEST_PRIVATE_KEY: ${{ secrets.UPDATE_MANIFEST_PRIVATE_KEY }}
+          STATE_DIR: ${{ steps.update-state.outputs.state_dir }}
+        run: |
+          set -euo pipefail
+          mkdir -p site
+          cp -R website/dist/. site/
+          for feed in appcast.xml appcast-prerelease.xml; do
+            if [[ -f "$STATE_DIR/$feed" ]]; then
+              cp "$STATE_DIR/$feed" "site/$feed"
+            fi
+          done
+
+          cd source-directory/signer
+          dart run bin/sign.dart \
+            --input ../source_directory.payload.json \
+            --output ../../site/source-directory.json
+          dart run bin/sign.dart \
+            --input "$STATE_DIR/update-manifest.payload.json" \
+            --output ../../site/update-manifest.json \
+            --private-key-environment UPDATE_MANIFEST_PRIVATE_KEY
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - name: Deploy complete Pages state
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+      - name: Request release announcement
+        if: ${{ inputs.announce && inputs.release_tag != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          gh workflow run announce-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref master \
+            -f release_tag="$RELEASE_TAG"
