@@ -752,10 +752,7 @@ jobs:
           set -euo pipefail
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
-            if [[ "$is_draft" != "true" ]]; then
-              echo "Published release $RELEASE_TAG already exists; refusing to overwrite it" >&2
-              exit 1
-            fi
+            echo "Updating existing $([[ "$is_draft" == "true" ]] && echo draft || echo published) release $RELEASE_TAG"
           else
             release_flags=()
             if [[ "$IS_PRERELEASE" == "true" ]]; then
@@ -794,17 +791,18 @@ jobs:
         run: |
           set -euo pipefail
           is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
-          test "$is_draft" = "true"
-          if [[ "$IS_PRERELEASE" == "true" ]]; then
-            gh release edit "$RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --draft=false \
-              --prerelease
-          else
-            gh release edit "$RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --draft=false \
-              --latest
+          if [[ "$is_draft" == "true" ]]; then
+            if [[ "$IS_PRERELEASE" == "true" ]]; then
+              gh release edit "$RELEASE_TAG" \
+                --repo "$GITHUB_REPOSITORY" \
+                --draft=false \
+                --prerelease
+            else
+              gh release edit "$RELEASE_TAG" \
+                --repo "$GITHUB_REPOSITORY" \
+                --draft=false \
+                --latest
+            fi
           fi
 
       - name: Request Pages projection
