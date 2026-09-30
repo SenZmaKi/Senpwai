@@ -1,0 +1,185 @@
+import 'package:collection/collection.dart';
+import 'package:senpwai/sources/shared/shared.dart';
+import 'package:anitomy_dart/anitomy_dart.dart' as anitomy;
+
+final _ani = anitomy.Anitomy();
+
+class AnitomyParseResult {
+  int? season;
+  int? episode;
+  String? title;
+  Language? language;
+  Resolution? resolution;
+  List<String> animeTypes;
+  List<String> audioTerms;
+  List<String> subtitles;
+  List<String> releaseInformation;
+
+  AnitomyParseResult({
+    this.season,
+    this.episode,
+    this.title,
+    this.language,
+    this.resolution,
+    this.animeTypes = const [],
+    this.audioTerms = const [],
+    this.subtitles = const [],
+    this.releaseInformation = const [],
+  });
+
+  @override
+  String toString() =>
+      "AnitomyParseResult(season: $season, episode: $episode, title: $title, language: $language, resolution: $resolution, animeTypes: $animeTypes, audioTerms: $audioTerms, subtitles: $subtitles, releaseInformation: $releaseInformation)";
+}
+
+T? _parseCategory<T>({
+  required List<anitomy.ElementPair> elements,
+  required anitomy.ElementCategory category,
+  required T? Function(String elementValue) parser,
+}) {
+  final element = elements.firstWhereOrNull(
+    (element) => element.category == category,
+  );
+  if (element == null) return null;
+  return parser(element.value);
+}
+
+List<T> _parseCategories<T>({
+  required List<anitomy.ElementPair> elements,
+  required anitomy.ElementCategory category,
+  required T Function(String elementValue) parser,
+}) {
+  return [
+    for (final element in elements.where(
+      (element) => element.category == category,
+    ))
+      parser(element.value),
+  ];
+}
+
+final _seasonSuffixPattern = RegExp(
+  r'^第?\s*(\d{1,3})\s*(?:期|cour|クール)$',
+  caseSensitive: false,
+);
+final _japaneseTitleSeasonSuffixPattern = RegExp(
+  r'\s+第?\s*(\d{1,3})\s*(?:期|クール)\s*$',
+  caseSensitive: false,
+);
+
+bool _looksLikeSeasonMarker(String elementValue) =>
+    _seasonSuffixPattern.hasMatch(elementValue.trim());
+
+int? _parseIntElement(
+  String? elementValue, {
+  required anitomy.ElementCategory category,
+  bool allowSeasonMarkers = false,
+}) {
+  if (elementValue == null) return null;
+  final trimmedValue = elementValue.trim();
+  final directValue = int.tryParse(trimmedValue);
+  if (directValue != null) return directValue;
+
+  if (allowSeasonMarkers) {
+    final seasonMatch = _seasonSuffixPattern.firstMatch(trimmedValue);
+    final seasonValue = seasonMatch?.group(1);
+    if (seasonValue != null) {
+      return int.tryParse(seasonValue);
+    }
+  }
+
+  return null;
+}
+
+AnitomyParseResult parseFilename(String filename) {
+  _ani.parse(filename);
+  final elements = _ani.elements.items.toList();
+  final rawSeason = _parseCategory(
+    elements: elements,
+    category: anitomy.ElementCategory.animeSeason,
+    parser: (elementValue) => elementValue,
+  );
+  final rawEpisode = _parseCategory(
+    elements: elements,
+    category: anitomy.ElementCategory.episodeNumber,
+    parser: (elementValue) => elementValue,
+  );
+  final season =
+      _parseIntElement(
+        rawSeason,
+        category: anitomy.ElementCategory.animeSeason,
+        allowSeasonMarkers: true,
+      ) ??
+      (_looksLikeSeasonMarker(rawEpisode ?? '')
+          ? _parseIntElement(
+              rawEpisode,
+              category: anitomy.ElementCategory.episodeNumber,
+              allowSeasonMarkers: true,
+            )
+          : null);
+  final episode = _looksLikeSeasonMarker(rawEpisode ?? '')
+      ? null
+      : _parseIntElement(
+          rawEpisode,
+          category: anitomy.ElementCategory.episodeNumber,
+        );
+  final rawTitle = _parseCategory(
+    elements: elements,
+    category: anitomy.ElementCategory.animeTitle,
+    parser: (elementValue) => elementValue,
+  );
+  final titleSeasonMatch = rawTitle == null
+      ? null
+      : _japaneseTitleSeasonSuffixPattern.firstMatch(rawTitle);
+  final resolvedSeason =
+      season ?? int.tryParse(titleSeasonMatch?.group(1) ?? '');
+  final title = titleSeasonMatch == null
+      ? rawTitle
+      : rawTitle!.replaceFirst(_japaneseTitleSeasonSuffixPattern, '').trim();
+  final language = _parseCategory(
+    elements: elements,
+    category: anitomy.ElementCategory.language,
+    parser: (elementValue) => switch (elementValue.toUpperCase()) {
+      "ENGLISH" => Language.english,
+      "JAPANESE" => Language.japanese,
+      _ => null,
+    },
+  );
+  final resolution = _parseCategory(
+    elements: elements,
+    category: anitomy.ElementCategory.videoResolution,
+    parser: parseResolution,
+  );
+  final animeTypes = _parseCategories(
+    elements: elements,
+    category: anitomy.ElementCategory.animeType,
+    parser: (elementValue) => elementValue,
+  );
+  final audioTerms = _parseCategories(
+    elements: elements,
+    category: anitomy.ElementCategory.audioTerm,
+    parser: (elementValue) => elementValue,
+  );
+  final subtitles = _parseCategories(
+    elements: elements,
+    category: anitomy.ElementCategory.subtitles,
+    parser: (elementValue) => elementValue,
+  );
+  final releaseInformation = _parseCategories(
+    elements: elements,
+    category: anitomy.ElementCategory.releaseInformation,
+    parser: (elementValue) => elementValue,
+  );
+
+  final anitomyParseResult = AnitomyParseResult(
+    season: resolvedSeason,
+    episode: episode,
+    title: title,
+    language: language,
+    resolution: resolution,
+    animeTypes: animeTypes,
+    audioTerms: audioTerms,
+    subtitles: subtitles,
+    releaseInformation: releaseInformation,
+  );
+  return anitomyParseResult;
+}

@@ -1,0 +1,751 @@
+import 'dart:math';
+import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
+import 'package:logging/logging.dart';
+import 'package:senpwai/sources/shared/shared.dart';
+import 'package:senpwai/shared/shared.dart';
+import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/net/net_config.dart';
+import 'package:senpwai/shared/net/browser_transport/browser_transport.dart';
+import 'package:senpwai/shared/net/browser_transport/routing.dart';
+import 'package:senpwai/shared/source_directory/source_directory.dart';
+import 'package:html/dom.dart' as html;
+import 'package:senpwai/shared/shared.dart' as shared;
+import 'package:senpwai/shared/log.dart';
+
+final log = Logger("senpwai.anime.sources.animepahe");
+
+class DownloadLinkMatchException implements Exception {
+  final String message;
+
+  DownloadLinkMatchException(this.message);
+
+  @override
+  String toString() => 'DownloadLinkMatchException: $message';
+}
+
+class AnimeResult {
+  int id;
+  String title;
+  String type;
+  int episodes;
+  String status;
+  String season;
+  int year;
+  double score;
+  String poster;
+  String session;
+
+  AnimeResult({
+    required this.id,
+    required this.title,
+    required this.type,
+    required this.episodes,
+    required this.status,
+    required this.season,
+    required this.year,
+    required this.score,
+    required this.poster,
+    required this.session,
+  });
+
+  factory AnimeResult.fromJson(Map<String, dynamic> json) => AnimeResult(
+    id: json["id"],
+    title: json["title"],
+    type: json["type"],
+    episodes: json["episodes"],
+    status: json["status"],
+    season: json["season"],
+    year: json["year"],
+    score: (json["score"] as num?)?.toDouble() ?? 0.0,
+    poster: json["poster"],
+    session: json["session"],
+  );
+
+  @override
+  String toString() {
+    return "AnimeResult(id: $id, title: $title, type: $type, episodes: $episodes, status: $status, season: $season, year: $year, score: $score, poster: $poster, session: $session)";
+  }
+}
+
+class Constants {
+  static String get paheDomain => Uri.parse(paheHome).host;
+  static String get paheHome => SourceDirectory.instance.animePahe.baseUrl;
+  static String get apiEntryPoint =>
+      SourceDirectory.instance.animePahe.apiEntryPoint!;
+  static const englishSuffix = "eng";
+
+  static final estimatedSizeRegex = RegExp(r"\b(\d+)MB\b");
+  // When you change this you also have to change the regex below
+  static String get kwikDomain => Uri.parse(kwikHome).host;
+  static String get kwikHome => SourceDirectory.instance.kwik.baseUrl;
+  static RegExp get kwikLinkRegex =>
+      RegExp('https?://${RegExp.escape(kwikDomain)}/f/([^\\"\']+)');
+  static final kwikParamRegex = RegExp(
+    r"""\(\"(\w+)\",\d+,\"(\w+)\",(\d+),(\d+),(\d+)\)""",
+  );
+  static final kwikCharMap =
+      "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/";
+  static final kwikCharMapBase = 10;
+  static final kwikCharMapDigits = kwikCharMap.substring(0, kwikCharMapBase);
+
+  static String buildEpisodePageUrl(
+    String animeSession,
+    String episodeSession,
+  ) => "${Constants.paheHome}/play/$animeSession/$episodeSession";
+}
+
+class SearchParams {
+  final String term;
+  final int page;
+
+  SearchParams({required this.term, this.page = 1});
+
+  @override
+  String toString() {
+    return "SearchParams(term: $term, page: $page)";
+  }
+}
+
+class EpisodePageRange {
+  final int startPageNum;
+  final int endPageNum;
+  final int total;
+  final Map<String, dynamic> firstPageJson;
+
+  EpisodePageRange({
+    required this.startPageNum,
+    required this.endPageNum,
+    required this.total,
+    required this.firstPageJson,
+  });
+
+  @override
+  String toString() {
+    return "EpisodePageRange(startPageNum: $startPageNum, endPageNum: $endPageNum, total: $total, firstPageJson: $firstPageJson)";
+  }
+}
+
+class EpisodeSession {
+  final String session;
+  final int number;
+
+  EpisodeSession({required this.session, required this.number});
+
+  @override
+  String toString() => "EpisodeSession(session: $session, number: $number)";
+}
+
+class DownloadLink {
+  final String animeTitle;
+  final int episodeNumber;
+  final String filename;
+  final String url;
+  final String refererUrl;
+  final int estimatedSizeBytes;
+  final Language audioLanguage;
+  final Resolution resolution;
+
+  DownloadLink({
+    required this.animeTitle,
+    required this.episodeNumber,
+    required this.filename,
+    required this.url,
+    required this.refererUrl,
+    required this.estimatedSizeBytes,
+    required this.audioLanguage,
+    required this.resolution,
+  });
+
+  @override
+  String toString() {
+    return "DownloadLink(animeTItle: $animeTitle, episodeNumber: $episodeNumber, filename: $filename, url: $url, refererUrl: $refererUrl, estimatedSizeBytes: $estimatedSizeBytes, audioLanguage: $audioLanguage, resolution: $resolution)";
+  }
+}
+
+class DirectDownloadLink {
+  final String animeTitle;
+  final int episodeNumber;
+  final String filename;
+  final String url;
+  final String refererUrl;
+
+  DirectDownloadLink({
+    required this.animeTitle,
+    required this.episodeNumber,
+    required this.filename,
+    required this.url,
+    required this.refererUrl,
+  });
+  @override
+  String toString() {
+    return "DirectDownloadLink(animeTitle: $animeTitle, episodeNumber: $episodeNumber, filename: $filename, url: $url, refererUrl: $refererUrl)";
+  }
+}
+
+class Source {
+  final Dio _dio;
+  static bool _isDioConfigured = false;
+  static final Source _instance = Source._internal();
+
+  Source._internal() : _dio = GlobalDio.getInstance();
+
+  static Source getInstance() => _instance;
+
+  static Future<void> ensureInitialized() async {
+    if (_isDioConfigured) return;
+    GlobalDio.getInstance();
+    _isDioConfigured = true;
+  }
+
+  Future<Pagination<List<AnimeResult>>> search({
+    required SearchParams params,
+  }) async {
+    await SourceDirectory.waitForRefresh();
+    final url = apiUrl("search");
+    final term = params.term;
+    final page = params.page;
+
+    final response = await _dio.get(
+      url,
+      queryParameters: {"q": term, "page": page},
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(
+              policy: CachePolicy.forceCache,
+              maxStale: NetConfig.getInstance().liveSearchCacheTtl,
+            )
+            .toExtra(),
+      ),
+    );
+    final data = response.data;
+    final results = data["data"] as List<dynamic>;
+    final items = results.map((e) => AnimeResult.fromJson(e)).toList();
+    final currentPage = page;
+    final totalPages = data["total"] as int;
+    final perPage = data["per_page"] as int;
+
+    final fetchNextpage = currentPage < totalPages
+        ? () => search(
+            params: SearchParams(term: term, page: page + 1),
+          )
+        : null;
+    final pagination = Pagination(
+      currentPage: currentPage,
+      totalPages: totalPages,
+      items: items,
+      fetchNextPage: fetchNextpage,
+      perPage: perPage,
+    );
+    return pagination;
+  }
+
+  String apiUrl(String path) => "${Constants.apiEntryPoint}$path";
+
+  Future<Map<String, dynamic>> fetchEpisodeListPageJson({
+    required String animeSession,
+    required int pageNum,
+  }) async {
+    await SourceDirectory.waitForRefresh();
+    final url = apiUrl("release");
+    final response = await _dio.get(
+      url,
+      queryParameters: {
+        "id": animeSession,
+        "sort": "episode_asc",
+        "page": pageNum,
+      },
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
+      ),
+    );
+    return response.data;
+  }
+
+  Future<EpisodePageRange> computeEpisodePageRange({
+    required int startEpisode,
+    required int endEpisode,
+    required String animeSession,
+  }) async {
+    final page = await fetchEpisodeListPageJson(
+      animeSession: animeSession,
+      pageNum: 1,
+    );
+    final perPage = page["per_page"] as int;
+    final startPageNum = (startEpisode / perPage).ceil();
+    final endPageNum = (endEpisode / perPage).ceil();
+    final total = (endPageNum - startPageNum) + 1;
+    return EpisodePageRange(
+      startPageNum: startPageNum,
+      endPageNum: endPageNum,
+      total: total,
+      firstPageJson: page,
+    );
+  }
+
+  Future<List<EpisodeSession>> fetchEpisodeSessions({
+    required String animeSession,
+    required int pageNum,
+    Map<String, dynamic>? pageJson,
+  }) async {
+    pageJson ??= await fetchEpisodeListPageJson(
+      animeSession: animeSession,
+      pageNum: pageNum,
+    );
+    final episodeSessionsJson = pageJson["data"] as List<dynamic>;
+    final episodeSessions = episodeSessionsJson
+        .map((e) => EpisodeSession(session: e["session"], number: e["episode"]))
+        .toList();
+    log.fineWithMetadata(
+      "Fetched episode sessions",
+      metadata: {"episodeSessions": episodeSessions},
+    );
+    return episodeSessions;
+  }
+
+  List<EpisodeSession> findEpisodeSessionsWithinRange({
+    required String animeSession,
+    required int firstEpisode,
+    required int startEpisode,
+    required int endEpisode,
+    required List<EpisodeSession> episodeSessions,
+  }) {
+    int? startIdx;
+    int? endIdx;
+
+    for (var idx = 0; idx < episodeSessions.length; idx++) {
+      // Sometimes for sequels animepahe continues the episode numbers from the last episode of the previous season
+      // For instance  "Boku no Hero Academia 2nd Season" episode 1 is shown as episode 14
+      // So we compute episode - (first_episode - 1) to get the real episode number e.g.,
+      // 14 - (14 - 1) = 1
+      // 15 - (14 - 1) = 2 and so on
+      final episodeSession = episodeSessions[idx];
+      final episode = episodeSession.number - (firstEpisode - 1);
+      if (episode == startEpisode) {
+        startIdx = idx;
+      }
+      if (episode == endEpisode) {
+        endIdx = idx;
+        break;
+      }
+    }
+    if (startIdx == null || endIdx == null) {
+      throw SourceException(
+        message: "Could not find ${startIdx == null ? "start" : "end"} episode",
+        metadata: {
+          "animeSession": animeSession,
+          "startEpisode": startEpisode,
+          "endEpisode": endEpisode,
+          "episodeSessions": episodeSessions,
+        },
+      );
+    }
+    final withinRangeEpisodeSessions = episodeSessions
+        .sublist(startIdx, endIdx + 1)
+        .toList();
+    log.fineWithMetadata(
+      "Found episode sessions within range",
+      metadata: {"withinRangeEpisodeSessions": withinRangeEpisodeSessions},
+    );
+    return withinRangeEpisodeSessions;
+  }
+
+  int? _parseEstimatedSizeBytes(String filename) {
+    final match = Constants.estimatedSizeRegex.firstMatch(filename);
+    if (match == null) {
+      return null;
+    }
+    final size = match.group(1);
+    if (size == null) {
+      return null;
+    }
+    final sizeMegabytes = int.parse(size);
+    final sizeBytes = sizeMegabytes * shared.Constants.megaByte;
+    return sizeBytes;
+  }
+
+  DownloadLink _parseDownloadLink({
+    required html.Element element,
+    required String animeTitle,
+    required int episodeNumber,
+    required String refererUrl,
+  }) {
+    final url = element.attributes["href"];
+    if (url == null) {
+      throw SourceException(
+        message: "Failed to find direct download link",
+        metadata: {"url": url, "element": element},
+      );
+    }
+    final filename = element.text.trim();
+    final resolution = parseResolution(filename);
+    if (resolution == null) {
+      throw SourceException(
+        message: "Failed to parse resolution",
+        metadata: {"filename": filename, "element": element},
+      );
+    }
+    final audioLanguage = _parseAudioLanguage(filename);
+    final estimatedSizeBytes = _parseEstimatedSizeBytes(filename);
+    if (estimatedSizeBytes == null) {
+      throw SourceException(
+        message: "Failed to find estimated size bytes",
+        metadata: {"filename": filename, "element": element},
+      );
+    }
+    return DownloadLink(
+      animeTitle: animeTitle,
+      episodeNumber: episodeNumber,
+      filename: filename,
+      url: url,
+      refererUrl: refererUrl,
+      resolution: resolution,
+      audioLanguage: audioLanguage,
+      estimatedSizeBytes: estimatedSizeBytes,
+    );
+  }
+
+  Language _parseAudioLanguage(String downloadFileName) =>
+      downloadFileName.endsWith(Constants.englishSuffix)
+      ? Language.english
+      : Language.japanese;
+
+  DownloadLink findBestDownloadLinkMatch({
+    required String animeTitle,
+    required int episodeNumber,
+    required Resolution resolution,
+    required Language audioLanguage,
+    required List<DownloadLink> downloadLinks,
+  }) {
+    final audioLanguageMatches = downloadLinks
+        .where((link) => link.audioLanguage == audioLanguage)
+        .toSet();
+    if (audioLanguageMatches.isEmpty) {
+      throw DownloadLinkMatchException(
+        'No $audioLanguage download links found for "$animeTitle" episode $episodeNumber',
+      );
+    }
+
+    final resolutionMatches = downloadLinks
+        .where((link) => link.resolution == resolution)
+        .toSet();
+    if (resolutionMatches.isEmpty) {
+      throw DownloadLinkMatchException(
+        'No $resolution download links found for "$animeTitle" episode $episodeNumber',
+      );
+    }
+
+    final bestMatch = audioLanguageMatches
+        .intersection(resolutionMatches)
+        .first;
+    log.fineWithMetadata(
+      "Found best download link match",
+      metadata: {"bestMatch": bestMatch},
+    );
+    return bestMatch;
+  }
+
+  Future<List<DownloadLink>> fetchDownloadLinks({
+    required String animeTitle,
+    required String animeSession,
+    required EpisodeSession episodeSession,
+  }) async {
+    await SourceDirectory.waitForRefresh();
+    final episodePageUrl = Constants.buildEpisodePageUrl(
+      animeSession,
+      episodeSession.session,
+    );
+    final response = await _dio.get(
+      episodePageUrl,
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
+      ),
+    );
+    final htmlPage = parseHtml(response.data);
+    final downloadAElements = htmlPage.querySelectorAll(
+      'a.dropdown-item[target="_blank"]',
+    );
+    final episodeNumber = episodeSession.number;
+    final downloadLinks = downloadAElements
+        .map(
+          (element) => _parseDownloadLink(
+            element: element,
+            animeTitle: animeTitle,
+            episodeNumber: episodeNumber,
+            refererUrl: episodePageUrl,
+          ),
+        )
+        .toList();
+    log.fineWithMetadata(
+      "Fetched download links",
+      metadata: {"downloadLinks": downloadLinks},
+    );
+    return downloadLinks;
+  }
+
+  int _getCharCode(String content, int s1) {
+    int j = 0;
+    final reversedContent = content.split('').reversed.toList();
+    for (int index = 0; index < reversedContent.length; index++) {
+      final c = int.tryParse(reversedContent[index]) ?? 0;
+      j += (c * pow(s1, index).toInt());
+    }
+    String k = "";
+    while (j > 0) {
+      k = Constants.kwikCharMapDigits[j % Constants.kwikCharMapBase] + k;
+      j = (j - (j % Constants.kwikCharMapBase)) ~/ Constants.kwikCharMapBase;
+    }
+    return k.isNotEmpty ? int.parse(k) : 0;
+  }
+
+  String _extractAndDecryptKwikForm(String htmlPageText) {
+    final match = Constants.kwikParamRegex.firstMatch(htmlPageText);
+    if (match == null) {
+      throw SourceException(
+        message: "No match found for kwik param",
+        metadata: {"htmlPageText": htmlPageText},
+      );
+    }
+
+    final fullKey = match.group(1)!;
+    final key = match.group(2)!;
+    final v1 = int.parse(match.group(3)!);
+    final v2 = int.parse(match.group(4)!);
+
+    String r = "";
+    int i = 0;
+    while (i < fullKey.length) {
+      String s = "";
+      while (fullKey[i] != key[v2]) {
+        s += fullKey[i];
+        i++;
+      }
+      for (int idx = 0; idx < key.length; idx++) {
+        s = s.replaceAll(key[idx], idx.toString());
+      }
+      r += String.fromCharCode(_getCharCode(s, v2) - v1);
+      i++;
+    }
+    return r;
+  }
+
+  (String postUrl, String token) _extractPostUrlAndToken(String formHtml) {
+    final formDoc = parseHtml(formHtml);
+    final formElement = formDoc.querySelector('form');
+    if (formElement == null) {
+      throw SourceException(
+        message: "No form element found in decrypted content",
+        metadata: const {},
+      );
+    }
+
+    final postUrl = formElement.attributes['action'];
+    if (postUrl == null) {
+      throw SourceException(
+        message: "No action attribute found in form element",
+        metadata: const {},
+      );
+    }
+
+    final inputElement = formDoc.querySelector('input');
+    if (inputElement == null) {
+      throw SourceException(
+        message: "No input element found in decrypted content",
+        metadata: const {},
+      );
+    }
+
+    final token = inputElement.attributes['value'];
+    if (token == null) {
+      throw SourceException(
+        message: "No value attribute found in input element",
+        metadata: const {},
+      );
+    }
+
+    return (postUrl, token);
+  }
+
+  Future<DirectDownloadLink> _fetchDirectDownloadLinkFromKwikPage({
+    required String kwikPageLink,
+    required DownloadLink downloadLink,
+    required Uri pahePageUri,
+  }) async {
+    final response = await _dio.get<String>(
+      kwikPageLink,
+      options: Options(
+        responseType: ResponseType.plain,
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(policy: CachePolicy.noCache)
+            .toExtra(),
+        headers: {
+          'Accept':
+              'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': pahePageUri.toString(),
+        },
+      ),
+    );
+    final htmlPageText = response.data;
+    if (htmlPageText == null) {
+      throw SourceException(
+        message: "Received empty response from kwik page",
+        metadata: {"kwikPageLink": kwikPageLink},
+      );
+    }
+
+    final formHtml = _extractAndDecryptKwikForm(htmlPageText);
+    final (postUrl, token) = _extractPostUrlAndToken(formHtml);
+    final postUri = Uri.parse(postUrl);
+    log.infoWithMetadata(
+      'Submitting Kwik download form',
+      metadata: {
+        'kwikPageHost': Uri.parse(kwikPageLink).host,
+        'kwikPagePath': Uri.parse(kwikPageLink).path,
+        'postHost': postUri.host,
+        'postPath': postUri.path,
+        'tokenLength': token.length,
+      },
+    );
+
+    final postResponse = await _dio.post<String>(
+      postUrl,
+      data: {'_token': token},
+      options: Options(
+        receiveTimeout: const Duration(seconds: 30),
+        followRedirects: false,
+        validateStatus: (status) => status != null && status < 400,
+        extra: {
+          browserExecutionModeExtraKey: BrowserExecutionMode.submitForm,
+          browserNavigationPolicyExtraKey: BrowserNavigationPolicy(
+            accepts: _isKwikDownloadDestination,
+          ),
+        },
+        headers: {
+          'Origin':
+              '${Uri.parse(kwikPageLink).scheme}://${Uri.parse(kwikPageLink).host}',
+          'Referer': kwikPageLink,
+        },
+      ),
+    );
+
+    final directDownloadUrl = postResponse.headers.value('location');
+    final directDownloadUri = directDownloadUrl == null
+        ? null
+        : Uri.tryParse(directDownloadUrl);
+    log.infoWithMetadata(
+      'Kwik download form completed',
+      metadata: {
+        'statusCode': postResponse.statusCode,
+        'responseHost': postResponse.realUri.host,
+        'responsePath': postResponse.realUri.path,
+        'locationPresent': directDownloadUrl != null,
+        'locationHost': directDownloadUri?.host,
+        'locationPath': directDownloadUri?.path,
+      },
+    );
+    if (directDownloadUrl == null) {
+      throw SourceException(
+        message: "No Location header found in post response",
+        metadata: {"postUrl": postUrl, "kwikPageLink": kwikPageLink},
+      );
+    }
+
+    final directDownloadLink = DirectDownloadLink(
+      animeTitle: downloadLink.animeTitle,
+      episodeNumber: downloadLink.episodeNumber,
+      filename: downloadLink.filename,
+      url: directDownloadUrl,
+      refererUrl: kwikPageLink,
+    );
+
+    log.fineWithMetadata(
+      "Fetched direct download link from kwik page link",
+      metadata: {
+        "downloadLink": downloadLink,
+        "kwikPageLink": kwikPageLink,
+        "directDownloadLink": directDownloadLink,
+      },
+    );
+    return directDownloadLink;
+  }
+
+  bool _isKwikDownloadDestination(Uri uri) {
+    if (uri.scheme != 'https' || uri.host == Constants.kwikDomain) {
+      return false;
+    }
+    final fileName = uri.queryParameters['file'];
+    if (fileName != null && fileName.trim().isNotEmpty) return true;
+    return RegExp(
+      r'\.(?:mp4|mkv|webm)$',
+      caseSensitive: false,
+    ).hasMatch(uri.path);
+  }
+
+  Future<DirectDownloadLink> fetchDirectDownloadLink({
+    required DownloadLink downloadLink,
+  }) async {
+    await SourceDirectory.waitForRefresh();
+    final response = await _fetchPaheBridgePage(downloadLink);
+    final htmlPageText = response.data;
+    if (htmlPageText == null) {
+      throw SourceException(
+        message: "Received empty response from pahewin",
+        metadata: {
+          "downloadLink": downloadLink,
+          "htmlPageText": htmlPageText,
+          "response": response,
+        },
+      );
+    }
+    final responseUri = response.realUri;
+    final navigatedToKwik =
+        responseUri.host == Constants.kwikDomain &&
+        responseUri.path.startsWith('/f/');
+    final kwikPageLink = navigatedToKwik
+        ? responseUri.toString()
+        : Constants.kwikLinkRegex.firstMatch(htmlPageText)?.group(0);
+    if (kwikPageLink == null) {
+      throw SourceException(
+        message: "No match found for kwik page link",
+        metadata: {"downloadLink": downloadLink, "htmlPageText": htmlPageText},
+      );
+    }
+    final directDownloadLink = await _fetchDirectDownloadLinkFromKwikPage(
+      downloadLink: downloadLink,
+      kwikPageLink: kwikPageLink,
+      pahePageUri: response.realUri,
+    );
+    log.fineWithMetadata(
+      "Fetched direct download link",
+      metadata: {
+        "downloadLink": downloadLink,
+        "kwikPageLink": kwikPageLink,
+        "directDownloadLink": directDownloadLink,
+      },
+    );
+    return directDownloadLink;
+  }
+
+  BrowserFormSessionBatch openKwikLinkResolverBatch() => BrowserTransportService
+      .instance
+      .openFormSessionBatch(Constants.kwikDomain);
+
+  Future<Response<String>> _fetchPaheBridgePage(DownloadLink downloadLink) =>
+      _dio.get<String>(
+        downloadLink.url,
+        options: Options(
+          headers: {'Referer': downloadLink.refererUrl},
+          extra: {
+            ...NetConfig.getInstance()
+                .buildCacheOptions(policy: CachePolicy.noCache)
+                .toExtra(),
+            transportPreferenceExtraKey: TransportPreference.browser,
+          },
+        ),
+      );
+}

@@ -1,0 +1,105 @@
+# Misc
+
+- The app was originally made using PyQt and now we're making v3 which is a Flutter app.
+- The app is designed for mobile, tablet and desktop so it should be responsive.
+- Validate your implementation with static analyzers don't run tests unless I explicitly ask you to.
+- Don't ignore pre-existing errors or warnings
+- Before running tests run static analyzers
+- Anything that is clickable and technically a button should behave like a button for accesibility for instance on hover cursor should change to a hand.
+- When refactoring code don't care about backwards compatibility, upstream enforces downstream so downstream should update to the new upstream architecture. Aggressive refactors.
+- If I'm suggesting and you feel like it goes against your better judgement then tell me why it is a bad idea.
+- Try to keep ui files as small as possible in terms of lines of code ~300 lines max. If it gets too big then break it down into smaller components and files.
+- Find libtorrent_dart library implementation at ../libtorrent_dart/ and anitomy_dart at ../anitomy_dart/ (I made the libraries so we're in full control over them)
+- Ignore the python codebase we are rebuilding it in flutter just use it as a reference.
+- A user retry or known-good comparison must revise the diagnosis.
+- Trace complete producer-to-consumer and lifecycle paths.
+- Identify the source of truth before adding state or policy.
+- Treat “end to end” as an explicit completeness checklist.
+- Never claim runtime success from static analysis alone.
+- Model materially different states explicitly.
+- Translate internal representation into natural user-facing controls.
+- Remove exploratory diagnostics before final staging.
+- Preserve unrelated edits and verify scoped pushes.
+- Prefer existing narrow infrastructure and delete redundant machinery.
+
+# Frontend Design
+
+## StatefulWidget Performance Guidelines
+
+Use `StatefulWidget` only when UI must change dynamically. Keep widgets efficient by following these rules:
+
+**State placement**
+
+- Push mutable state as deep in the tree as possible.
+- Avoid placing frequently changing state high in the widget tree.
+- Prefer small stateful leaf widgets instead of rebuilding large parents.
+
+**Rebuild cost**
+
+- Minimize widgets created inside `build()`.
+- Extract static parts into separate widgets.
+- Cache unchanged subtrees in `final` variables.
+- Use `const` constructors whenever possible.
+
+**Structure stability**
+
+- Avoid changing widget types or tree depth between rebuilds.
+- Prefer changing properties instead of conditionally wrapping widgets.
+- Use keys, especially `GlobalKey`, only when state must be preserved across moves.
+
+**Lifecycle**
+
+- Allocate resources in `initState()`.
+- Dispose resources in `dispose()`.
+- Call `setState()` only when UI must update.
+
+**Design principles**
+
+- `StatefulWidget` is immutable. Mutable data belongs in `State`.
+- Prefer `StatelessWidget` when UI depends only on inputs and context.
+- Keep rebuild frequency and scope as small as possible.
+
+**Rule of thumb**
+A well designed `StatefulWidget` updates only the minimal part of the UI and avoids unnecessary rebuilds.
+
+## Design System Architecture
+
+- The app uses a layered, fully configurable design system in `lib/ui/core/theme.dart`.
+- Instead of building something from scratch check if a shared component already exists.
+- If you do build something from scratch and you feel like a component could be reused elsewhere then abstract it for later reuse.
+
+## Design Thinking
+
+Before coding, understand the context and commit to a BOLD aesthetic direction:
+
+- **Purpose**: What problem does this interface solve? Who uses it?
+- **Tone**: Pick an extreme: brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, playful/toy-like, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian, etc. There are so many flavors to choose from. Use these for inspiration but design one that is true to the aesthetic direction.
+- **Constraints**: Technical requirements (framework, performance, accessibility).
+- **Differentiation**: What makes this UNFORGETTABLE? What's the one thing someone will remember?
+
+**CRITICAL**: Choose a clear conceptual direction and execute it with precision. Bold maximalism and refined minimalism both work - the key is intentionality, not intensity.
+
+Then implement working code (HTML/CSS/JS, React, Vue, etc.) that is:
+
+- Production-grade and functional
+- Visually striking and memorable
+- Cohesive with a clear aesthetic point-of-view
+- Meticulously refined in every detail
+
+## Frontend Aesthetics Guidelines
+
+Focus on:
+
+- **Typography**: Choose fonts that are beautiful, unique, and interesting. Avoid generic fonts like Arial and Inter; opt instead for distinctive choices that elevate the frontend's aesthetics; unexpected, characterful font choices. Pair a distinctive display font with a refined body font.
+- **Color & Theme**: Commit to a cohesive aesthetic. Use CSS variables for consistency. Dominant colors with sharp accents outperform timid, evenly-distributed palettes.
+- **Motion**: Use animations for effects and micro-interactions. Prioritize CSS-only solutions for HTML. Use Motion library for React when available. Focus on high-impact moments: one well-orchestrated page load with staggered reveals (animation-delay) creates more delight than scattered micro-interactions. Use scroll-triggering and hover states that surprise.
+- **Spatial Composition**: Unexpected layouts. Asymmetry. Overlap. Diagonal flow. Grid-breaking elements. Generous negative space OR controlled density.
+- **Backgrounds & Visual Details**: Create atmosphere and depth rather than defaulting to solid colors. Add contextual effects and textures that match the overall aesthetic. Apply creative forms like gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows, decorative borders, custom cursors, and grain overlays.
+
+NEVER use generic AI-generated aesthetics like overused font families (Inter, Roboto, Arial, system fonts), cliched color schemes (particularly purple gradients on white backgrounds), predictable layouts and component patterns, and cookie-cutter design that lacks context-specific character.
+
+Interpret creatively and make unexpected choices that feel genuinely designed for the context. No design should be the same. Vary between light and dark themes, different fonts, different aesthetics. NEVER converge on common choices (Space Grotesk, for example) across generations.
+
+**IMPORTANT**: Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details. Elegance comes from executing the vision well.
+
+Remember: You are capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.

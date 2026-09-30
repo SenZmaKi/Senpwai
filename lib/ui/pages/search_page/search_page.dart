@@ -1,0 +1,365 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:senpwai/anilist/anilist.dart';
+import 'package:senpwai/settings/settings.dart';
+import 'package:senpwai/shared/shared.dart';
+import 'package:senpwai/ui/shared/anilist.dart';
+import 'package:senpwai/ui/shared/pagination.dart';
+import 'package:senpwai/ui/shared/responsive.dart';
+import 'package:senpwai/ui/pages/search_page/search_toolbar.dart';
+import 'package:senpwai/ui/components/toast.dart';
+import 'package:senpwai/ui/pages/search_page/search_filters_section.dart';
+import 'package:senpwai/ui/pages/search_page/search_results_section.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class SearchPage extends ConsumerStatefulWidget {
+  const SearchPage({super.key});
+
+  @override
+  ConsumerState<SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends ConsumerState<SearchPage>
+    with PaginatedScrollMixin, SingleTickerProviderStateMixin {
+  final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
+  Timer? _debounce;
+  late final AnimationController _sortIconController;
+
+  List<AnilistGenre> _genres = [];
+  bool _filtersExpanded = false;
+  List<AnilistAiringStatus> _airingStatuses = [];
+  AnilistMediaListStatus? _listStatus;
+  AnilistSeason? _season;
+  int? _year;
+  List<AnilistFormat> _formats = [];
+  AnilistMediaSort? _sort = AnilistMediaSort.trending;
+  bool _sortDescending = true;
+  List<AnilistAnimeBase> _results = [];
+  Pagination<List<AnilistAnimeBase>>? _pagination;
+  bool _loading = false;
+  bool _loadingMore = false;
+
+  @override
+  ScrollController get paginationScrollController => _scrollController;
+
+  @override
+  bool get isLoadingMore => _loadingMore;
+
+  @override
+  bool get hasNextPage => _pagination?.fetchNextPage != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _sortIconController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    initPaginatedScroll();
+    _search();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    _sortIconController.dispose();
+    disposePaginatedScroll();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onFilterChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), _search);
+  }
+
+  void _applyFilter(VoidCallback updateState) {
+    setState(updateState);
+    _onFilterChanged();
+  }
+
+  void _onSearchTermChanged(String _) {
+    setState(() {});
+    _onFilterChanged();
+  }
+
+  void _clearSearchTerm() {
+    setState(() => _searchController.clear());
+    _onFilterChanged();
+  }
+
+  void _showSearchError(Object error, StackTrace stack) {
+    if (!mounted) return;
+    final String title;
+    final String description;
+
+    if (error is AnilistAuthRequiredException) {
+      title = 'Authentication required';
+      description = 'Sign in to use this filter.';
+    } else if (error is AnilistInvalidTokenException) {
+      title = 'Session expired';
+      description = 'Your AniList session has expired. Please sign in again.';
+    } else if (error is AnilistEmptyResponseException) {
+      title = 'Empty response';
+      description = 'AniList returned an empty response. Try again.';
+    } else if (error is DioException) {
+      final statusCode = error.response?.statusCode;
+      if (statusCode == 429) {
+        title = 'Rate limited';
+        description = 'Too many requests. Please wait a moment.';
+      } else if (statusCode != null && statusCode >= 500) {
+        title = 'AniList server error';
+        description = 'AniList returned $statusCode. Try again later.';
+      } else {
+        title = 'Search error';
+        description = error.message ?? error.toString();
+      }
+    } else if (error is AnilistException) {
+      title = 'Search error';
+      description = error.message;
+    } else {
+      title = 'Search error';
+      description = error.toString();
+    }
+
+    AppToast.showError(
+      context,
+      title: title,
+      description: description,
+      copyPayload: formatErrorForCopy(error, stack),
+    );
+  }
+
+  Future<void> _search() async {
+    final providerContainer = ProviderScope.containerOf(context, listen: false);
+    final anilist = providerContainer.read(AnilistNotifier.provider);
+    if (anilist.isAuthLoading) return;
+    final anilistNotifier = providerContainer.read(
+      AnilistNotifier.provider.notifier,
+    );
+
+    setState(() {
+      _loading = true;
+      _results = [];
+      _pagination = null;
+    });
+
+    try {
+      final term = _searchController.text.trim();
+      final genres = _genres.isNotEmpty ? _genres : null;
+      final formats = _formats.isNotEmpty ? _formats : null;
+      final airingStatuses = _airingStatuses.isNotEmpty
+          ? _airingStatuses
+          : null;
+
+      if (anilist.isAuthenticated && _listStatus != null) {
+        final result = await anilistNotifier.authClient.listUserMediaList(
+          listStatus: _listStatus!,
+          perPage: 25,
+        );
+
+        if (mounted) {
+          setState(() {
+            _results = result.items;
+            _pagination = result;
+          });
+        }
+      } else if (anilist.isAuthenticated) {
+        final result = await anilistNotifier.authClient.searchAnime(
+          params: AuthenticatedAnimeSearchParams(
+            term: term.isEmpty ? null : term,
+            genres: genres,
+            season: _season,
+            seasonYear: _year,
+            formats: formats,
+            airingStatuses: airingStatuses,
+            sort: _sort,
+            sortDescending: _sortDescending,
+            perPage: 25,
+          ),
+        );
+
+        if (mounted) {
+          setState(() {
+            _results = result.items;
+            _pagination = result;
+          });
+        }
+      } else {
+        final result = await anilistNotifier.unauthClient.searchAnime(
+          params: AnimeSearchParams(
+            term: term.isEmpty ? null : term,
+            genres: genres,
+            season: _season,
+            seasonYear: _year,
+            formats: formats,
+            airingStatuses: airingStatuses,
+            sort: _sort,
+            sortDescending: _sortDescending,
+            perPage: 25,
+          ),
+        );
+
+        if (mounted) {
+          setState(() {
+            _results = result.items;
+            _pagination = result;
+          });
+        }
+      }
+    } catch (error, stack) {
+      _showSearchError(error, stack);
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  @override
+  Future<void> loadNextPage() async {
+    if (_pagination?.fetchNextPage == null) return;
+
+    setState(() => _loadingMore = true);
+    try {
+      final next = await _pagination!.fetchNextPage!();
+      if (mounted) {
+        setState(() {
+          _results = [..._results, ...next.items];
+          _pagination = next;
+        });
+      }
+    } catch (error, stack) {
+      _showSearchError(error, stack);
+    } finally {
+      if (mounted) {
+        setState(() => _loadingMore = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(AnilistNotifier.provider, (previous, next) {
+      final authenticationFinished =
+          previous?.isAuthLoading == true && !next.isAuthLoading;
+      final authenticationChanged =
+          previous?.isAuthenticated != next.isAuthenticated;
+      final snapshotChanged =
+          previous?.listSnapshotRevision != next.listSnapshotRevision;
+      if (authenticationFinished ||
+          (!next.isAuthLoading && (authenticationChanged || snapshotChanged))) {
+        _search();
+      }
+    });
+    final theme = Theme.of(context);
+    final horizontalPad = horizontalPadding(context);
+    final viewMode = ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.cardViewMode,
+      ),
+    );
+
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        SliverToBoxAdapter(
+          child: SearchFiltersSection(
+            searchController: _searchController,
+            filtersExpanded: _filtersExpanded,
+            horizontalPadding: horizontalPad,
+            genres: _genres,
+            airingStatuses: _airingStatuses,
+            listStatus: _listStatus,
+            season: _season,
+            year: _year,
+            formats: _formats,
+            isListFilterActive: _listStatus != null,
+            onFiltersExpandedChanged: (expanded) {
+              setState(() => _filtersExpanded = expanded);
+            },
+            onSearchChanged: _onSearchTermChanged,
+            onClearSearch: _clearSearchTerm,
+            onGenresChanged: (value) => _applyFilter(() => _genres = value),
+            onYearChanged: (value) => _applyFilter(() => _year = value),
+            onSeasonChanged: (value) => _applyFilter(() => _season = value),
+            onFormatsChanged: (value) => _applyFilter(() => _formats = value),
+            onAiringStatusesChanged: (value) =>
+                _applyFilter(() => _airingStatuses = value),
+            onListStatusChanged: (value) => _applyFilter(() {
+              _listStatus = value;
+              if (value != null) {
+                _searchController.clear();
+
+                _genres = [];
+                _airingStatuses = [];
+                _season = null;
+                _year = null;
+                _formats = [];
+                _sort = AnilistMediaSort.trending;
+                _sortDescending = true;
+              }
+            }),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(horizontalPad, 8, horizontalPad, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SearchToolbar(
+                  sort: _sort,
+                  sortDescending: _sortDescending,
+                  sortDisabled: _listStatus != null,
+                  viewMode: viewMode,
+                  sortIconController: _sortIconController,
+                  onSortChanged: (value) => _applyFilter(() => _sort = value),
+                  onSortDirectionToggled: () {
+                    _sortIconController.forward(from: 0);
+                    _applyFilter(() => _sortDescending = !_sortDescending);
+                  },
+                  onViewModeChanged: (mode) => unawaited(
+                    ref
+                        .read(AppSettingsNotifier.provider.notifier)
+                        .setCardViewMode(mode),
+                  ),
+                ),
+                if (!_loading) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    () {
+                      final total = _pagination?.totalResults;
+                      if (total != null) {
+                        return '$total result${total == 1 ? '' : 's'}';
+                      }
+                      return '${_results.length} result${_results.length == 1 ? '' : 's'}';
+                    }(),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontSize: isMobile(context) ? 11 : null,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(horizontalPad, 8, horizontalPad, 0),
+          sliver: SearchResultsSection(
+            results: _results,
+            loading: _loading,
+            loadingMore: _loadingMore,
+            viewMode: viewMode,
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+      ],
+    );
+  }
+}

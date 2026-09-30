@@ -1,0 +1,166 @@
+name: senpwai
+description: "A new Flutter project."
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+version: 3.0.0-beta.1+1
+
+environment:
+    sdk: ^3.12.0
+    flutter: ">=3.44.0"
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+    flutter:
+        sdk: flutter
+
+    dio: ^5.11.0
+    logging: ^1.3.0
+    collection: ^1.19.1
+    dio_cookie_manager: ^3.5.0
+    cookie_jar: ^4.0.9
+    pretty_dio_logger: ^1.4.0
+    html: ^0.15.6
+    fuzzywuzzy: ^1.2.0
+    dio_cache_interceptor: ^4.0.7
+    ffi: ^2.1.4
+    open_file: ^4.0.0
+    open_file_manager: ^2.0.1
+    url_launcher: ^6.3.1
+    app_links: ^6.4.0
+    google_fonts: ^6.1.0
+    cached_network_image: ^3.3.1
+    anitomy_dart: ^1.0.1
+    libtorrent_dart: ^1.0.1
+    path: ^1.9.1
+    toastification: ^3.0.3
+    riverpod: ^3.2.1
+    flutter_riverpod: ^3.0.3
+    crypto: ^3.0.6
+    cryptography: ^2.7.0
+    window_manager: ^0.5.1
+    tray_manager: ^0.5.3
+    launch_at_startup: ^0.5.1
+    screen_retriever: ^0.2.0
+    flutter_native_splash: ^2.4.7
+    async: ^2.13.0
+    flutter_inappwebview: ^6.2.0-beta.3
+    file_picker: ^9.2.1
+    dotenv: ^4.2.0
+    external_path: ^2.2.0
+    path_provider: ^2.1.6
+    flutter_secure_storage: ^10.3.1
+    flutter_cache_manager: ^3.4.1
+    http_cache_file_store: ^2.0.1
+    file: ^7.0.1
+    flutter_local_notifications: ^22.0.1
+    flutter_foreground_task:
+        git:
+            url: https://github.com/SenZmaKi/flutter_foreground_task_progress
+            ref: d45cc6313b8626edc7a61f8eb210ef6dd07b6284
+    windows_taskbar: ^1.1.2
+    dio_http2_adapter: ^2.8.0
+    http2: ^2.3.1
+    flutter_svg: ^2.0.17
+    package_info_plus: ^8.3.1
+    pub_semver: ^2.2.0
+
+dev_dependencies:
+    flutter_test:
+        sdk: flutter
+    integration_test:
+        sdk: flutter
+
+    # The "flutter_lints" package below contains a set of recommended lints to
+    # encourage good coding practices. The lint set provided by the package is
+    # activated in the `analysis_options.yaml` file located at the root of your
+    # package. See that file for information about deactivating specific lint
+    # rules and activating additional ones.
+    flutter_lints: ^5.0.0
+    flutter_launcher_icons: ^0.14.4
+flutter_native_splash:
+    color: "#F5F0F1"
+    color_dark: "#080A0F"
+    image: assets/images/senpwai-icon.png
+    image_dark: assets/images/senpwai-icon.png
+
+    android_12:
+        color: "#F5F0F1"
+        color_dark: "#080A0F"
+        image: assets/images/senpwai-icon.png
+        image_dark: assets/images/senpwai-icon.png
+
+flutter_launcher_icons:
+    image_path: "assets/images/senpwai-icon.png"
+
+    android: true
+    ios: false
+
+    web:
+        generate: false
+
+    windows:
+        generate: true
+        icon_size: 48
+
+    macos:
+        generate: true
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+    # The following line ensures that the Material Icons font is
+    # included with your application, so that you can use the icons in
+    # the material Icons class.
+    uses-material-design: true
+
+    assets:
+        - assets/images/
+        - assets/images/link_icons/
+        - windows/runner/resources/app_icon.ico
+
+    # An image asset can refer to one or more resolution-specific "variants", see
+    # https://flutter.dev/to/resolution-aware-images
+
+    # For details regarding adding assets from package dependencies, see
+    # https://flutter.dev/to/asset-from-package
+
+    # To add custom fonts to your application, add a fonts section here,
+    # in this "flutter" section. Each entry in this list should have a
+    # "family" key with the font family name, and a "fonts" key with a
+    # list giving the asset and other descriptors for the font. For
+    # example:
+    # fonts:
+    #   - family: Schyler
+    #     fonts:
+    #       - asset: fonts/Schyler-Regular.ttf
+    #       - asset: fonts/Schyler-Italic.ttf
+    #         style: italic
+    #   - family: Trajan Pro
+    #     fonts:
+    #       - asset: fonts/TrajanPro.ttf
+    #       - asset: fonts/TrajanPro_Bold.ttf
+    #         weight: 700
+    #
+    # For details regarding fonts from package dependencies,
+    # see https://flutter.dev/to/font-from-package

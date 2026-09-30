@@ -1,0 +1,181 @@
+---
+import Layout from '../layouts/Layout.astro';
+import InteractiveShowcase from '../components/InteractiveShowcase.astro';
+import ThemeWheelSection from '../components/ThemeWheelSection.astro';
+import WhatSenpwaiDoes from '../components/WhatSenpwaiDoes.astro';
+import ClosingSection from '../components/ClosingSection.astro';
+import { ArrowRight, Download, Ban, Code2, Gift } from 'lucide-astro';
+import { Image } from 'astro:assets';
+import desktopHome from '../assets/screenshots/desktop/home.webp';
+import mobileHome from '../assets/screenshots/mobile/home.webp';
+const base = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
+---
+
+<Layout
+  structuredData={{
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Senpwai',
+    applicationCategory: 'MultimediaApplication',
+    operatingSystem: 'Windows, macOS, Linux, Android',
+    isAccessibleForFree: true,
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    downloadUrl: 'https://github.com/SenZmaKi/Senpwai/releases',
+    codeRepository: 'https://github.com/SenZmaKi/Senpwai',
+    sameAs: [
+      'https://github.com/SenZmaKi/Senpwai',
+      'https://discord.gg/invite/e9UxkuyDX2',
+      'https://www.reddit.com/r/Senpwai',
+    ],
+  }}
+>
+  <section class="hero shell">
+    <div class="hero-copy">
+      <p class="eyebrow">Senpwai</p>
+      <h1 class="display"><span class="headline-line">A less annoying</span><br /><span class="headline-line">way to <span>download</span></span><br /><span>anime.</span></h1>
+      <p class="lede">Search anime, batch-download the episodes you want, and let Senpwai keep an eye on new releases. That is pretty much the whole idea.</p>
+      <div class="hero-actions">
+        <a href={`${base}download`} class="primary-button"><Download size={18} aria-hidden="true" /> Download</a>
+        <a href="#showcase" class="secondary-button">Have a look <ArrowRight size={17} aria-hidden="true" /></a>
+      </div>
+      <div class="product-promises" aria-label="Product guarantees">
+        <div class="promise-badge">
+          <Ban size={14} class="promise-icon red" aria-hidden="true" />
+          <span>No ads</span>
+        </div>
+        <div class="promise-badge">
+          <Code2 size={14} class="promise-icon yellow" aria-hidden="true" />
+          <span>Open source</span>
+        </div>
+        <div class="promise-badge">
+          <Gift size={14} class="promise-icon cyan" aria-hidden="true" />
+          <span>Forever free</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-stage" aria-label="Senpwai running on desktop and mobile">
+      <div class="desktop-float">
+        <div class="desktop-shot">
+          <div class="window-bar">
+            <div class="window-controls">
+              <span class="dot close"></span>
+              <span class="dot minimize"></span>
+              <span class="dot maximize"></span>
+            </div>
+          </div>
+          <Image
+            src={desktopHome}
+            alt="Senpwai home screen showing anime recommendations and watchlist activity"
+            widths={[720, 1080, 1440, 1920]}
+            sizes="(max-width: 900px) 96vw, 54vw"
+            quality={82}
+            loading="eager"
+            fetchpriority="high"
+          />
+        </div>
+      </div>
+      <div class="phone-float">
+        <div class="phone-shot">
+          <Image
+            src={mobileHome}
+            alt="Senpwai home screen on a phone"
+            widths={[240, 360, 480, 640]}
+            sizes="(max-width: 620px) 32vw, 16vw"
+            quality={82}
+            loading="eager"
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <WhatSenpwaiDoes />
+
+  <InteractiveShowcase />
+
+  <ThemeWheelSection />
+
+  <ClosingSection />
+</Layout>
+
+<style>
+  .hero { min-height: calc(100svh - 72px); display: grid; grid-template-columns: .82fr 1.18fr; gap: clamp(2.5rem, 5vw, 5rem); align-items: center; padding-top: clamp(1.2rem, 2.5vw, 2.2rem); padding-bottom: clamp(3.5rem, 7vw, 5.5rem); }
+  .hero-copy { position: relative; z-index: 2; }
+  h1 { margin: 1.2rem 0 1.4rem; font-size: clamp(3.7rem, 5vw, 5.5rem); line-height: .92; }
+  h1 span { color: #f04444; }
+  h1 .headline-line { color: inherit; }
+  .hero-copy .lede { max-width: 35rem; }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 2rem; }
+  .product-promises {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 2.2rem;
+  }
+  .promise-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 0.6rem;
+    background: rgba(18, 18, 23, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #c9c7ce;
+    font: 600 0.72rem 'JetBrains Mono', monospace;
+    letter-spacing: 0.02em;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  }
+  .promise-badge:hover {
+    background: rgba(24, 24, 31, 0.85);
+    border-color: rgba(240, 68, 68, 0.35);
+    color: #ffffff;
+    transform: translateY(-2px);
+  }
+  :global(.promise-icon.red) { color: #ff5252; }
+  :global(.promise-icon.yellow) { color: #ffcf54; }
+  :global(.promise-icon.cyan) { color: #00e5ff; }
+  .hero-stage { position: relative; min-width: 0; padding: 2rem 0 3rem; perspective: 1200px; isolation: isolate; }
+  .hero-stage::before { content: ''; position: absolute; inset: -8% -18%; background: radial-gradient(circle, rgba(240,68,68,.16), transparent 58%); filter: blur(20px); }
+  .desktop-float { animation: floatDesktop 7s ease-in-out infinite; will-change: transform; }
+  .phone-float { position: absolute; z-index: 2; width: 28%; min-width: 128px; left: -2%; bottom: -7%; animation: floatPhone 7s ease-in-out infinite 0.6s; will-change: transform; }
+  .desktop-shot { position: relative; z-index: 1; width: 91%; margin-left: auto; overflow: hidden; border: 1px solid rgba(255,255,255,.18); border-radius: 1.1rem; background: rgba(19,21,32,.8); box-shadow: 0 35px 90px rgba(0,0,0,.55), 0 0 50px rgba(229,57,53,.1); transform: rotate(1.2deg); transition: transform .5s cubic-bezier(.2,.8,.2,1), border-color .35s ease, box-shadow .5s ease; will-change: transform; }
+  .window-bar { height: 28px; padding: 0 .75rem; display: flex; align-items: center; background: rgba(18,18,23,.9); border-bottom: 1px solid rgba(255,255,255,.08); }
+  .window-controls { display: flex; align-items: center; gap: .4rem; }
+  .window-controls .dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.2); }
+  .window-controls .dot.close { background: #f04444; }
+  .window-controls .dot.minimize { background: #ffcf54; }
+  .window-controls .dot.maximize { background: #4ade80; }
+  .phone-shot { width: 100%; padding: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,.24); border-radius: 1.75rem; background: #0e0e12; box-shadow: 0 28px 65px rgba(0,0,0,.78), 0 0 34px rgba(240,68,68,.18); transform: rotate(-6deg); transform-origin: 50% 85%; transition: transform .5s cubic-bezier(.2,.8,.2,1), border-color .35s ease, box-shadow .5s ease; will-change: transform; }
+  .phone-shot img { border-radius: 1.25rem; }
+  @keyframes floatDesktop {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0, -12px, 0); }
+  }
+  @keyframes floatPhone {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0, -16px, 0); }
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .hero-stage:hover .desktop-shot { transform: translate3d(10px, -6px, 0) rotate(.35deg) scale(1.01); box-shadow: 0 42px 100px rgba(0,0,0,.6), 0 0 58px rgba(0,229,255,.12); }
+    .hero-stage:hover .phone-shot { transform: translate3d(-10px, -14px, 0) rotate(-2deg) scale(1.04); box-shadow: 0 36px 74px rgba(0,0,0,.82), 0 0 42px rgba(240,68,68,.26); }
+    .hero-stage .desktop-shot:hover { transform: translate3d(12px, -10px, 0) rotate(0deg) scale(1.025); border-color: rgba(0,229,255,.34); }
+    .hero-stage .phone-shot:hover { transform: translate3d(-12px, -18px, 0) rotate(-1deg) scale(1.07); border-color: rgba(255,82,82,.58); }
+  }
+  @media (min-width: 901px) { .headline-line { white-space: nowrap; } }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; gap: 3rem; } .hero-copy { max-width: 700px; } }
+  @media (max-width: 620px) {
+    .hero { padding-top: 1.2rem; gap: 2.2rem; }
+    h1 { font-size: clamp(3rem, 14vw, 4.5rem); }
+    .hero-actions > * { width: 100%; }
+    .hero-stage { padding: 1rem 0 2.5rem; }
+    .desktop-shot { width: 96%; margin-left: 0; }
+    .phone-float { width: 32%; max-width: 135px; right: 0; left: auto; bottom: -5%; }
+  }
+</style>

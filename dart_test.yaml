@@ -1,0 +1,20 @@
+tags:
+  # These suites exercise sources routed through the embedded browser transport.
+  # Run them explicitly with: flutter test --tags browser --run-skipped
+  browser:
+    skip: Requires an initialized WebView/browser transport session.
+
+  # Live API/source checks are useful diagnostics but are rate-limit and
+  # availability dependent. Run with: flutter test --tags network --run-skipped
+  network:
+    skip: Requires live third-party network services.
+
+  # These integration tests bind a loopback HTTP server. Some local and CI
+  # environments intercept those requests before Dart's HttpServer receives
+  # them. Run with: flutter test --tags local-http --run-skipped
+  local-http:
+    skip: Requires direct access to a loopback HTTP server.
+
+  # Declared here so the existing AniList filters are recognized by the runner.
+  authenticated: {}
+  unauthenticated: {}

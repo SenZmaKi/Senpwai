@@ -1,0 +1,924 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate release version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      channel: ${{ steps.version.outputs.channel }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Match tag to pubspec version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)"
+          version="${package_version%%+*}"
+          build_number="${package_version##*+}"
+          expected_tag="v${version}"
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+            echo "pubspec version must be a stable or prerelease SemVer version" >&2
+            exit 64
+          fi
+          if [[ ! "$build_number" =~ ^[1-9][0-9]*$ ]]; then
+            echo "pubspec build number must be a positive integer" >&2
+            exit 64
+          fi
+          if [[ "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match pubspec version $version" >&2
+            exit 64
+          fi
+          if [[ "$(git ls-remote origin refs/heads/master | cut -f1)" != "$GITHUB_SHA" ]]; then
+            echo "Release tags must point to the current master commit" >&2
+            exit 64
+          fi
+          test -s "release-notes/${version}.md" || {
+            echo "Missing release-notes/${version}.md" >&2
+            exit 64
+          }
+
+          prerelease=false
+          channel=stable
+          if [[ "$version" == *-* ]]; then
+            prerelease=true
+            channel=prerelease
+          fi
+
+          {
+            echo "version=$version"
+            echo "build_number=$build_number"
+            echo "tag=$expected_tag"
+            echo "prerelease=$prerelease"
+            echo "channel=$channel"
+          } >> "$GITHUB_OUTPUT"
+
+  build-macos:
+    name: Build universal macOS app
+    needs: prepare
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      ZIP_NAME: Senpwai-macos-universal.zip
+      DMG_NAME: Senpwai-macos-universal.dmg
+      APPCAST_NAME: ${{ needs.prepare.outputs.prerelease == 'true' && 'appcast-prerelease.xml' || 'appcast.xml' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.2
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter code
+        run: flutter analyze
+
+      - name: Configure and verify Sparkle feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ needs.prepare.outputs.prerelease }}" == "true" ]]; then
+            expected_feed="https://senpwai.com/${APPCAST_NAME}"
+            /usr/libexec/PlistBuddy -c "Set :SUFeedURL $expected_feed" macos/Runner/Info.plist
+          else
+            expected_feed="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${APPCAST_NAME}"
+          fi
+          actual_feed="$(/usr/libexec/PlistBuddy -c 'Print :SUFeedURL' macos/Runner/Info.plist)"
+          test "$actual_feed" = "$expected_feed"
+
+      - name: Build ad-hoc-signed release app
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build macos \
+            --release \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER" \
+            --dart-define "UPDATE_CHANNEL=${{ needs.prepare.outputs.channel }}"
+
+      - name: Verify and package macOS app
+        shell: bash
+        run: |
+          set -euo pipefail
+          built_app="build/macos/Build/Products/Release/senpwai.app"
+          release_dir="build/release/macos"
+          package_root="$RUNNER_TEMP/senpwai-package"
+          dmg_root="$RUNNER_TEMP/senpwai-dmg"
+          extracted_root="$RUNNER_TEMP/senpwai-extracted"
+          app_executable="$built_app/Contents/MacOS/senpwai"
+          torrent_framework="$built_app/Contents/Frameworks/torrent-rasterbar.framework/torrent-rasterbar"
+
+          for binary in "$app_executable" "$torrent_framework"; do
+            architectures="$(lipo -archs "$binary")"
+            [[ " $architectures " == *" arm64 "* ]]
+            [[ " $architectures " == *" x86_64 "* ]]
+          done
+
+          sh macos/scripts/verify_app_signature.sh "$built_app"
+          mkdir -p "$release_dir" "$package_root" "$dmg_root" "$extracted_root"
+          /usr/bin/ditto "$built_app" "$package_root/Senpwai.app"
+          sh macos/scripts/verify_app_signature.sh "$package_root/Senpwai.app"
+
+          /usr/bin/ditto \
+            -c -k --sequesterRsrc --keepParent \
+            "$package_root/Senpwai.app" \
+            "$release_dir/$ZIP_NAME"
+          /usr/bin/ditto -x -k "$release_dir/$ZIP_NAME" "$extracted_root"
+          sh macos/scripts/verify_app_signature.sh "$extracted_root/Senpwai.app"
+
+          /usr/bin/ditto "$package_root/Senpwai.app" "$dmg_root/Senpwai.app"
+          ln -s /Applications "$dmg_root/Applications"
+          hdiutil create \
+            -volname "Senpwai" \
+            -srcfolder "$dmg_root" \
+            -format UDZO \
+            -ov \
+            "$release_dir/$DMG_NAME"
+          hdiutil verify "$release_dir/$DMG_NAME"
+
+      - name: Generate signed Sparkle appcast
+        shell: bash
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          release_dir="build/release/macos"
+          repository_root="$PWD"
+          descriptor="$RUNNER_TEMP/macos-release.json"
+          empty_manifest="$RUNNER_TEMP/empty-update-manifest.json"
+          zip_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${ZIP_NAME}"
+          if [[ "${{ needs.prepare.outputs.prerelease }}" == "true" ]]; then
+            appcast_url="https://senpwai.com/${APPCAST_NAME}"
+          else
+            appcast_url="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${APPCAST_NAME}"
+          fi
+
+          jq -n \
+            --arg version "$VERSION" \
+            --argjson build "$BUILD_NUMBER" \
+            --arg notes "Senpwai $VERSION" \
+            --arg path "$repository_root/$release_dir/$ZIP_NAME" \
+            --arg url "$zip_url" \
+            '{
+              version: $version,
+              build: $build,
+              channel: "stable",
+              mandatory: false,
+              notes: $notes,
+              artifacts: [{
+                platform: "macos",
+                architecture: "universal",
+                localPath: $path,
+                url: $url
+              }]
+            }' > "$descriptor"
+          printf '%s\n' '{"schemaVersion":1,"releases":[]}' > "$empty_manifest"
+
+          cd source-directory/signer
+          dart pub get
+          dart run bin/build_update_feeds.dart \
+            --release "$descriptor" \
+            --manifest "$empty_manifest" \
+            --appcast "$repository_root/$release_dir/$APPCAST_NAME" \
+            --appcast-link "$appcast_url"
+
+          cd "$repository_root/$release_dir"
+          shasum -a 256 "$ZIP_NAME" "$DMG_NAME" "$APPCAST_NAME" > SHA256SUMS.txt
+
+      - name: Upload macOS release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-macos
+          path: |
+            build/release/macos/Senpwai-macos-universal.zip
+            build/release/macos/Senpwai-macos-universal.dmg
+            build/release/macos/${{ env.APPCAST_NAME }}
+            build/release/macos/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  build-linux:
+    name: Build ${{ matrix.display_architecture }} Linux AppImage
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            display_architecture: x86_64
+            flutter_from_source: false
+            flutter_architecture: x64
+            wpe_architecture: x86_64
+            appimage_architecture: x86_64
+          - runner: ubuntu-24.04-arm
+            display_architecture: aarch64
+            flutter_from_source: true
+            flutter_architecture: arm64
+            wpe_architecture: aarch64
+            appimage_architecture: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      WPE_VERSION: "2.50.4"
+      WPE_RELEASE_TAG: wpe-sdk-2.50.4
+      WPE_RELEASE_REPOSITORY: SenZmaKi/wpe-webkit-sdk-prebuilt-binaries
+      FLUTTER_ARCHITECTURE: ${{ matrix.flutter_architecture }}
+      WPE_ARCHITECTURE: ${{ matrix.wpe_architecture }}
+      APPIMAGE_ARCHITECTURE: ${{ matrix.appimage_architecture }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Flutter
+        if: ${{ !matrix.flutter_from_source }}
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.2
+          cache: true
+
+      - name: Set up Flutter from source
+        if: ${{ matrix.flutter_from_source }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter_root="$RUNNER_TEMP/flutter"
+          git clone --depth 1 --branch 3.47.2 https://github.com/flutter/flutter.git "$flutter_root"
+          echo "$flutter_root/bin" >> "$GITHUB_PATH"
+          "$flutter_root/bin/flutter" --version
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            file libayatana-appindicator3-dev libgtk-3-dev libsecret-1-dev \
+            libsoup-3.0-dev libwayland-dev pkg-config
+
+      - name: Install pinned WPE SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_name="Senpwai-WPE-SDK-${WPE_VERSION}-linux-${WPE_ARCHITECTURE}.tar.xz"
+          sdk_dir="$RUNNER_TEMP/wpe-sdk"
+          mkdir -p "$sdk_dir"
+          gh release download "$WPE_RELEASE_TAG" \
+            --repo "$WPE_RELEASE_REPOSITORY" \
+            --pattern "$sdk_name*" \
+            --dir "$sdk_dir"
+          (cd "$sdk_dir" && sha256sum --check "$sdk_name.sha256")
+          sudo tar -xJf "$sdk_dir/$sdk_name" -C /
+          sudo ldconfig
+          test "$(pkg-config --modversion wpe-webkit-2.0)" = "$WPE_VERSION"
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter code
+        run: flutter analyze
+
+      - name: Build Linux release bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build linux --release \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER" \
+            --dart-define "UPDATE_CHANNEL=${{ needs.prepare.outputs.channel }}"
+
+      - name: Package AppImage
+        shell: bash
+        run: |
+          set -euo pipefail
+          appimage_name="Senpwai-${VERSION}-${APPIMAGE_ARCHITECTURE}.AppImage"
+          runtime_name="Senpwai-WPE-Runtime-${WPE_VERSION}-linux-${WPE_ARCHITECTURE}.tar.xz"
+          bundle_dir="build/linux/${FLUTTER_ARCHITECTURE}/release/bundle"
+          package_dir="$RUNNER_TEMP/appimage"
+          app_dir="$package_dir/AppDir"
+          runtime_dir="$RUNNER_TEMP/wpe-runtime"
+          appimage_runtime="$package_dir/runtime-${APPIMAGE_ARCHITECTURE}"
+          tool="$package_dir/appimagetool-${APPIMAGE_ARCHITECTURE}.AppImage"
+          release_dir="build/release/linux"
+
+          test -d "$bundle_dir"
+          jq -e \
+            --arg version "$VERSION" \
+            --arg build "$BUILD_NUMBER" \
+            '.version == $version and .build_number == $build' \
+            "$bundle_dir/data/flutter_assets/version.json"
+          mkdir -p "$app_dir/usr/bin" "$runtime_dir/root" "$release_dir"
+          cp -a "$bundle_dir/." "$app_dir/usr/bin/"
+          dart_jni="$app_dir/usr/bin/lib/libdartjni.so"
+          if test -e "$dart_jni" || test -L "$dart_jni"; then
+            unlink "$dart_jni"
+          fi
+
+          gh release download "$WPE_RELEASE_TAG" \
+            --repo "$WPE_RELEASE_REPOSITORY" \
+            --pattern "$runtime_name*" \
+            --dir "$runtime_dir"
+          (cd "$runtime_dir" && sha256sum --check "$runtime_name.sha256")
+          tar -xJf "$runtime_dir/$runtime_name" -C "$runtime_dir/root"
+          test -f "$runtime_dir/root/usr/local/lib/wpe-webkit-2.0/injected-bundle/libWPEInjectedBundle.so"
+          mkdir -p "$app_dir/usr/bin/lib" "$app_dir/usr/libexec" "$app_dir/usr/share"
+          cp -a "$runtime_dir/root/usr/local/lib/." "$app_dir/usr/bin/lib/"
+          cp -a "$runtime_dir/root/usr/local/libexec/." "$app_dir/usr/libexec/"
+          cp -a "$runtime_dir/root/usr/local/share/." "$app_dir/usr/share/"
+          cp linux/com.senpwai.app.desktop "$app_dir/com.senpwai.app.desktop"
+          cp assets/images/senpwai-icon.png "$app_dir/com.senpwai.app.png"
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'export LD_LIBRARY_PATH="$APPDIR/usr/bin/lib:${LD_LIBRARY_PATH:-}"' \
+            'export WEBKIT_EXEC_PATH="$APPDIR/usr/libexec/wpe-webkit-2.0"' \
+            'export WEBKIT_INJECTED_BUNDLE_PATH="$APPDIR/usr/bin/lib/wpe-webkit-2.0/injected-bundle"' \
+            'export XDG_DATA_DIRS="$APPDIR/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"' \
+            'exec "$APPDIR/usr/bin/senpwai" "$@"' \
+            > "$app_dir/AppRun"
+          chmod 755 "$app_dir/AppRun"
+
+          curl --fail --location --retry 4 --retry-all-errors \
+            "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${APPIMAGE_ARCHITECTURE}.AppImage" \
+            --output "$tool"
+          chmod 755 "$tool"
+          curl --fail --location --retry 4 --retry-all-errors \
+            "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-${APPIMAGE_ARCHITECTURE}" \
+            --output "$appimage_runtime"
+          chmod 755 "$appimage_runtime"
+          ARCH="$APPIMAGE_ARCHITECTURE" APPIMAGE_EXTRACT_AND_RUN=1 \
+            "$tool" --runtime-file "$appimage_runtime" "$app_dir" "$release_dir/$appimage_name"
+          chmod 755 "$release_dir/$appimage_name"
+          test ! -e "$app_dir/usr/bin/lib/libdartjni.so"
+          file "$release_dir/$appimage_name" | grep -q 'ELF 64-bit'
+          (cd "$release_dir" && sha256sum "$appimage_name" > "$appimage_name.sha256")
+
+      - name: Upload Linux release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-linux-${{ matrix.appimage_architecture }}
+          path: build/release/linux/
+          if-no-files-found: error
+          retention-days: 7
+
+  build-android:
+    name: Build signed Android APKs
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      UPDATE_CHANNEL: ${{ needs.prepare.outputs.channel }}
+      SENPWAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.SENPWAI_ANDROID_KEYSTORE_BASE64 }}
+      SENPWAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SENPWAI_ANDROID_KEYSTORE_PASSWORD }}
+      SENPWAI_ANDROID_KEY_ALIAS: ${{ secrets.SENPWAI_ANDROID_KEY_ALIAS }}
+      SENPWAI_ANDROID_KEY_PASSWORD: ${{ secrets.SENPWAI_ANDROID_KEY_PASSWORD }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.2
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter code
+        run: flutter analyze
+
+      - name: Materialize release keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          for secret_name in \
+            SENPWAI_ANDROID_KEYSTORE_BASE64 \
+            SENPWAI_ANDROID_KEYSTORE_PASSWORD \
+            SENPWAI_ANDROID_KEY_ALIAS \
+            SENPWAI_ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!secret_name}" ]]; then
+              echo "Missing required Android signing secret: $secret_name" >&2
+              exit 1
+            fi
+          done
+          keystore_path="$RUNNER_TEMP/senpwai-release.keystore"
+          printf '%s' "$SENPWAI_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+          echo "SENPWAI_ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Build ABI-specific release APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --release --split-per-abi \
+            --build-name "$VERSION" \
+            --build-number "$BUILD_NUMBER" \
+            --dart-define "UPDATE_CHANNEL=$UPDATE_CHANNEL"
+
+      - name: Verify and package APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_dir="build/release/android"
+          mkdir -p "$release_dir"
+          for mapping in \
+            'armeabi-v7a:arm' \
+            'arm64-v8a:arm64' \
+            'x86_64:x64'; do
+            abi="${mapping%%:*}"
+            architecture="${mapping##*:}"
+            source="build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            destination="$release_dir/Senpwai-${VERSION}-${architecture}.apk"
+            test -f "$source"
+            cp "$source" "$destination"
+            build_tools="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+            "$ANDROID_HOME/build-tools/$build_tools/apksigner" verify --verbose "$destination"
+            (cd "$release_dir" && sha256sum "$(basename "$destination")" > "$(basename "$destination").sha256")
+          done
+
+      - name: Upload Android release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-android
+          path: build/release/android/
+          if-no-files-found: error
+          retention-days: 7
+
+  build-windows:
+    name: Build Windows ${{ matrix.architecture }} installer
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x64
+            runner: windows-2022
+          - architecture: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      ARCHITECTURE: ${{ matrix.architecture }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      UPDATE_CHANNEL: ${{ needs.prepare.outputs.channel }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Enable Git long paths
+        shell: pwsh
+        run: git config --global core.longpaths true
+
+      - name: Set up Flutter
+        if: matrix.architecture == 'x64'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.2
+          cache: true
+
+      - name: Set up Flutter from source
+        if: matrix.architecture == 'arm64'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $flutterRoot = Join-Path $env:RUNNER_TEMP 'flutter'
+          git clone --depth 1 --branch 3.47.2 https://github.com/flutter/flutter.git $flutterRoot
+          "$flutterRoot\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & "$flutterRoot\bin\flutter.bat" --version
+
+      - name: Set up MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.architecture == 'arm64' && 'arm64' || 'amd64' }}
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter code
+        run: flutter analyze
+
+      - name: Build Windows release bundle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          flutter build windows --release `
+            --build-name $env:VERSION `
+            --build-number $env:BUILD_NUMBER `
+            --dart-define "UPDATE_CHANNEL=$env:UPDATE_CHANNEL"
+
+          $bundle = "build\windows\$env:ARCHITECTURE\runner\Release"
+          if (-not (Test-Path -LiteralPath "$bundle\senpwai.exe")) {
+            throw "Windows bundle was not created at $bundle"
+          }
+          "WINDOWS_BUNDLE=$bundle" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify native architecture
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expectedMachine = if ($env:ARCHITECTURE -eq 'arm64') { 'ARM64' } else { 'x64' }
+          foreach ($binary in @(
+            "$env:WINDOWS_BUNDLE\senpwai.exe",
+            "$env:WINDOWS_BUNDLE\torrent-rasterbar.dll"
+          )) {
+            if (-not (Test-Path -LiteralPath $binary)) {
+              throw "Required binary is missing: $binary"
+            }
+            $headers = dumpbin /headers $binary
+            if (-not ($headers | Select-String -SimpleMatch "machine ($expectedMachine)")) {
+              throw "$binary is not a native $expectedMachine binary"
+            }
+          }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress --limit-output
+
+      - name: Compile unsigned installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path -LiteralPath $iscc)) {
+            throw "Inno Setup compiler was not found at $iscc"
+          }
+          & $iscc /Qp "/DAppVersion=$env:VERSION" "/DAppArchitecture=$env:ARCHITECTURE" scripts\setup.iss
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup compilation failed with exit code $LASTEXITCODE"
+          }
+
+          $releaseDir = 'build\release\windows'
+          $installerName = "Senpwai-windows-$env:ARCHITECTURE-setup.exe"
+          $installer = Join-Path $releaseDir $installerName
+          if (-not (Test-Path -LiteralPath $installer)) {
+            throw "Installer was not created: $installer"
+          }
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $installerName" | Set-Content -LiteralPath "$installer.sha256" -Encoding ascii
+
+      - name: Test installer lifecycle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Resolve-Path "build\release\windows\Senpwai-windows-$env:ARCHITECTURE-setup.exe"
+          $testDir = Join-Path $env:RUNNER_TEMP "Senpwai-$env:ARCHITECTURE-installer-test"
+          if (Test-Path -LiteralPath $testDir) {
+            throw "Installer test directory already exists: $testDir"
+          }
+
+          $install = Start-Process -FilePath $installer -ArgumentList @(
+            '/VERYSILENT',
+            '/SUPPRESSMSGBOXES',
+            '/NORESTART',
+            '/NOICONS',
+            "/DIR=$testDir"
+          ) -Wait -PassThru
+          if ($install.ExitCode -ne 0) {
+            throw "Installer exited with code $($install.ExitCode)"
+          }
+
+          $installedExe = Join-Path $testDir 'senpwai.exe'
+          if (-not (Test-Path -LiteralPath $installedExe)) {
+            throw 'The installed Senpwai executable is missing'
+          }
+          $versionInfo = (Get-Item -LiteralPath $installedExe).VersionInfo
+          if ($versionInfo.CompanyName -ne 'com.senpwai.app') {
+            throw "Unexpected CompanyName: $($versionInfo.CompanyName)"
+          }
+
+          $uninstaller = Join-Path $testDir 'unins000.exe'
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @(
+            '/VERYSILENT',
+            '/SUPPRESSMSGBOXES',
+            '/NORESTART',
+            '/KEEPAPPDATA'
+          ) -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0 -or (Test-Path -LiteralPath $installedExe)) {
+            throw 'The installer lifecycle test did not uninstall Senpwai cleanly'
+          }
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-windows-${{ matrix.architecture }}
+          path: |
+            build/release/windows/Senpwai-windows-${{ matrix.architecture }}-setup.exe
+            build/release/windows/Senpwai-windows-${{ matrix.architecture }}-setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  stage-release:
+    name: Stage draft GitHub release
+    needs: [prepare, build-android, build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      IS_PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Download release assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create complete draft release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+            if [[ "$is_draft" != "true" ]]; then
+              echo "Published release $RELEASE_TAG already exists; refusing to overwrite it" >&2
+              exit 1
+            fi
+          else
+            release_flags=()
+            if [[ "$IS_PRERELEASE" == "true" ]]; then
+              release_flags+=(--prerelease)
+            fi
+            release_title="$(sed -n '1s/^# //p' "release-notes/$VERSION.md")"
+            test -n "$release_title"
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --draft \
+              "${release_flags[@]}" \
+              --title "$release_title" \
+              --notes-file "release-notes/$VERSION.md"
+          fi
+
+          gh release upload "$RELEASE_TAG" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+  deploy-update-feed:
+    name: Deploy signed update feeds
+    needs: [prepare, publish]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      BUILD_NUMBER: ${{ needs.prepare.outputs.build_number }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      RELEASE_CHANNEL: ${{ needs.prepare.outputs.channel }}
+      APPCAST_NAME: ${{ needs.prepare.outputs.prerelease == 'true' && 'appcast-prerelease.xml' || 'appcast.xml' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Download release assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Build combined update manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          descriptor="$RUNNER_TEMP/release.json"
+          manifest="$RUNNER_TEMP/update-manifest.payload.json"
+          signed_manifest="$RUNNER_TEMP/current-update-manifest.json"
+
+          cd source-directory/signer
+          dart pub get
+          cd "$GITHUB_WORKSPACE"
+          if curl --fail --location --retry 4 --retry-all-errors \
+            https://senpwai.com/update-manifest.json \
+            --output "$signed_manifest"; then
+            (
+              cd source-directory/signer
+              dart run bin/verify.dart \
+                --input "$signed_manifest" \
+                --output "$manifest" \
+                --public-key '/k0TtLWNnHf6fSg+X3QyZx1IUDcGb4f0ZMmjvHVK0hg='
+            )
+          else
+            cp update-manifest/update_manifest.payload.json "$manifest"
+          fi
+
+          artifacts='[]'
+
+          for architecture in arm arm64 x64; do
+            apk_name="Senpwai-${VERSION}-${architecture}.apk"
+            asset="${GITHUB_WORKSPACE}/release-assets/${apk_name}"
+            test -f "$asset"
+            (cd "$(dirname "$asset")" && sha256sum --check "${apk_name}.sha256")
+            artifacts="$(jq \
+              --arg platform android \
+              --arg architecture "$architecture" \
+              --arg path "$asset" \
+              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${apk_name}" \
+              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
+              <<<"$artifacts")"
+          done
+
+          for mapping in 'x86_64:x64' 'aarch64:arm64'; do
+            appimage_architecture="${mapping%%:*}"
+            manifest_architecture="${mapping##*:}"
+            appimage_name="Senpwai-${VERSION}-${appimage_architecture}.AppImage"
+            asset="${GITHUB_WORKSPACE}/release-assets/${appimage_name}"
+            test -f "$asset"
+            (
+              cd "$(dirname "$asset")"
+              sha256sum --check "${appimage_name}.sha256"
+            )
+            artifacts="$(jq \
+              --arg platform linux \
+              --arg architecture "$manifest_architecture" \
+              --arg path "$asset" \
+              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${appimage_name}" \
+              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
+              <<<"$artifacts")"
+          done
+
+          for architecture in x64 arm64; do
+            installer_name="Senpwai-windows-${architecture}-setup.exe"
+            asset="${GITHUB_WORKSPACE}/release-assets/${installer_name}"
+            test -f "$asset"
+            (cd "$(dirname "$asset")" && sha256sum --check "${installer_name}.sha256")
+            artifacts="$(jq \
+              --arg platform windows \
+              --arg architecture "$architecture" \
+              --arg path "$asset" \
+              --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${installer_name}" \
+              '. + [{platform: $platform, architecture: $architecture, localPath: $path, url: $url}]' \
+              <<<"$artifacts")"
+          done
+
+          jq -n \
+            --arg version "$VERSION" \
+            --argjson build "$BUILD_NUMBER" \
+            --arg notes "Senpwai $VERSION" \
+            --arg channel "$RELEASE_CHANNEL" \
+            --argjson artifacts "$artifacts" \
+            '{version: $version, build: $build, channel: $channel, mandatory: false, notes: $notes, artifacts: $artifacts}' \
+            > "$descriptor"
+          cd source-directory/signer
+          dart run bin/build_update_feeds.dart \
+            --release "$descriptor" \
+            --manifest "$manifest" \
+            --appcast "$RUNNER_TEMP/unused-appcast.xml"
+
+      - name: Build Pages content
+        shell: bash
+        env:
+          SOURCE_DIRECTORY_PRIVATE_KEY: ${{ secrets.SOURCE_DIRECTORY_PRIVATE_KEY }}
+          UPDATE_MANIFEST_PRIVATE_KEY: ${{ secrets.UPDATE_MANIFEST_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          npm ci --prefix website
+          npm run astro --prefix website -- check
+          npm run --prefix website build
+          mkdir -p site
+          cp -R website/dist/. site/
+          cp "release-assets/$APPCAST_NAME" "site/$APPCAST_NAME"
+          if [[ "$RELEASE_CHANNEL" == "stable" ]]; then
+            cp "release-assets/$APPCAST_NAME" site/appcast-prerelease.xml
+          fi
+          cd source-directory/signer
+          dart run bin/sign.dart \
+            --input ../source_directory.payload.json \
+            --output ../../site/source-directory.json
+          dart run bin/sign.dart \
+            --input "$RUNNER_TEMP/update-manifest.payload.json" \
+            --output ../../site/update-manifest.json \
+            --private-key-environment UPDATE_MANIFEST_PRIVATE_KEY
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - name: Deploy signed update feeds
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  publish:
+    name: Publish GitHub release
+    needs: [prepare, stage-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      IS_PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+    steps:
+      - name: Publish completed release
+        shell: bash
+        run: |
+          set -euo pipefail
+          is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          test "$is_draft" = "true"
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft=false \
+              --prerelease
+          else
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft=false \
+              --latest
+          fi
+
+      - name: Add workflow summary
+        shell: bash
+        run: |
+          {
+            echo "## Senpwai $VERSION"
+            echo
+            echo "Published $RELEASE_TAG with Android APKs, Linux x86_64/aarch64 AppImages, Windows x64/ARM64 installers, the macOS universal build, signed update feeds, and checksums."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  announce:
+    name: Announce published release
+    needs: [prepare, deploy-update-feed]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Announce on Discord
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: dart run tool/announce_release.dart discord "${{ needs.prepare.outputs.version }}"
+      - name: Announce on Reddit
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
+          REDDIT_PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
+        run: dart run tool/announce_release.dart reddit "${{ needs.prepare.outputs.version }}"

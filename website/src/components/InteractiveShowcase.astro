@@ -1,0 +1,520 @@
+---
+import { Home, Search, Download, Film, Settings, Monitor } from 'lucide-astro';
+import { Image, getImage } from 'astro:assets';
+import { linuxIconSvg } from '../lib/platform-icons';
+import desktopHome from '../assets/screenshots/desktop/home.webp';
+import desktopSearch from '../assets/screenshots/desktop/search.webp';
+import desktopDownload from '../assets/screenshots/desktop/download.webp';
+import desktopPreview from '../assets/screenshots/desktop/preview.webp';
+import desktopSettings from '../assets/screenshots/desktop/settings.webp';
+import mobileHome from '../assets/screenshots/mobile/home.webp';
+import mobileSearch from '../assets/screenshots/mobile/search.webp';
+import mobileDownload from '../assets/screenshots/mobile/download.webp';
+import mobilePreview from '../assets/screenshots/mobile/preview.webp';
+import mobileSettings from '../assets/screenshots/mobile/settings.webp';
+
+const screens = [
+  { id: 'home', name: 'Home', icon: Home, desktop: desktopHome, mobile: mobileHome },
+  { id: 'search', name: 'Search', icon: Search, desktop: desktopSearch, mobile: mobileSearch },
+  { id: 'downloads', name: 'Downloads', icon: Download, desktop: desktopDownload, mobile: mobileDownload },
+  { id: 'preview', name: 'Anime preview', icon: Film, desktop: desktopPreview, mobile: mobilePreview },
+  { id: 'settings', name: 'Settings', icon: Settings, desktop: desktopSettings, mobile: mobileSettings },
+];
+
+const runtimeScreens = await Promise.all(
+  screens.map(async (screen) => {
+    const [desktop, mobile] = await Promise.all([
+      getImage({ src: screen.desktop, width: 1600, quality: 82, format: 'webp' }),
+      getImage({ src: screen.mobile, width: 600, quality: 82, format: 'webp' }),
+    ]);
+
+    return { desktop: desktop.src, mobile: mobile.src };
+  }),
+);
+
+const platforms = [
+  {
+    name: 'Windows',
+    svg: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-13.051-1.801"/></svg>`,
+  },
+  {
+    name: 'macOS',
+    svg: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.66-.8 1.11-1.92.99-3.04-.96.04-2.12.64-2.8 1.44-.61.71-1.14 1.86-1 2.97 1.07.08 2.15-.56 2.81-1.37z"/></svg>`,
+  },
+  {
+    name: 'Linux',
+    svg: linuxIconSvg(20),
+  },
+  {
+    name: 'Android',
+    svg: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997 0-.5511.4482-.9993.9993-.9993.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997 0-.5511.4482-.9993.9993-.9993.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.5029C15.5898 8.1633 13.8567 7.7844 12 7.7844c-1.8567 0-3.5898.3789-5.1368 1.1352L4.8409 5.4167a.416.416 0 00-.5676-.1521.416.416 0 00-.1521.5676l1.9973 3.4592C2.688 11.0865.3444 14.158.0003 17.8447h23.9994c-.3441-3.6867-2.6877-6.7582-6.1182-8.5233"/></svg>`,
+  },
+];
+---
+
+<section id="showcase" class="showcase shell">
+  <div class="section-intro">
+    <p class="eyebrow"><Monitor size={14} class="inline-icon" /> Cross-platform</p>
+    <h2 class="display">Works wherever you watch.</h2>
+  </div>
+
+  <!-- Platform Badges -->
+  <div class="platform-strip" aria-label="Supported operating systems">
+    {platforms.map((p) => (
+      <div class="platform-chip">
+        <span class="chip-svg" set:html={p.svg} />
+        <div class="chip-info">
+          <strong>{p.name}</strong>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <!-- Icon-Only Screen Carousel Tabs -->
+  <div class="screen-icon-pills" role="tablist" aria-label="Screen carousel tabs">
+    {screens.map((s, idx) => {
+      const ScreenIcon = s.icon;
+      return (
+        <button
+          type="button"
+          class:list={['icon-tab', { active: idx === 0 }]}
+          data-screen-index={idx}
+          role="tab"
+          aria-label={s.name}
+          title={s.name}
+          aria-selected={idx === 0 ? 'true' : 'false'}
+        >
+          <ScreenIcon size={18} class="tab-icon" />
+          <span class="tab-progress"><span class="tab-fill"></span></span>
+        </button>
+      );
+    })}
+  </div>
+
+  <!-- Dual Device Stage -->
+  <div class="device-stage" id="device-stage">
+    <div class="desktop-frame">
+      <div class="window-bar">
+        <div class="window-controls">
+          <span class="dot close"></span>
+          <span class="dot minimize"></span>
+          <span class="dot maximize"></span>
+        </div>
+      </div>
+      <div class="screen-content">
+        <Image
+          id="desktop-img"
+          src={screens[0].desktop}
+          width={1600}
+          quality={82}
+          format="webp"
+          alt="Senpwai Home screen on Desktop"
+          loading="lazy"
+        />
+      </div>
+    </div>
+
+    <div class="mobile-frame">
+      <div class="mobile-speaker"></div>
+      <div class="screen-content">
+        <Image
+          id="mobile-img"
+          src={screens[0].mobile}
+          width={600}
+          quality={82}
+          format="webp"
+          alt="Senpwai Home screen on Mobile"
+          loading="lazy"
+        />
+      </div>
+    </div>
+  </div>
+</section>
+
+<script is:inline define:vars={{ screens: runtimeScreens }}>
+  const tabs = document.querySelectorAll('.icon-tab');
+  const desktopImg = document.getElementById('desktop-img');
+  const mobileImg = document.getElementById('mobile-img');
+  const showcase = document.getElementById('showcase');
+  const screenshotViewports = document.querySelectorAll('#device-stage .screen-content');
+
+  let currentIdx = 0;
+  let carouselTimer = null;
+  let cycleStartedAt = 0;
+  let remainingTime = 6000;
+  const ROTATE_INTERVAL = 6000;
+  const hoveredViewports = new Set();
+
+  function setScreen(idx) {
+    currentIdx = idx;
+    const item = screens[idx];
+
+    if (desktopImg) desktopImg.classList.add('switching');
+    if (mobileImg) mobileImg.classList.add('switching');
+
+    setTimeout(() => {
+      if (desktopImg) {
+        desktopImg.src = item.desktop;
+        desktopImg.classList.remove('switching');
+      }
+      if (mobileImg) {
+        mobileImg.src = item.mobile;
+        mobileImg.classList.remove('switching');
+      }
+    }, 240);
+
+    tabs.forEach((tab, i) => {
+      const active = i === idx;
+      tab.classList.remove('active');
+      void tab.offsetWidth; // Force reflow to reset tab progress bar animation
+      if (active) {
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+      } else {
+        tab.setAttribute('aria-selected', 'false');
+      }
+    });
+  }
+
+  function nextScreen() {
+    const nextIdx = (currentIdx + 1) % screens.length;
+    setScreen(nextIdx);
+  }
+
+  function scheduleCarousel() {
+    cycleStartedAt = performance.now();
+    carouselTimer = setTimeout(() => {
+      carouselTimer = null;
+      nextScreen();
+      remainingTime = ROTATE_INTERVAL;
+      scheduleCarousel();
+    }, remainingTime);
+  }
+
+  function restartCarousel() {
+    if (carouselTimer !== null) clearTimeout(carouselTimer);
+    carouselTimer = null;
+    remainingTime = ROTATE_INTERVAL;
+
+    if (hoveredViewports.size > 0) {
+      showcase?.classList.add('carousel-paused');
+    } else {
+      showcase?.classList.remove('carousel-paused');
+      scheduleCarousel();
+    }
+  }
+
+  function pauseCarousel() {
+    if (carouselTimer !== null) {
+      remainingTime = Math.max(0, remainingTime - (performance.now() - cycleStartedAt));
+      clearTimeout(carouselTimer);
+      carouselTimer = null;
+    }
+    showcase?.classList.add('carousel-paused');
+  }
+
+  function resumeCarousel() {
+    if (hoveredViewports.size > 0 || carouselTimer !== null) return;
+    showcase?.classList.remove('carousel-paused');
+    scheduleCarousel();
+  }
+
+  tabs.forEach((tab, idx) => {
+    tab.addEventListener('click', () => {
+      setScreen(idx);
+      restartCarousel();
+    });
+  });
+
+  screenshotViewports.forEach((viewport) => {
+    viewport.addEventListener('pointerenter', () => {
+      hoveredViewports.add(viewport);
+      pauseCarousel();
+    });
+    viewport.addEventListener('pointerleave', () => {
+      hoveredViewports.delete(viewport);
+      resumeCarousel();
+    });
+  });
+
+  // Start auto-play
+  restartCarousel();
+</script>
+
+<style>
+  .showcase {
+    min-height: calc(100svh - 72px);
+    display: grid;
+    align-content: center;
+    padding-block: clamp(1.25rem, 3vh, 2rem);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .section-intro {
+    max-width: 680px;
+    margin: 0 auto 1rem;
+    text-align: center;
+  }
+
+  .section-intro .eyebrow {
+    color: #ff5252;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+  }
+
+  .section-intro h2 {
+    margin: 0.8rem 0 0;
+    font-size: clamp(2.15rem, 3.8vw, 3.5rem);
+    line-height: 0.98;
+    color: #f4f1eb;
+  }
+
+  .platform-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    max-width: 840px;
+    margin: 0 auto 1rem;
+  }
+
+  .platform-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.75rem;
+    background: rgba(18, 18, 23, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+
+  .platform-chip:hover {
+    background: rgba(24, 24, 31, 0.7);
+    border-color: rgba(240, 68, 68, 0.3);
+  }
+
+  .chip-svg {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 0.55rem;
+    background: rgba(240, 68, 68, 0.12);
+    border: 1px solid rgba(240, 68, 68, 0.25);
+    color: #ff5252;
+    flex-shrink: 0;
+  }
+
+  .chip-info strong {
+    display: block;
+    font: 700 0.82rem 'Outfit', sans-serif;
+    color: #ffffff;
+  }
+
+  /* Icon-Only Carousel Pills */
+  .screen-icon-pills {
+    display: flex;
+    justify-content: center;
+    gap: 0.45rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .icon-tab {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 0.65rem;
+    background: rgba(18, 18, 23, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #8c8a93;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s ease;
+  }
+
+  .icon-tab:hover {
+    color: #ffffff;
+    background: rgba(24, 24, 31, 0.75);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .icon-tab.active {
+    background: rgba(240, 68, 68, 0.12);
+    border-color: rgba(240, 68, 68, 0.35);
+    color: #ff5252;
+  }
+
+  .tab-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .tab-fill {
+    width: 0%;
+    height: 100%;
+    background: #f04444;
+    display: block;
+  }
+
+  .icon-tab.active .tab-fill {
+    animation: progressFill 6s linear infinite;
+  }
+
+  .showcase.carousel-paused .icon-tab.active .tab-fill {
+    animation-play-state: paused;
+  }
+
+  @keyframes progressFill {
+    from {
+      width: 0%;
+    }
+    to {
+      width: 100%;
+    }
+  }
+
+  /* Dual Device Stage */
+  .device-stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 190px;
+    gap: 1.25rem;
+    width: min(100%, 880px);
+    margin-inline: auto;
+    align-items: center;
+  }
+
+  .desktop-frame {
+    border-radius: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: #0e0e12;
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55), 0 0 30px rgba(240, 68, 68, 0.08);
+  }
+
+  .window-bar {
+    height: 28px;
+    display: flex;
+    align-items: center;
+    padding: 0 0.75rem;
+    background: rgba(18, 18, 23, 0.9);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .window-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: none;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .dot.close {
+    background: #f04444;
+  }
+  .dot.minimize {
+    background: #ffcf54;
+  }
+
+  .dot.maximize {
+    background: #4ade80;
+  }
+
+  .mobile-frame {
+    position: relative;
+    border-radius: 2rem;
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    background: #000;
+    padding: 0.5rem;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), 0 0 25px rgba(240, 68, 68, 0.1);
+  }
+
+  .mobile-speaker {
+    width: 50px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 0.3rem auto 0.5rem;
+  }
+
+  .mobile-frame img {
+    border-radius: 1.5rem;
+  }
+
+  .screen-content img {
+    width: 100%;
+    height: auto;
+    display: block;
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 0.55s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: opacity, transform;
+  }
+
+  .screen-content img.switching {
+    opacity: 0.1;
+    transform: scale(0.96);
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+  }
+
+  @media (max-width: 900px) {
+    .showcase {
+      min-height: auto;
+      display: block;
+      padding-block: clamp(4.5rem, 8vw, 7.5rem);
+    }
+    .platform-strip {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+    .device-stage {
+      grid-template-columns: 1fr;
+      gap: 1.75rem;
+    }
+    .mobile-frame {
+      max-width: 220px;
+      margin: 0 auto;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .platform-strip {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+    .screen-icon-pills {
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+    }
+    .icon-tab {
+      width: 40px;
+      height: 40px;
+    }
+    .mobile-frame {
+      max-width: 190px;
+    }
+  }
+
+  @media (max-width: 400px) {
+    .platform-strip {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

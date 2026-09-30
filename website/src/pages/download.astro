@@ -1,0 +1,709 @@
+---
+import Layout from '../layouts/Layout.astro';
+import {
+  Download,
+  Cpu,
+  Github,
+  ArrowUpRight,
+  CircleHelp,
+  X,
+  ShieldCheck,
+} from 'lucide-astro';
+import { linuxIconSvg } from '../lib/platform-icons';
+import gatekeeperBlocked from '../assets/mac-gatekeeper-bypass/1.png';
+import gatekeeperSettings from '../assets/mac-gatekeeper-bypass/2.png';
+import gatekeeperConfirm from '../assets/mac-gatekeeper-bypass/3.png';
+import gatekeeperAuthorize from '../assets/mac-gatekeeper-bypass/4.png';
+import pubspec from '../../../pubspec.yaml?raw';
+
+const version = pubspec.match(/^version:\s*([^+\s]+)/m)?.[1];
+if (!version) throw new Error('pubspec.yaml is missing an app version');
+const releaseBase = `https://github.com/SenZmaKi/Senpwai/releases/download/v${version}`;
+
+const windowsSvg = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.95-9.6L24 0v11.4H10.95M0 12.6h9.75v9.451L0 20.699M10.95 12.6H24V24l-13.05-1.8"/></svg>`;
+const macSvg = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.32c.67-.82 1.13-1.96.99-3.1-.97.04-2.17.65-2.86 1.46-.62.72-1.15 1.88-.99 3.01 1.09.08 2.21-.55 2.86-1.37z"/></svg>`;
+const androidSvg = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997 0-.5511.4482-.9993.9993-.9993.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997 0-.5511.4482-.9993.9993-.9993.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.5029C15.5898 8.1633 13.8567 7.7844 12 7.7844c-1.8567 0-3.5898.3789-5.1368 1.1352L4.8409 5.4167a.416.416 0 00-.5676-.1521.416.416 0 00-.1521.5676l1.9973 3.4592C2.688 11.0865.3444 14.158.0003 17.8447h23.9994c-.3441-3.6867-2.6877-6.7582-6.1182-8.5233"/></svg>`;
+
+const downloadCards = [
+  {
+    id: 'windows',
+    name: 'Windows',
+    tagline: 'Windows 10 / 11 (64-bit)',
+    fileType: '.exe setup',
+    svg: windowsSvg,
+    architectures: [
+      { value: 'x64', label: 'x64 (Intel / AMD)' },
+      { value: 'arm64', label: 'ARM64' },
+    ],
+    defaultArchitecture: 'x64',
+    asset: (architecture: string) => `Senpwai-windows-${architecture}-setup.exe`,
+  },
+  {
+    id: 'macos',
+    name: 'macOS',
+    tagline: 'Apple Silicon & Intel',
+    fileType: '.dmg package',
+    svg: macSvg,
+    architectures: [],
+    defaultArchitecture: 'universal',
+    asset: () => 'Senpwai-macos-universal.dmg',
+  },
+  {
+    id: 'linux',
+    name: 'Linux',
+    tagline: 'Any Linux distribution',
+    fileType: 'AppImage',
+    svg: linuxIconSvg(22),
+    architectures: [
+      { value: 'x64', label: 'x86_64 (Intel / AMD)' },
+      { value: 'arm64', label: 'aarch64 (ARM64)' },
+    ],
+    defaultArchitecture: 'x64',
+    asset: (architecture: string) => `Senpwai-${version}-${architecture === 'arm64' ? 'aarch64' : 'x86_64'}.AppImage`,
+  },
+  {
+    id: 'android',
+    name: 'Android',
+    tagline: 'Phones & Tablets',
+    fileType: '.apk package',
+    svg: androidSvg,
+    architectures: [
+      { value: 'arm64', label: 'ARM64 (most phones)' },
+      { value: 'arm', label: 'ARM 32-bit' },
+      { value: 'x64', label: 'x86_64 (emulators)' },
+    ],
+    defaultArchitecture: 'arm64',
+    asset: (architecture: string) => `Senpwai-${version}-${architecture}.apk`,
+  },
+];
+---
+
+<Layout title="Download Senpwai | Desktop & Mobile" description="Download Senpwai for Windows, macOS, Linux, and Android. Free, open source batch anime downloader.">
+  <section class="download-section shell">
+    <div class="section-intro">
+      <p class="eyebrow"><Download size={14} class="inline-icon" /> Downloads</p>
+      <h1 class="display">Get Senpwai for your device.</h1>
+    </div>
+
+    <!-- 4-Column Auto-Highlighting Platform Grid -->
+    <div class="platform-grid">
+      {downloadCards.map((card) => (
+        <article class="dl-card" data-platform-id={card.id} data-version={version}>
+          <div class="card-top">
+            <div class="dl-icon-box" set:html={card.svg} />
+            <div class="tag-row">
+              <span class="detected-badge hidden">Your OS</span>
+              <span class="card-version-tag">{version}</span>
+            </div>
+          </div>
+
+          <div class="card-header-info">
+            <h2>{card.name}</h2>
+            <p class="card-subtitle">{card.tagline}</p>
+          </div>
+
+          <div class="card-action">
+            {card.architectures.length > 0 ? (
+              <div class="architecture-field">
+                <Cpu size={16} class="architecture-icon" aria-hidden="true" />
+                <select class="architecture-select" id={`architecture-${card.id}`} aria-label={`${card.name} processor`}>
+                  {card.architectures.map((architecture) => (
+                    <option value={architecture.value} selected={architecture.value === card.defaultArchitecture}>
+                      {architecture.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <a
+              href={`${releaseBase}/${card.asset(card.defaultArchitecture)}`}
+              data-release-base={releaseBase}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="dl-button secondary-button"
+            >
+              <Download size={16} aria-hidden="true" />
+              <span>Download {card.fileType}</span>
+            </a>
+            {card.id === 'macos' && (
+              <button class="mac-help-trigger" type="button" aria-haspopup="dialog" aria-controls="mac-gatekeeper-help">
+                <CircleHelp size={15} aria-hidden="true" />
+                macOS blocked the app?
+              </button>
+            )}
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <dialog class="mac-help-dialog" id="mac-gatekeeper-help" aria-labelledby="mac-help-title">
+    <div class="dialog-panel">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow"><ShieldCheck size={14} aria-hidden="true" /> macOS security</p>
+          <h2 id="mac-help-title">Open Senpwai when macOS blocks it</h2>
+          <p>Senpwai is not signed with an Apple Developer certificate, so Gatekeeper may ask you to confirm that you trust it. Only continue if you downloaded Senpwai from this site or its official GitHub releases.</p>
+        </div>
+        <button class="dialog-close" type="button" aria-label="Close instructions">
+          <X size={20} aria-hidden="true" />
+        </button>
+      </div>
+
+      <ol class="gatekeeper-steps">
+        <li class="gatekeeper-step">
+          <div class="step-copy"><span>1</span><div><h3>Try opening Senpwai</h3><p>When the warning appears, click <strong>Done</strong>. Do not move the app to Trash.</p></div></div>
+          <img src={gatekeeperBlocked.src} alt="macOS warning that Senpwai could not be opened, with Done and Move to Trash buttons" loading="lazy" />
+        </li>
+        <li class="gatekeeper-step">
+          <div class="step-copy"><span>2</span><div><h3>Allow it in Settings</h3><p>Open <strong>System Settings → Privacy &amp; Security</strong>, scroll to Security, then click <strong>Open Anyway</strong>.</p></div></div>
+          <img src={gatekeeperSettings.src} alt="Privacy and Security settings with the Open Anyway button highlighted beside Senpwai" loading="lazy" />
+        </li>
+        <li class="gatekeeper-step">
+          <div class="step-copy"><span>3</span><div><h3>Confirm your choice</h3><p>In the next warning, click <strong>Open Anyway</strong>.</p></div></div>
+          <img src={gatekeeperConfirm.src} alt="Second macOS warning with the Open Anyway button" loading="lazy" />
+        </li>
+        <li class="gatekeeper-step">
+          <div class="step-copy"><span>4</span><div><h3>Authorize and open</h3><p>Use Touch ID or enter an administrator password. Senpwai should now open normally.</p></div></div>
+          <img src={gatekeeperAuthorize.src} alt="macOS authorization prompt asking for Touch ID or an administrator password" loading="lazy" />
+        </li>
+      </ol>
+    </div>
+  </dialog>
+
+  <!-- GitHub Releases Link -->
+  <section class="releases-section shell">
+    <a href="https://github.com/SenZmaKi/Senpwai/releases" target="_blank" rel="noopener noreferrer" class="releases-btn">
+      <Github size={17} /> View all releases on GitHub <ArrowUpRight size={15} />
+    </a>
+  </section>
+</Layout>
+
+<script>
+  type ArchitectureHints = { architecture?: string; bitness?: string };
+  type BrowserWithArchitecture = Navigator & {
+    userAgentData?: { getHighEntropyValues?: (hints: string[]) => Promise<ArchitectureHints> };
+  };
+
+  function detectUserOS() {
+    const ua = window.navigator.userAgent.toLowerCase();
+    if (ua.includes('android')) return 'android';
+    if (ua.includes('win')) return 'windows';
+    if (ua.includes('mac') || ua.includes('macintosh')) return 'macos';
+    if (ua.includes('linux') || ua.includes('x11')) return 'linux';
+    return null;
+  }
+
+  async function detectArchitecture(): Promise<'arm64' | 'arm' | 'x64' | null> {
+    const browser = navigator as BrowserWithArchitecture;
+    try {
+      const hints = await browser.userAgentData?.getHighEntropyValues?.(['architecture', 'bitness']);
+      if (hints?.architecture) {
+        const architecture = hints.architecture.toLowerCase();
+        if (architecture.includes('arm')) return hints.bitness === '32' ? 'arm' : 'arm64';
+        if (architecture.includes('x86') || architecture.includes('x64')) return 'x64';
+      }
+    } catch {
+      // Browsers can decline high-entropy hints; the user can choose manually.
+    }
+
+    const agent = navigator.userAgent.toLowerCase();
+    if (/arm64|aarch64/.test(agent)) return 'arm64';
+    if (/armv7|armeabi/.test(agent)) return 'arm';
+    if (/x86_64|amd64|win64|x64/.test(agent)) return 'x64';
+    return null;
+  }
+
+  function assetName(platform: string, architecture: string, version: string) {
+    if (platform === 'windows') return `Senpwai-windows-${architecture}-setup.exe`;
+    if (platform === 'linux') {
+      return `Senpwai-${version}-${architecture === 'arm64' ? 'aarch64' : 'x86_64'}.AppImage`;
+    }
+    if (platform === 'android') return `Senpwai-${version}-${architecture}.apk`;
+    return 'Senpwai-macos-universal.dmg';
+  }
+
+  const userOS = detectUserOS();
+  const cards = document.querySelectorAll<HTMLElement>('.dl-card');
+
+  cards.forEach((card) => {
+    const pId = card.dataset.platformId;
+    const isUserOS = pId === userOS;
+    const btn = card.querySelector<HTMLAnchorElement>('.dl-button');
+    const badge = card.querySelector<HTMLElement>('.detected-badge');
+    const selector = card.querySelector<HTMLSelectElement>('.architecture-select');
+
+    selector?.addEventListener('change', (event) => {
+      if (!btn || !pId || !card.dataset.version) return;
+      if (event.isTrusted) selector.dataset.chosenManually = 'true';
+      btn.href = `${btn.dataset.releaseBase}/${assetName(pId, selector.value, card.dataset.version)}`;
+    });
+
+    if (isUserOS) {
+      card.classList.add('featured');
+      if (badge) badge.classList.remove('hidden');
+      if (btn) {
+        btn.classList.remove('secondary-button');
+        btn.classList.add('primary-button');
+      }
+    } else {
+      card.classList.add('muted');
+    }
+  });
+
+  if (userOS) {
+    void detectArchitecture().then((architecture) => {
+      if (!architecture) return;
+      const selector = document.querySelector<HTMLSelectElement>(
+        `.dl-card[data-platform-id="${userOS}"] .architecture-select`,
+      );
+      if (selector?.dataset.chosenManually === 'true' ||
+          !selector?.querySelector(`option[value="${architecture}"]`)) return;
+      selector.value = architecture;
+      selector.dispatchEvent(new Event('change'));
+    });
+  }
+
+  const macHelpDialog = document.querySelector<HTMLDialogElement>('#mac-gatekeeper-help');
+  const macHelpTrigger = document.querySelector<HTMLButtonElement>('.mac-help-trigger');
+  const macHelpClose = macHelpDialog?.querySelector<HTMLButtonElement>('.dialog-close');
+
+  macHelpTrigger?.addEventListener('click', () => macHelpDialog?.showModal());
+  macHelpClose?.addEventListener('click', () => macHelpDialog?.close());
+  macHelpDialog?.addEventListener('click', (event) => {
+    if (event.target === macHelpDialog) macHelpDialog.close();
+  });
+</script>
+
+<style>
+  .download-section {
+    padding-top: clamp(2.5rem, 5vw, 4rem);
+    padding-bottom: 1.5rem;
+  }
+
+  .section-intro {
+    max-width: 680px;
+    margin: 0 auto 2.2rem;
+    text-align: center;
+  }
+
+  .section-intro .eyebrow {
+    color: #ff5252;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+  }
+
+  .section-intro h1 {
+    margin: 0.8rem 0 0;
+    font-size: clamp(2.4rem, 4.5vw, 4.2rem);
+    line-height: 0.98;
+    color: #f4f1eb;
+  }
+
+  /* Platform Grid */
+  .platform-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.25rem;
+  }
+
+  .dl-card {
+    display: flex;
+    flex-direction: column;
+    padding: 1.6rem;
+    border-radius: 1rem;
+    background: rgba(18, 18, 23, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    transition: all 0.25s ease;
+  }
+
+  .dl-card.muted {
+    opacity: 0.85;
+  }
+
+  .dl-card.featured {
+    opacity: 1;
+    background: linear-gradient(145deg, rgba(28, 28, 38, 0.85) 0%, rgba(18, 18, 23, 0.75) 100%);
+    border-color: rgba(240, 68, 68, 0.4);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 25px rgba(240, 68, 68, 0.1);
+  }
+
+  .dl-card:hover {
+    opacity: 1;
+    transform: translateY(-3px);
+    border-color: rgba(240, 68, 68, 0.4);
+    background: rgba(24, 24, 31, 0.75);
+  }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.4rem;
+  }
+
+  .dl-icon-box {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 0.65rem;
+    background: rgba(240, 68, 68, 0.12);
+    border: 1px solid rgba(240, 68, 68, 0.25);
+    color: #ff5252;
+  }
+
+  .tag-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .detected-badge {
+    font: 700 0.62rem/1 'JetBrains Mono', monospace;
+    padding: 0.25rem 0.45rem;
+    border-radius: 0.35rem;
+    background: rgba(240, 68, 68, 0.2);
+    color: #ff5252;
+    border: 1px solid rgba(240, 68, 68, 0.35);
+    text-transform: uppercase;
+  }
+
+  .card-version-tag {
+    font: 600 0.68rem/1 'JetBrains Mono', monospace;
+    padding: 0.25rem 0.55rem;
+    border-radius: 0.4rem;
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffcf54;
+    border: 1px solid rgba(255, 207, 84, 0.2);
+  }
+
+  .card-header-info h2 {
+    margin: 0 0 0.3rem;
+    font: 700 1.25rem 'Outfit', sans-serif;
+    color: #ffffff;
+  }
+
+  .card-subtitle {
+    margin: 0 0 1.75rem;
+    font: 500 0.74rem 'JetBrains Mono', monospace;
+    color: #8c8a93;
+  }
+
+  .card-action {
+    margin-top: auto;
+  }
+
+  .architecture-field {
+    position: relative;
+  }
+
+  .architecture-icon {
+    position: absolute;
+    top: 13px;
+    left: 0.75rem;
+    z-index: 1;
+    color: #b8b6bc;
+    pointer-events: none;
+  }
+
+  .architecture-select {
+    width: 100%;
+    min-height: 42px;
+    margin-bottom: 0.8rem;
+    padding: 0.55rem 0.7rem 0.55rem 2.35rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 0.6rem;
+    background: #1b1b24;
+    color: #f4f1eb;
+    font: 600 0.76rem 'JetBrains Mono', monospace;
+    cursor: pointer;
+  }
+
+  .architecture-select:hover,
+  .architecture-select:focus-visible {
+    border-color: #f04444;
+  }
+
+  .dl-button {
+    width: 100%;
+    font-size: 0.82rem;
+  }
+
+  .mac-help-trigger {
+    width: 100%;
+    margin-top: 0.7rem;
+    padding: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border: 0;
+    background: transparent;
+    color: #a7a5ad;
+    font: 600 0.72rem 'JetBrains Mono', monospace;
+    transition: color 0.2s ease;
+  }
+
+  .mac-help-trigger:hover { color: #ffffff; }
+
+  .mac-help-dialog {
+    position: fixed;
+    inset: 0;
+    width: min(1080px, calc(100% - 2rem));
+    max-height: min(88vh, 900px);
+    margin: auto;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 1.1rem;
+    background: #121217;
+    color: #f4f1eb;
+    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.7);
+  }
+
+  .mac-help-dialog::backdrop {
+    background: rgba(4, 4, 7, 0.82);
+    backdrop-filter: blur(6px);
+  }
+
+  .dialog-panel { padding: clamp(1.1rem, 3vw, 2rem); }
+
+  .dialog-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .dialog-header > div { flex: 1; }
+  .dialog-header .eyebrow { margin: 0 0 0.65rem; }
+
+  .dialog-header h2 {
+    margin: 0;
+    color: #ffffff;
+    font: 800 clamp(1.55rem, 3vw, 2.25rem)/1.08 'Outfit', sans-serif;
+    letter-spacing: -0.035em;
+  }
+
+  .dialog-header p:last-child {
+    max-width: 750px;
+    margin: 0.7rem 0 0;
+    color: #aaa8af;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .dialog-close {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.65rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: #d0cfd3;
+  }
+
+  .dialog-close:hover { background: rgba(255, 255, 255, 0.1); color: #ffffff; }
+
+  .gatekeeper-steps {
+    display: grid;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .gatekeeper-step {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.85rem;
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  .step-copy {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1.25rem;
+  }
+
+  .step-copy > span {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    background: rgba(240, 68, 68, 0.16);
+    border: 1px solid rgba(240, 68, 68, 0.35);
+    color: #ff6868;
+    font: 700 0.72rem 'JetBrains Mono', monospace;
+  }
+
+  .step-copy h3 { margin: 0 0 0.25rem; font: 700 0.95rem 'Outfit', sans-serif; }
+  .step-copy p { margin: 0; color: #9c9aa2; font-size: 0.84rem; line-height: 1.55; }
+  .step-copy strong { color: #dedce1; }
+
+  .gatekeeper-step img {
+    width: 100%;
+    height: auto;
+    max-height: min(620px, 70vh);
+    padding: 1rem;
+    object-fit: contain;
+    background: #08080b;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Releases Link Section */
+  .releases-section {
+    margin-block: 1rem 3rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .releases-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.4rem;
+    border-radius: 0.75rem;
+    background: rgba(18, 18, 23, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #a7a5ad;
+    font: 600 0.82rem 'JetBrains Mono', monospace;
+    transition: all 0.2s ease;
+  }
+
+  .releases-btn:hover {
+    color: #ffffff;
+    background: rgba(24, 24, 31, 0.85);
+    border-color: rgba(240, 68, 68, 0.35);
+    transform: translateY(-2px);
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  @media (max-width: 1024px) {
+    .platform-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .verify-card {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .download-section {
+      padding-top: 1.35rem;
+      padding-bottom: 0.75rem;
+    }
+
+    .section-intro {
+      margin-bottom: 1.15rem;
+    }
+
+    .section-intro h1 {
+      margin-top: 0.45rem;
+      font-size: clamp(2rem, 10vw, 2.55rem);
+      line-height: 0.96;
+    }
+
+    .platform-grid {
+      grid-template-columns: 1fr;
+      gap: 0.7rem;
+    }
+
+    .dl-card {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: 0.85rem;
+      padding: 0.9rem;
+      border-radius: 0.8rem;
+    }
+
+    .dl-card[data-platform-id='android'] {
+      order: -1;
+    }
+
+    .card-top {
+      grid-row: span 2;
+      align-self: center;
+      margin: 0;
+    }
+
+    .card-top .tag-row {
+      position: absolute;
+      top: 0.9rem;
+      right: 0.9rem;
+    }
+
+    .dl-card {
+      position: relative;
+    }
+
+    .dl-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 0.55rem;
+    }
+
+    .card-header-info {
+      min-width: 0;
+      padding-right: 5.75rem;
+    }
+
+    .card-header-info h2 {
+      margin: 0 0 0.1rem;
+      font-size: 1.05rem;
+    }
+
+    .card-subtitle {
+      margin: 0;
+      font-size: 0.66rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-action {
+      grid-column: 1 / -1;
+      margin-top: 0.75rem;
+    }
+
+    .dl-button {
+      min-height: 42px;
+      padding: 0.65rem 0.9rem;
+    }
+
+    .releases-section { margin-block: 0.75rem 2rem; }
+
+    .mac-help-dialog {
+      width: calc(100% - 1rem);
+      max-height: calc(100dvh - 1rem);
+      border-radius: 0.85rem;
+    }
+
+    .dialog-panel { padding: 1rem; }
+    .dialog-header { margin-bottom: 1rem; }
+    .dialog-header h2 { padding-right: 0.25rem; }
+    .dialog-header p:last-child { font-size: 0.82rem; }
+    .dialog-close { width: 36px; height: 36px; }
+    .gatekeeper-steps { gap: 0.75rem; }
+    .gatekeeper-step img {
+      max-height: 430px;
+    }
+  }
+</style>

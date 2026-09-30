@@ -1,0 +1,257 @@
+import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
+import 'package:html/dom.dart';
+import 'package:html/parser.dart' show parse;
+import 'package:logging/logging.dart';
+import 'package:senpwai/shared/net/net.dart';
+import 'package:senpwai/shared/net/net_config.dart';
+import 'package:senpwai/shared/source_directory/source_directory.dart';
+import 'package:senpwai/shared/shared.dart' as shared;
+import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/performance_trace.dart';
+import 'package:senpwai/sources/shared/shared.dart';
+import 'package:senpwai/shared/shared.dart';
+
+final log = Logger('senpwai.anime.sources.nyaa');
+
+class SearchParams {
+  String term;
+  int page;
+
+  SearchParams({required this.term, required this.page});
+
+  @override
+  String toString() => 'SearchParams(term: $term, page: $page)';
+}
+
+class Constants {
+  static String get baseUrl => SourceDirectory.instance.nyaa.baseUrl;
+  static const resultsPerPage = 75;
+}
+
+class AnimeResult {
+  String filename;
+  String torrentFileUrl;
+  String magnetUrl;
+  int sizeBytes;
+  DateTime dateAdded;
+  int seeders;
+  int leechers;
+  int torrentFileDownloadCount;
+
+  AnimeResult({
+    required this.filename,
+    required this.torrentFileUrl,
+    required this.magnetUrl,
+    required this.sizeBytes,
+    required this.dateAdded,
+    required this.seeders,
+    required this.leechers,
+    required this.torrentFileDownloadCount,
+  });
+
+  @override
+  String toString() =>
+      'AnimeResult(filename: $filename, torrentFileUrl: $torrentFileUrl, magnetUrl: $magnetUrl, sizeBytes: $sizeBytes, dateAdded: $dateAdded, seeders: $seeders, leechers: $leechers, torrentFileDownloadCount: $torrentFileDownloadCount)';
+}
+
+class Source {
+  final Dio _dio;
+  static final Source _instance = Source._internal();
+
+  Source._internal() : _dio = GlobalDio.getInstance();
+
+  static Source getInstance() => _instance;
+
+  Future<Pagination<List<AnimeResult>>> search({
+    required SearchParams params,
+  }) async {
+    await SourceDirectory.waitForRefresh();
+    final term = params.term;
+    final page = params.page;
+
+    final response = await _dio.get(
+      Constants.baseUrl,
+      queryParameters: {"q": term, "s": "seeders", "o": "desc", "p": page},
+      options: Options(
+        extra: NetConfig.getInstance()
+            .buildCacheOptions(
+              policy: CachePolicy.forceCache,
+              maxStale: NetConfig.getInstance().liveSearchCacheTtl,
+            )
+            .toExtra(),
+      ),
+    );
+    final htmlPage = traceSync(
+      'nyaa.parse_html',
+      () => parseHtml(response.data),
+      arguments: {'term': term, 'page': page},
+    );
+    final results = traceSync(
+      'nyaa.parse_results',
+      () => _parseSearchResults(htmlPage),
+      arguments: {'term': term, 'page': page},
+    );
+    final pagination = _buildPagination(
+      params: params,
+      results: results,
+      htmlPage: htmlPage,
+    );
+    return pagination;
+  }
+
+  Pagination<List<AnimeResult>> _buildPagination({
+    required SearchParams params,
+    required List<AnimeResult> results,
+    required Document htmlPage,
+  }) {
+    if (results.isEmpty) {
+      return Pagination(
+        currentPage: params.page,
+        items: results,
+        perPage: Constants.resultsPerPage,
+        fetchNextPage: null,
+        totalPages: 0,
+      );
+    }
+
+    // Get the second-to-last pagination link for total pages.
+    // When all results fit on one page Nyaa renders no pagination element.
+    final paginationItems = htmlPage.querySelectorAll("ul.pagination > li");
+    if (paginationItems.length < 2) {
+      return Pagination(
+        currentPage: params.page,
+        items: results,
+        perPage: Constants.resultsPerPage,
+        fetchNextPage: null,
+        totalPages: 1,
+      );
+    }
+    final totalPagesStr = paginationItems[paginationItems.length - 2].text;
+    final totalPages = int.parse(totalPagesStr);
+    final fetchNextPage = params.page < totalPages
+        ? () => search(
+            params: SearchParams(term: params.term, page: params.page + 1),
+          )
+        : null;
+    return Pagination(
+      perPage: Constants.resultsPerPage,
+      currentPage: params.page,
+      items: results,
+      totalPages: totalPages,
+      fetchNextPage: fetchNextPage,
+    );
+  }
+
+  static List<AnimeResult> _parseSearchResults(Document htmlPage) {
+    final malformedReasons = <String, int>{};
+
+    void recordMalformed(String reason) {
+      malformedReasons.update(reason, (count) => count + 1, ifAbsent: () => 1);
+    }
+
+    final results = _animeEnglishTranslatedRows(htmlPage)
+        .where(
+          (el) =>
+              el.querySelector("td > a")?.attributes["title"] ==
+              "Anime - English-translated",
+        )
+        .map<AnimeResult?>((el) {
+          final tds = el.querySelectorAll("td");
+          if (tds.length < 8) {
+            recordMalformed('missing columns');
+            return null;
+          }
+          // Column 2 (index 1) - Title
+          final aTags = tds[1].querySelectorAll("a");
+          if (aTags.isEmpty) {
+            recordMalformed('missing title links');
+            return null;
+          }
+          final filename = aTags.last.text;
+          // Column 3 (index 2) - Download links
+          final downloadLinks = tds[2].querySelectorAll("a");
+          if (downloadLinks.length < 2) {
+            recordMalformed('missing download links');
+            return null;
+          }
+          final torrentFileResource = downloadLinks[0].attributes["href"];
+          final magnetUrl = downloadLinks[1].attributes["href"];
+          final dateEpoch = tds[4].attributes["data-timestamp"];
+          if (torrentFileResource == null ||
+              magnetUrl == null ||
+              dateEpoch == null) {
+            recordMalformed('missing required attributes');
+            return null;
+          }
+          final torrentFileUrl = '${Constants.baseUrl}$torrentFileResource';
+          // Column 4 (index 3) - Size
+          final sizeBytesStr = tds[3].text;
+          final sizeBytes = _parseSizeBytes(sizeBytesStr);
+
+          // Column 5 (index 4) - Date
+          final dateAdded = DateTime.fromMillisecondsSinceEpoch(
+            int.parse(dateEpoch) * 1000,
+          );
+
+          // Column 6 (index 5) - Seeders
+          final seedersStr = tds[5].text;
+          final seeders = int.parse(seedersStr);
+
+          // Column 7 (index 6) - Leechers
+          final leechersStr = tds[6].text;
+          final leechers = int.parse(leechersStr);
+
+          // Column 8 (index 7) - Downloads
+          final torrentFileDownloadCountStr = tds[7].text;
+          final torrentFileDownloadCount = int.parse(
+            torrentFileDownloadCountStr,
+          );
+
+          return AnimeResult(
+            filename: filename,
+            torrentFileUrl: torrentFileUrl,
+            magnetUrl: magnetUrl,
+            sizeBytes: sizeBytes,
+            dateAdded: dateAdded,
+            seeders: seeders,
+            leechers: leechers,
+            torrentFileDownloadCount: torrentFileDownloadCount,
+          );
+        })
+        .nonNulls
+        .toList();
+    if (malformedReasons.isNotEmpty) {
+      log.warningWithMetadata(
+        'Skipped malformed Nyaa rows',
+        metadata: {'reasons': malformedReasons},
+      );
+    }
+    return results;
+  }
+
+  static int _parseSizeBytes(String sizeStr) {
+    final parts = sizeStr.split(" ");
+    final unitName = parts[1];
+    final unitToBytes = switch (unitName) {
+      "TiB" => shared.Constants.teraByte,
+      "GiB" => shared.Constants.gigaByte,
+      "MiB" => shared.Constants.megaByte,
+      "KiB" => shared.Constants.kiloByte,
+      "iB" => 1,
+      _ => throw SourceException(
+        message: "Unsupported bytes format",
+        metadata: {"sizeStr": sizeStr},
+      ),
+    };
+    final unitQuantity = double.parse(parts[0]);
+    final sizeBytes = (unitQuantity * unitToBytes).round();
+    return sizeBytes;
+  }
+}
+
+Iterable<Element> _animeEnglishTranslatedRows(Document htmlPage) =>
+    htmlPage.querySelectorAll("table tbody tr");
+
+List<AnimeResult> parseSearchResultsHtml(String html) =>
+    Source._parseSearchResults(parse(html));

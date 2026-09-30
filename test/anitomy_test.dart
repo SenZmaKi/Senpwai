@@ -1,0 +1,93 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:senpwai/anitomy/anitomy.dart';
+import 'package:senpwai/sources/shared/shared.dart';
+import "package:senpwai/shared/log.dart";
+
+void main() {
+  setUpAll(setupLogger);
+  test('Parse simple anime filename', () {
+    const filename = '[SubGroup] Anime Title - 01 [1080p].mkv';
+    final parsed = parseFilename(filename);
+
+    expect(parsed.title, 'Anime Title');
+    expect(parsed.episode, 1);
+    expect(parsed.resolution, Resolution.res1080p);
+  });
+
+  test('Parse filename with season and episode', () {
+    const filename = 'Series Name S02E15 [720p].mp4';
+    final parsed = parseFilename(filename);
+
+    expect(parsed.title, 'Series Name');
+    expect(parsed.episode, 15);
+    expect(parsed.season, 2);
+    expect(parsed.resolution, Resolution.res720p);
+  });
+
+  test('Parse complex filename with multiple quality indicators', () {
+    const filename = '[HorribleSubs] Sword Art Online - 01 [1080p] 720p.mkv';
+    final parsed = parseFilename(filename);
+
+    expect(parsed.title, 'Sword Art Online');
+    expect(parsed.episode, 1);
+    expect(parsed.resolution, Resolution.res1080p);
+  });
+
+  // test("Parse language", () {
+  //   const filename = "Attack On Tital 01 (en) Dub.mp4";
+  //   final parsed = parseFilename(filename);
+  //   expect(parsed.language, Language.english);
+  // });
+
+  test('Empty string returns empty result', () {
+    final parsed = parseFilename('');
+    expect(parsed.title, isNull);
+  });
+
+  test('Filename with year', () {
+    const filename = 'Anime Title (2023) - 01.mkv';
+    final parsed = parseFilename(filename);
+
+    expect(parsed.title, isNotNull);
+    expect(parsed.episode, 1);
+  });
+
+  test('Parse Japanese season suffix without treating it as episode', () {
+    const filename = 'Kingdom 4期';
+    final parsed = parseFilename(filename);
+
+    expect(parsed.title, 'Kingdom');
+    expect(parsed.season, 4);
+    expect(parsed.episode, isNull);
+  });
+
+  test('Parse dub markers from subtitle metadata', () {
+    const filename = '[SomeGroup] Series - 01 [English Dub][1080p].mkv';
+    final parsed = parseFilename(filename);
+
+    expect(parsed.language, Language.english);
+    expect(parsed.subtitles, contains('Dub'));
+    expect(parsed.audioTerms, isEmpty);
+  });
+
+  test('Parse dual-audio markers from audio terms', () {
+    const filename =
+        '[Judas] Attack on Titan Final Season Part 2 [1080p][Dual Audio].mkv';
+    final parsed = parseFilename(filename);
+
+    expect(parsed.audioTerms, contains('Dual Audio'));
+    expect(parsed.subtitles, isEmpty);
+  });
+
+  test(
+    'Keep cour markers in title when anitomy does not expose them structurally',
+    () {
+      const filename = '[SomeGroup] Frieren Cour 2 - 01 [1080p].mkv';
+      final parsed = parseFilename(filename);
+
+      expect(parsed.title, 'Frieren Cour 2');
+      expect(parsed.season, isNull);
+      expect(parsed.episode, 1);
+    },
+  );
+}

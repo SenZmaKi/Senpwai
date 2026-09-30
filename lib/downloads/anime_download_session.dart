@@ -1,0 +1,895 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui' show AppLifecycleState;
+
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/anilist/enums.dart';
+import 'package:senpwai/anilist/models.dart';
+import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
+import 'package:senpwai/downloads/filler_episodes.dart';
+import 'package:senpwai/downloads/manager.dart';
+import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/nyaa_recovery.dart';
+import 'package:senpwai/downloads/request_coordinator.dart';
+import 'package:senpwai/downloads/source_resolver.dart';
+import 'package:senpwai/downloads/target_path_planner.dart';
+import 'package:senpwai/settings/settings.dart';
+import 'package:senpwai/shared/app_lifecycle.dart';
+import 'package:senpwai/shared/platform_paths.dart';
+import 'package:senpwai/shared/performance_trace.dart';
+import 'package:senpwai/shared/net/request_cancellation_scope.dart';
+import 'package:senpwai/sources/shared/shared.dart';
+import 'package:senpwai/tracking/notifier.dart';
+
+enum DownloadSubmissionStage { idle, planning, reviewing, queueing }
+
+class DownloadPlanningCancelled implements Exception {
+  const DownloadPlanningCancelled();
+}
+
+int _availableEpisodesForAnime(AnilistAnimeBase anime) {
+  final nextEpisodeNumber = anime.episode;
+  if (nextEpisodeNumber != null) {
+    var airedEpisodes = nextEpisodeNumber - 1;
+    if (airedEpisodes < 0) {
+      airedEpisodes = 0;
+    }
+    final totalEpisodes = anime.episodes;
+    if (totalEpisodes != null && airedEpisodes > totalEpisodes) {
+      airedEpisodes = totalEpisodes;
+    }
+    return airedEpisodes;
+  }
+  if (anime.status == AnilistAiringStatus.notYetReleased) {
+    return 0;
+  }
+  return anime.episodes ?? 1;
+}
+
+extension DownloadSubmissionStageExtension on DownloadSubmissionStage {
+  String label({required bool hasSource}) => switch (this) {
+    DownloadSubmissionStage.idle =>
+      hasSource ? 'Download' : 'No source available',
+    DownloadSubmissionStage.planning => 'Planning download...',
+    DownloadSubmissionStage.reviewing => 'Reviewing plan...',
+    DownloadSubmissionStage.queueing => 'Queueing download...',
+  };
+}
+
+@immutable
+class AnimeDownloadSessionState {
+  final AnilistAnimeBase anime;
+  final SourceMatchState<AnimepaheSourceMatch> animepaheMatch;
+  final SourceMatchState<TokyoinsiderSourceMatch> tokyoinsiderMatch;
+  final SourceMatchState<bool> nyaaMatch;
+  final AnimeSource? selectedSource;
+  final Resolution selectedResolution;
+  final Language selectedLanguage;
+  final int startEpisode;
+  final int endEpisode;
+  final String? downloadFolder;
+  final String resolvedFileTitle;
+  final int? resolvedFileSeasonNumber;
+  final Set<int> ownedEpisodes;
+  final bool trackingEnabled;
+  final DownloadSubmissionStage submissionStage;
+  final DownloadPlanningProgress? planningProgress;
+  final bool planningCancellationRequested;
+  final bool sourceSelectedByUser;
+  final bool downloadFolderSelectedByUser;
+  final bool endEpisodeUsesLatest;
+
+  const AnimeDownloadSessionState({
+    required this.anime,
+    this.animepaheMatch = const SourceMatchState.loading(),
+    this.tokyoinsiderMatch = const SourceMatchState.loading(),
+    this.nyaaMatch = const SourceMatchState.loading(),
+    this.selectedSource,
+    this.selectedResolution = Resolution.res1080p,
+    this.selectedLanguage = Language.japanese,
+    this.startEpisode = 1,
+    this.endEpisode = 1,
+    this.downloadFolder,
+    this.resolvedFileTitle = '',
+    this.resolvedFileSeasonNumber,
+    this.ownedEpisodes = const {},
+    this.trackingEnabled = false,
+    this.submissionStage = DownloadSubmissionStage.idle,
+    this.planningProgress,
+    this.planningCancellationRequested = false,
+    this.sourceSelectedByUser = false,
+    this.downloadFolderSelectedByUser = false,
+    this.endEpisodeUsesLatest = true,
+  });
+
+  int get totalEpisodes => anime.episodes ?? 1;
+
+  int get availableEpisodes => _availableEpisodesForAnime(anime);
+
+  bool get hasAvailableEpisodes => availableEpisodes > 0;
+
+  bool get allSourcesResolved =>
+      !animepaheMatch.isLoading &&
+      !tokyoinsiderMatch.isLoading &&
+      !nyaaMatch.isLoading;
+
+  bool get isSubmittingDownload =>
+      submissionStage != DownloadSubmissionStage.idle;
+
+  String get submitButtonLabel {
+    if (submissionStage == DownloadSubmissionStage.planning) {
+      if (planningCancellationRequested) return 'Canceling plan...';
+      final progress = planningProgress;
+      return progress == null
+          ? 'Cancel planning'
+          : 'Cancel planning (${progress.completedEpisodes}/${progress.totalEpisodes})';
+    }
+    if (isSubmittingDownload) {
+      return submissionStage.label(hasSource: selectedSource != null);
+    }
+    if (!allSourcesResolved) return 'Loading sources...';
+    if (selectedSource == null) return 'No source available';
+    return hasAvailableEpisodes ? 'Download' : 'No aired episodes yet';
+  }
+
+  bool isSourceAvailable(AnimeSource source) => switch (source) {
+    AnimeSource.animepahe => animepaheMatch.isMatched,
+    AnimeSource.tokyoinsider => tokyoinsiderMatch.isMatched,
+    AnimeSource.nyaa => nyaaMatch.isMatched,
+  };
+
+  SourceMatchStatus sourceStatus(AnimeSource source) => switch (source) {
+    AnimeSource.animepahe => animepaheMatch.status,
+    AnimeSource.tokyoinsider => tokyoinsiderMatch.status,
+    AnimeSource.nyaa => nyaaMatch.status,
+  };
+
+  AnimeDownloadSessionState copyWith({
+    SourceMatchState<AnimepaheSourceMatch>? animepaheMatch,
+    SourceMatchState<TokyoinsiderSourceMatch>? tokyoinsiderMatch,
+    SourceMatchState<bool>? nyaaMatch,
+    AnimeSource? selectedSource,
+    Resolution? selectedResolution,
+    Language? selectedLanguage,
+    int? startEpisode,
+    int? endEpisode,
+    String? downloadFolder,
+    String? resolvedFileTitle,
+    int? resolvedFileSeasonNumber,
+    Set<int>? ownedEpisodes,
+    bool? trackingEnabled,
+    DownloadSubmissionStage? submissionStage,
+    DownloadPlanningProgress? planningProgress,
+    bool? planningCancellationRequested,
+    bool? sourceSelectedByUser,
+    bool? downloadFolderSelectedByUser,
+    bool? endEpisodeUsesLatest,
+    bool clearSource = false,
+    bool clearPlanningProgress = false,
+  }) {
+    return AnimeDownloadSessionState(
+      anime: anime,
+      animepaheMatch: animepaheMatch ?? this.animepaheMatch,
+      tokyoinsiderMatch: tokyoinsiderMatch ?? this.tokyoinsiderMatch,
+      nyaaMatch: nyaaMatch ?? this.nyaaMatch,
+      selectedSource: clearSource
+          ? null
+          : (selectedSource ?? this.selectedSource),
+      selectedResolution: selectedResolution ?? this.selectedResolution,
+      selectedLanguage: selectedLanguage ?? this.selectedLanguage,
+      startEpisode: startEpisode ?? this.startEpisode,
+      endEpisode: endEpisode ?? this.endEpisode,
+      downloadFolder: downloadFolder ?? this.downloadFolder,
+      resolvedFileTitle: resolvedFileTitle ?? this.resolvedFileTitle,
+      resolvedFileSeasonNumber:
+          resolvedFileSeasonNumber ?? this.resolvedFileSeasonNumber,
+      ownedEpisodes: ownedEpisodes ?? this.ownedEpisodes,
+      trackingEnabled: trackingEnabled ?? this.trackingEnabled,
+      submissionStage: submissionStage ?? this.submissionStage,
+      planningProgress: clearPlanningProgress
+          ? null
+          : (planningProgress ?? this.planningProgress),
+      planningCancellationRequested:
+          planningCancellationRequested ?? this.planningCancellationRequested,
+      sourceSelectedByUser: sourceSelectedByUser ?? this.sourceSelectedByUser,
+      downloadFolderSelectedByUser:
+          downloadFolderSelectedByUser ?? this.downloadFolderSelectedByUser,
+      endEpisodeUsesLatest: endEpisodeUsesLatest ?? this.endEpisodeUsesLatest,
+    );
+  }
+}
+
+class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
+  static final provider = NotifierProvider.autoDispose
+      .family<
+        AnimeDownloadSessionNotifier,
+        AnimeDownloadSessionState,
+        AnilistAnimeBase
+      >((anime) => AnimeDownloadSessionNotifier._(anime));
+
+  CancelToken? _planningCancelToken;
+
+  static const _filesystemWatchDebounce = Duration(milliseconds: 250);
+
+  final AnilistAnimeBase _anime;
+  final DownloadSourceResolver? _sourceResolverOverride;
+  final AnimeDownloadCoordinator _coordinator;
+  final DownloadTargetPlanner _targetPlanner;
+  final AnimeFillerService _fillerService;
+  Future<void>? _activeFilesystemRefresh;
+  StreamSubscription<FileSystemEvent>? _filesystemWatchSubscription;
+  Timer? _filesystemWatchDebounceTimer;
+  String? _watchedFolder;
+  var _filesystemWatchGeneration = 0;
+  bool _resolvedFolderExisted = false;
+  bool? _startEpisodeSelectedByUser;
+
+  AnimeDownloadSessionNotifier._(
+    this._anime, {
+    DownloadSourceResolver? sourceResolver,
+    AnimeDownloadCoordinator? coordinator,
+    DownloadTargetPlanner? targetPlanner,
+    AnimeFillerService? fillerService,
+  }) : _sourceResolverOverride = sourceResolver,
+       _coordinator = coordinator ?? AnimeDownloadCoordinator(),
+       _targetPlanner = targetPlanner ?? const DownloadTargetPlanner(),
+       _fillerService = fillerService ?? AnimeFillerService.instance;
+
+  @override
+  AnimeDownloadSessionState build() {
+    final settings = ref.read(AppSettingsNotifier.provider);
+    final tracking = ref.read(TrackingNotifier.provider);
+    ref.listen(
+      TrackingNotifier.provider.select(
+        (trackingState) => trackingState.isTracked(_anime.id),
+      ),
+      (_, isTracked) {
+        if (state.trackingEnabled != isTracked) {
+          state = state.copyWith(trackingEnabled: isTracked);
+        }
+      },
+    );
+    ref.listen(AppSettingsNotifier.provider.select((s) => s.sources), (_, _) {
+      if (_sourceResolverOverride == null) unawaited(_resolveSources());
+    });
+    ref.listen(AppSettingsNotifier.provider.select((s) => s.downloads), (_, _) {
+      if (!state.downloadFolderSelectedByUser) {
+        unawaited(_resolveInitialLocation());
+      }
+    });
+    ref.listen(
+      AppLifecycleNotifier.provider.select(
+        (lifecycle) => lifecycle == AppLifecycleState.resumed,
+      ),
+      (_, resumed) {
+        if (resumed) unawaited(_refreshAndRestartFilesystemWatch());
+      },
+    );
+    ref.onDispose(() {
+      _planningCancelToken?.cancel('Download planning session disposed.');
+      _filesystemWatchGeneration += 1;
+      _filesystemWatchDebounceTimer?.cancel();
+      unawaited(_filesystemWatchSubscription?.cancel());
+    });
+    Future.microtask(_initialize);
+    return AnimeDownloadSessionState(
+      anime: _anime,
+      selectedResolution: settings.content.defaultResolution,
+      selectedLanguage: settings.content.defaultAudioLanguage,
+      startEpisode: 1,
+      endEpisode: _defaultAvailableEpisode,
+      trackingEnabled: tracking.isTracked(_anime.id),
+      endEpisodeUsesLatest: true,
+    );
+  }
+
+  AnimeDownloadSessionState get currentState => state;
+
+  int get _defaultAvailableEpisode {
+    final availableEpisodes = _availableEpisodesForAnime(_anime);
+    return availableEpisodes > 0 ? availableEpisodes : 1;
+  }
+
+  Future<void> _initialize() async {
+    await traceAsync(
+      'anime_preview.initialize',
+      () => Future.wait([_resolveInitialLocation(), _resolveSources()]),
+      arguments: {'anilistId': _anime.id},
+    );
+  }
+
+  Future<void> _resolveInitialLocation({
+    bool replaceSelectedFolder = false,
+  }) async {
+    final settings = ref.read(AppSettingsNotifier.provider);
+    final defaultRoot =
+        settings.downloads.defaultRootDirectory ??
+        (await defaultAnimeDownloadsRootDirectory()).path;
+    final plannedLocation = await _targetPlanner.resolveAnimeLocation(
+      anime: _anime,
+      downloadRoots: settings.downloads.effectiveRootDirectories.isNotEmpty
+          ? settings.downloads.effectiveRootDirectories
+          : [defaultRoot],
+      customAnimeFolders: settings.downloads.customAnimeFolders,
+    );
+    final folderExists = await Directory(
+      plannedLocation.episodeDirectory,
+    ).exists();
+    final ownedEpisodes = await _ownedEpisodes(
+      plannedLocation.episodeDirectory,
+    );
+    if (!ref.mounted) return;
+    final resolvedStartEpisode = _recommendedStartEpisode(ownedEpisodes);
+    state = state.copyWith(
+      downloadFolder:
+          state.downloadFolderSelectedByUser && !replaceSelectedFolder
+          ? state.downloadFolder
+          : plannedLocation.episodeDirectory,
+      resolvedFileTitle: plannedLocation.fileTitle,
+      resolvedFileSeasonNumber: plannedLocation.fileSeasonNumber,
+      ownedEpisodes: ownedEpisodes,
+      startEpisode: _startEpisodeSelectedByUser == true
+          ? state.startEpisode
+          : resolvedStartEpisode,
+    );
+    _resolvedFolderExisted = folderExists;
+    unawaited(_watchFilesystemFolder(state.downloadFolder));
+    if (replaceSelectedFolder && state.downloadFolderSelectedByUser) {
+      unawaited(
+        ref
+            .read(AppSettingsNotifier.provider.notifier)
+            .upsertCustomAnimeFolder(
+              animeTitle: state.anime.title.display,
+              folder: plannedLocation.episodeDirectory,
+            ),
+      );
+    }
+  }
+
+  Future<void> _refreshFilesystemState({
+    bool resolveMissingFolder = false,
+  }) async {
+    final activeRefresh = _activeFilesystemRefresh;
+    if (activeRefresh != null) {
+      await activeRefresh;
+      if (resolveMissingFolder && ref.mounted) {
+        await _refreshFilesystemState(resolveMissingFolder: true);
+      }
+      return;
+    }
+
+    final refresh = _performFilesystemRefresh(
+      resolveMissingFolder: resolveMissingFolder,
+    );
+    _activeFilesystemRefresh = refresh;
+    try {
+      await refresh;
+    } finally {
+      if (identical(_activeFilesystemRefresh, refresh)) {
+        _activeFilesystemRefresh = null;
+      }
+    }
+  }
+
+  Future<void> _watchFilesystemFolder(String? folder) async {
+    final normalizedFolder = folder?.trim();
+    if (normalizedFolder == _watchedFolder &&
+        _filesystemWatchSubscription != null) {
+      return;
+    }
+
+    final generation = ++_filesystemWatchGeneration;
+    _filesystemWatchDebounceTimer?.cancel();
+    await _filesystemWatchSubscription?.cancel();
+    _filesystemWatchSubscription = null;
+    _watchedFolder = normalizedFolder;
+    if (!ref.mounted || normalizedFolder == null || normalizedFolder.isEmpty) {
+      return;
+    }
+
+    final directory = Directory(normalizedFolder);
+    if (!await directory.exists() || !ref.mounted) return;
+    if (generation != _filesystemWatchGeneration) return;
+
+    try {
+      late final StreamSubscription<FileSystemEvent> subscription;
+      subscription = directory.watch().listen(
+        (_) => _scheduleFilesystemRefresh(),
+        onError: (_) => _handleFilesystemWatchError(generation, subscription),
+        onDone: () => _handleFilesystemWatchDone(generation, subscription),
+        cancelOnError: true,
+      );
+      _filesystemWatchSubscription = subscription;
+    } on FileSystemException {
+      // Some virtual or network filesystems do not support watching. The
+      // lifecycle refresh still reconciles the folder when the app resumes.
+    }
+  }
+
+  void _scheduleFilesystemRefresh({
+    bool resolveMissingFolder = false,
+    bool restartWatch = false,
+  }) {
+    _filesystemWatchDebounceTimer?.cancel();
+    _filesystemWatchDebounceTimer = Timer(_filesystemWatchDebounce, () {
+      unawaited(
+        restartWatch
+            ? _refreshAndRestartFilesystemWatch()
+            : _refreshFilesystemState(
+                resolveMissingFolder: resolveMissingFolder,
+              ),
+      );
+    });
+  }
+
+  void _handleFilesystemWatchError(
+    int generation,
+    StreamSubscription<FileSystemEvent> subscription,
+  ) {
+    if (generation != _filesystemWatchGeneration ||
+        !identical(_filesystemWatchSubscription, subscription)) {
+      return;
+    }
+    _filesystemWatchGeneration += 1;
+    _filesystemWatchSubscription = null;
+    _scheduleFilesystemRefresh(resolveMissingFolder: true);
+  }
+
+  void _handleFilesystemWatchDone(
+    int generation,
+    StreamSubscription<FileSystemEvent> subscription,
+  ) {
+    if (generation != _filesystemWatchGeneration ||
+        !identical(_filesystemWatchSubscription, subscription)) {
+      return;
+    }
+    _filesystemWatchSubscription = null;
+    _scheduleFilesystemRefresh(resolveMissingFolder: true, restartWatch: true);
+  }
+
+  Future<void> _refreshAndRestartFilesystemWatch() async {
+    await _refreshFilesystemState(resolveMissingFolder: true);
+    if (!ref.mounted) return;
+    _watchedFolder = null;
+    await _watchFilesystemFolder(state.downloadFolder);
+  }
+
+  Future<void> _performFilesystemRefresh({
+    required bool resolveMissingFolder,
+  }) async {
+    final folder = state.downloadFolder?.trim();
+    if (folder == null || folder.isEmpty) {
+      if (resolveMissingFolder) {
+        await _resolveInitialLocation(replaceSelectedFolder: true);
+      }
+      return;
+    }
+
+    final folderExists = await Directory(folder).exists();
+    if (!ref.mounted) return;
+    if (!folderExists) {
+      if (resolveMissingFolder || _resolvedFolderExisted) {
+        await _resolveInitialLocation(replaceSelectedFolder: true);
+      } else if (state.ownedEpisodes.isNotEmpty) {
+        state = state.copyWith(ownedEpisodes: const {});
+      }
+      return;
+    }
+
+    _resolvedFolderExisted = true;
+    final ownedEpisodes = await _ownedEpisodes(folder);
+    if (!ref.mounted) return;
+    if (!setEquals(state.ownedEpisodes, ownedEpisodes)) {
+      state = state.copyWith(
+        ownedEpisodes: ownedEpisodes,
+        startEpisode: _startEpisodeSelectedByUser == true
+            ? state.startEpisode
+            : _recommendedStartEpisode(ownedEpisodes),
+      );
+    }
+  }
+
+  int _recommendedStartEpisode(Set<int> ownedEpisodes) {
+    final availableEpisodes = state.availableEpisodes;
+    if (availableEpisodes <= 0 || ownedEpisodes.isEmpty) return 1;
+    final highestExistingEpisode = ownedEpisodes.reduce(
+      (max, episode) => episode > max ? episode : max,
+    );
+    return highestExistingEpisode >= availableEpisodes
+        ? availableEpisodes
+        : highestExistingEpisode + 1;
+  }
+
+  Future<void> _resolveSources() async {
+    final sourceResolver =
+        _sourceResolverOverride ??
+        DownloadSourceResolver(
+          settings: ref.read(AppSettingsNotifier.provider).sources,
+        );
+    final matches = await traceAsync(
+      'anime_sources.resolve_all',
+      () => sourceResolver.resolveAll(_anime),
+      arguments: {'anilistId': _anime.id},
+    );
+    if (!ref.mounted) return;
+    final preferredSource = sourceResolver.selectPreferredSource(
+      matches: matches,
+      sourceSelectedByUser: state.sourceSelectedByUser,
+      selectedSource: state.selectedSource,
+    );
+    final shouldPreserveUserSelection =
+        state.sourceSelectedByUser &&
+        state.selectedSource != null &&
+        sourceResolver.isSourceAvailable(matches, state.selectedSource!);
+    state = state.copyWith(
+      animepaheMatch: matches.animepaheMatch,
+      tokyoinsiderMatch: matches.tokyoinsiderMatch,
+      nyaaMatch: matches.nyaaMatch,
+      selectedSource: preferredSource,
+      sourceSelectedByUser: shouldPreserveUserSelection,
+      clearSource: preferredSource == null,
+    );
+  }
+
+  void selectSource(AnimeSource source) {
+    if (!state.isSourceAvailable(source)) return;
+    state = state.copyWith(selectedSource: source, sourceSelectedByUser: true);
+  }
+
+  void setResolution(Resolution resolution) {
+    state = state.copyWith(selectedResolution: resolution);
+  }
+
+  void setLanguage(Language language) {
+    state = state.copyWith(selectedLanguage: language);
+  }
+
+  void setStartEpisode(int episode) {
+    _startEpisodeSelectedByUser = true;
+    state = state.copyWith(startEpisode: episode);
+  }
+
+  void setEndEpisode(int episode) {
+    state = state.copyWith(endEpisode: episode, endEpisodeUsesLatest: false);
+  }
+
+  void useLatestEndEpisode() {
+    state = state.copyWith(
+      endEpisode: state.hasAvailableEpisodes ? state.availableEpisodes : 1,
+      endEpisodeUsesLatest: true,
+    );
+  }
+
+  Future<void> setDownloadFolder(String folder) async {
+    final ownedEpisodes = await _ownedEpisodes(folder);
+    _startEpisodeSelectedByUser = false;
+    state = state.copyWith(
+      downloadFolder: folder,
+      downloadFolderSelectedByUser: true,
+      ownedEpisodes: ownedEpisodes,
+      startEpisode: _recommendedStartEpisode(ownedEpisodes),
+    );
+    unawaited(_watchFilesystemFolder(folder));
+    unawaited(
+      ref
+          .read(AppSettingsNotifier.provider.notifier)
+          .upsertCustomAnimeFolder(
+            animeTitle: state.anime.title.display,
+            folder: folder,
+          ),
+    );
+  }
+
+  Future<void> setTrackingEnabled(bool enabled) async {
+    if (enabled) {
+      final folder = state.downloadFolder;
+      if (folder == null || folder.trim().isEmpty) {
+        throw const DownloadUserError(
+          title: 'No folder selected',
+          description: 'Choose a download folder before tracking this anime.',
+        );
+      }
+      await ref
+          .read(TrackingNotifier.provider.notifier)
+          .trackAnime(
+            anime: state.anime,
+            preferredSource: state.selectedSource,
+            sourceSelectedByUser: state.sourceSelectedByUser,
+            resolution: state.selectedResolution,
+            language: state.selectedLanguage,
+            downloadFolder: folder,
+          );
+    } else {
+      await ref
+          .read(TrackingNotifier.provider.notifier)
+          .untrackAnime(state.anime.id);
+    }
+    state = state.copyWith(trackingEnabled: enabled);
+  }
+
+  void setSubmissionStage(DownloadSubmissionStage stage) {
+    state = state.copyWith(
+      submissionStage: stage,
+      clearPlanningProgress: stage != DownloadSubmissionStage.planning,
+      planningCancellationRequested: false,
+    );
+  }
+
+  void startDownloadPlanning() {
+    _planningCancelToken?.cancel('Superseded by a new download plan.');
+    _planningCancelToken = CancelToken();
+    state = state.copyWith(
+      submissionStage: DownloadSubmissionStage.planning,
+      clearPlanningProgress: true,
+      planningCancellationRequested: false,
+    );
+  }
+
+  void cancelDownloadPlanning() {
+    if (state.submissionStage != DownloadSubmissionStage.planning ||
+        state.planningCancellationRequested) {
+      return;
+    }
+    state = state.copyWith(planningCancellationRequested: true);
+    _planningCancelToken?.cancel('Download planning cancelled by the user.');
+  }
+
+  void resetSubmissionStage() {
+    state = state.copyWith(
+      submissionStage: DownloadSubmissionStage.idle,
+      clearPlanningProgress: true,
+      planningCancellationRequested: false,
+    );
+  }
+
+  Future<PreparedDownloadBatch> prepareDownloads({
+    required String startInput,
+    required String endInput,
+  }) async {
+    final cancelToken = _planningCancelToken;
+    if (cancelToken == null) {
+      throw StateError('Download planning was not started.');
+    }
+    final operation = runWithRequestCancelToken(
+      cancelToken,
+      () => _prepareDownloads(
+        startInput: startInput,
+        endInput: endInput,
+        cancelToken: cancelToken,
+      ),
+    );
+    try {
+      return await Future.any([
+        operation,
+        cancelToken.whenCancel.then<PreparedDownloadBatch>(
+          (_) => throw const DownloadPlanningCancelled(),
+        ),
+      ]);
+    } catch (_) {
+      if (cancelToken.isCancelled) {
+        throw const DownloadPlanningCancelled();
+      }
+      rethrow;
+    } finally {
+      if (identical(_planningCancelToken, cancelToken)) {
+        _planningCancelToken = null;
+      }
+    }
+  }
+
+  Future<PreparedDownloadBatch> _prepareDownloads({
+    required String startInput,
+    required String endInput,
+    required CancelToken cancelToken,
+  }) async {
+    await _refreshFilesystemState(resolveMissingFolder: true);
+    _throwIfPlanningCancelled(cancelToken);
+    final source = state.selectedSource;
+    final folder = state.downloadFolder;
+    if (source == null) {
+      throw const DownloadUserError(
+        title: 'No source selected',
+        description: 'Choose a source before starting a download.',
+      );
+    }
+    if (folder == null || folder.trim().isEmpty) {
+      throw const DownloadUserError(
+        title: 'No folder selected',
+        description: 'Choose a download folder before starting a download.',
+      );
+    }
+
+    final range = _parseEpisodeRange(
+      startInput: startInput,
+      endInput: endInput,
+    );
+    final missingEpisodes = [
+      for (var episode = range.start; episode <= range.end; episode++)
+        if (!state.ownedEpisodes.contains(episode)) episode,
+    ];
+    if (missingEpisodes.isEmpty) {
+      throw const DownloadUserError(
+        title: 'No missing episodes',
+        description:
+            'Every episode in that range already exists in the selected folder.',
+      );
+    }
+    final settings = ref.read(AppSettingsNotifier.provider);
+    final fillerEpisodes = settings.downloads.skipFillers
+        ? await _fillerService.getFillerEpisodes(
+            anime: state.anime,
+            episodeCount: state.availableEpisodes,
+          )
+        : const <int>{};
+    _throwIfPlanningCancelled(cancelToken);
+    final requestedEpisodes = [
+      for (final episode in missingEpisodes)
+        if (!fillerEpisodes.contains(episode)) episode,
+    ];
+    if (requestedEpisodes.isEmpty) {
+      throw const DownloadUserError(
+        title: 'No canon episodes to download',
+        description:
+            'Every missing episode in that range is marked as pure filler.',
+      );
+    }
+    state = state.copyWith(
+      startEpisode: range.start,
+      endEpisode: range.end,
+      endEpisodeUsesLatest: endInput.trim().isEmpty,
+    );
+    return _coordinator.plan(
+      request: DownloadRequest(
+        anime: state.anime,
+        source: source,
+        startEpisode: range.start,
+        endEpisode: range.end,
+        episodeNumbers: requestedEpisodes,
+        downloadFolder: folder,
+        fileTitle: state.resolvedFileTitle,
+        fileSeasonNumber: state.resolvedFileSeasonNumber,
+        resolution: state.selectedResolution,
+        language: state.selectedLanguage,
+      ),
+      animepaheMatch: state.animepaheMatch.result?.result,
+      tokyoinsiderMatch: state.tokyoinsiderMatch.result?.result,
+      onProgress: (progress) {
+        if (!ref.mounted || cancelToken.isCancelled) return;
+        state = state.copyWith(planningProgress: progress);
+      },
+    );
+  }
+
+  void _throwIfPlanningCancelled(CancelToken cancelToken) {
+    if (!ref.mounted || cancelToken.isCancelled) {
+      throw const DownloadPlanningCancelled();
+    }
+  }
+
+  Future<EnqueuedDownloadsResult> enqueuePreparedDownloads(
+    PreparedDownloadBatch batch,
+  ) async {
+    return ref
+        .read(DownloadManagerNotifier.provider.notifier)
+        .enqueueBatch(batch);
+  }
+
+  Future<List<NyaaManualSearchCandidate>> searchNyaaManualCandidates({
+    required int episodeNumber,
+    required String query,
+    NyaaManualSearchFilters filters = const NyaaManualSearchFilters(),
+  }) async {
+    return _coordinator.searchNyaaManualCandidates(
+      request: _buildNyaaDownloadRequest(),
+      episodeNumber: episodeNumber,
+      query: query,
+      filters: filters,
+    );
+  }
+
+  Future<PreparedTorrentDownloadJob> planManualNyaaEpisode({
+    required int episodeNumber,
+    required NyaaManualSearchCandidate candidate,
+  }) async {
+    return _coordinator.planManualNyaaEpisode(
+      request: _buildNyaaDownloadRequest(),
+      episodeNumber: episodeNumber,
+      candidate: candidate,
+    );
+  }
+
+  DownloadRequest _buildNyaaDownloadRequest() {
+    final folder = state.downloadFolder;
+    if (folder == null || folder.trim().isEmpty) {
+      throw const DownloadUserError(
+        title: 'No folder selected',
+        description: 'Choose a download folder before continuing.',
+      );
+    }
+    return DownloadRequest(
+      anime: state.anime,
+      source: AnimeSource.nyaa,
+      startEpisode: state.startEpisode,
+      endEpisode: state.endEpisode,
+      downloadFolder: folder,
+      fileTitle: state.resolvedFileTitle,
+      fileSeasonNumber: state.resolvedFileSeasonNumber,
+      resolution: state.selectedResolution,
+      language: state.selectedLanguage,
+    );
+  }
+
+  Future<Set<int>> _ownedEpisodes(String folder) async {
+    return traceAsync('anime_preview.scan_owned_episodes', () async {
+      final directory = Directory(folder);
+      if (!await directory.exists()) return const <int>{};
+      final episodes = <int>[];
+      await for (final entity in directory.list(followLinks: false)) {
+        if (entity is! File) continue;
+        final fileName = entity.uri.pathSegments.last;
+        if (fileName.contains('[Downloading]')) continue;
+        final episode = anitomy_parser.parseFilename(fileName).episode;
+        if (episode != null && episode > 0) episodes.add(episode);
+      }
+      return episodes.toSet();
+    }, arguments: {'anilistId': _anime.id});
+  }
+
+  ({int start, int end}) _parseEpisodeRange({
+    required String startInput,
+    required String endInput,
+  }) {
+    final availableEpisodes = state.availableEpisodes;
+    if (availableEpisodes <= 0) {
+      throw const DownloadUserError(
+        title: 'No aired episodes yet',
+        description:
+            'This anime does not have any released episodes available to download yet.',
+      );
+    }
+    final startText = startInput.trim();
+    final endText = endInput.trim();
+    final start = startText.isEmpty ? 1 : int.tryParse(startText);
+    final end = endText.isEmpty ? availableEpisodes : int.tryParse(endText);
+
+    if (start == null || end == null) {
+      throw const DownloadUserError(
+        title: 'Enter valid episode numbers',
+        description: 'The episode range must contain valid integers.',
+      );
+    }
+    if (start == 0 || end == 0) {
+      throw const DownloadUserError(
+        title: 'Episode number cannot be 0',
+        description: 'Episode numbers start at 1.',
+      );
+    }
+    if (start < 0 || end < 0) {
+      throw const DownloadUserError(
+        title: 'Episode numbers must be positive',
+        description: 'Negative episode numbers are not valid.',
+      );
+    }
+    if (start > availableEpisodes) {
+      throw DownloadUserError(
+        title: 'Start episode unavailable',
+        description: 'Choose an episode from 1 to $availableEpisodes.',
+      );
+    }
+    if (end < start) {
+      throw const DownloadUserError(
+        title: 'End episode precedes start',
+        description: 'Choose an end episode no earlier than the start episode.',
+      );
+    }
+    if (end > availableEpisodes) {
+      throw DownloadUserError(
+        title: 'End episode unavailable',
+        description: 'Choose an episode from $start to $availableEpisodes.',
+      );
+    }
+    return (start: start, end: end);
+  }
+}
