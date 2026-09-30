@@ -3,10 +3,10 @@ name: Flutter CI
 on:
   push:
     branches:
-      - v3.0.0
+      - master
   pull_request:
     branches:
-      - v3.0.0
+      - master
 
 concurrency:
   group: flutter-ci-${{ github.workflow }}-${{ github.ref }}

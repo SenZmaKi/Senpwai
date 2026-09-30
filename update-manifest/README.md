@@ -18,20 +18,15 @@ Artifact requirements:
 
 - Android: release-signed ABI-specific APK (`android`, with `arm64`, `arm`, or
   `x64` architecture).
-- Windows: trusted-certificate-signed MSIX (`windows`, currently `x64`).
+- Windows: unsigned Inno Setup installers (`windows`, `x64` and `arm64`).
 - Linux: AppImage (`linux`, architecture matching the runner).
 - macOS: universal arm64/x86_64 ad-hoc-signed ZIP referenced by the appcast and
   signed with Sparkle's Ed25519 key. Developer ID/notarization remain optional
   if that policy changes.
 
-Never publish an artifact before its hash, size, version, and build have been
-written to the appropriate feed. The update manifest accepts only HTTPS GitHub
-release URLs.
-
-The checked-in MSIX publisher (`CN=Senpwai`) is a development identity. Before
-the first public Windows release, replace it with the exact subject from the
-production signing certificate and keep that package identity stable for every
-later update.
+Release assets are staged in a draft and checksummed before publication. The
+signed update feed is deployed after publication so its URLs resolve for users.
+The update manifest accepts only HTTPS GitHub release URLs.
 
 For the current unpaid macOS distribution path, Xcode ad-hoc signs the app and
 the `Seal Nested Helpers` phase repairs LaunchAtLogin's post-signature bundle-ID
@@ -61,22 +56,14 @@ and the complete nested signature structure, packages a human-facing DMG and
 Sparkle ZIP, generates the signed appcast and checksums, and uploads the assets
 to a draft GitHub release.
 Only after every asset exists does the publish job make the release public and
-move GitHub's `latest` release pointer, which atomically exposes the new appcast
-to installed copies of Senpwai.
+move GitHub's `latest` release pointer. Pages then deploys the signed update
+feed and prerelease appcast. The announcement job runs after Pages succeeds.
 
-The workflow is split into version preparation, platform build, and final
-publication jobs. Add Android, Windows, and Linux build jobs alongside
-`build-macos`, upload their `release-*` artifacts, and make `publish` depend on
-them after each platform's updater has been validated.
+## Prereleases
 
-## Android prereleases
-
-The `Android prerelease` workflow exercises the same signed-manifest and
-in-app update path without making a public release. Use a prerelease version
-and matching tag, for example `3.0.0-android.1+30000` and
-`v3.0.0-android.1`. It publishes three ABI-specific APKs (`arm64`, `arm`, and
-`x64`) to a GitHub prerelease, then publishes their hashes and explicit
-prerelease asset URLs in the normal signed update manifest.
+Use a prerelease version and matching tag, for example `3.1.0-beta.1+3` and
+`v3.1.0-beta.1`. The same workflow builds every platform, marks the GitHub
+release as a prerelease, and publishes prerelease update entries.
 
 Before the first run, configure these repository Actions secrets:
 

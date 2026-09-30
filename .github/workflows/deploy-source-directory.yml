@@ -2,7 +2,7 @@ name: Deploy source directory
 
 on:
   push:
-    branches: [master, v3.0.0]
+    branches: [master]
     paths:
       - website/**
       - source-directory/**
@@ -46,6 +46,12 @@ jobs:
       - run: |
           mkdir -p site
           cp -R website/dist/. site/
+          for feed in appcast.xml appcast-prerelease.xml; do
+            curl --fail --silent --show-error --location \
+              --proto '=https' --tlsv1.2 \
+              "https://senpwai.com/$feed" \
+              --output "site/$feed" || true
+          done
       - run: |
           dart run bin/sign.dart \
             --input ../source_directory.payload.json \

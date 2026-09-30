@@ -48,6 +48,14 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match pubspec version $version" >&2
             exit 64
           fi
+          if [[ "$(git ls-remote origin refs/heads/master | cut -f1)" != "$GITHUB_SHA" ]]; then
+            echo "Release tags must point to the current master commit" >&2
+            exit 64
+          fi
+          test -s "release-notes/${version}.md" || {
+            echo "Missing release-notes/${version}.md" >&2
+            exit 64
+          }
 
           prerelease=false
           channel=stable
@@ -672,14 +680,15 @@ jobs:
             if [[ "$IS_PRERELEASE" == "true" ]]; then
               release_flags+=(--prerelease)
             fi
+            release_title="$(sed -n '1s/^# //p' "release-notes/$VERSION.md")"
+            test -n "$release_title"
             gh release create "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --verify-tag \
               --draft \
               "${release_flags[@]}" \
-              --generate-notes \
-              --title "Senpwai $VERSION" \
-              --notes "Includes Android APKs, Linux x86_64/aarch64 AppImages, unsigned Windows x64/ARM64 installers, and an ad-hoc-signed macOS universal build. Windows SmartScreen and macOS Gatekeeper may require a manual override."
+              --title "$release_title" \
+              --notes-file "release-notes/$VERSION.md"
           fi
 
           gh release upload "$RELEASE_TAG" release-assets/* \
@@ -688,7 +697,7 @@ jobs:
 
   deploy-update-feed:
     name: Deploy signed update feeds
-    needs: [prepare, stage-release]
+    needs: [prepare, publish]
     runs-on: ubuntu-latest
     concurrency:
       group: pages
@@ -740,16 +749,19 @@ jobs:
           cd source-directory/signer
           dart pub get
           cd "$GITHUB_WORKSPACE"
-          curl --fail --location --retry 4 --retry-all-errors \
+          if curl --fail --location --retry 4 --retry-all-errors \
             https://senpwai.com/update-manifest.json \
-            --output "$signed_manifest"
-          (
-            cd source-directory/signer
-            dart run bin/verify.dart \
-              --input "$signed_manifest" \
-              --output "$manifest" \
-              --public-key '/k0TtLWNnHf6fSg+X3QyZx1IUDcGb4f0ZMmjvHVK0hg='
-          )
+            --output "$signed_manifest"; then
+            (
+              cd source-directory/signer
+              dart run bin/verify.dart \
+                --input "$signed_manifest" \
+                --output "$manifest" \
+                --public-key '/k0TtLWNnHf6fSg+X3QyZx1IUDcGb4f0ZMmjvHVK0hg='
+            )
+          else
+            cp update-manifest/update_manifest.payload.json "$manifest"
+          fi
 
           artifacts='[]'
 
@@ -853,7 +865,7 @@ jobs:
 
   publish:
     name: Publish GitHub release
-    needs: [prepare, deploy-update-feed]
+    needs: [prepare, stage-release]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -889,3 +901,24 @@ jobs:
             echo
             echo "Published $RELEASE_TAG with Android APKs, Linux x86_64/aarch64 AppImages, Windows x64/ARM64 installers, the macOS universal build, signed update feeds, and checksums."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  announce:
+    name: Announce published release
+    needs: [prepare, deploy-update-feed]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Announce on Discord
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+        run: dart run tool/announce_release.dart discord "${{ needs.prepare.outputs.version }}"
+      - name: Announce on Reddit
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
+          REDDIT_PASSWORD: ${{ secrets.REDDIT_PASSWORD }}
+        run: dart run tool/announce_release.dart reddit "${{ needs.prepare.outputs.version }}"
