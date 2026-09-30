@@ -262,6 +262,32 @@ class Download {
         );
       }
 
+      var expectedResponseBytes = length;
+      if (rangeRequestSupport == _RangeRequestSupport.supported) {
+        final expectedEnd = offset + length - 1;
+        final contentRange = response.headers.value('content-range');
+        final match = RegExp(
+          r'^bytes (\d+)-(\d+)/(\d+)$',
+          caseSensitive: false,
+        ).firstMatch(contentRange ?? '');
+        final actualStart = int.tryParse(match?.group(1) ?? '');
+        final actualEnd = int.tryParse(match?.group(2) ?? '');
+        final actualSize = int.tryParse(match?.group(3) ?? '');
+        if (actualStart != offset ||
+            actualEnd == null ||
+            actualEnd < offset ||
+            actualEnd > expectedEnd ||
+            actualSize != params.sizeBytes) {
+          await _discardResponseBody(response);
+          throw DownloadResourceChangedException(
+            'Expected Content-Range to start at $offset, end no later than '
+            '$expectedEnd, and report size ${params.sizeBytes}; got '
+            '${contentRange ?? 'none'}.',
+          );
+        }
+        expectedResponseBytes = actualEnd - offset + 1;
+      }
+
       if (isKwikDownload) {
         log.infoWithMetadata(
           'Kwik part connection established',
@@ -302,24 +328,40 @@ class Download {
           if (iterToken.isCancelled || state.isTerminal) return;
 
           subscription?.pause();
-          if (state.isPaused &&
-              rangeRequestSupport == _RangeRequestSupport.unsupported) {
-            await _waitForResume(partNumber);
+          try {
+            if (state.isPaused &&
+                rangeRequestSupport == _RangeRequestSupport.unsupported) {
+              await _waitForResume(partNumber);
+            }
+            if (iterToken.isCancelled || state.isTerminal) return;
+
+            final remainingBytes = expectedResponseBytes - bytes;
+            if (data.length > remainingBytes) {
+              throw DownloadResourceChangedException(
+                'Response exceeded its declared range of '
+                '$expectedResponseBytes bytes.',
+              );
+            }
+
+            await targetWriter.writeAt(offset + bytes, data);
+
+            firstChunkFingerprint ??= _fingerprint(data);
+
+            state.addProgress(
+              DownloadProgress(
+                partNumber: partNumber,
+                bytesDownloaded: data.length,
+              ),
+            );
+
+            bytes += data.length;
+          } catch (error, stackTrace) {
+            if (!completer.isCompleted) {
+              completer.completeError(error, stackTrace);
+            }
+            await subscription?.cancel();
+            return;
           }
-          if (iterToken.isCancelled || state.isTerminal) return;
-
-          await targetWriter.writeAt(offset + bytes, data);
-
-          firstChunkFingerprint ??= _fingerprint(data);
-
-          state.addProgress(
-            DownloadProgress(
-              partNumber: partNumber,
-              bytesDownloaded: data.length,
-            ),
-          );
-
-          bytes += data.length;
           subscription?.resume();
         },
         onDone: completer.complete,

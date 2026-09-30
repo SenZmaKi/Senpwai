@@ -206,8 +206,11 @@ class SecureTorrentProxyConfiguration {
     if (mode is! String ||
         host is! String ||
         port is! int ||
+        port < 0 ||
+        port > 65535 ||
         username is! String ||
-        password is! String) {
+        password is! String ||
+        !TorrentProxyMode.values.any((value) => value.name == mode)) {
       throw const FormatException('Invalid torrent proxy configuration.');
     }
     return SecureTorrentProxyConfiguration(

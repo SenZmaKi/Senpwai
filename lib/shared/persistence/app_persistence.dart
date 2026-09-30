@@ -118,12 +118,15 @@ class AppPersistence {
       writeSettings: (settings) => _settings = settings,
     );
     final proxyConfiguration = await tokenStore.readTorrentProxyConfiguration();
-    final settings =
-        proxyConfiguration == null ||
-            loadedSettings.torrent.proxyMode == TorrentProxyMode.none
+    final settings = proxyConfiguration == null
         ? loadedSettings
         : loadedSettings.copyWith(
             torrent: loadedSettings.torrent.copyWith(
+              proxyMode: TorrentProxyMode.values.byName(
+                proxyConfiguration.mode,
+              ),
+              proxyHost: proxyConfiguration.host,
+              proxyPort: proxyConfiguration.port,
               proxyUsername: proxyConfiguration.username,
               proxyPassword: proxyConfiguration.password,
             ),

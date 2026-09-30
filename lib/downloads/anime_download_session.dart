@@ -122,9 +122,7 @@ class AnimeDownloadSessionState {
     if (submissionStage == DownloadSubmissionStage.planning) {
       if (planningCancellationRequested) return 'Canceling plan...';
       final progress = planningProgress;
-      return progress == null
-          ? 'Cancel planning'
-          : 'Cancel planning (${progress.completedEpisodes}/${progress.totalEpisodes})';
+      return progress == null ? 'Planning…' : progress.label;
     }
     if (isSubmittingDownload) {
       return submissionStage.label(hasSource: selectedSource != null);

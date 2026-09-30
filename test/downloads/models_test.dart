@@ -26,16 +26,18 @@ void main() {
     test('planning progress clamps invalid and overflowing values', () {
       expect(
         const DownloadPlanningProgress(
-          completedEpisodes: 5,
-          totalEpisodes: 0,
+          phase: DownloadPlanningPhase.checkingFiles,
+          completedItems: 5,
+          totalItems: 0,
           activity: '',
         ).fraction,
-        0,
+        isNull,
       );
       expect(
         const DownloadPlanningProgress(
-          completedEpisodes: 12,
-          totalEpisodes: 10,
+          phase: DownloadPlanningPhase.checkingFiles,
+          completedItems: 12,
+          totalItems: 10,
           activity: '',
         ).fraction,
         1,

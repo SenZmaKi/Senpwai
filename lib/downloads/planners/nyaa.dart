@@ -87,20 +87,32 @@ class NyaaDownloadPlanner {
     final notices = <DownloadNotice>[];
     final anime = request.anime;
 
-    void report(int completedEpisodes, int totalEpisodes, String activity) {
+    void report({
+      required DownloadPlanningPhase phase,
+      required String activity,
+      int? completedItems,
+      int? totalItems,
+    }) {
       onProgress?.call(
         DownloadPlanningProgress(
-          completedEpisodes: completedEpisodes,
-          totalEpisodes: totalEpisodes,
+          phase: phase,
+          completedItems: completedItems,
+          totalItems: totalItems,
           activity: activity,
         ),
       );
     }
 
     if (anime.format == AnilistFormat.movie) {
-      report(0, 1, 'Searching for a movie torrent');
+      report(
+        phase: DownloadPlanningPhase.discovering,
+        activity: 'Searching for a movie torrent',
+      );
       final movieCandidates = await _matcher.matchMovie(anime, params);
-      report(0, 1, 'Inspecting movie torrents');
+      report(
+        phase: DownloadPlanningPhase.checkingFiles,
+        activity: 'Inspecting movie torrents',
+      );
       final moviePlan = await _planMovieCandidate(
         anime: anime,
         request: request,
@@ -113,11 +125,19 @@ class NyaaDownloadPlanner {
               'Could not find a movie torrent whose files matched this title.',
         );
       }
-      report(1, 1, 'Prepared movie');
+      report(
+        phase: DownloadPlanningPhase.checkingFiles,
+        completedItems: 1,
+        totalItems: 1,
+        activity: 'Prepared movie',
+      );
       return PreparedDownloadBatch(jobs: [moviePlan], notices: notices);
     }
 
-    report(0, requestedEpisodes.length, 'Searching Nyaa');
+    report(
+      phase: DownloadPlanningPhase.discovering,
+      activity: 'Searching for torrents',
+    );
 
     final shouldPreferEpisodes =
         anime.status == AnilistAiringStatus.releasing ||
@@ -125,7 +145,10 @@ class NyaaDownloadPlanner {
 
     if (!shouldPreferEpisodes) {
       final seasonCandidates = await _matcher.matchSeason(anime, params);
-      report(0, requestedEpisodes.length, 'Inspecting season packs');
+      report(
+        phase: DownloadPlanningPhase.checkingFiles,
+        activity: 'Inspecting season packs',
+      );
       final seasonPlan = await _planBatchCandidate(
         request: request,
         requestedEpisodes: requestedEpisodes,
@@ -133,9 +156,10 @@ class NyaaDownloadPlanner {
       );
       if (seasonPlan != null && seasonPlan.coversAllEpisodes) {
         report(
-          requestedEpisodes.length,
-          requestedEpisodes.length,
-          'Prepared season pack',
+          phase: DownloadPlanningPhase.checkingFiles,
+          completedItems: requestedEpisodes.length,
+          totalItems: requestedEpisodes.length,
+          activity: 'Prepared season pack',
         );
         return PreparedDownloadBatch(jobs: [seasonPlan.job], notices: notices);
       }
@@ -164,9 +188,10 @@ class NyaaDownloadPlanner {
             .where(plannedEpisodes.contains)
             .length;
         report(
-          completedByPack,
-          requestedEpisodes.length,
-          'Prepared $completedByPack episodes from a season pack',
+          phase: DownloadPlanningPhase.checkingFiles,
+          completedItems: completedByPack,
+          totalItems: requestedEpisodes.length,
+          activity: 'Prepared $completedByPack episodes from a season pack',
         );
         final remainingEpisodes = requestedEpisodes
             .where((episode) => !plannedEpisodes.contains(episode))
@@ -227,8 +252,7 @@ class NyaaDownloadPlanner {
 
     onProgress?.call(
       DownloadPlanningProgress(
-        completedEpisodes: initialCompletedEpisodes,
-        totalEpisodes: totalEpisodes,
+        phase: DownloadPlanningPhase.discovering,
         activity: 'Searching for episode torrents',
       ),
     );
@@ -243,11 +267,20 @@ class NyaaDownloadPlanner {
     final jobs = <PreparedDownloadJob>[];
     final unresolvedIssues = <NyaaEpisodeResolutionIssue>[];
     var completedEpisodes = initialCompletedEpisodes;
+    onProgress?.call(
+      DownloadPlanningProgress(
+        phase: DownloadPlanningPhase.checkingFiles,
+        completedItems: completedEpisodes,
+        totalItems: totalEpisodes,
+        activity: 'Checking episode torrents',
+      ),
+    );
     for (final episodeNumber in requestedEpisodes) {
       onProgress?.call(
         DownloadPlanningProgress(
-          completedEpisodes: completedEpisodes,
-          totalEpisodes: totalEpisodes,
+          phase: DownloadPlanningPhase.checkingFiles,
+          completedItems: completedEpisodes,
+          totalItems: totalEpisodes,
           activity: 'Inspecting episode $episodeNumber',
         ),
       );
@@ -274,8 +307,9 @@ class NyaaDownloadPlanner {
       completedEpisodes++;
       onProgress?.call(
         DownloadPlanningProgress(
-          completedEpisodes: completedEpisodes,
-          totalEpisodes: totalEpisodes,
+          phase: DownloadPlanningPhase.checkingFiles,
+          completedItems: completedEpisodes,
+          totalItems: totalEpisodes,
           activity: job == null
               ? 'Episode $episodeNumber needs review'
               : 'Prepared episode $episodeNumber',

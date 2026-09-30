@@ -51,31 +51,39 @@ extension DownloadQueueStatusExtension on DownloadQueueStatus {
 
 enum DownloadNoticeLevel { info, warning }
 
+enum DownloadPlanningPhase {
+  discovering('Finding episodes'),
+  loadingOptions('Loading download options'),
+  checkingFiles('Checking files');
+
+  final String label;
+
+  const DownloadPlanningPhase(this.label);
+}
+
 class DownloadPlanningProgress {
-  final int completedEpisodes;
-  final int totalEpisodes;
-  final int? completedSteps;
-  final int? totalSteps;
+  final DownloadPlanningPhase phase;
+  final int? completedItems;
+  final int? totalItems;
   final String activity;
 
   const DownloadPlanningProgress({
-    required this.completedEpisodes,
-    required this.totalEpisodes,
-    this.completedSteps,
-    this.totalSteps,
+    required this.phase,
+    this.completedItems,
+    this.totalItems,
     required this.activity,
   });
 
-  double get fraction {
-    final steps = completedSteps;
-    final stepTotal = totalSteps;
-    if (steps != null && stepTotal != null && stepTotal > 0) {
-      return (steps / stepTotal).clamp(0.0, 1.0);
-    }
-    return totalEpisodes <= 0
-        ? 0
-        : (completedEpisodes / totalEpisodes).clamp(0.0, 1.0);
+  bool get isDeterminate => totalItems != null && totalItems! > 0;
+
+  double? get fraction {
+    if (!isDeterminate) return null;
+    return ((completedItems ?? 0) / totalItems!).clamp(0.0, 1.0);
   }
+
+  String get label => isDeterminate
+      ? '${phase.label} · ${completedItems ?? 0}/$totalItems'
+      : '${phase.label}…';
 }
 
 typedef DownloadPlanningProgressCallback =

@@ -46,7 +46,7 @@ class AnimeDownloadButton extends StatelessWidget {
               // Progress fill & shimmer energy pulse layer
               Positioned.fill(
                 child: PulsingProgressBar(
-                  value: state.planningProgress?.fraction ?? 0.0,
+                  value: state.planningProgress?.fraction,
                   height: 48,
                   color: theme.colorScheme.primary,
                   trackColor: theme.colorScheme.surfaceContainerHighest
@@ -54,6 +54,8 @@ class AnimeDownloadButton extends StatelessWidget {
                   pulseColor: Colors.white.withValues(alpha: 0.35),
                   pulsing: true,
                   borderRadius: BorderRadius.circular(10),
+                  semanticsLabel: 'Download planning progress',
+                  semanticsValue: state.planningProgress?.label,
                 ),
               ),
               // Foreground label & cancel trigger

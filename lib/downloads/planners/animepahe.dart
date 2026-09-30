@@ -33,20 +33,23 @@ class AnimePaheDownloadPlanner {
       );
     }
 
-    final totalEpisodes = requestedEpisodes.length;
-    var completedEpisodes = 0;
-    var completedSteps = 0;
-    final totalSteps = totalEpisodes * 3;
-    void report(String activity) => onProgress?.call(
+    void report({
+      required DownloadPlanningPhase phase,
+      required String activity,
+      int? completedItems,
+      int? totalItems,
+    }) => onProgress?.call(
       DownloadPlanningProgress(
-        completedEpisodes: completedEpisodes,
-        totalEpisodes: totalEpisodes,
-        completedSteps: completedSteps,
-        totalSteps: totalSteps,
+        phase: phase,
+        completedItems: completedItems,
+        totalItems: totalItems,
         activity: activity,
       ),
     );
-    report('Finding episodes');
+    report(
+      phase: DownloadPlanningPhase.discovering,
+      activity: 'Finding episodes',
+    );
 
     // Must be called before any AnimePahe network request.
     await animepahe.Source.ensureInitialized();
@@ -101,7 +104,13 @@ class AnimePaheDownloadPlanner {
     final fallbackNotices = FallbackNoticeCollector(
       sourceName: AnimeSource.animepahe.label,
     );
-    report('Loading episode links');
+    var loadedOptions = 0;
+    report(
+      phase: DownloadPlanningPhase.loadingOptions,
+      completedItems: loadedOptions,
+      totalItems: selectedSessions.length,
+      activity: 'Loading episode links',
+    );
     final episodeLinks = await parallelMapOrdered(
       selectedSessions,
       maxConcurrent: SourceConcurrencyLimits.instance.animePahe,
@@ -113,8 +122,13 @@ class AnimePaheDownloadPlanner {
           episodeSession: episodeSession,
         );
         throwIfRequestScopeCancelled();
-        completedSteps++;
-        report('Loaded episode ${episodeSession.number} links');
+        loadedOptions++;
+        report(
+          phase: DownloadPlanningPhase.loadingOptions,
+          completedItems: loadedOptions,
+          totalItems: selectedSessions.length,
+          activity: 'Loaded episode ${episodeSession.number} links',
+        );
         return (episodeSession: episodeSession, links: links);
       },
     );
@@ -151,6 +165,13 @@ class AnimePaheDownloadPlanner {
     final probeLane = AsyncLimiter(animePaheConcurrency);
     final kwikBatch = _source.openKwikLinkResolverBatch();
     var remainingKwikLinks = selectedLinks.length;
+    var checkedFiles = 0;
+    report(
+      phase: DownloadPlanningPhase.checkingFiles,
+      completedItems: checkedFiles,
+      totalItems: selectedLinks.length,
+      activity: 'Checking download files',
+    );
     late final List<PreparedDownloadJob> jobs;
     try {
       jobs =
@@ -161,19 +182,15 @@ class AnimePaheDownloadPlanner {
               throwIfRequestScopeCancelled();
               final directLink = await kwikLane.run(() async {
                 throwIfRequestScopeCancelled();
-                report('Resolving episode ${selectedLink.episodeNumber}');
                 final link = await _source.fetchDirectDownloadLink(
                   downloadLink: selectedLink,
                 );
                 throwIfRequestScopeCancelled();
-                completedSteps++;
-                report('Resolved episode ${selectedLink.episodeNumber}');
                 remainingKwikLinks--;
                 if (remainingKwikLinks == 0) await kwikBatch.close();
                 return link;
               });
               return probeLane.run(() async {
-                report('Checking episode ${directLink.episodeNumber}');
                 final resolvedTarget = await Download.probeSingleFile(
                   url: directLink.url,
                   headers: {'Referer': directLink.refererUrl},
@@ -200,9 +217,13 @@ class AnimePaheDownloadPlanner {
                   headers: {'Referer': directLink.refererUrl},
                   episodeNumber: directLink.episodeNumber,
                 );
-                completedSteps++;
-                completedEpisodes++;
-                report('Prepared episode ${directLink.episodeNumber}');
+                checkedFiles++;
+                report(
+                  phase: DownloadPlanningPhase.checkingFiles,
+                  completedItems: checkedFiles,
+                  totalItems: selectedLinks.length,
+                  activity: 'Checked episode ${directLink.episodeNumber}',
+                );
                 return job;
               });
             },

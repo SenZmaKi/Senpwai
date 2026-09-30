@@ -32,20 +32,23 @@ class TokyoInsiderDownloadPlanner {
       );
     }
 
-    final totalEpisodes = requestedEpisodes.length;
-    var completedEpisodes = 0;
-    var completedSteps = 0;
-    var totalSteps = totalEpisodes * 2;
-    void report(String activity) => onProgress?.call(
+    void report({
+      required DownloadPlanningPhase phase,
+      required String activity,
+      int? completedItems,
+      int? totalItems,
+    }) => onProgress?.call(
       DownloadPlanningProgress(
-        completedEpisodes: completedEpisodes,
-        totalEpisodes: totalEpisodes,
-        completedSteps: completedSteps,
-        totalSteps: totalSteps,
+        phase: phase,
+        completedItems: completedItems,
+        totalItems: totalItems,
         activity: activity,
       ),
     );
-    report('Finding episodes');
+    report(
+      phase: DownloadPlanningPhase.discovering,
+      activity: 'Finding episodes',
+    );
 
     final episodePages = await _source.fetchEpisodePages(
       animeUrl: animeMatch.url,
@@ -76,8 +79,13 @@ class TokyoInsiderDownloadPlanner {
       for (final episode in requestedEpisodes)
         if (pagesByEpisode.containsKey(episode)) pagesByEpisode[episode]!,
     ];
-    totalSteps = selectedPages.length * 2;
-    report('Loading episode links');
+    var loadedOptions = 0;
+    report(
+      phase: DownloadPlanningPhase.loadingOptions,
+      completedItems: loadedOptions,
+      totalItems: selectedPages.length,
+      activity: 'Loading episode links',
+    );
     final episodeLinks = await parallelMapOrdered(
       selectedPages,
       maxConcurrent: SourceConcurrencyLimits.instance.tokyoInsider,
@@ -87,8 +95,13 @@ class TokyoInsiderDownloadPlanner {
           episodePage: episodePage,
         );
         throwIfRequestScopeCancelled();
-        completedSteps++;
-        report('Loaded episode ${episodePage.episodeNumber} links');
+        loadedOptions++;
+        report(
+          phase: DownloadPlanningPhase.loadingOptions,
+          completedItems: loadedOptions,
+          totalItems: selectedPages.length,
+          activity: 'Loaded episode ${episodePage.episodeNumber} links',
+        );
         return (episodePage: episodePage, links: links);
       },
     );
@@ -98,8 +111,6 @@ class TokyoInsiderDownloadPlanner {
       final downloadLinks = links;
       if (downloadLinks.isEmpty) {
         missingEpisodes.add(episodePage.episodeNumber);
-        completedSteps++;
-        report('Episode ${episodePage.episodeNumber} is unavailable');
         continue;
       }
 
@@ -113,7 +124,13 @@ class TokyoInsiderDownloadPlanner {
       );
     }
 
-    report('Checking download files');
+    var checkedFiles = 0;
+    report(
+      phase: DownloadPlanningPhase.checkingFiles,
+      completedItems: checkedFiles,
+      totalItems: selectedLinks.length,
+      activity: 'Checking download files',
+    );
     final jobs =
         await parallelMapOrdered<
           tokyoinsider.EpisodeDownloadLink,
@@ -147,9 +164,13 @@ class TokyoInsiderDownloadPlanner {
               fileName: plannedTarget.fileName,
               episodeNumber: selectedLink.episodeNumber,
             );
-            completedSteps++;
-            completedEpisodes++;
-            report('Prepared episode ${selectedLink.episodeNumber}');
+            checkedFiles++;
+            report(
+              phase: DownloadPlanningPhase.checkingFiles,
+              completedItems: checkedFiles,
+              totalItems: selectedLinks.length,
+              activity: 'Checked episode ${selectedLink.episodeNumber}',
+            );
             return job;
           },
         );
