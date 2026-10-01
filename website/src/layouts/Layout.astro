@@ -36,6 +36,14 @@ const socialImageUrl = Astro.site
     {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
     <meta name="generator" content={Astro.generator} />
     <meta name="theme-color" content="#0a0a0d" />
+    {import.meta.env.PROD && (
+      <script
+        is:inline
+        defer
+        src="https://analytics.phidel.dev/amogus.js"
+        data-website-id="1db0982b-b84b-4815-a81f-4b42a2c46ec3"
+      ></script>
+    )}
     <title>{title}</title>
     <meta name="title" content={title} />
     <meta name="description" content={description} />
@@ -61,3 +69,7 @@ const socialImageUrl = Astro.site
     <Footer />
   </body>
 </html>
+
+<script>
+  import '../lib/analytics';
+</script>
