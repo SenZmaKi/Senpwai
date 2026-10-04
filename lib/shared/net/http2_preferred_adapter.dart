@@ -48,11 +48,7 @@ class Http2PreferredAdapter implements HttpClientAdapter {
       // genuine TLS failures still surface from the fallback.
       if (!_canReplay(options, requestStream)) rethrow;
 
-      final response = await fallbackAdapter.fetch(
-        options,
-        null,
-        cancelFuture,
-      );
+      final response = await fallbackAdapter.fetch(options, null, cancelFuture);
       _http1OnlyOrigins.add(origin);
       return response;
     }
