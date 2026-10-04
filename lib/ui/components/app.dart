@@ -22,6 +22,7 @@ import 'package:senpwai/ui/pages/search_page/search_page.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_page.dart';
 import 'package:senpwai/ui/components/app_shell.dart';
 import 'package:senpwai/ui/components/update_restart_dialog.dart';
+import 'package:senpwai/ui/components/browser_failure_prompt.dart';
 import 'package:senpwai/ui/components/browser_transport_host.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:toastification/toastification.dart';
@@ -236,22 +237,24 @@ class _AppRootState extends ConsumerState<_AppRoot> {
           ref.read(AppPageNotifier.provider.notifier).setPage(AppPage.home);
         }
       },
-      child: AppShell(
-        currentIndex: currentPage.index,
-        onDestinationChanged: (i) =>
-            ref.read(AppPageNotifier.provider.notifier).setIndex(i),
-        viewer: anilist.viewer,
-        isAuthLoading: anilist.isAuthLoading,
-        onAvatarTap: () => _handleAvatarTap(anilist.viewer),
-        onUpdateReady: _handleUpdateReady,
-        body: IndexedStack(
-          index: currentPage.index,
-          children: [
-            HomePage(onLoginTap: _handleLogin),
-            const SearchPage(),
-            const DownloadsPage(),
-            SettingsPage(onMobileCategoryChanged: _setSettingsCategoryOpen),
-          ],
+      child: BrowserFailurePrompt(
+        child: AppShell(
+          currentIndex: currentPage.index,
+          onDestinationChanged: (i) =>
+              ref.read(AppPageNotifier.provider.notifier).setIndex(i),
+          viewer: anilist.viewer,
+          isAuthLoading: anilist.isAuthLoading,
+          onAvatarTap: () => _handleAvatarTap(anilist.viewer),
+          onUpdateReady: _handleUpdateReady,
+          body: IndexedStack(
+            index: currentPage.index,
+            children: [
+              HomePage(onLoginTap: _handleLogin),
+              const SearchPage(),
+              const DownloadsPage(),
+              SettingsPage(onMobileCategoryChanged: _setSettingsCategoryOpen),
+            ],
+          ),
         ),
       ),
     );

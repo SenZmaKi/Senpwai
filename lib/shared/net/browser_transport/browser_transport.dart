@@ -143,9 +143,14 @@ class BrowserTransportService extends ChangeNotifier {
   final Map<String, Timer> _idleTimers = {};
   final Map<String, int> _activeRequests = {};
   final Map<String, Set<VoidCallback>> _userCancellationCallbacks = {};
+  final _openFailures = StreamController<String>.broadcast();
   Duration _idleTimeout = const Duration(minutes: 10);
   int _nextRequestId = 0;
   Future<void>? _maintenance;
+
+  /// Emits the host whose WebView could not be opened, at most once per
+  /// session. Challenge pages awaiting the user are not open failures.
+  Stream<String> get openFailures => _openFailures.stream;
 
   List<BrowserHostSession> get sessions => List.unmodifiable([
     ..._sessions.values,
@@ -217,6 +222,7 @@ class BrowserTransportService extends ChangeNotifier {
         host: host,
         bootstrapUri: bootstrapUri,
         onChanged: () => _sessionChanged(host),
+        onOpenFailed: () => _openFailures.add(host),
         nextRequestId: () => _nextRequestId++,
       );
 
@@ -408,6 +414,7 @@ class BrowserHostSession {
   final String host;
   final Uri bootstrapUri;
   final VoidCallback onChanged;
+  final VoidCallback onOpenFailed;
   final int Function() nextRequestId;
   final Map<int, Completer<BrowserTransportResponse>> _pending = {};
   Completer<BrowserTransportResponse>? _pendingFormSubmission;
@@ -421,12 +428,15 @@ class BrowserHostSession {
   int _navigationStopCount = 0;
   int _documentGeneration = 0;
   bool _loadFinished = false;
+  bool _opened = false;
+  bool _openFailureReported = false;
   bool requiresInteraction = false;
 
   BrowserHostSession({
     required this.host,
     required this.bootstrapUri,
     required this.onChanged,
+    required this.onOpenFailed,
     required this.nextRequestId,
   });
 
@@ -521,6 +531,7 @@ class BrowserHostSession {
       }
       if (completeReady && !challenged && !_ready.isCompleted) {
         _readinessState = _ReadinessState.ready;
+        _opened = true;
         _ready.complete();
       }
       onChanged();
@@ -568,7 +579,14 @@ class BrowserHostSession {
       _ready.completeError(BrowserTransportException(error.toString()));
     }
     _failPendingFetches('Browser session failed to load: $error');
+    _reportOpenFailure();
     onChanged();
+  }
+
+  void _reportOpenFailure() {
+    if (_opened || _openFailureReported) return;
+    _openFailureReported = true;
+    onOpenFailed();
   }
 
   void handleLoadError(WebResourceRequest request, WebResourceError error) {
@@ -878,6 +896,7 @@ class BrowserHostSession {
     _documentGeneration++;
     _loadFinished = true;
     _readinessState = _ReadinessState.ready;
+    _opened = true;
     requiresInteraction = false;
     if (!_ready.isCompleted) _ready.complete();
     onChanged();
@@ -916,9 +935,14 @@ class BrowserHostSession {
   Future<void> _waitUntilReady(Duration timeout, {Future<void>? cancelFuture}) {
     final ready = _ready.future.timeout(
       timeout,
-      onTimeout: () => throw const BrowserTransportException(
-        'Browser session did not become ready.',
-      ),
+      onTimeout: () {
+        // A challenge left unsolved is the user's choice, not a broken
+        // WebView, so only a page that never loaded counts as an open failure.
+        if (!requiresInteraction) _reportOpenFailure();
+        throw const BrowserTransportException(
+          'Browser session did not become ready.',
+        );
+      },
     );
     if (cancelFuture == null) return ready;
     return Future.any<void>([
