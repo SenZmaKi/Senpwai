@@ -98,6 +98,27 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      # The libtorrent_dart build hook's unauthenticated GitHub API lookup fails
+      # on macOS runners, so fetch the dylibs where the hook expects them.
+      - name: Prefetch libtorrent_dart binaries
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(awk '/^  libtorrent_dart:/{f=1} f&&/^    version:/{gsub(/"/,"",$2);print $2;exit}' pubspec.lock)"
+          package_dir="$PUB_CACHE/hosted/pub.dev/libtorrent_dart-$version"
+          test -d "$package_dir"
+          for arch in arm64 x64; do
+            dest="$package_dir/binaries/macos/$version/$arch"
+            mkdir -p "$dest"
+            gh release download "v$version" \
+              --repo SenZmaKi/libtorrent_dart \
+              --pattern "macos-$arch-libtorrent-rasterbar.dylib" \
+              --output "$dest/libtorrent-rasterbar.dylib" \
+              --clobber
+          done
+
       - name: Analyze Flutter code
         run: flutter analyze
 
