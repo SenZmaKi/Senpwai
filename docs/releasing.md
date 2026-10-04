@@ -48,18 +48,16 @@ also include the four `SENPWAI_ANDROID_*` Android signing secrets. Announcements
 need `DISCORD_BOT_TOKEN`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`,
 `REDDIT_USERNAME`, and `REDDIT_PASSWORD`.
 
-## First 3.0.0 beta
+## Publishing a release
 
-1. Merge the Flutter v3 branch into `master`. New work and pull requests then
-   target `master`.
-2. Review `release-notes/3.0.0-beta.1.md` and confirm `pubspec.yaml` is set to
-   `3.0.0-beta.1+1`, the first public Flutter beta build.
-3. Tag the current `master` commit `v3.0.0-beta.1` and push that tag. The tag starts
-   the release workflow; merging the pull request does not publish a release.
-4. Check all platform jobs, the published release assets, Pages update feeds,
+1. Bump `pubspec.yaml` to the new version and a higher build number, for example
+   `3.0.0-beta.2+2`.
+2. Write `release-notes/<version>.md`. Its first-line `# ` heading becomes the
+   GitHub release title, and the whole file becomes the release body.
+3. Merge both changes into `master`.
+4. Tag the current `master` commit `v<version>` and push that tag. The tag
+   starts the release workflow; merging into `master` does not publish a
+   release.
+5. Check all platform jobs, the published release assets, Pages update feeds,
    and Discord and Reddit announcement jobs. A failed announcement can be
    retried separately, but first check whether a post was already created.
-
-For the eventual stable release, set a higher build number, write
-`release-notes/3.0.0.md`, merge that change into `master`, then tag its current
-commit `v3.0.0`.
