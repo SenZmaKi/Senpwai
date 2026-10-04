@@ -11,6 +11,10 @@ Directory? _testPersistenceDirectory;
 
 Future<void> setupTestApp() async {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // The test binding mocks dart:io HttpClient to answer every request with
+  // 400. HTTP/2 hosts bypass it via raw sockets, but HTTP/1.1-only sources
+  // (and the HTTP/2 adapter's fallback) need the real client.
+  HttpOverrides.global = null;
   FlutterSecureStorage.setMockInitialValues({});
   setupLogger();
   _testPersistenceDirectory ??= await Directory.systemTemp.createTemp(

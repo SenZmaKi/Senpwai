@@ -5,13 +5,20 @@ import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 
-enum AnimeSource { animepahe, tokyoinsider, nyaa }
+enum AnimeSource { animeheaven, nyaa, animepahe, tokyoinsider }
 
 extension AnimeSourceExtension on AnimeSource {
   String get label => switch (this) {
+    AnimeSource.animeheaven => 'AnimeHeaven',
     AnimeSource.animepahe => 'AnimePahe',
     AnimeSource.tokyoinsider => 'TokyoInsider',
     AnimeSource.nyaa => 'Nyaa',
+  };
+
+  /// Whether this source routes requests through the embedded WebView.
+  bool get usesBrowserTransport => switch (this) {
+    AnimeSource.animepahe || AnimeSource.tokyoinsider => true,
+    AnimeSource.animeheaven || AnimeSource.nyaa => false,
   };
 }
 

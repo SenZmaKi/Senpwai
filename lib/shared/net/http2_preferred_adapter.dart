@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -41,6 +42,19 @@ class Http2PreferredAdapter implements HttpClientAdapter {
 
       _http1OnlyOrigins.add(origin);
       return fallbackAdapter.fetch(options, null, cancelFuture);
+    } on HandshakeException {
+      // Some servers answer an h2-only ALPN offer with http/1.1, which TLS
+      // rejects outright. Only remember the origin once HTTP/1.1 succeeds so
+      // genuine TLS failures still surface from the fallback.
+      if (!_canReplay(options, requestStream)) rethrow;
+
+      final response = await fallbackAdapter.fetch(
+        options,
+        null,
+        cancelFuture,
+      );
+      _http1OnlyOrigins.add(origin);
+      return response;
     }
   }
 

@@ -167,17 +167,20 @@ class AppPersistence {
 
   static void applySourceConcurrencySettings(SourcePreferences preferences) {
     final directory = SourceDirectory.instance;
+    final animeHeaven = preferences.animeHeavenRequestConcurrency;
     final animePahe = preferences.animePaheRequestConcurrency;
     final kwik = preferences.kwikRequestConcurrency;
     final nyaa = preferences.nyaaRequestConcurrency;
     final tokyoInsider = preferences.tokyoInsiderRequestConcurrency;
     SourceConcurrencyLimits.instance.update(
+      animeHeaven: animeHeaven,
       animePahe: animePahe,
       kwik: kwik,
       nyaa: nyaa,
       tokyoInsider: tokyoInsider,
     );
     GlobalDio.updateHostConcurrencyLimits({
+      for (final host in directory.animeHeaven.allowedHosts) host: animeHeaven,
       for (final host in directory.nyaa.allowedHosts) host: nyaa,
       for (final host in directory.animePahe.allowedHosts) host: animePahe,
       for (final host in directory.kwik.allowedHosts) host: kwik,

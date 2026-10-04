@@ -296,6 +296,14 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setAnimeHeavenRequestConcurrency(int value) {
+    return _commit(
+      state.copyWith(
+        sources: state.sources.copyWith(animeHeavenRequestConcurrency: value),
+      ),
+    );
+  }
+
   Future<void> setAnimePaheRequestConcurrency(int value) {
     return _commit(
       state.copyWith(

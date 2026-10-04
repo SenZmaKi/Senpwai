@@ -9,17 +9,20 @@ class SourceConcurrencyLimits {
 
   static final instance = SourceConcurrencyLimits._();
 
+  int animeHeaven = 5;
   int animePahe = maxParallelSourceRequests;
   int kwik = maxParallelKwikRequests;
   int nyaa = 5;
   int tokyoInsider = maxParallelSourceRequests;
 
   void update({
+    required int animeHeaven,
     required int animePahe,
     required int kwik,
     required int nyaa,
     required int tokyoInsider,
   }) {
+    this.animeHeaven = animeHeaven;
     this.animePahe = animePahe;
     this.kwik = kwik;
     this.nyaa = nyaa;

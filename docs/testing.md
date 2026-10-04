@@ -20,13 +20,17 @@ flutter test --tags browser --run-skipped
 These remain live integration checks: they require network access and a working
 WebView/browser transport environment.
 
-AniList, Nyaa, and other direct HTTP checks carry the `network` tag and are also
+AniList, Nyaa, AnimeHeaven, and other direct HTTP checks carry the `network` tag and are also
 skipped by default because remote availability and rate limits are outside the
 app's control. Run them explicitly with:
 
 ```shell
 flutter test --tags network --run-skipped
 ```
+
+`test/downloads/animeheaven_planner_test.dart` is an end-to-end check: it
+matches an AniList entry, plans the download, and downloads one full episode
+(~170 MB) through the HTTP download engine.
 
 Loopback HTTP integration tests carry the `local-http` tag. They run normally
 in Linux CI but are skipped on Windows hosts where localhost traffic is

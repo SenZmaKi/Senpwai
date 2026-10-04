@@ -370,6 +370,7 @@ class AnimeTracker {
         resolution: tracked.resolution,
         language: tracked.language,
       ),
+      animeheavenMatch: matches.animeheavenMatch.result?.result,
       animepaheMatch: matches.animepaheMatch.result?.result,
       tokyoinsiderMatch: matches.tokyoinsiderMatch.result?.result,
     );

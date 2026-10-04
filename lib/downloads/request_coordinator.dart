@@ -2,20 +2,26 @@ import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/downloads/planners/planners.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
+import 'package:senpwai/sources/animeheaven.dart' as animeheaven;
 import 'package:senpwai/sources/animepahe.dart' as animepahe;
 import 'package:senpwai/sources/tokyoinsider.dart' as tokyoinsider;
 
 class AnimeDownloadCoordinator {
+  final AnimeHeavenDownloadPlanner _animeheavenPlanner;
   final AnimePaheDownloadPlanner _animepahePlanner;
   final TokyoInsiderDownloadPlanner _tokyoinsiderPlanner;
   final NyaaDownloadPlanner _nyaaPlanner;
 
   AnimeDownloadCoordinator({
+    AnimeHeavenDownloadPlanner? animeheavenPlanner,
     AnimePaheDownloadPlanner? animepahePlanner,
     TokyoInsiderDownloadPlanner? tokyoinsiderPlanner,
     NyaaDownloadPlanner? nyaaPlanner,
     DownloadTargetPlanner? targetPlanner,
-  }) : _animepahePlanner =
+  }) : _animeheavenPlanner =
+           animeheavenPlanner ??
+           AnimeHeavenDownloadPlanner(targetPlanner: targetPlanner),
+       _animepahePlanner =
            animepahePlanner ??
            AnimePaheDownloadPlanner(targetPlanner: targetPlanner),
        _tokyoinsiderPlanner =
@@ -23,6 +29,10 @@ class AnimeDownloadCoordinator {
            TokyoInsiderDownloadPlanner(targetPlanner: targetPlanner),
        _nyaaPlanner =
            nyaaPlanner ?? NyaaDownloadPlanner(targetPlanner: targetPlanner),
+       assert(
+         animeheavenPlanner == null || targetPlanner == null,
+         'Provide targetPlanner through animeheavenPlanner when overriding it.',
+       ),
        assert(
          animepahePlanner == null || targetPlanner == null,
          'Provide targetPlanner through animepahePlanner when overriding it.',
@@ -38,11 +48,17 @@ class AnimeDownloadCoordinator {
 
   Future<PreparedDownloadBatch> plan({
     required DownloadRequest request,
+    animeheaven.AnimeResult? animeheavenMatch,
     animepahe.AnimeResult? animepaheMatch,
     tokyoinsider.AnimeResult? tokyoinsiderMatch,
     DownloadPlanningProgressCallback? onProgress,
   }) async {
     return switch (request.source) {
+      AnimeSource.animeheaven => _animeheavenPlanner.plan(
+        request: request,
+        animeMatch: animeheavenMatch,
+        onProgress: onProgress,
+      ),
       AnimeSource.animepahe => _animepahePlanner.plan(
         request: request,
         animeMatch: animepaheMatch,

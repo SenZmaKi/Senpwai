@@ -16,13 +16,13 @@ void main() {
       expect(settings.content.defaultResolution, Resolution.res1080p);
       expect(settings.content.defaultAudioLanguage, Language.japanese);
       expect(settings.sources.enabledSources, {
-        AnimeSource.animepahe,
+        AnimeSource.animeheaven,
         AnimeSource.nyaa,
-        AnimeSource.tokyoinsider,
       });
       expect(settings.sources.priority, [
-        AnimeSource.animepahe,
+        AnimeSource.animeheaven,
         AnimeSource.nyaa,
+        AnimeSource.animepahe,
         AnimeSource.tokyoinsider,
       ]);
       expect(settings.storage.imageCacheMaxBytes, 50 * 1024 * 1024);

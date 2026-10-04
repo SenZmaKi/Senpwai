@@ -78,6 +78,7 @@ void main() {
       expect(directory.expiresAt.isUtc, isTrue);
       expect(directory.animePahe.apiEntryPoint, endsWith('/api?m='));
       expect(directory.nyaa.maxConcurrentRequests, 5);
+      expect(directory.animeHeaven.baseUrl, 'https://heaven.example');
     });
 
     test('defaults a missing directory version to zero', () {
@@ -120,6 +121,10 @@ Map<String, dynamic> _directoryJson() => {
   'version': 7,
   'expiresAt': '2100-01-01T00:00:00Z',
   'sources': {
+    'animeheaven': {
+      'baseUrl': 'https://heaven.example',
+      'allowedHosts': ['heaven.example'],
+    },
     'animepahe': {
       'baseUrl': 'https://anime.example',
       'apiEntryPoint': 'https://anime.example/api?m=',

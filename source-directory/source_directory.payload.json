@@ -1,8 +1,13 @@
 {
-  "version": 3,
-  "issuedAt": "2026-08-03T00:00:00Z",
+  "version": 4,
+  "issuedAt": "2026-10-04T00:00:00Z",
   "expiresAt": "2027-07-31T00:00:00Z",
   "sources": {
+    "animeheaven": {
+      "baseUrl": "https://animeheaven.me",
+      "allowedHosts": ["animeheaven.me"],
+      "maxConcurrentRequests": 5
+    },
     "animepahe": {
       "baseUrl": "https://animepahe.pw",
       "apiEntryPoint": "https://animepahe.pw/api?m=",

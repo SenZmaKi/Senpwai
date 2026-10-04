@@ -44,6 +44,7 @@ class SourceDirectory {
 
   final int version;
   final DateTime expiresAt;
+  final SourceEndpoint animeHeaven;
   final SourceEndpoint animePahe;
   final SourceEndpoint kwik;
   final SourceEndpoint nyaa;
@@ -52,6 +53,7 @@ class SourceDirectory {
   SourceDirectory({
     required this.version,
     required this.expiresAt,
+    required this.animeHeaven,
     required this.animePahe,
     required this.kwik,
     required this.nyaa,
@@ -61,6 +63,11 @@ class SourceDirectory {
   factory SourceDirectory.defaults() => SourceDirectory(
     version: 0,
     expiresAt: DateTime.utc(2100),
+    animeHeaven: const SourceEndpoint(
+      baseUrl: 'https://animeheaven.me',
+      allowedHosts: {'animeheaven.me'},
+      maxConcurrentRequests: 5,
+    ),
     animePahe: const SourceEndpoint(
       baseUrl: 'https://animepahe.pw',
       apiEntryPoint: 'https://animepahe.pw/api?m=',
@@ -154,6 +161,7 @@ class SourceDirectory {
     final directory = SourceDirectory(
       version: json['version'] as int? ?? 0,
       expiresAt: expiresAt.toUtc(),
+      animeHeaven: SourceEndpoint.fromJson(_source(sources, 'animeheaven')),
       animePahe: SourceEndpoint.fromJson(_source(sources, 'animepahe')),
       kwik: SourceEndpoint.fromJson(_source(sources, 'kwik')),
       nyaa: SourceEndpoint.fromJson(_source(sources, 'nyaa')),
@@ -175,7 +183,7 @@ class SourceDirectory {
     if (!expiresAt.isAfter(DateTime.now().toUtc())) {
       throw const FormatException('Source directory has expired.');
     }
-    for (final endpoint in [animePahe, kwik, nyaa, tokyoInsider]) {
+    for (final endpoint in [animeHeaven, animePahe, kwik, nyaa, tokyoInsider]) {
       endpoint.validate();
     }
   }

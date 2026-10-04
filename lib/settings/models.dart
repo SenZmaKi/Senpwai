@@ -454,8 +454,10 @@ class CustomAnimeFolder {
 class SourcePreferences {
   static const minRequestConcurrency = 1;
   static const recommendedRequestConcurrency = 10;
+  static const recommendedAnimeHeavenRequestConcurrency = 5;
   static const recommendedNyaaRequestConcurrency = 5;
   static const recommendedKwikRequestConcurrency = 2;
+  static const defaultAnimeHeavenRequestConcurrency = 5;
   static const defaultAnimePaheRequestConcurrency = 10;
   static const defaultKwikRequestConcurrency = 2;
   static const defaultNyaaRequestConcurrency = 5;
@@ -464,14 +466,14 @@ class SourcePreferences {
   static const minBrowserTransportIdleTimeoutMinutes = 1;
   static const maxBrowserTransportIdleTimeoutMinutes = 120;
   static const defaultEnabledSources = {
-    AnimeSource.animepahe,
+    AnimeSource.animeheaven,
     AnimeSource.nyaa,
-    AnimeSource.tokyoinsider,
   };
 
   static const defaultPriority = [
-    AnimeSource.animepahe,
+    AnimeSource.animeheaven,
     AnimeSource.nyaa,
+    AnimeSource.animepahe,
     AnimeSource.tokyoinsider,
   ];
 
@@ -481,6 +483,7 @@ class SourcePreferences {
   final bool skipNyaaReviewWhenUnambiguous;
   final bool skipUnavailableNyaaEpisodes;
   final int browserTransportIdleTimeoutMinutes;
+  final int animeHeavenRequestConcurrency;
   final int animePaheRequestConcurrency;
   final int kwikRequestConcurrency;
   final int nyaaRequestConcurrency;
@@ -494,6 +497,7 @@ class SourcePreferences {
     this.skipUnavailableNyaaEpisodes = false,
     this.browserTransportIdleTimeoutMinutes =
         defaultBrowserTransportIdleTimeoutMinutes,
+    this.animeHeavenRequestConcurrency = defaultAnimeHeavenRequestConcurrency,
     this.animePaheRequestConcurrency = defaultAnimePaheRequestConcurrency,
     this.kwikRequestConcurrency = defaultKwikRequestConcurrency,
     this.nyaaRequestConcurrency = defaultNyaaRequestConcurrency,
@@ -530,6 +534,12 @@ class SourcePreferences {
               defaultBrowserTransportIdleTimeoutMinutes,
             ),
           ),
+      animeHeavenRequestConcurrency: normalizeRequestConcurrency(
+        _intValue(
+          json['animeHeavenRequestConcurrency'],
+          defaultAnimeHeavenRequestConcurrency,
+        ),
+      ),
       animePaheRequestConcurrency: normalizeRequestConcurrency(
         _intValue(
           json['animePaheRequestConcurrency'],
@@ -564,6 +574,7 @@ class SourcePreferences {
     'skipNyaaReviewWhenUnambiguous': skipNyaaReviewWhenUnambiguous,
     'skipUnavailableNyaaEpisodes': skipUnavailableNyaaEpisodes,
     'browserTransportIdleTimeoutMinutes': browserTransportIdleTimeoutMinutes,
+    'animeHeavenRequestConcurrency': animeHeavenRequestConcurrency,
     'animePaheRequestConcurrency': animePaheRequestConcurrency,
     'kwikRequestConcurrency': kwikRequestConcurrency,
     'nyaaRequestConcurrency': nyaaRequestConcurrency,
@@ -584,6 +595,7 @@ class SourcePreferences {
     bool? skipNyaaReviewWhenUnambiguous,
     bool? skipUnavailableNyaaEpisodes,
     int? browserTransportIdleTimeoutMinutes,
+    int? animeHeavenRequestConcurrency,
     int? animePaheRequestConcurrency,
     int? kwikRequestConcurrency,
     int? nyaaRequestConcurrency,
@@ -606,6 +618,9 @@ class SourcePreferences {
           : normalizeBrowserTransportIdleTimeoutMinutes(
               browserTransportIdleTimeoutMinutes,
             ),
+      animeHeavenRequestConcurrency: normalizeRequestConcurrency(
+        animeHeavenRequestConcurrency ?? this.animeHeavenRequestConcurrency,
+      ),
       animePaheRequestConcurrency: normalizeRequestConcurrency(
         animePaheRequestConcurrency ?? this.animePaheRequestConcurrency,
       ),

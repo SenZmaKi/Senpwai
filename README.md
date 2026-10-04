@@ -47,8 +47,8 @@ version and its release notes on
 
 - Discover and search anime through AniList. Filter results and optionally
   connect your AniList account to browse your library.
-- Download from Animepahe, Tokyo Insider, and Nyaa. Choose
-  the source, episode range, resolution, audio preference, and download folder.
+- Download from AnimeHeaven, Nyaa, Animepahe, and Tokyo Insider. Choose the
+  source, episode range, resolution, audio preference, and download folder.
 - Scan your library to avoid downloading episodes you already have, optionally
   skip filler, and review uncertain Nyaa matches before queueing torrents.
 - Pause, resume, and reorder downloads, with progress, speed, and torrent
@@ -109,7 +109,9 @@ release history.
 <details>
 <summary>Do you intend to add more sources?</summary>
 
-The current sources are Animepahe, Tokyo Insider, and Nyaa. New sources need
+The current sources are AnimeHeaven, Nyaa, Animepahe, and Tokyo Insider.
+Animepahe and Tokyo Insider sit behind Cloudflare, so they're disabled by
+default and can be enabled in Settings → Sources & Search. New sources need
 ongoing maintenance, so the focus is keeping these working well.
 
 </details>

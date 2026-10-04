@@ -61,6 +61,7 @@ extension DownloadSubmissionStageExtension on DownloadSubmissionStage {
 @immutable
 class AnimeDownloadSessionState {
   final AnilistAnimeBase anime;
+  final SourceMatchState<AnimeheavenSourceMatch> animeheavenMatch;
   final SourceMatchState<AnimepaheSourceMatch> animepaheMatch;
   final SourceMatchState<TokyoinsiderSourceMatch> tokyoinsiderMatch;
   final SourceMatchState<bool> nyaaMatch;
@@ -83,6 +84,7 @@ class AnimeDownloadSessionState {
 
   const AnimeDownloadSessionState({
     required this.anime,
+    this.animeheavenMatch = const SourceMatchState.loading(),
     this.animepaheMatch = const SourceMatchState.loading(),
     this.tokyoinsiderMatch = const SourceMatchState.loading(),
     this.nyaaMatch = const SourceMatchState.loading(),
@@ -111,6 +113,7 @@ class AnimeDownloadSessionState {
   bool get hasAvailableEpisodes => availableEpisodes > 0;
 
   bool get allSourcesResolved =>
+      !animeheavenMatch.isLoading &&
       !animepaheMatch.isLoading &&
       !tokyoinsiderMatch.isLoading &&
       !nyaaMatch.isLoading;
@@ -133,18 +136,21 @@ class AnimeDownloadSessionState {
   }
 
   bool isSourceAvailable(AnimeSource source) => switch (source) {
+    AnimeSource.animeheaven => animeheavenMatch.isMatched,
     AnimeSource.animepahe => animepaheMatch.isMatched,
     AnimeSource.tokyoinsider => tokyoinsiderMatch.isMatched,
     AnimeSource.nyaa => nyaaMatch.isMatched,
   };
 
   SourceMatchStatus sourceStatus(AnimeSource source) => switch (source) {
+    AnimeSource.animeheaven => animeheavenMatch.status,
     AnimeSource.animepahe => animepaheMatch.status,
     AnimeSource.tokyoinsider => tokyoinsiderMatch.status,
     AnimeSource.nyaa => nyaaMatch.status,
   };
 
   AnimeDownloadSessionState copyWith({
+    SourceMatchState<AnimeheavenSourceMatch>? animeheavenMatch,
     SourceMatchState<AnimepaheSourceMatch>? animepaheMatch,
     SourceMatchState<TokyoinsiderSourceMatch>? tokyoinsiderMatch,
     SourceMatchState<bool>? nyaaMatch,
@@ -169,6 +175,7 @@ class AnimeDownloadSessionState {
   }) {
     return AnimeDownloadSessionState(
       anime: anime,
+      animeheavenMatch: animeheavenMatch ?? this.animeheavenMatch,
       animepaheMatch: animepaheMatch ?? this.animepaheMatch,
       tokyoinsiderMatch: tokyoinsiderMatch ?? this.tokyoinsiderMatch,
       nyaaMatch: nyaaMatch ?? this.nyaaMatch,
@@ -522,6 +529,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         state.selectedSource != null &&
         sourceResolver.isSourceAvailable(matches, state.selectedSource!);
     state = state.copyWith(
+      animeheavenMatch: matches.animeheavenMatch,
       animepaheMatch: matches.animepaheMatch,
       tokyoinsiderMatch: matches.tokyoinsiderMatch,
       nyaaMatch: matches.nyaaMatch,
@@ -751,6 +759,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         resolution: state.selectedResolution,
         language: state.selectedLanguage,
       ),
+      animeheavenMatch: state.animeheavenMatch.result?.result,
       animepaheMatch: state.animepaheMatch.result?.result,
       tokyoinsiderMatch: state.tokyoinsiderMatch.result?.result,
       onProgress: (progress) {

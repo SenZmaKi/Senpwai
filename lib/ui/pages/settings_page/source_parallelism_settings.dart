@@ -28,12 +28,23 @@ class SourceParallelismSettings extends StatelessWidget {
       description: 'Control how many source operations may run at once',
       searchQuery: searchQuery,
       searchTerms: const [
+        'AnimeHeaven concurrent parallel requests',
         'AnimePahe concurrent parallel requests',
         'Kwik concurrent temporary browser link resolution',
         'Nyaa concurrent parallel searches',
         'TokyoInsider concurrent parallel requests',
       ],
       children: [
+        _ConcurrencyTile(
+          iconAsset: AnimeSource.animeheaven.iconAsset,
+          title: 'AnimeHeaven',
+          subtitle: 'Download-link lookups and file checks',
+          value: sources.animeHeavenRequestConcurrency,
+          recommendedMaximum:
+              SourcePreferences.recommendedAnimeHeavenRequestConcurrency,
+          searchQuery: searchQuery,
+          onSubmitted: notifier.setAnimeHeavenRequestConcurrency,
+        ),
         _ConcurrencyTile(
           iconAsset: AnimeSource.animepahe.iconAsset,
           title: 'AnimePahe',
