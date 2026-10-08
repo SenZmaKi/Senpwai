@@ -151,6 +151,8 @@ class SettingsSearchResults extends ConsumerWidget {
       'Title Language preferred title display automatic fallbacks',
       'Default Resolution initial resolution selected anime pages',
       'Default Audio initial audio language selected anime pages',
+      'Allow Audio Fallback use another audio language skip episodes',
+      'Allow Quality Fallback use another resolution skip episodes',
       'Skip Filler Episodes automatically exclude filler from downloads',
       'Adult Content show adult entries AniList results',
       'Storage Network Limit manage download destination folders speed limit',

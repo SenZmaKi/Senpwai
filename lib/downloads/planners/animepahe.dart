@@ -100,6 +100,11 @@ class AnimePaheDownloadPlanner {
         .where((session) => requestedEpisodes.contains(session.number))
         .toList();
     throwIfRequestScopeCancelled();
+    final missingEpisodes = <int>[
+      for (final episode in requestedEpisodes)
+        if (!selectedSessions.any((session) => session.number == episode))
+          episode,
+    ];
     final notices = <DownloadNotice>[];
     final fallbackNotices = FallbackNoticeCollector(
       sourceName: AnimeSource.animepahe.label,
@@ -144,13 +149,25 @@ class AnimePaheDownloadPlanner {
         );
       }
 
-      selectedLinks.add(
-        _selectLink(
-          downloadLinks,
-          request,
-          fallbackNotices,
-          episodeSession.number,
-        ),
+      final selected = _selectLink(
+        downloadLinks,
+        request,
+        fallbackNotices,
+        episodeSession.number,
+      );
+      if (selected == null) {
+        missingEpisodes.add(episodeSession.number);
+        fallbackNotices.recordSkipped(episodeSession.number, request);
+      } else {
+        selectedLinks.add(selected);
+      }
+    }
+
+    if (selectedLinks.isEmpty) {
+      throw DownloadUserError(
+        title: 'No matching downloads',
+        description:
+            'No episodes offer the requested audio and quality with your fallback settings.',
       );
     }
 
@@ -233,21 +250,36 @@ class AnimePaheDownloadPlanner {
     }
 
     notices.addAll(fallbackNotices.build());
-    return PreparedDownloadBatch(jobs: jobs, notices: notices);
+    missingEpisodes.sort();
+    return PreparedDownloadBatch(
+      jobs: jobs,
+      notices: notices,
+      unavailableEpisodeNumbers: missingEpisodes,
+    );
   }
 
-  animepahe.DownloadLink _selectLink(
+  animepahe.DownloadLink? _selectLink(
     List<animepahe.DownloadLink> links,
     DownloadRequest request,
     FallbackNoticeCollector fallbackNotices,
     int episodeNumber,
   ) {
-    final languageMatches = links
+    final eligibleLinks = links
+        .where(
+          (link) =>
+              (request.allowAudioFallback ||
+                  link.audioLanguage == request.language) &&
+              (request.allowQualityFallback ||
+                  link.resolution == request.resolution),
+        )
+        .toList();
+    if (eligibleLinks.isEmpty) return null;
+    final languageMatches = eligibleLinks
         .where((link) => link.audioLanguage == request.language)
         .toList();
     final activeLanguagePool = languageMatches.isNotEmpty
         ? languageMatches
-        : links;
+        : eligibleLinks;
     if (languageMatches.isEmpty) {
       fallbackNotices.recordAudio(
         episodeNumber: episodeNumber,

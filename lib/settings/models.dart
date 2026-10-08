@@ -290,16 +290,22 @@ class ContentPreferences {
   final bool showAdultContent;
   final Resolution defaultResolution;
   final Language defaultAudioLanguage;
+  final bool allowAudioFallback;
+  final bool allowQualityFallback;
 
   const ContentPreferences({
     this.titleLanguage = TitleLanguagePreference.romaji,
     this.showAdultContent = false,
     this.defaultResolution = Resolution.res1080p,
     this.defaultAudioLanguage = Language.japanese,
+    this.allowAudioFallback = true,
+    this.allowQualityFallback = true,
   });
 
   factory ContentPreferences.fromJson(Map<String, dynamic> json) =>
       ContentPreferences(
+        allowAudioFallback: _boolValue(json['allowAudioFallback'], true),
+        allowQualityFallback: _boolValue(json['allowQualityFallback'], true),
         titleLanguage: _enumValue(
           TitleLanguagePreference.values,
           json['titleLanguage'],
@@ -319,6 +325,8 @@ class ContentPreferences {
       );
 
   Map<String, dynamic> toJson() => {
+    'allowAudioFallback': allowAudioFallback,
+    'allowQualityFallback': allowQualityFallback,
     'titleLanguage': titleLanguage.name,
     'showAdultContent': showAdultContent,
     'defaultResolution': defaultResolution.name,
@@ -330,8 +338,12 @@ class ContentPreferences {
     bool? showAdultContent,
     Resolution? defaultResolution,
     Language? defaultAudioLanguage,
+    bool? allowAudioFallback,
+    bool? allowQualityFallback,
   }) {
     return ContentPreferences(
+      allowAudioFallback: allowAudioFallback ?? this.allowAudioFallback,
+      allowQualityFallback: allowQualityFallback ?? this.allowQualityFallback,
       titleLanguage: titleLanguage ?? this.titleLanguage,
       showAdultContent: showAdultContent ?? this.showAdultContent,
       defaultResolution: defaultResolution ?? this.defaultResolution,

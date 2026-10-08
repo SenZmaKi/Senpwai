@@ -6,6 +6,8 @@ class FallbackNoticeCollector {
   final String sourceName;
   final Map<String, List<int>> _audioEpisodesBySelection = {};
   final Map<String, List<int>> _qualityEpisodesBySelection = {};
+  final List<int> _skippedEpisodes = [];
+  String? _requiredPreferences;
   String? _requestedAudio;
   String? _requestedQuality;
 
@@ -29,7 +31,23 @@ class FallbackNoticeCollector {
     (_qualityEpisodesBySelection[selected] ??= []).add(episodeNumber);
   }
 
+  void recordSkipped(int episodeNumber, DownloadRequest request) {
+    _skippedEpisodes.add(episodeNumber);
+    _requiredPreferences = [
+      if (!request.allowAudioFallback) '${request.language} audio',
+      if (!request.allowQualityFallback) '${request.resolution} quality',
+    ].join(' and ');
+  }
+
   List<DownloadNotice> build() => [
+    if (_skippedEpisodes.isNotEmpty)
+      DownloadNotice(
+        level: DownloadNoticeLevel.warning,
+        title: 'Episodes skipped',
+        description:
+            '$sourceName ${_episodeListLabel(_skippedEpisodes..sort())} '
+            'could not be confirmed in $_requiredPreferences and were skipped because fallback is disabled.',
+      ),
     if (_audioEpisodesBySelection.isNotEmpty)
       DownloadNotice(
         level: DownloadNoticeLevel.warning,

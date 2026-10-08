@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/settings/models.dart';
+import 'package:senpwai/tracking/notifier.dart';
 import 'package:senpwai/shared/net/download/download_config.dart';
 import 'package:senpwai/shared/net/browser_transport/browser_transport.dart';
 import 'package:senpwai/shared/net/net_config.dart';
@@ -209,14 +210,26 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     ]);
   }
 
+  Future<void> setAllowAudioFallback(bool enabled) => _commit(
+    state.copyWith(
+      content: state.content.copyWith(allowAudioFallback: enabled),
+    ),
+  );
+
+  Future<void> setAllowQualityFallback(bool enabled) => _commit(
+    state.copyWith(
+      content: state.content.copyWith(allowQualityFallback: enabled),
+    ),
+  );
+
   Future<void> upsertCustomAnimeFolder({
     required String animeTitle,
     required String folder,
-  }) {
+  }) async {
     final normalizedTitle = animeTitle.trim();
     final normalizedFolder = folder.trim();
     if (normalizedTitle.isEmpty || normalizedFolder.isEmpty) {
-      return Future.value();
+      return;
     }
     final nextFolders = [
       for (final existing in state.downloads.customAnimeFolders)
@@ -225,11 +238,17 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           existing,
       CustomAnimeFolder(animeTitle: normalizedTitle, folder: normalizedFolder),
     ];
-    return _commit(
+    await _commit(
       state.copyWith(
         downloads: state.downloads.copyWith(customAnimeFolders: nextFolders),
       ),
     );
+    await ref
+        .read(TrackingNotifier.provider.notifier)
+        .updateDownloadFolder(
+          animeTitle: normalizedTitle,
+          folder: normalizedFolder,
+        );
   }
 
   Future<void> setHttpMaxDownloadBytesPerSecond(int bytes) {

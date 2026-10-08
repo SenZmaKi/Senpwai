@@ -578,14 +578,12 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       startEpisode: _recommendedStartEpisode(ownedEpisodes),
     );
     unawaited(_watchFilesystemFolder(folder));
-    unawaited(
-      ref
-          .read(AppSettingsNotifier.provider.notifier)
-          .upsertCustomAnimeFolder(
-            animeTitle: state.anime.title.display,
-            folder: folder,
-          ),
-    );
+    await ref
+        .read(AppSettingsNotifier.provider.notifier)
+        .upsertCustomAnimeFolder(
+          animeTitle: state.anime.title.display,
+          folder: folder,
+        );
   }
 
   Future<void> setTrackingEnabled(bool enabled) async {
@@ -758,6 +756,14 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         fileSeasonNumber: state.resolvedFileSeasonNumber,
         resolution: state.selectedResolution,
         language: state.selectedLanguage,
+        allowAudioFallback: ref
+            .read(AppSettingsNotifier.provider)
+            .content
+            .allowAudioFallback,
+        allowQualityFallback: ref
+            .read(AppSettingsNotifier.provider)
+            .content
+            .allowQualityFallback,
       ),
       animeheavenMatch: state.animeheavenMatch.result?.result,
       animepaheMatch: state.animepaheMatch.result?.result,
@@ -825,6 +831,14 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       fileSeasonNumber: state.resolvedFileSeasonNumber,
       resolution: state.selectedResolution,
       language: state.selectedLanguage,
+      allowAudioFallback: ref
+          .read(AppSettingsNotifier.provider)
+          .content
+          .allowAudioFallback,
+      allowQualityFallback: ref
+          .read(AppSettingsNotifier.provider)
+          .content
+          .allowQualityFallback,
     );
   }
 

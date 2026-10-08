@@ -114,13 +114,25 @@ class TokyoInsiderDownloadPlanner {
         continue;
       }
 
-      selectedLinks.add(
-        _selectLink(
-          downloadLinks,
-          request,
-          fallbackNotices,
-          episodePage.episodeNumber,
-        ),
+      final selected = _selectLink(
+        downloadLinks,
+        request,
+        fallbackNotices,
+        episodePage.episodeNumber,
+      );
+      if (selected == null) {
+        missingEpisodes.add(episodePage.episodeNumber);
+        fallbackNotices.recordSkipped(episodePage.episodeNumber, request);
+      } else {
+        selectedLinks.add(selected);
+      }
+    }
+
+    if (selectedLinks.isEmpty) {
+      throw DownloadUserError(
+        title: 'No matching downloads',
+        description:
+            'No episodes offer the requested audio and quality with your fallback settings.',
       );
     }
 
@@ -191,21 +203,31 @@ class TokyoInsiderDownloadPlanner {
     );
   }
 
-  tokyoinsider.EpisodeDownloadLink _selectLink(
+  tokyoinsider.EpisodeDownloadLink? _selectLink(
     List<tokyoinsider.EpisodeDownloadLink> links,
     DownloadRequest request,
     FallbackNoticeCollector fallbackNotices,
     int episodeNumber,
   ) {
-    final exactLanguage = links
+    final eligibleLinks = links
+        .where(
+          (link) =>
+              (request.allowAudioFallback ||
+                  link.language == request.language) &&
+              (request.allowQualityFallback ||
+                  link.resolution == request.resolution),
+        )
+        .toList();
+    if (eligibleLinks.isEmpty) return null;
+    final exactLanguage = eligibleLinks
         .where((link) => link.language == request.language)
         .toList();
-    final unknownLanguage = links
+    final unknownLanguage = eligibleLinks
         .where((link) => link.language == null)
         .toList();
     final languagePool = exactLanguage.isNotEmpty
         ? exactLanguage
-        : (unknownLanguage.isNotEmpty ? unknownLanguage : links);
+        : (unknownLanguage.isNotEmpty ? unknownLanguage : eligibleLinks);
     if (exactLanguage.isEmpty) {
       fallbackNotices.recordAudio(
         episodeNumber: episodeNumber,

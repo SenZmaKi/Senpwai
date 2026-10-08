@@ -59,6 +59,31 @@ class TrackingNotifier extends Notifier<TrackingState> {
     await _commit(next);
   }
 
+  Future<void> updateDownloadFolder({
+    required String animeTitle,
+    required String folder,
+  }) async {
+    String titleKey(String title) =>
+        title.toLowerCase().replaceAll(RegExp(r'[\s._-]+'), '');
+    final selectedTitleKey = titleKey(animeTitle);
+    bool matchesTitle(TrackedAnime item) => item.animeSnapshot.title
+        .toTitleCandidates()
+        .any((title) => titleKey(title) == selectedTitleKey);
+    final matches = state.trackedAnime.where(matchesTitle);
+    if (matches.every((item) => item.downloadFolder == folder)) return;
+    await _commit([
+      for (final item in state.trackedAnime)
+        if (matchesTitle(item))
+          item.copyWith(
+            downloadFolder: folder,
+            updatedAt: DateTime.now(),
+            clearCompletionBatchId: true,
+          )
+        else
+          item,
+    ]);
+  }
+
   Future<void> untrackAnime(int anilistId) async {
     await _commit([
       for (final item in state.trackedAnime)
@@ -129,8 +154,9 @@ class TrackingNotifier extends Notifier<TrackingState> {
       lastCheckStartedAt: startedAt,
     );
     try {
+      final checkedAnime = state.trackedAnime;
       final result = await _tracker.check(
-        trackedAnime: state.trackedAnime,
+        trackedAnime: checkedAnime,
         settings: ref.read(AppSettingsNotifier.provider),
         downloadState: ref.read(DownloadManagerNotifier.provider),
         enqueueBatch: (batch) => ref
@@ -138,7 +164,23 @@ class TrackingNotifier extends Notifier<TrackingState> {
             .enqueueBatch(batch),
       );
       await _commit(
-        result.trackedAnime,
+        [
+          for (final current in state.trackedAnime)
+            if (!checkedAnime.any(
+                  (item) => item.anilistId == current.anilistId,
+                ) ||
+                checkedAnime.any(
+                  (item) =>
+                      item.anilistId == current.anilistId &&
+                      item.downloadFolder != current.downloadFolder,
+                ))
+              current
+            else if (result.trackedAnime
+                    .where((item) => item.anilistId == current.anilistId)
+                    .firstOrNull
+                case final checked?)
+              checked,
+        ],
         checkInProgress: false,
         lastCheckStartedAt: startedAt,
         lastCheckCompletedAt: DateTime.now(),

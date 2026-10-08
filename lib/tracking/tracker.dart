@@ -191,9 +191,22 @@ class AnimeTracker {
             _anilistClient!.getAnimeById(tracked.anilistId)) ??
         tracked.animeSnapshot;
     final availableEpisodes = availableEpisodesForTracking(freshAnime);
-    final havedEpisode =
-        await (_lastEpisodeResolver?.call(tracked, downloadState) ??
-            _lastHavedEpisode(tracked: tracked, downloadState: downloadState));
+    // Exact preferences can leave gaps when a later episode is available first.
+    // Keep requesting those gaps instead of treating the highest episode as complete.
+    final requiresExactPreferences =
+        !settings.content.allowAudioFallback ||
+        !settings.content.allowQualityFallback;
+    final havedEpisodes =
+        requiresExactPreferences && _lastEpisodeResolver == null
+        ? await _havedEpisodes(tracked: tracked, downloadState: downloadState)
+        : null;
+    final havedEpisode = havedEpisodes != null
+        ? 0
+        : await (_lastEpisodeResolver?.call(tracked, downloadState) ??
+              _lastHavedEpisode(
+                tracked: tracked,
+                downloadState: downloadState,
+              ));
 
     if (availableEpisodes <= havedEpisode) {
       if (freshAnime.status == AnilistAiringStatus.finished) {
@@ -223,7 +236,9 @@ class AnimeTracker {
         : const <int>{};
     final requestedEpisodes = [
       for (var episode = startEpisode; episode <= endEpisode; episode++)
-        if (!fillerEpisodes.contains(episode)) episode,
+        if (!fillerEpisodes.contains(episode) &&
+            !(havedEpisodes?.contains(episode) ?? false))
+          episode,
     ];
     if (requestedEpisodes.isEmpty) {
       if (freshAnime.status == AnilistAiringStatus.finished) {
@@ -297,14 +312,17 @@ class AnimeTracker {
 
     final batchId = result.batchId;
     final title = freshAnime.title.display;
-    final episodeLabel = requestedEpisodes.length == 1 ? 'episode' : 'episodes';
+    final queuedEpisodes = requestedEpisodes
+        .where((episode) => !batch.unavailableEpisodeNumbers.contains(episode))
+        .toList();
+    final episodeLabel = queuedEpisodes.length == 1 ? 'episode' : 'episodes';
     final events = <TrackingEvent>[
       TrackingEvent.create(
         kind: TrackingEventKind.queued,
         level: TrackingEventLevel.info,
         title: 'Queued new $episodeLabel',
         description:
-            '$title $episodeLabel ${_episodeListText(requestedEpisodes)} were added to downloads.',
+            '$title $episodeLabel ${_episodeListText(queuedEpisodes)} were added to downloads.',
       ),
       ..._noticeEvents(title, batch.notices),
     ];
@@ -316,16 +334,19 @@ class AnimeTracker {
         downloadFolder: folder,
         lastCheckedAt: checkedAt,
         updatedAt: checkedAt,
-        completionBatchId: freshAnime.status == AnilistAiringStatus.finished
+        completionBatchId:
+            freshAnime.status == AnilistAiringStatus.finished &&
+                batch.unavailableEpisodeNumbers.isEmpty
             ? batchId
             : null,
         clearCompletionBatchId:
             freshAnime.status != AnilistAiringStatus.finished ||
+            batch.unavailableEpisodeNumbers.isNotEmpty ||
             batchId == null,
         clearLastError: true,
       ),
       queuedBatch: true,
-      queuedEpisodes: requestedEpisodes.length,
+      queuedEpisodes: queuedEpisodes.length,
       events: events,
     );
   }
@@ -369,6 +390,8 @@ class AnimeTracker {
         fileSeasonNumber: fileIdentity.seasonNumber,
         resolution: tracked.resolution,
         language: tracked.language,
+        allowAudioFallback: settings.content.allowAudioFallback,
+        allowQualityFallback: settings.content.allowQualityFallback,
       ),
       animeheavenMatch: matches.animeheavenMatch.result?.result,
       animepaheMatch: matches.animepaheMatch.result?.result,
@@ -430,6 +453,20 @@ Future<int> _lastHavedEpisode({
   required TrackedAnime tracked,
   required DownloadManagerState downloadState,
 }) async {
+  final episodes = await _havedEpisodes(
+    tracked: tracked,
+    downloadState: downloadState,
+  );
+  return episodes.fold<int>(
+    0,
+    (highest, episode) => episode > highest ? episode : highest,
+  );
+}
+
+Future<Set<int>> _havedEpisodes({
+  required TrackedAnime tracked,
+  required DownloadManagerState downloadState,
+}) async {
   final folder = tracked.downloadFolder.trim();
   final paths = <String>[];
   if (folder.isNotEmpty) {
@@ -443,16 +480,14 @@ Future<int> _lastHavedEpisode({
     }
   }
   paths.addAll(_inFlightPaths(tracked, downloadState));
-  var maxEpisode = 0;
+  final episodes = <int>{};
   for (final filePath in paths) {
     final episode = anitomy_parser
         .parseFilename(path.basename(filePath))
         .episode;
-    if (episode != null && episode > maxEpisode) {
-      maxEpisode = episode;
-    }
+    if (episode != null) episodes.add(episode);
   }
-  return maxEpisode;
+  return episodes;
 }
 
 Iterable<String> _inFlightPaths(

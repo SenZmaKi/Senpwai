@@ -427,6 +427,9 @@ class NyaaDownloadPlanner {
         torrentData: torrentData,
         candidate: candidate,
         preferredLanguage: request.language,
+        preferredResolution: request.resolution,
+        allowAudioFallback: request.allowAudioFallback,
+        allowQualityFallback: request.allowQualityFallback,
       );
       if (matchedFile == null) continue;
 
@@ -473,6 +476,9 @@ class NyaaDownloadPlanner {
         candidate: candidate,
         requestedEpisodes: requestedEpisodes.toSet(),
         preferredLanguage: request.language,
+        preferredResolution: request.resolution,
+        allowAudioFallback: request.allowAudioFallback,
+        allowQualityFallback: request.allowQualityFallback,
       );
       if (inspected.selectedFiles.isEmpty) continue;
       final orderedEpisodes = inspected.selectedFiles.keys.toList()..sort();
@@ -577,6 +583,9 @@ class NyaaDownloadPlanner {
       candidate: candidate,
       requestedEpisodes: {episodeNumber},
       preferredLanguage: request.language,
+      preferredResolution: request.resolution,
+      allowAudioFallback: request.allowAudioFallback,
+      allowQualityFallback: request.allowQualityFallback,
     );
     final mappedFile = inspected.selectedFiles[episodeNumber];
     if (mappedFile == null) {
@@ -638,6 +647,9 @@ class NyaaDownloadPlanner {
     required ScoredNyaaResult candidate,
     required Set<int> requestedEpisodes,
     required Language preferredLanguage,
+    required Resolution preferredResolution,
+    required bool allowAudioFallback,
+    required bool allowQualityFallback,
   }) async {
     final tempRoot = await Directory.systemTemp.createTemp('senpwai-nyaa-');
     final session = createSession();
@@ -672,11 +684,15 @@ class NyaaDownloadPlanner {
             parsed.season != desiredSeason) {
           continue;
         }
-        if (!_matchesPreferredEffectiveLanguage(
-          fileParsed: parsed,
-          torrentParsed: torrentParsed,
-          preferredLanguage: preferredLanguage,
-        )) {
+        if ((!allowQualityFallback &&
+                (parsed.resolution ?? torrentParsed.resolution) !=
+                    preferredResolution) ||
+            !_matchesPreferredEffectiveLanguage(
+              fileParsed: parsed,
+              torrentParsed: torrentParsed,
+              preferredLanguage: preferredLanguage,
+              allowUnknown: allowAudioFallback,
+            )) {
           continue;
         }
         final parsedTitle = parsed.title;
@@ -739,6 +755,9 @@ class NyaaDownloadPlanner {
     required Uint8List torrentData,
     required ScoredNyaaResult candidate,
     required Language preferredLanguage,
+    required Resolution preferredResolution,
+    required bool allowAudioFallback,
+    required bool allowQualityFallback,
   }) async {
     final tempRoot = await Directory.systemTemp.createTemp('senpwai-nyaa-');
     final session = createSession();
@@ -763,11 +782,15 @@ class NyaaDownloadPlanner {
       )) {
         videoCount++;
         final parsed = anitomy_parser.parseFilename(path.basename(file.path));
-        if (!_matchesPreferredEffectiveLanguage(
-          fileParsed: parsed,
-          torrentParsed: torrentParsed,
-          preferredLanguage: preferredLanguage,
-        )) {
+        if ((!allowQualityFallback &&
+                (parsed.resolution ?? torrentParsed.resolution) !=
+                    preferredResolution) ||
+            !_matchesPreferredEffectiveLanguage(
+              fileParsed: parsed,
+              torrentParsed: torrentParsed,
+              preferredLanguage: preferredLanguage,
+              allowUnknown: allowAudioFallback,
+            )) {
           continue;
         }
 
@@ -838,15 +861,14 @@ class NyaaDownloadPlanner {
     required anitomy_parser.AnitomyParseResult fileParsed,
     required anitomy_parser.AnitomyParseResult torrentParsed,
     required Language preferredLanguage,
+    required bool allowUnknown,
   }) {
     final signal = _effectiveLanguageSignal(
       fileParsed: fileParsed,
       torrentParsed: torrentParsed,
     );
-    if (signal == NyaaLanguageSignal.dualAudio ||
-        signal == NyaaLanguageSignal.unknown) {
-      return true;
-    }
+    if (signal == NyaaLanguageSignal.dualAudio) return true;
+    if (signal == NyaaLanguageSignal.unknown) return allowUnknown;
     return switch (preferredLanguage) {
       Language.japanese => signal != NyaaLanguageSignal.dubbed,
       Language.english => signal != NyaaLanguageSignal.subbed,

@@ -475,6 +475,8 @@ class DownloadRequest {
   final int? fileSeasonNumber;
   final Resolution resolution;
   final Language language;
+  final bool allowAudioFallback;
+  final bool allowQualityFallback;
 
   DownloadRequest({
     required this.anime,
@@ -487,6 +489,8 @@ class DownloadRequest {
     this.fileSeasonNumber,
     required this.resolution,
     required this.language,
+    this.allowAudioFallback = true,
+    this.allowQualityFallback = true,
   }) : episodeNumbers = _normalizedEpisodeNumbers(
          episodeNumbers,
          startEpisode,

@@ -1,5 +1,6 @@
 import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/planners/fallback_notice_collector.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/shared/net/download/download.dart';
 import 'package:senpwai/shared/net/request_cancellation_scope.dart';
@@ -78,6 +79,14 @@ class AnimeHeavenDownloadPlanner {
       );
     }
 
+    if (!request.allowAudioFallback && request.language != Language.japanese) {
+      throw const DownloadUserError(
+        title: 'Requested audio unavailable',
+        description:
+            'AnimeHeaven only provides Japanese audio. Audio fallback is disabled.',
+      );
+    }
+
     final notices = <DownloadNotice>[
       if (request.language != Language.japanese)
         DownloadNotice(
@@ -87,6 +96,7 @@ class AnimeHeavenDownloadPlanner {
               'AnimeHeaven only provides subbed episodes; using Japanese audio instead of ${request.language}.',
         ),
     ];
+    final fallbackNotices = FallbackNoticeCollector(sourceName: 'AnimeHeaven');
     final fallbackResolutions = <Resolution>{};
     var preparedEpisodes = 0;
     report(
@@ -96,7 +106,7 @@ class AnimeHeavenDownloadPlanner {
       activity: 'Checking download files',
     );
     final jobs =
-        await parallelMapOrdered<animeheaven.EpisodePage, PreparedDownloadJob>(
+        await parallelMapOrdered<animeheaven.EpisodePage, PreparedDownloadJob?>(
           selectedPages,
           maxConcurrent: SourceConcurrencyLimits.instance.animeHeaven,
           operation: (episodePage) async {
@@ -113,6 +123,20 @@ class AnimeHeavenDownloadPlanner {
             final resolution =
                 anitomy_parser.parseFilename(sourceFileName).resolution ??
                 parseResolution(sourceFileName);
+            if (!request.allowQualityFallback &&
+                resolution != request.resolution) {
+              missingEpisodes.add(episodePage.episodeNumber);
+              fallbackNotices.recordSkipped(episodePage.episodeNumber, request);
+              preparedEpisodes++;
+              report(
+                phase: DownloadPlanningPhase.checkingFiles,
+                completedItems: preparedEpisodes,
+                totalItems: selectedPages.length,
+                activity:
+                    'Skipped episode ${episodePage.episodeNumber}: requested quality unavailable',
+              );
+              return null;
+            }
             if (resolution != null && resolution != request.resolution) {
               fallbackResolutions.add(resolution);
             }
@@ -157,8 +181,18 @@ class AnimeHeavenDownloadPlanner {
         ),
       );
     }
+    notices.addAll(fallbackNotices.build());
+    final matchingJobs = jobs.whereType<PreparedDownloadJob>().toList();
+    if (matchingJobs.isEmpty) {
+      throw const DownloadUserError(
+        title: 'Requested quality unavailable',
+        description:
+            'No episodes offer the requested quality. Quality fallback is disabled.',
+      );
+    }
+    missingEpisodes.sort();
     return PreparedDownloadBatch(
-      jobs: jobs,
+      jobs: matchingJobs,
       notices: notices,
       unavailableEpisodeNumbers: missingEpisodes,
     );
