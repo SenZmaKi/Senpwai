@@ -85,6 +85,8 @@ const _settingSearchAliases = <String, List<String>>{
     'anonymous torrent',
   ],
   'proxy': ['vpn proxy', 'socks', 'socks5', 'http proxy'],
+  'bind torrents to vpn': ['kill switch', 'vpn binding', 'network adapter'],
+  'vpn interface': ['network adapter', 'tunnel', 'utun', 'tun'],
   'system notifications': [
     'desktop notifications',
     'alerts',

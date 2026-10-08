@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:libtorrent_dart/libtorrent_dart.dart';
 import 'package:path/path.dart' as path;
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/torrent_network_settings.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/net/download/download.dart';
 import 'package:senpwai/shared/net/download/download_config.dart';
@@ -982,10 +983,21 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
   @override
   void updateTorrentSettings(TorrentPreferences settings) {
+    final previous = _torrentSettings;
     _torrentSettings = settings;
     final session = _torrentSession;
     if (session != null) {
+      final networkChanged =
+          previous.vpnBindingEnabled != settings.vpnBindingEnabled ||
+          previous.vpnInterface != settings.vpnInterface ||
+          previous.proxyMode != settings.proxyMode ||
+          previous.proxyHost != settings.proxyHost ||
+          previous.proxyPort != settings.proxyPort ||
+          previous.proxyUsername != settings.proxyUsername ||
+          previous.proxyPassword != settings.proxyPassword;
+      if (networkChanged || torrentNetworkBlocked(settings)) session.pause();
       _applyTorrentSettings(session, settings);
+      if (networkChanged && !torrentNetworkBlocked(settings)) session.resume();
     }
     for (final runtime in _torrentDownloads.values) {
       _prioritizeTorrentEpisodes(runtime, runtime.handle.getFileProgress());
@@ -999,42 +1011,16 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   void updateNotificationSettings(NotificationPreferences settings) {}
 
   void _applyTorrentSettings(Session session, TorrentPreferences settings) {
-    session.applyConfig(
-      SessionConfig(
-        downloadRateLimit: settings.maxDownloadBytesPerSecond,
-        uploadRateLimit: settings.maxUploadBytesPerSecond,
-        connectionsLimit: settings.maxConnections,
-        activeDownloads: settings.maxActiveDownloads,
-        activeSeeds: settings.maxActiveSeeds,
-        seedRatioLimit: settings.seedRatioLimit,
-        seedTimeLimit: Duration(minutes: settings.seedTimeLimitMinutes),
-        torrentPort: settings.torrentPort,
-        outgoingEncryptionPolicy: _encryptionPolicyValue(
-          settings.encryptionMode,
-        ),
-        incomingEncryptionPolicy: _encryptionPolicyValue(
-          settings.encryptionMode,
-        ),
-        allowedEncryptionLevel: LibtorrentEncryptionLevel.both,
-        anonymousMode: settings.anonymousMode,
-        enableIncomingTcp: settings.enableIncomingTcp,
-        enableIncomingUtp: settings.enableIncomingUtp,
-        enableOutgoingTcp: settings.enableOutgoingTcp,
-        enableOutgoingUtp: settings.enableOutgoingUtp,
-        proxy: _proxySetting(settings),
-      ),
-    );
-    session.setDhtEnabled(settings.enableDht);
-    session.setLsdEnabled(settings.enableLsd);
-    session.setUpnpEnabled(settings.enableUpnp);
-    session.setNatPmpEnabled(settings.enableNatPmp);
+    session.applySettingsFromTags(torrentSessionSettings(settings));
   }
 
   Session _getTorrentSession() {
     final existing = _torrentSession;
     if (existing != null) return existing;
-    final session = createSession();
-    _applyTorrentSettings(session, _torrentSettings);
+    final session = createSessionFromTags(
+      torrentSessionSettings(_torrentSettings),
+    );
+    if (torrentNetworkBlocked(_torrentSettings)) session.pause();
     _torrentSession = session;
     return session;
   }
@@ -1755,34 +1741,4 @@ String _formatErrorForCopy(Object error, StackTrace stackTrace) {
       'Type: ${error.runtimeType}\n\n'
       'Stack trace:\n'
       '$stackTrace';
-}
-
-int _encryptionPolicyValue(TorrentEncryptionMode mode) {
-  return switch (mode) {
-    TorrentEncryptionMode.forced => LibtorrentEncryptionPolicy.forced,
-    TorrentEncryptionMode.enabled => LibtorrentEncryptionPolicy.enabled,
-    TorrentEncryptionMode.disabled => LibtorrentEncryptionPolicy.disabled,
-  };
-}
-
-ProxySetting _proxySetting(TorrentPreferences settings) {
-  final proxyEnabled = settings.proxyMode != TorrentProxyMode.none;
-  return ProxySetting(
-    hostname: proxyEnabled ? settings.proxyHost : '',
-    port: proxyEnabled ? settings.proxyPort : 0,
-    username: settings.proxyUsername,
-    password: settings.proxyPassword,
-    type: _proxyTypeValue(settings.proxyMode),
-  );
-}
-
-int _proxyTypeValue(TorrentProxyMode mode) {
-  return switch (mode) {
-    TorrentProxyMode.none => LibtorrentProxyType.none,
-    TorrentProxyMode.socks4 => LibtorrentProxyType.socks4,
-    TorrentProxyMode.socks5 => LibtorrentProxyType.socks5,
-    TorrentProxyMode.socks5Password => LibtorrentProxyType.socks5Password,
-    TorrentProxyMode.http => LibtorrentProxyType.http,
-    TorrentProxyMode.httpPassword => LibtorrentProxyType.httpPassword,
-  };
 }

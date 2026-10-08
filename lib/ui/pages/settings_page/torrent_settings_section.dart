@@ -323,7 +323,7 @@ class TorrentSettingsSection extends StatelessWidget {
         SettingsGroupCard(
           title: 'Advanced Protocol & Proxy',
           icon: Icons.tune_rounded,
-          description: 'TCP/uTP transport preferences and proxy configuration',
+          description: 'TCP/uTP transport, VPN binding and proxy configuration',
           searchQuery: searchQuery,
           searchTerms: const [
             'Incoming TCP accept peer connections',
@@ -331,6 +331,7 @@ class TorrentSettingsSection extends StatelessWidget {
             'Outgoing TCP connect peers',
             'Outgoing uTP connect peers',
             'Proxy host port username password authentication',
+            'Bind torrents to VPN VPN Interface adapter kill switch',
           ],
           children: [
             TorrentAdvancedSettings(

@@ -22,6 +22,30 @@ class TorrentAdvancedSettings extends StatelessWidget {
     return Column(
       children: [
         _AdvancedSwitch(
+          icon: Icons.vpn_lock_rounded,
+          title: 'Bind torrents to VPN',
+          subtitle:
+              'Restrict torrent traffic to one VPN interface. Disable the proxy first. HTTP browsing and downloads use separate networking.',
+          value: torrent.vpnBindingEnabled,
+          searchQuery: searchQuery,
+          onChanged: (value) =>
+              notifier.setTorrentAdvanced(vpnBindingEnabled: value),
+        ),
+        if (torrent.vpnBindingEnabled)
+          SettingsTile(
+            icon: Icons.settings_ethernet_rounded,
+            title: 'VPN Interface',
+            subtitle:
+                'Exact adapter name (e.g. utun4 or tun0). Empty, invalid or missing interfaces block torrents. Proxy must be None.',
+            searchQuery: searchQuery,
+            trailing: TextSettingField(
+              value: torrent.vpnInterface,
+              hintText: 'utun4',
+              onSubmitted: (value) =>
+                  unawaited(notifier.setTorrentAdvanced(vpnInterface: value)),
+            ),
+          ),
+        _AdvancedSwitch(
           icon: Icons.input_rounded,
           title: 'Incoming TCP',
           subtitle: 'Accept TCP peer connections',
@@ -60,7 +84,9 @@ class TorrentAdvancedSettings extends StatelessWidget {
         SettingsTile(
           icon: Icons.route_rounded,
           title: 'Proxy',
-          subtitle: torrent.proxyMode.label,
+          subtitle: torrent.vpnBindingEnabled
+              ? 'Choose None for VPN binding; combining both blocks torrents'
+              : 'Torrent traffic only. Host and port are required; local discovery and port mapping are disabled.',
           searchQuery: searchQuery,
           trailing: SettingsDropdown<TorrentProxyMode>(
             value: torrent.proxyMode,

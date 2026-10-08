@@ -685,6 +685,8 @@ class TorrentPreferences {
   final bool enableLsd;
   final bool enableUpnp;
   final bool enableNatPmp;
+  final bool vpnBindingEnabled;
+  final String vpnInterface;
   final TorrentProxyMode proxyMode;
   final String proxyHost;
   final int proxyPort;
@@ -711,6 +713,8 @@ class TorrentPreferences {
     this.enableLsd = true,
     this.enableUpnp = true,
     this.enableNatPmp = true,
+    this.vpnBindingEnabled = false,
+    this.vpnInterface = '',
     this.proxyMode = TorrentProxyMode.none,
     this.proxyHost = '',
     this.proxyPort = 0,
@@ -756,6 +760,8 @@ class TorrentPreferences {
         enableLsd: _boolValue(json['enableLsd'], true),
         enableUpnp: _boolValue(json['enableUpnp'], true),
         enableNatPmp: _boolValue(json['enableNatPmp'], true),
+        vpnBindingEnabled: _boolValue(json['vpnBindingEnabled'], false),
+        vpnInterface: _stringValue(json['vpnInterface'], ''),
       );
 
   Map<String, dynamic> toJson() => {
@@ -778,6 +784,8 @@ class TorrentPreferences {
     'enableLsd': enableLsd,
     'enableUpnp': enableUpnp,
     'enableNatPmp': enableNatPmp,
+    'vpnBindingEnabled': vpnBindingEnabled,
+    'vpnInterface': vpnInterface,
   };
 
   TorrentPreferences copyWith({
@@ -800,6 +808,8 @@ class TorrentPreferences {
     bool? enableLsd,
     bool? enableUpnp,
     bool? enableNatPmp,
+    bool? vpnBindingEnabled,
+    String? vpnInterface,
     TorrentProxyMode? proxyMode,
     String? proxyHost,
     int? proxyPort,
@@ -828,6 +838,8 @@ class TorrentPreferences {
       enableLsd: enableLsd ?? this.enableLsd,
       enableUpnp: enableUpnp ?? this.enableUpnp,
       enableNatPmp: enableNatPmp ?? this.enableNatPmp,
+      vpnBindingEnabled: vpnBindingEnabled ?? this.vpnBindingEnabled,
+      vpnInterface: vpnInterface ?? this.vpnInterface,
       proxyMode: proxyMode ?? this.proxyMode,
       proxyHost: proxyHost ?? this.proxyHost,
       proxyPort: proxyPort ?? this.proxyPort,

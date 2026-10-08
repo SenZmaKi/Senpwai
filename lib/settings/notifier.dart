@@ -26,6 +26,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
 
   AppSettings get currentState => state;
 
+  Future<void> _proxyUpdates = Future<void>.value();
+
   /// Restores the device-aware settings baseline.
   ///
   /// AniList authentication, downloads, tracking, caches, and window bounds
@@ -448,6 +450,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> setTorrentAdvanced({
+    bool? vpnBindingEnabled,
+    String? vpnInterface,
     TorrentEncryptionMode? encryptionMode,
     bool? anonymousMode,
     bool? enableIncomingTcp,
@@ -458,6 +462,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     return _commit(
       state.copyWith(
         torrent: state.torrent.copyWith(
+          vpnBindingEnabled: vpnBindingEnabled,
+          vpnInterface: vpnInterface?.trim(),
           encryptionMode: encryptionMode,
           anonymousMode: anonymousMode,
           enableIncomingTcp: enableIncomingTcp,
@@ -476,26 +482,41 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     String? proxyUsername,
     String? proxyPassword,
   }) {
-    final nextProxy = state.torrent.copyWith(
-      proxyMode: proxyMode,
-      proxyHost: proxyHost,
-      proxyPort: proxyPort?.clamp(0, 65535).toInt(),
-      proxyUsername: proxyUsername,
-      proxyPassword: proxyPassword,
-    );
-    final persistProxy = AppPersistence.secureTokenStore
-        .writeTorrentProxyConfiguration(
-          SecureTorrentProxyConfiguration(
-            mode: nextProxy.proxyMode.name,
-            host: nextProxy.proxyHost,
-            port: nextProxy.proxyPort,
-            username: nextProxy.proxyUsername,
-            password: nextProxy.proxyPassword,
+    final update = _proxyUpdates.then((_) async {
+      final nextProxy = state.torrent.copyWith(
+        proxyMode: proxyMode,
+        proxyHost: proxyHost?.trim(),
+        proxyPort: proxyPort?.clamp(0, 65535).toInt(),
+        proxyUsername: proxyUsername,
+        proxyPassword: proxyPassword,
+      );
+      await AppPersistence.secureTokenStore.writeTorrentProxyConfiguration(
+        SecureTorrentProxyConfiguration(
+          mode: nextProxy.proxyMode.name,
+          host: nextProxy.proxyHost,
+          port: nextProxy.proxyPort,
+          username: nextProxy.proxyUsername,
+          password: nextProxy.proxyPassword,
+        ),
+      );
+      // Other settings may have changed while the secure write was pending.
+      await _commit(
+        state.copyWith(
+          torrent: state.torrent.copyWith(
+            proxyMode: nextProxy.proxyMode,
+            proxyHost: nextProxy.proxyHost,
+            proxyPort: nextProxy.proxyPort,
+            proxyUsername: nextProxy.proxyUsername,
+            proxyPassword: nextProxy.proxyPassword,
           ),
-        );
-    return persistProxy.then(
-      (_) => _commit(state.copyWith(torrent: nextProxy)),
+        ),
+      );
+    });
+    _proxyUpdates = update.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
     );
+    return update;
   }
 
   Future<void> setTorrentDiscovery({

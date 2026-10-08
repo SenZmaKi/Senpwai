@@ -9,6 +9,7 @@ import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/anitomy/anitomy.dart' as anitomy_parser;
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/torrent_network_settings.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
 import 'package:senpwai/downloads/target_path_planner.dart';
 import 'package:senpwai/shared/net/net.dart';
@@ -652,7 +653,8 @@ class NyaaDownloadPlanner {
     required bool allowQualityFallback,
   }) async {
     final tempRoot = await Directory.systemTemp.createTemp('senpwai-nyaa-');
-    final session = createSession();
+    final session = createOfflineTorrentSession();
+    session.pause();
     try {
       final handle = session.addTorrentData(
         torrentData: torrentData,
@@ -760,7 +762,8 @@ class NyaaDownloadPlanner {
     required bool allowQualityFallback,
   }) async {
     final tempRoot = await Directory.systemTemp.createTemp('senpwai-nyaa-');
-    final session = createSession();
+    final session = createOfflineTorrentSession();
+    session.pause();
     try {
       final handle = session.addTorrentData(
         torrentData: torrentData,

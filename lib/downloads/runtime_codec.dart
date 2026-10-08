@@ -281,6 +281,8 @@ class DownloadRuntimeCodec {
     'enableLsd': settings.enableLsd,
     'enableUpnp': settings.enableUpnp,
     'enableNatPmp': settings.enableNatPmp,
+    'vpnBindingEnabled': settings.vpnBindingEnabled,
+    'vpnInterface': settings.vpnInterface,
     'proxyMode': settings.proxyMode.name,
     'proxyHost': settings.proxyHost,
     'proxyPort': settings.proxyPort,
@@ -320,6 +322,8 @@ class DownloadRuntimeCodec {
       enableLsd: _bool(map['enableLsd'], true),
       enableUpnp: _bool(map['enableUpnp'], true),
       enableNatPmp: _bool(map['enableNatPmp'], true),
+      vpnBindingEnabled: _bool(map['vpnBindingEnabled'], false),
+      vpnInterface: _string(map['vpnInterface']),
       proxyMode: _enum(
         TorrentProxyMode.values,
         map['proxyMode'],

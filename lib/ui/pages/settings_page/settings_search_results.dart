@@ -182,6 +182,7 @@ class SettingsSearchResults extends ConsumerWidget {
       'Advanced Protocol Proxy TCP uTP transport preferences configuration',
       'Incoming TCP Incoming uTP Outgoing TCP Outgoing uTP',
       'Proxy Host Port Username Password ${torrent.proxyMode.label}',
+      'Bind torrents to VPN VPN Interface adapter kill switch ${torrent.vpnInterface}',
       'Provider Priority Activation drag reorder source toggle enabled disabled',
       for (final source in settings.sources.priority) source.label,
       'Browser Transport Timeout memory inactivity ${settings.sources.browserTransportIdleTimeoutMinutes} minutes AnimePahe',
