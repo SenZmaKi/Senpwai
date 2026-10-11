@@ -6,13 +6,16 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/settings/models.dart';
 import 'package:senpwai/settings/repository.dart';
+import 'package:senpwai/shared/application_identity.dart';
 import 'package:senpwai/shared/log.dart';
 
 final _log = Logger('senpwai.persistence.secure_token_store');
 
 class SecureTokenStore {
-  static const _anilistTokenKey = 'anilist_access_token';
-  static const _torrentProxyKey = 'torrent_proxy_configuration';
+  static const _anilistTokenKey =
+      '${ApplicationIdentity.credentialPrefix}anilist_access_token';
+  static const _torrentProxyKey =
+      '${ApplicationIdentity.credentialPrefix}torrent_proxy_configuration';
 
   final FlutterSecureStorage _storage;
   final AppSettingsRepository? _settingsRepository;
@@ -23,14 +26,16 @@ class SecureTokenStore {
     this._storage = const FlutterSecureStorage(
       aOptions: AndroidOptions(
         resetOnError: true,
-        preferencesKeyPrefix: 'senpwai_',
+        preferencesKeyPrefix: ApplicationIdentity.nightly
+            ? 'senpwai_nightly_'
+            : 'senpwai_',
       ),
       iOptions: IOSOptions(
         accessibility: KeychainAccessibility.unlocked_this_device,
         synchronizable: false,
       ),
       mOptions: MacOsOptions(
-        accountName: 'com.senpwai.app.credentials',
+        accountName: ApplicationIdentity.credentialsAccount,
         accessibility: KeychainAccessibility.unlocked_this_device,
         synchronizable: false,
         label: 'Senpwai credentials',

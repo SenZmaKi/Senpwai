@@ -136,8 +136,10 @@ class AnilistAuthenticatorClient {
 
     final subscription = appLinks.uriLinkStream.listen(
       (uri) {
-        // Ensure we match your redirect: senpwai://auth
-        if (uri.scheme == "senpwai" && uri.host == "auth") {
+        final redirect = Uri.parse(constants.Constants.authRedirectUri);
+        if (uri.scheme == redirect.scheme &&
+            uri.host == redirect.host &&
+            uri.path == redirect.path) {
           if (!completer.isCompleted) completer.complete(uri);
         }
       },
@@ -151,7 +153,7 @@ class AnilistAuthenticatorClient {
 
       final uri = await completer.future;
 
-      // Implicit grant returns: senpwai://auth#access_token=...&token_type=Bearer...
+      // The implicit grant returns the access token in the callback fragment.
       final fragment = uri.fragment;
       final params = Uri.splitQueryString(fragment);
 

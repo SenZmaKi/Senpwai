@@ -85,8 +85,14 @@ const downloadCards = [
       <h1 class="display">Get Senpwai for your device.</h1>
     </div>
 
+    <div class="release-tabs" role="tablist" aria-label="Release channel" hidden>
+      <button type="button" id="stable-tab" role="tab" aria-selected="true" aria-controls="downloads-panel" data-channel="stable">Stable</button>
+      <button type="button" id="nightly-tab" role="tab" aria-selected="false" aria-controls="downloads-panel" tabindex="-1" data-channel="nightly">Nightly</button>
+    </div>
+    <p class="channel-note" role="status" aria-live="polite">Stable releases are recommended for everyday use.</p>
+
     <!-- 4-Column Auto-Highlighting Platform Grid -->
-    <div class="platform-grid">
+    <div class="platform-grid" id="downloads-panel" role="tabpanel" aria-labelledby="stable-tab">
       {downloadCards.map((card) => (
         <article class="dl-card" data-platform-id={card.id} data-version={version}>
           <div class="card-top">
@@ -180,6 +186,61 @@ const downloadCards = [
 </Layout>
 
 <script>
+  import { loadChannel, assetFor, repo, nightlyReleases } from '../lib/release-channel';
+  type Channel = 'stable' | 'nightly';
+  let channel: Channel = 'stable';
+  let release: Awaited<ReturnType<typeof loadChannel>> | undefined;
+  let generation = 0;
+  const status = document.querySelector<HTMLElement>('.channel-note')!;
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+
+  function updateDownload(card: HTMLElement) {
+    const button = card.querySelector<HTMLAnchorElement>('.dl-button');
+    if (!button) return;
+    const architecture = card.querySelector<HTMLSelectElement>('.architecture-select')?.value ?? 'universal';
+    if (release) {
+      const asset = assetFor(release.assets, card.dataset.platformId!, architecture);
+      button.href = asset?.browser_download_url ?? `${repo}/releases/tag/${release.tag_name}`;
+    } else {
+      button.href = channel === 'nightly' ? nightlyReleases : `${repo}/releases`;
+    }
+  }
+
+  async function selectChannel(selected: Channel) {
+    channel = selected;
+    release = undefined;
+    const request = ++generation;
+    tabs.forEach((tab) => {
+      const active = tab.dataset.channel === channel;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+    });
+    document.querySelector('#downloads-panel')?.setAttribute('aria-labelledby', `${channel}-tab`);
+    cards.forEach((card) => {
+      updateDownload(card);
+      card.querySelector<HTMLElement>('.card-version-tag')!.textContent = 'Loading…';
+    });
+    status.textContent = `Loading ${channel} downloads…`;
+    try {
+      const loaded = await loadChannel(channel);
+      if (request !== generation) return;
+      release = loaded;
+      cards.forEach((card) => {
+        updateDownload(card);
+        card.querySelector<HTMLElement>('.card-version-tag')!.textContent = loaded.tag_name.replace(/^v/, '');
+      });
+      status.textContent = channel === 'nightly'
+        ? 'Nightly builds include the latest changes and may be unstable. Install alongside stable; settings and credentials are separate.'
+        : 'Stable releases are recommended for everyday use.';
+    } catch {
+      if (request !== generation) return;
+      cards.forEach((card) => {
+        card.querySelector<HTMLElement>('.card-version-tag')!.textContent = 'Unavailable';
+      });
+      status.textContent = `Could not load ${channel} downloads. Download buttons open GitHub releases.`;
+    }
+  }
+
   type ArchitectureHints = { architecture?: string; bitness?: string };
   type BrowserWithArchitecture = Navigator & {
     userAgentData?: { getHighEntropyValues?: (hints: string[]) => Promise<ArchitectureHints> };
@@ -214,15 +275,6 @@ const downloadCards = [
     return null;
   }
 
-  function assetName(platform: string, architecture: string, version: string) {
-    if (platform === 'windows') return `Senpwai-windows-${architecture}-setup.exe`;
-    if (platform === 'linux') {
-      return `Senpwai-${version}-${architecture === 'arm64' ? 'aarch64' : 'x86_64'}.AppImage`;
-    }
-    if (platform === 'android') return `Senpwai-${version}-${architecture}.apk`;
-    return 'Senpwai-macos-universal.dmg';
-  }
-
   const userOS = detectUserOS();
   const cards = document.querySelectorAll<HTMLElement>('.dl-card');
 
@@ -234,9 +286,9 @@ const downloadCards = [
     const selector = card.querySelector<HTMLSelectElement>('.architecture-select');
 
     selector?.addEventListener('change', (event) => {
-      if (!btn || !pId || !card.dataset.version) return;
+      if (!btn || !pId) return;
       if (event.isTrusted) selector.dataset.chosenManually = 'true';
-      btn.href = `${btn.dataset.releaseBase}/${assetName(pId, selector.value, card.dataset.version)}`;
+      updateDownload(card);
     });
 
     if (isUserOS) {
@@ -264,6 +316,21 @@ const downloadCards = [
     });
   }
 
+  document.querySelector<HTMLElement>('[role="tablist"]')!.hidden = false;
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => void selectChannel(tab.dataset.channel as Channel));
+    tab.addEventListener('keydown', (event) => {
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+        : event.key === 'ArrowRight' ? (index + 1) % tabs.length
+        : event.key === 'ArrowLeft' ? (index + tabs.length - 1) % tabs.length : undefined;
+      if (next === undefined) return;
+      event.preventDefault();
+      tabs[next].focus();
+      tabs[next].click();
+    });
+  });
+  void selectChannel(new URLSearchParams(location.search).get('channel') === 'nightly' ? 'nightly' : 'stable');
+
   const macHelpDialog = document.querySelector<HTMLDialogElement>('#mac-gatekeeper-help');
   const macHelpTrigger = document.querySelector<HTMLButtonElement>('.mac-help-trigger');
   const macHelpClose = macHelpDialog?.querySelector<HTMLButtonElement>('.dialog-close');
@@ -276,6 +343,13 @@ const downloadCards = [
 </script>
 
 <style>
+  .release-tabs { display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1rem; }
+  .release-tabs[hidden] { display: none; }
+  .release-tabs button { cursor: pointer; padding: 0.65rem 1.4rem; border: 1px solid #5d5360; border-radius: 0.5rem; background: #191921; color: #f4f1eb; font: inherit; }
+  .release-tabs button[aria-selected="true"] { background: #a92936; border-color: #ff5252; }
+  .release-tabs button:focus-visible { outline: 2px solid #ffb3a7; outline-offset: 3px; }
+  .channel-note { text-align: center; margin-bottom: 1.5rem; }
+
   .download-section {
     padding-top: clamp(2.5rem, 5vw, 4rem);
     padding-bottom: 1.5rem;

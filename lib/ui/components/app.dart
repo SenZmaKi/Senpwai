@@ -30,6 +30,8 @@ import 'package:senpwai/ui/shared/window_manager.dart';
 import 'package:senpwai/ui/shared/desktop_tray_controller.dart';
 import 'package:senpwai/updates/updates.dart';
 
+import 'package:senpwai/shared/application_identity.dart';
+
 enum AppPage { home, search, downloads, settings }
 
 class AppPageNotifier extends Notifier<AppPage> {
@@ -76,7 +78,7 @@ class App extends ConsumerWidget {
           navigatorKey: navigatorKey,
           builder: (context, child) =>
               BrowserTransportHost(child: child ?? const SizedBox.shrink()),
-          title: 'Senpwai',
+          title: ApplicationIdentity.name,
           initialRoute: '/',
           theme: themeConfig.buildLightTheme(),
           darkTheme: themeConfig.buildDarkTheme(),

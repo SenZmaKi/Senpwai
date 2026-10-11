@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:senpwai/settings/models.dart';
+import 'package:senpwai/shared/application_identity.dart';
 import 'package:senpwai/shared/persistence/window_state_repository.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -45,7 +46,7 @@ class WindowManager with WindowListener {
       alwaysOnTop: preferences.alwaysOnTop,
       center: savedBounds != null && restoredBounds == null,
       fullScreen: preferences.startFullScreen,
-      title: 'Senpwai',
+      title: ApplicationIdentity.name,
     );
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
       if (restoredBounds != null &&

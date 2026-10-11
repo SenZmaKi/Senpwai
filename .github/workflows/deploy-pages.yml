@@ -137,6 +137,15 @@ jobs:
               | .url][0] // empty
           ' "$state_dir/releases.json" > "$state_dir/prerelease-appcast-url"
 
+          jq -r '[.[] | select(.draft == false) | .assets[]
+            | select(.name == "appcast-nightly.xml") | .url][0] // empty' \
+            "$state_dir/releases.json" > "$state_dir/nightly-appcast-url"
+          nightly_url="$(cat "$state_dir/nightly-appcast-url")"
+          if [[ -n "$nightly_url" ]]; then
+            gh api "$nightly_url" -H 'Accept: application/octet-stream' \
+              > "$state_dir/appcast-nightly.xml"
+          fi
+
           stable_url="$(cat "$state_dir/stable-appcast-url")"
           prerelease_url="$(cat "$state_dir/prerelease-appcast-url")"
           if [[ -n "$stable_url" ]]; then
@@ -168,7 +177,7 @@ jobs:
           set -euo pipefail
           mkdir -p site
           cp -R website/dist/. site/
-          for feed in appcast.xml appcast-prerelease.xml; do
+          for feed in appcast.xml appcast-prerelease.xml appcast-nightly.xml; do
             if [[ -f "$STATE_DIR/$feed" ]]; then
               cp "$STATE_DIR/$feed" "site/$feed"
             fi

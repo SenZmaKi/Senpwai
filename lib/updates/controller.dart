@@ -6,6 +6,7 @@ import 'package:logging/logging.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:senpwai/settings/notifier.dart';
+import 'package:senpwai/shared/application_identity.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/downloads/manager.dart';
@@ -16,10 +17,7 @@ import 'package:senpwai/updates/platform_installer.dart';
 import 'package:senpwai/updates/update_repository.dart';
 import 'package:senpwai/updates/update_transfer.dart';
 
-const _updateChannel = String.fromEnvironment(
-  'UPDATE_CHANNEL',
-  defaultValue: 'stable',
-);
+const _updateChannel = ApplicationIdentity.channel;
 
 final _log = Logger('senpwai.updates');
 
@@ -107,7 +105,7 @@ class UpdateController extends Notifier<UpdateState> {
             AppRelease(
               version: preparedVersion,
               build: prepared.build,
-              channel: 'stable',
+              channel: _updateChannel,
               mandatory: false,
               notes: '',
               artifacts: [prepared.artifact],
@@ -120,7 +118,7 @@ class UpdateController extends Notifier<UpdateState> {
         final release = AppRelease(
           version: preparedVersion,
           build: prepared.build,
-          channel: 'stable',
+          channel: _updateChannel,
           mandatory: false,
           notes: '',
           artifacts: [prepared.artifact],
@@ -160,7 +158,9 @@ class UpdateController extends Notifier<UpdateState> {
       final candidate = manifest.latestCompatible(
         currentVersion: state.currentVersion,
         currentBuild: state.currentBuild,
-        channels: _updateChannel == 'prerelease'
+        channels: _updateChannel == 'nightly'
+            ? const {'nightly'}
+            : _updateChannel == 'prerelease'
             ? const {'stable', 'prerelease'}
             : const {'stable'},
       );
@@ -409,7 +409,7 @@ class UpdateController extends Notifier<UpdateState> {
         : AppRelease(
             version: Version.parse(version),
             build: build,
-            channel: 'stable',
+            channel: _updateChannel,
             mandatory: false,
             notes: event['notes'] as String? ?? '',
             artifacts: const [],

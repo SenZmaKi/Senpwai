@@ -1,6 +1,10 @@
 name: Release
 
 on:
+  schedule:
+    # 05:57 Africa/Nairobi, matching Sentorr.
+    - cron: "57 2 * * *"
+  workflow_dispatch:
   push:
     tags:
       - "v*.*.*"
@@ -9,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-${{ github.event_name == 'push' && github.ref_name || 'nightly' }}
   cancel-in-progress: false
 
 jobs:
@@ -44,24 +48,34 @@ jobs:
             echo "pubspec build number must be a positive integer" >&2
             exit 64
           fi
-          if [[ "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF_NAME" != "$expected_tag" ]]; then
             echo "Tag $GITHUB_REF_NAME does not match pubspec version $version" >&2
             exit 64
           fi
-          if [[ "$(git ls-remote origin refs/heads/master | cut -f1)" != "$GITHUB_SHA" ]]; then
-            echo "Release tags must point to the current master commit" >&2
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            if [[ "$(git ls-remote origin refs/heads/master | cut -f1)" != "$GITHUB_SHA" ]]; then
+              echo "Release tags must point to the current master commit" >&2
+              exit 64
+            fi
+            test -s "release-notes/${version}.md"
+          elif [[ "$GITHUB_REF_NAME" != "master" ]]; then
+            echo "Nightly releases must run from master" >&2
             exit 64
           fi
-          test -s "release-notes/${version}.md" || {
-            echo "Missing release-notes/${version}.md" >&2
-            exit 64
-          }
 
           prerelease=false
           channel=stable
           if [[ "$version" == *-* ]]; then
             prerelease=true
             channel=prerelease
+          fi
+
+          if [[ "$GITHUB_EVENT_NAME" != "push" ]]; then
+            version="${version%%-*}-nightly.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+            build_number="$(date +%s)"
+            expected_tag="v${version}"
+            prerelease=true
+            channel=nightly
           fi
 
           {
@@ -83,7 +97,8 @@ jobs:
       RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
       ZIP_NAME: Senpwai-macos-universal.zip
       DMG_NAME: Senpwai-macos-universal.dmg
-      APPCAST_NAME: ${{ needs.prepare.outputs.prerelease == 'true' && 'appcast-prerelease.xml' || 'appcast.xml' }}
+      APP_NAME: ${{ needs.prepare.outputs.channel == 'nightly' && 'Senpwai Nightly' || 'Senpwai' }}
+      APPCAST_NAME: ${{ needs.prepare.outputs.channel == 'nightly' && 'appcast-nightly.xml' || needs.prepare.outputs.prerelease == 'true' && 'appcast-prerelease.xml' || 'appcast.xml' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -94,6 +109,12 @@ jobs:
           channel: stable
           flutter-version: 3.47.2
           cache: true
+
+      - name: Apply nightly identity and branding
+        if: needs.prepare.outputs.channel == 'nightly'
+        run: |
+          python -m pip install Pillow
+          python tool/nightly/nightly_branding.py
 
       - name: Install Flutter dependencies
         run: flutter pub get
@@ -144,20 +165,20 @@ jobs:
 
           sh macos/scripts/verify_app_signature.sh "$built_app"
           mkdir -p "$release_dir" "$package_root" "$dmg_root" "$extracted_root"
-          /usr/bin/ditto "$built_app" "$package_root/Senpwai.app"
-          sh macos/scripts/verify_app_signature.sh "$package_root/Senpwai.app"
+          /usr/bin/ditto "$built_app" "$package_root/$APP_NAME.app"
+          sh macos/scripts/verify_app_signature.sh "$package_root/$APP_NAME.app"
 
           /usr/bin/ditto \
             -c -k --sequesterRsrc --keepParent \
-            "$package_root/Senpwai.app" \
+            "$package_root/$APP_NAME.app" \
             "$release_dir/$ZIP_NAME"
           /usr/bin/ditto -x -k "$release_dir/$ZIP_NAME" "$extracted_root"
-          sh macos/scripts/verify_app_signature.sh "$extracted_root/Senpwai.app"
+          sh macos/scripts/verify_app_signature.sh "$extracted_root/$APP_NAME.app"
 
-          /usr/bin/ditto "$package_root/Senpwai.app" "$dmg_root/Senpwai.app"
+          /usr/bin/ditto "$package_root/$APP_NAME.app" "$dmg_root/$APP_NAME.app"
           ln -s /Applications "$dmg_root/Applications"
           hdiutil create \
-            -volname "Senpwai" \
+            -volname "$APP_NAME" \
             -srcfolder "$dmg_root" \
             -format UDZO \
             -ov \
@@ -303,6 +324,12 @@ jobs:
           sudo ldconfig
           test "$(pkg-config --modversion wpe-webkit-2.0)" = "$WPE_VERSION"
 
+      - name: Apply nightly identity and branding
+        if: needs.prepare.outputs.channel == 'nightly'
+        run: |
+          python -m pip install Pillow
+          python tool/nightly/nightly_branding.py
+
       - name: Install Flutter dependencies
         run: flutter pub get
 
@@ -356,8 +383,14 @@ jobs:
           cp -a "$runtime_dir/root/usr/local/lib/." "$app_dir/usr/bin/lib/"
           cp -a "$runtime_dir/root/usr/local/libexec/." "$app_dir/usr/libexec/"
           cp -a "$runtime_dir/root/usr/local/share/." "$app_dir/usr/share/"
-          cp linux/com.senpwai.app.desktop "$app_dir/com.senpwai.app.desktop"
-          cp assets/images/senpwai-icon.png "$app_dir/com.senpwai.app.png"
+          desktop_id=com.senpwai.app
+          if [[ "${{ needs.prepare.outputs.channel }}" == "nightly" ]]; then
+            desktop_id=com.senpwai.app.nightly
+          fi
+          cp linux/com.senpwai.app.desktop "$app_dir/$desktop_id.desktop"
+          cp assets/images/senpwai-icon.png "$app_dir/$desktop_id.png"
+          # Shell variables below must expand when AppRun executes.
+          # shellcheck disable=SC2016
           printf '%s\n' \
             '#!/bin/sh' \
             'export LD_LIBRARY_PATH="$APPDIR/usr/bin/lib:${LD_LIBRARY_PATH:-}"' \
@@ -415,6 +448,12 @@ jobs:
           flutter-version: 3.47.2
           cache: true
 
+      - name: Apply nightly identity and branding
+        if: needs.prepare.outputs.channel == 'nightly'
+        run: |
+          python -m pip install Pillow
+          python tool/nightly/nightly_branding.py
+
       - name: Install Flutter dependencies
         run: flutter pub get
 
@@ -465,8 +504,9 @@ jobs:
             destination="$release_dir/Senpwai-${VERSION}-${architecture}.apk"
             test -f "$source"
             cp "$source" "$destination"
-            build_tools="$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
-            "$ANDROID_HOME/build-tools/$build_tools/apksigner" verify --verbose "$destination"
+            build_tools_path="$(printf '%s\n' "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)"
+            build_tools_path="${build_tools_path%/}"
+            "$build_tools_path/apksigner" verify --verbose "$destination"
             (cd "$release_dir" && sha256sum "$(basename "$destination")" > "$(basename "$destination").sha256")
           done
 
@@ -526,6 +566,12 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.architecture == 'arm64' && 'arm64' || 'amd64' }}
+
+      - name: Apply nightly identity and branding
+        if: needs.prepare.outputs.channel == 'nightly'
+        run: |
+          python -m pip install Pillow
+          python tool/nightly/nightly_branding.py
 
       - name: Install Flutter dependencies
         run: flutter pub get
@@ -621,7 +667,8 @@ jobs:
             throw 'The installed Senpwai executable is missing'
           }
           $versionInfo = (Get-Item -LiteralPath $installedExe).VersionInfo
-          if ($versionInfo.CompanyName -ne 'com.senpwai.app') {
+          $expectedCompany = if ($env:UPDATE_CHANNEL -eq 'nightly') { 'com.senpwai.app.nightly' } else { 'com.senpwai.app' }
+          if ($versionInfo.CompanyName -ne $expectedCompany) {
             throw "Unexpected CompanyName: $($versionInfo.CompanyName)"
           }
 
@@ -758,15 +805,22 @@ jobs:
             if [[ "$IS_PRERELEASE" == "true" ]]; then
               release_flags+=(--prerelease)
             fi
-            release_title="$(sed -n '1s/^# //p' "release-notes/$VERSION.md")"
+            notes_file="release-notes/$VERSION.md"
+            tag_flags=(--verify-tag)
+            if [[ "$RELEASE_CHANNEL" == "nightly" ]]; then
+              notes_file="$RUNNER_TEMP/nightly-notes.md"
+              printf '# Senpwai Nightly %s\n\nAutomated nightly build from commit %s.\n' "$VERSION" "$GITHUB_SHA" > "$notes_file"
+              tag_flags=(--target "$GITHUB_SHA")
+            fi
+            release_title="$(sed -n '1s/^# //p' "$notes_file")"
             test -n "$release_title"
             gh release create "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
-              --verify-tag \
+              "${tag_flags[@]}" \
               --draft \
               "${release_flags[@]}" \
               --title "$release_title" \
-              --notes-file "release-notes/$VERSION.md"
+              --notes-file "$notes_file"
           fi
 
           gh release upload "$RELEASE_TAG" release-assets/* \
@@ -812,7 +866,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --ref master \
             -f release_tag="$RELEASE_TAG" \
-            -f announce=true
+            -f announce=${{ needs.prepare.outputs.channel != 'nightly' }}
 
       - name: Add workflow summary
         shell: bash

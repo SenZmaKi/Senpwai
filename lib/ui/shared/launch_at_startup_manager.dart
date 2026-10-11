@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
+import 'package:senpwai/shared/application_identity.dart';
 
 class LaunchAtStartupManager {
   static LaunchAtStartupManager? _instance;
@@ -32,9 +33,9 @@ class LaunchAtStartupManager {
   void _configure() {
     if (_configured) return;
     launchAtStartup.setup(
-      appName: 'Senpwai',
+      appName: ApplicationIdentity.name,
       appPath: Platform.resolvedExecutable,
-      packageName: 'com.senpwai.app',
+      packageName: ApplicationIdentity.packageName,
     );
     _configured = true;
   }

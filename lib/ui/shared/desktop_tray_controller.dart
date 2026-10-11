@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
+import 'package:senpwai/shared/application_identity.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
@@ -44,7 +45,7 @@ class DesktopTrayController with TrayListener {
       trayManager.addListener(this);
       await trayManager.setIcon(_iconPath);
       if (!Platform.isLinux) {
-        await trayManager.setToolTip('Senpwai');
+        await trayManager.setToolTip(ApplicationIdentity.name);
       }
       await _setContextMenu(isWindowVisible: await windowManager.isVisible());
       await WindowManager.getInstance().configureCloseHandler(_requestClose);

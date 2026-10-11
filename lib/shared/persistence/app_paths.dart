@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:senpwai/shared/application_identity.dart';
 
 class AppPaths {
   final Directory rootDirectory;
@@ -49,7 +50,7 @@ class AppPaths {
   static Future<AppPaths> initialize() async {
     final supportDirectory = await getApplicationSupportDirectory();
     final rootDirectory = Directory(
-      path.join(supportDirectory.path, 'SenpwaiData'),
+      path.join(supportDirectory.path, ApplicationIdentity.dataDirectory),
     );
     return fromRootDirectory(rootDirectory);
   }
