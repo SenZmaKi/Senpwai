@@ -9,6 +9,48 @@ import 'package:senpwai/shared/persistence/json_file_store.dart';
 
 void main() {
   test(
+    'cancellation before startup prevents HTTP work and file creation',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'cancel-before-start-',
+      );
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final dio = Dio();
+      var requests = 0;
+      server.listen((request) async {
+        requests++;
+        request.response.statusCode = 500;
+        await request.response.close();
+      });
+      try {
+        final target = File('${directory.path}/file.bin');
+        final checkpoint = File('${directory.path}/checkpoint.json');
+        final download = Download(
+          dio: dio,
+          checkpointFile: checkpoint,
+          params: DownloadParams(
+            url: 'http://127.0.0.1:${server.port}/file',
+            targetFile: target,
+            sizeBytes: 4,
+            numberOfParts: 1,
+          ),
+        );
+        await download.cancel();
+        await download.startAndWait().timeout(const Duration(seconds: 5));
+        expect(download.state.isCancelled, isTrue);
+        expect(requests, 0);
+        expect(await target.exists(), isFalse);
+        expect(await File('${target.path}.senpwai-part').exists(), isFalse);
+        expect(await checkpoint.exists(), isFalse);
+      } finally {
+        dio.close(force: true);
+        await server.close(force: true);
+        await directory.delete(recursive: true);
+      }
+    },
+  );
+
+  test(
     'completed partial publishes without contacting an unavailable source',
     () async {
       final directory = await Directory.systemTemp.createTemp(

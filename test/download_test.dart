@@ -178,14 +178,28 @@ void main() {
       expect(state.isTerminal, false);
     });
 
-    test('pause/resume/cancel are noops while idle', () async {
+    test('pause/resume are noops while idle', () {
       final state = _newState();
       state.pause();
       expect(state.status, DownloadStatus.idle);
       state.resume();
       expect(state.status, DownloadStatus.idle);
+    });
+
+    test('cancelling while idle is terminal and cannot be resumed', () async {
+      final state = _newState();
       await state.cancel();
-      expect(state.status, DownloadStatus.idle);
+      expect(state.status, DownloadStatus.cancelled);
+      expect(state.isTerminal, true);
+      state.pause();
+      state.resume();
+      await state.cancel();
+      expect(state.status, DownloadStatus.cancelled);
+      expect(state.registerIterationToken(0).isCancelled, true);
+      expect(
+        await state.waitTillStatus(statuses: [DownloadStatus.cancelled]),
+        DownloadStatus.cancelled,
+      );
     });
 
     test('pause/resume/cancel transitions for active download', () async {
