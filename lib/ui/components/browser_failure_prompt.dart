@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/net/browser_transport/browser_transport.dart';
+import 'package:senpwai/shared/net/browser_transport/browser_failure.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
 import 'package:senpwai/ui/components/toast.dart';
 
@@ -22,7 +24,7 @@ class BrowserFailurePrompt extends ConsumerStatefulWidget {
 }
 
 class _BrowserFailurePromptState extends ConsumerState<BrowserFailurePrompt> {
-  late final StreamSubscription<String> _subscription;
+  late final StreamSubscription<BrowserFailure> _subscription;
   bool _prompting = false;
   // Keeping the sources is respected for the rest of the app run.
   bool _declined = false;
@@ -31,7 +33,7 @@ class _BrowserFailurePromptState extends ConsumerState<BrowserFailurePrompt> {
   void initState() {
     super.initState();
     _subscription = BrowserTransportService.instance.openFailures.listen(
-      (_) => unawaited(_prompt()),
+      (failure) => unawaited(_prompt(failure)),
     );
   }
 
@@ -41,7 +43,7 @@ class _BrowserFailurePromptState extends ConsumerState<BrowserFailurePrompt> {
     super.dispose();
   }
 
-  Future<void> _prompt() async {
+  Future<void> _prompt(BrowserFailure failure) async {
     if (_prompting || _declined || !mounted) return;
     final enabled = ref
         .read(AppSettingsNotifier.provider)
@@ -62,6 +64,13 @@ class _BrowserFailurePromptState extends ConsumerState<BrowserFailurePrompt> {
             '$names rely on a built-in browser that could not be opened on '
             'this device. Disable ${browserSources.length == 1 ? 'it' : 'them'}'
             '? You can re-enable sources anytime in Settings.',
+        additionalActions: [
+          TextButton.icon(
+            onPressed: () => unawaited(_copyError(failure)),
+            icon: const Icon(Icons.copy_rounded),
+            label: const Text('Copy error'),
+          ),
+        ],
         confirmLabel: 'Disable',
         cancelLabel: 'Keep enabled',
       );
@@ -86,6 +95,21 @@ class _BrowserFailurePromptState extends ConsumerState<BrowserFailurePrompt> {
       AppToast.showInfo(context, title: '$names disabled');
     } finally {
       _prompting = false;
+    }
+  }
+
+  Future<void> _copyError(BrowserFailure failure) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: failure.copyDetails));
+      if (!mounted) return;
+      AppToast.showInfo(context, title: 'Error copied');
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.showError(
+        context,
+        title: 'Could not copy error',
+        description: error.toString(),
+      );
     }
   }
 

@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:senpwai/notifications/app_notification_service.dart';
+import 'package:senpwai/shared/error_report.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
@@ -15,6 +16,7 @@ Future<void> initApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   setupLogger();
   _configureErrorHandling();
+  await initializeErrorReports();
   await AppPersistence.initialize();
   await configureFileLogging(AppPersistence.paths.logsDirectory);
   await AppNotificationService.instance.initialize();
@@ -36,16 +38,18 @@ void _configureErrorHandling() {
     FlutterError.presentError(details);
     final context = App.navigatorKey.currentContext;
     final diagnostics = buildAppErrorDiagnostics(context);
+    final report = formatErrorForCopy(
+      details.exception,
+      details.stack,
+      '$diagnostics\nFlutter diagnostic details:\n${details.toString()}',
+    );
+    recordErrorReport(report);
     if (context != null) {
       AppToast.showErrorDeferred(
         context,
         title: 'Unexpected error',
         description: details.exceptionAsString(),
-        copyPayload: formatErrorForCopy(
-          details.exception,
-          details.stack,
-          diagnostics,
-        ),
+        copyPayload: report,
       );
     }
   };
@@ -53,12 +57,14 @@ void _configureErrorHandling() {
   PlatformDispatcher.instance.onError = (error, stack) {
     final context = App.navigatorKey.currentContext;
     final diagnostics = buildAppErrorDiagnostics(context);
+    final report = formatErrorForCopy(error, stack, diagnostics);
+    recordErrorReport(report);
     if (context != null) {
       AppToast.showErrorDeferred(
         context,
         title: 'Unhandled error',
         description: error.toString(),
-        copyPayload: formatErrorForCopy(error, stack, diagnostics),
+        copyPayload: report,
       );
     }
     return true;

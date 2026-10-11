@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/net/browser_transport/browser_failure.dart';
 import 'package:senpwai/shared/net/browser_transport/routing.dart';
 
 final _log = Logger('senpwai.net.browser_transport');
@@ -143,14 +144,14 @@ class BrowserTransportService extends ChangeNotifier {
   final Map<String, Timer> _idleTimers = {};
   final Map<String, int> _activeRequests = {};
   final Map<String, Set<VoidCallback>> _userCancellationCallbacks = {};
-  final _openFailures = StreamController<String>.broadcast();
+  final _openFailures = StreamController<BrowserFailure>.broadcast();
   Duration _idleTimeout = const Duration(minutes: 10);
   int _nextRequestId = 0;
   Future<void>? _maintenance;
 
-  /// Emits the host whose WebView could not be opened, at most once per
+  /// Emits diagnostics for a WebView open failure, at most once per
   /// session. Challenge pages awaiting the user are not open failures.
-  Stream<String> get openFailures => _openFailures.stream;
+  Stream<BrowserFailure> get openFailures => _openFailures.stream;
 
   List<BrowserHostSession> get sessions => List.unmodifiable([
     ..._sessions.values,
@@ -222,7 +223,7 @@ class BrowserTransportService extends ChangeNotifier {
         host: host,
         bootstrapUri: bootstrapUri,
         onChanged: () => _sessionChanged(host),
-        onOpenFailed: () => _openFailures.add(host),
+        onOpenFailed: _openFailures.add,
         nextRequestId: () => _nextRequestId++,
       );
 
@@ -414,7 +415,7 @@ class BrowserHostSession {
   final String host;
   final Uri bootstrapUri;
   final VoidCallback onChanged;
-  final VoidCallback onOpenFailed;
+  final void Function(BrowserFailure) onOpenFailed;
   final int Function() nextRequestId;
   final Map<int, Completer<BrowserTransportResponse>> _pending = {};
   Completer<BrowserTransportResponse>? _pendingFormSubmission;
@@ -431,6 +432,14 @@ class BrowserHostSession {
   bool _opened = false;
   bool _openFailureReported = false;
   bool requiresInteraction = false;
+  final Queue<String> _diagnostics = Queue<String>();
+  final Stopwatch _lifetime = Stopwatch()..start();
+  String _userAgent = 'unavailable (controller not attached)';
+
+  void _recordDiagnostic(String event) {
+    _diagnostics.add('${DateTime.now().toIso8601String()} $event');
+    if (_diagnostics.length > 100) _diagnostics.removeFirst();
+  }
 
   BrowserHostSession({
     required this.host,
@@ -444,7 +453,9 @@ class BrowserHostSession {
 
   Future<void> attach(InAppWebViewController controller) async {
     _controller = controller;
+    _recordDiagnostic('Browser controller attached');
     _log.infoWithMetadata('Browser session attached', metadata: {'host': host});
+    unawaited(_captureUserAgent(controller));
     controller.addJavaScriptHandler(
       handlerName: _handlerName,
       callback: (arguments) {
@@ -457,8 +468,22 @@ class BrowserHostSession {
     );
   }
 
+  Future<void> _captureUserAgent(InAppWebViewController controller) async {
+    try {
+      _userAgent =
+          (await controller
+                  .evaluateJavascript(source: 'navigator.userAgent')
+                  .timeout(const Duration(seconds: 2)))
+              ?.toString() ??
+          'unavailable';
+    } catch (error) {
+      _userAgent = 'unavailable: $error';
+    }
+  }
+
   void pageStarted() {
     if (_readinessState == _ReadinessState.closed) return;
+    _recordDiagnostic('Page navigation started');
     _documentGeneration++;
     _loadFinished = false;
     if (_readinessState != _ReadinessState.loading) {
@@ -517,6 +542,7 @@ class BrowserHostSession {
       final currentUrl = await controller.getUrl();
       if (expectedGeneration != _documentGeneration) return;
       requiresInteraction = challenged;
+      _recordDiagnostic(challenged ? 'Challenge detected' : 'Page ready');
       _log.infoWithMetadata(
         challenged ? 'Browser challenge page loaded' : 'Browser session ready',
         metadata: {
@@ -535,13 +561,13 @@ class BrowserHostSession {
         _ready.complete();
       }
       onChanged();
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (expectedGeneration != _documentGeneration ||
           _readinessState == _ReadinessState.closed) {
         return;
       }
       if (completeReady) {
-        pageFailed(error);
+        pageFailed(error, stackTrace: stackTrace);
       } else {
         _log.fineWithMetadata(
           'Could not inspect browser title transition',
@@ -568,7 +594,7 @@ class BrowserHostSession {
     );
   }
 
-  void pageFailed(Object error) {
+  void pageFailed(Object error, {StackTrace? stackTrace}) {
     if (_readinessState == _ReadinessState.closed) return;
     _log.warningWithMetadata(
       'Browser session failed to load',
@@ -576,17 +602,39 @@ class BrowserHostSession {
     );
     if (!_ready.isCompleted) {
       _readinessState = _ReadinessState.failed;
-      _ready.completeError(BrowserTransportException(error.toString()));
+      _ready.completeError(
+        BrowserTransportException(error.toString()),
+        stackTrace,
+      );
     }
     _failPendingFetches('Browser session failed to load: $error');
-    _reportOpenFailure();
+    _recordDiagnostic('Page failed to load');
+    _reportOpenFailure(error, stackTrace);
     onChanged();
   }
 
-  void _reportOpenFailure() {
+  void _reportOpenFailure(Object error, StackTrace? stackTrace) {
     if (_opened || _openFailureReported) return;
     _openFailureReported = true;
-    onOpenFailed();
+    final failure = BrowserFailure(
+      host: host,
+      error: error.toString(),
+      stackTrace: stackTrace,
+      diagnostics: [
+        'Platform: ${defaultTargetPlatform.name}',
+        'Browser user agent: $_userAgent',
+        'Bootstrap: ${sanitizeDiagnosticText(bootstrapUri.toString())}',
+        'Session age: ${_lifetime.elapsedMilliseconds} ms',
+        'Controller attached: ${_controller != null}',
+        'Readiness: ${_readinessState.name}',
+        'Page opened: $_opened',
+        'Load finished: $_loadFinished',
+        'Awaiting interaction: $requiresInteraction',
+        ..._diagnostics,
+      ],
+    );
+    recordErrorReport(failure.copyDetails);
+    onOpenFailed(failure);
   }
 
   void handleLoadError(WebResourceRequest request, WebResourceError error) {
@@ -601,7 +649,15 @@ class BrowserHostSession {
       );
       return;
     }
-    if (request.isForMainFrame == true) pageFailed(error);
+    if (request.isForMainFrame == true) {
+      _recordDiagnostic(
+        'Failed navigation: ${sanitizeDiagnosticText(request.url.toString())}',
+      );
+      _recordDiagnostic(
+        'Main frame: ${request.isForMainFrame}; method: ${request.method}',
+      );
+      pageFailed('WebView ${error.type}: ${error.description}');
+    }
   }
 
   Future<BrowserTransportResponse> send(
@@ -617,6 +673,9 @@ class BrowserHostSession {
         'Session for $host cannot request ${request.uri.host}.',
       );
     }
+    _recordDiagnostic(
+      'Request ${request.method} ${sanitizeDiagnosticText(request.uri.toString())}; mode: ${request.executionMode.name}; ready timeout: ${request.readyTimeout}; response timeout: ${request.timeout}',
+    );
     await _waitUntilReady(request.readyTimeout, cancelFuture: cancelFuture);
     if (cancelled) {
       throw const BrowserTransportException('Request cancelled.');
@@ -938,10 +997,13 @@ class BrowserHostSession {
       onTimeout: () {
         // A challenge left unsolved is the user's choice, not a broken
         // WebView, so only a page that never loaded counts as an open failure.
-        if (!requiresInteraction) _reportOpenFailure();
-        throw const BrowserTransportException(
+        const error = BrowserTransportException(
           'Browser session did not become ready.',
         );
+        final stackTrace = StackTrace.current;
+        _recordDiagnostic('Readiness timed out after $timeout');
+        if (!requiresInteraction) _reportOpenFailure(error, stackTrace);
+        Error.throwWithStackTrace(error, stackTrace);
       },
     );
     if (cancelFuture == null) return ready;

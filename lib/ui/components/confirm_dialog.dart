@@ -10,6 +10,7 @@ Future<bool> showConfirmDialog(
   String confirmLabel = 'Confirm',
   String cancelLabel = 'Cancel',
   bool destructive = false,
+  List<Widget> additionalActions = const [],
 }) async {
   assert(message != null || content != null);
   final theme = Theme.of(context);
@@ -34,6 +35,7 @@ Future<bool> showConfirmDialog(
         ),
         content: content ?? Text(message!),
         actions: [
+          ...additionalActions,
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text(cancelLabel),

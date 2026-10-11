@@ -3,6 +3,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:toastification/toastification.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
+import 'package:senpwai/shared/error_report.dart';
+import 'package:senpwai/shared/log.dart';
 
 class AppToast {
   AppToast._();
@@ -120,7 +122,9 @@ class AppToast {
       context: context,
       type: type,
       style: ToastificationStyle.flatColored,
-      autoCloseDuration: const Duration(seconds: 8),
+      autoCloseDuration: copyPayload == null
+          ? const Duration(seconds: 8)
+          : null,
       title: Text(
         title,
         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
@@ -219,6 +223,8 @@ String formatErrorForCopy(
   String? diagnostics,
 ]) {
   final buf = StringBuffer()
+    ..writeln(buildErrorReportContext())
+    ..writeln()
     ..writeln('Error: $error')
     ..writeln('Type: ${error.runtimeType}');
   if (stackTrace != null) {
@@ -233,5 +239,5 @@ String formatErrorForCopy(
       ..writeln()
       ..write(diagnostics);
   }
-  return buf.toString();
+  return sanitizeDiagnosticText(buf.toString());
 }

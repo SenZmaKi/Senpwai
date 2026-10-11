@@ -53,6 +53,56 @@ const _maxLogWriteBatchBytes = 64 * 1024;
 
 _AsyncLogWriter? _logWriter;
 var _isLoggerConfigured = false;
+const maxDiagnosticLogRecords = 200;
+const maxDiagnosticLogBytes = 128 * 1024;
+final Queue<({String text, int bytes})> _recentDiagnosticLogs = Queue();
+int _recentDiagnosticLogBytes = 0;
+final Queue<String> _earlyErrorReports = Queue<String>();
+
+String sanitizeDiagnosticText(String text) {
+  return text
+      .replaceAllMapped(RegExp(r'https?://[^\s<>"\x27]+'), (match) {
+        final uri = Uri.tryParse(match[0]!);
+        if (uri == null) return '[invalid URL]';
+        return '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}${uri.path}';
+      })
+      .replaceAll(
+        RegExp(
+          r'(authorization|cookie|set-cookie|password|access_token|refresh_token)\s*[:=]\s*[^\n]+',
+          caseSensitive: false,
+        ),
+        '[sensitive field redacted]',
+      );
+}
+
+String get recentDiagnosticLogs =>
+    _recentDiagnosticLogs.map((record) => record.text).join('\n');
+
+void _rememberLogRecord(String text) {
+  var sanitized = sanitizeDiagnosticText(text);
+  var bytes = utf8.encode(sanitized).length + 1;
+  if (bytes > maxDiagnosticLogBytes) {
+    sanitized = '[Log record omitted: exceeds 128 KiB; see full app log]';
+    bytes = utf8.encode(sanitized).length + 1;
+  }
+  _recentDiagnosticLogs.add((text: sanitized, bytes: bytes));
+  _recentDiagnosticLogBytes += bytes;
+  while (_recentDiagnosticLogs.length > maxDiagnosticLogRecords ||
+      _recentDiagnosticLogBytes > maxDiagnosticLogBytes) {
+    _recentDiagnosticLogBytes -= _recentDiagnosticLogs.removeFirst().bytes;
+  }
+}
+
+void recordErrorReport(String report) {
+  final sanitized = sanitizeDiagnosticText(report);
+  final writer = _logWriter;
+  if (writer != null) {
+    writer.add(sanitized);
+  } else {
+    _earlyErrorReports.add(sanitized);
+    if (_earlyErrorReports.length > 5) _earlyErrorReports.removeFirst();
+  }
+}
 
 /// Writes app logs to [logsDirectory]/senpwai.log, retaining at most 25 MiB.
 ///
@@ -70,6 +120,9 @@ Future<void> configureFileLogging(Directory logsDirectory) async {
       fileSize = 0;
     }
     _logWriter = _AsyncLogWriter(file: file, initialSize: fileSize);
+    while (_earlyErrorReports.isNotEmpty) {
+      _logWriter!.add(_earlyErrorReports.removeFirst());
+    }
     if (kDebugMode) debugPrint('Log file: ${file.path}');
   } catch (_) {
     _logWriter = null;
@@ -165,7 +218,12 @@ void setupLogger() {
     final loggerName = '[${record.loggerName}]';
     final timestamp = record.time.toIso8601String();
 
-    final lines = record.message.toString().split('\n');
+    final message =
+        '${record.message}'
+        '${record.error == null ? '' : '\nError: ${record.error}'}'
+        '${record.stackTrace == null ? '' : '\n${record.stackTrace}'}';
+    _rememberLogRecord('$timestamp ${record.level.name} $loggerName: $message');
+    final lines = message.split('\n');
     for (final line in lines) {
       // TODO: Flutter's logger shouldn't be used by backend code.
       debugPrint('$color${record.level.name} $loggerName: $line$reset');
