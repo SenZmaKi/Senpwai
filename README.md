@@ -68,6 +68,7 @@ version and its release notes on
 
 <p>
   <a href="https://github.com/KeithBoehler"><img src="https://github.com/KeithBoehler.png" width="80" alt="KeithBoehler"></a>
+  <a href="https://github.com/hawking345"><img src="https://github.com/hawking345.png" width="80" alt="hawking345"></a>
 </p>
 
 ## Building from Source
