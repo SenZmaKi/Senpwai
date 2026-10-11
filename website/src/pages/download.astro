@@ -249,7 +249,7 @@ const downloadCards = [
         card.querySelector<HTMLElement>('.card-version-tag')!.textContent = loaded.tag_name.replace(/^v/, '');
       });
       status.textContent = channel === 'nightly'
-        ? 'Nightly builds include the latest changes and may be unstable. Install alongside stable; settings and credentials are separate.'
+        ? 'Nightly builds include the latest changes and may be unstable.'
         : 'Stable releases are recommended for everyday use.';
     } catch {
       if (request !== generation) return;
