@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/torrent_network_settings.dart';
 import 'package:senpwai/settings/settings.dart';
+import 'package:senpwai/shared/error_report.dart';
 import 'package:senpwai/shared/net/download/download.dart';
 import 'package:senpwai/shared/net/download/download_config.dart';
 import 'package:senpwai/shared/net/download/download_dio.dart';
@@ -18,12 +19,11 @@ import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/updates/models.dart';
 import 'package:senpwai/updates/update_transfer.dart';
 
-typedef DownloadRuntimeErrorHandler =
-    void Function({
-      required String title,
-      required String description,
-      String? copyPayload,
-    });
+typedef DownloadRuntimeErrorHandler = void Function({
+  required String title,
+  required String description,
+  String? copyPayload,
+});
 
 abstract class DownloadRuntime {
   DownloadManagerState get currentState;
@@ -685,7 +685,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
               id,
               title: 'Torrent failed',
               description: status.error,
-              copyPayload: status.error,
+              copyPayload: formatDiagnosticError(status.error),
             );
             _showGlobalError(
               title: 'Torrent failed',
@@ -1491,7 +1491,11 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     required String description,
     String? copyPayload,
   }) {
-    onError(title: title, description: description, copyPayload: copyPayload);
+    onError(
+      title: title,
+      description: description,
+      copyPayload: copyPayload ?? formatDiagnosticError(description),
+    );
   }
 
   @override
@@ -1736,9 +1740,5 @@ String _relativeTorrentRenamePath(String filePath, {required String savePath}) {
   return relativePath;
 }
 
-String _formatErrorForCopy(Object error, StackTrace stackTrace) {
-  return 'Error: $error\n'
-      'Type: ${error.runtimeType}\n\n'
-      'Stack trace:\n'
-      '$stackTrace';
-}
+String _formatErrorForCopy(Object error, StackTrace stackTrace) =>
+    formatDiagnosticError(error, stackTrace);

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:senpwai/settings/models.dart';
 import 'package:senpwai/shared/application_identity.dart';
+import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/persistence/window_state_repository.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -104,6 +105,7 @@ class WindowManager with WindowListener {
     _closeHandler = null;
     await windowManager.setPreventClose(false);
     try {
+      await flushAppLogs();
       await windowManager.close();
     } finally {
       _closeHandler = closeHandler;

@@ -633,7 +633,7 @@ class BrowserHostSession {
         ..._diagnostics,
       ],
     );
-    recordErrorReport(failure.copyDetails);
+    recordErrorReport(failure.copyDetails, remember: false);
     onOpenFailed(failure);
   }
 

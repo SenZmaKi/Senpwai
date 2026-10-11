@@ -26,7 +26,34 @@ String buildErrorReportContext() => [
       : kProfileMode
       ? 'profile'
       : 'debug'}',
+  'Disk logging: $diskLoggingStatus',
   '',
   'Recent app logs (up to $maxDiagnosticLogRecords complete records, capped at ${maxDiagnosticLogBytes ~/ 1024} KiB):',
   recentDiagnosticLogs.isEmpty ? 'No recent logs.' : recentDiagnosticLogs,
 ].join('\n');
+
+/// Record the failure before taking the context snapshot. Keep the stored
+/// record independent of the report so reports never recursively embed reports.
+String formatDiagnosticError(
+  Object error, [
+  StackTrace? stackTrace,
+  String? diagnostics,
+]) {
+  final details = StringBuffer()
+    ..writeln('Error: $error')
+    ..writeln('Type: ${error.runtimeType}');
+  if (stackTrace != null) {
+    details
+      ..writeln()
+      ..writeln('Stack trace:')
+      ..write(stackTrace);
+  }
+  if (diagnostics != null && diagnostics.isNotEmpty) {
+    details
+      ..writeln()
+      ..writeln()
+      ..write(diagnostics);
+  }
+  recordErrorReport('${DateTime.now().toIso8601String()} ERROR: $details');
+  return sanitizeDiagnosticText('${buildErrorReportContext()}\n\n$details');
+}

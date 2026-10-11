@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'package:senpwai/ui/shared/window_manager.dart';
 Future<void> initApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   setupLogger();
+  WidgetsBinding.instance.addObserver(_LogLifecycleObserver());
   _configureErrorHandling();
   await initializeErrorReports();
   await AppPersistence.initialize();
@@ -43,7 +45,7 @@ void _configureErrorHandling() {
       details.stack,
       '$diagnostics\nFlutter diagnostic details:\n${details.toString()}',
     );
-    recordErrorReport(report);
+    recordErrorReport(report, remember: false);
     if (context != null) {
       AppToast.showErrorDeferred(
         context,
@@ -58,7 +60,7 @@ void _configureErrorHandling() {
     final context = App.navigatorKey.currentContext;
     final diagnostics = buildAppErrorDiagnostics(context);
     final report = formatErrorForCopy(error, stack, diagnostics);
-    recordErrorReport(report);
+    recordErrorReport(report, remember: false);
     if (context != null) {
       AppToast.showErrorDeferred(
         context,
@@ -82,4 +84,15 @@ void _initNetworkErrorHandling() {
       description: 'Network requests will retry when you reconnect.',
     );
   });
+}
+
+class _LogLifecycleObserver with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      unawaited(flushAppLogs());
+    }
+  }
 }

@@ -2,13 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/ui/components/app.dart';
 import 'package:senpwai/ui/components/app_bootstrap.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/shared/window_manager.dart';
 import 'package:senpwai/shared/source_directory/source_directory.dart';
 
-void main() async {
+Future<void> main() => runWithLogCapture(_runApp);
+
+Future<void> _runApp() async {
   await initApp();
   runApp(const ProviderScope(child: App()));
   _showSourceDirectoryUpdate();

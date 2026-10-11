@@ -355,6 +355,8 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
   void _onTaskData(Object data) {
     final message = _mapString(data);
     switch (_string(message['kind'])) {
+      case 'diagnosticLog':
+        receiveDiagnosticLog(_string(message['text']));
       case 'state':
         final encodedState = _map(message['state']);
         final next = traceSync(
@@ -412,9 +414,9 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
 }
 
 @pragma('vm:entry-point')
-void startDownloadForegroundTask() {
+void startDownloadForegroundTask() => runWithLogCapture(() {
   FlutterForegroundTask.setTaskHandler(_DownloadForegroundTaskHandler());
-}
+});
 
 class _DownloadForegroundTaskHandler extends TaskHandler {
   static const _minimumNotificationInterval = Duration(seconds: 1);
@@ -441,9 +443,17 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     DartPluginRegistrant.ensureInitialized();
-    setupLogger();
+    setupLogger(
+      forwardDiagnosticLog: (text) => FlutterForegroundTask.sendDataToMain({
+        'kind': 'diagnosticLog',
+        'text': text,
+      }),
+    );
     final paths = await AppPaths.initialize();
-    await configureFileLogging(paths.logsDirectory);
+    await configureFileLogging(
+      paths.logsDirectory,
+      fileName: 'downloads-foreground.log',
+    );
     _log.infoWithMetadata(
       'Download foreground task started',
       metadata: {
@@ -520,11 +530,15 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
         'isTimeout': isTimeout,
       },
     );
-    _idleNotificationTimer?.cancel();
-    await _stateSubscription?.cancel();
-    await _updateStateSubscription?.cancel();
-    await _stateHandling;
-    await _runtime?.dispose();
+    try {
+      _idleNotificationTimer?.cancel();
+      await _stateSubscription?.cancel();
+      await _updateStateSubscription?.cancel();
+      await _stateHandling;
+      await _runtime?.dispose();
+    } finally {
+      await flushAppLogs();
+    }
   }
 
   @override

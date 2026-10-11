@@ -276,6 +276,7 @@ class UpdateController extends Notifier<UpdateState> {
     if (Platform.isMacOS) {
       state = state.copyWith(phase: UpdatePhase.installing, clearError: true);
       try {
+        await flushAppLogs();
         await _macOsBridge.installAndRestart();
         return UpdateInstallDisposition.applicationWillRestart;
       } catch (error) {
@@ -324,6 +325,7 @@ class UpdateController extends Notifier<UpdateState> {
     _busy = true;
     state = state.copyWith(phase: UpdatePhase.installing, clearError: true);
     try {
+      await flushAppLogs();
       final disposition = await _installer.installAndRestart(
         preparedArtifact,
         release,

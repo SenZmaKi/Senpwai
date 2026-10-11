@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:toastification/toastification.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/shared/error_report.dart';
-import 'package:senpwai/shared/log.dart';
 
 class AppToast {
   AppToast._();
@@ -221,23 +220,4 @@ String formatErrorForCopy(
   Object error, [
   StackTrace? stackTrace,
   String? diagnostics,
-]) {
-  final buf = StringBuffer()
-    ..writeln(buildErrorReportContext())
-    ..writeln()
-    ..writeln('Error: $error')
-    ..writeln('Type: ${error.runtimeType}');
-  if (stackTrace != null) {
-    buf
-      ..writeln()
-      ..writeln('Stack trace:')
-      ..write(stackTrace);
-  }
-  if (diagnostics != null && diagnostics.isNotEmpty) {
-    buf
-      ..writeln()
-      ..writeln()
-      ..write(diagnostics);
-  }
-  return sanitizeDiagnosticText(buf.toString());
-}
+]) => formatDiagnosticError(error, stackTrace, diagnostics);

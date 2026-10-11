@@ -75,6 +75,7 @@ class DesktopTrayController with TrayListener {
     try {
       await trayManager.destroy();
       await windowManager.setPreventClose(false);
+      await flushAppLogs();
       await windowManager.destroy();
     } on Object catch (error, stackTrace) {
       _log.severeWithMetadata(
@@ -240,7 +241,9 @@ class DesktopTrayController with TrayListener {
       throw MissingPluginException('Unsupported method: ${call.method}');
     }
     if (_quitting) return true;
-    return _requestExit(DesktopExitRequest.systemQuit);
+    final shouldQuit = await _requestExit(DesktopExitRequest.systemQuit);
+    if (shouldQuit) await flushAppLogs();
+    return shouldQuit;
   }
 
   Future<void> _handleWindowReopen(MethodCall call) async {

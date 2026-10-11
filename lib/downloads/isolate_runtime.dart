@@ -8,6 +8,7 @@ import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/runtime_codec.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/log.dart';
+import 'package:senpwai/shared/error_report.dart';
 import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/shared/performance_trace.dart';
 import 'package:senpwai/updates/models.dart';
@@ -35,6 +36,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
     'downloads.main_isolate_state_rate',
   );
 
+  final _stopped = Completer<void>();
   Isolate? _isolate;
   SendPort? _commandPort;
   ReceivePort? _receivePort;
@@ -199,6 +201,13 @@ class DownloadIsolateRuntime implements DownloadRuntime {
       }
     }
     _pendingRequests.clear();
+    if (port != null) {
+      try {
+        await _stopped.future.timeout(const Duration(seconds: 15));
+      } on TimeoutException {
+        /* Forced termination cannot guarantee delivery of pending logs. */
+      }
+    }
     _receivePort?.close();
     _isolate?.kill(priority: Isolate.beforeNextEvent);
     await _stateController.close();
@@ -285,6 +294,10 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   void _onIsolateMessage(Object? data) {
     final message = _mapString(data);
     switch (_string(message['kind'])) {
+      case 'diagnosticLog':
+        receiveDiagnosticLog(_string(message['text']));
+      case 'stopped':
+        if (!_stopped.isCompleted) _stopped.complete();
       case 'ready':
         _commandPort = message['sendPort'] as SendPort?;
         final stateValue = message['state'];
@@ -371,7 +384,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
     onError(
       title: 'Download engine failed',
       description: '$error',
-      copyPayload: '$error\n\n$stackTrace',
+      copyPayload: formatDiagnosticError(error, stackTrace),
     );
   }
 
@@ -382,9 +395,16 @@ class DownloadIsolateRuntime implements DownloadRuntime {
 }
 
 @pragma('vm:entry-point')
-Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
+Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) =>
+    runWithLogCapture(() => _runDownloadIsolate(config));
+
+Future<void> _runDownloadIsolate(Map<Object?, Object?> config) async {
   DartPluginRegistrant.ensureInitialized();
-  setupLogger();
+  final mainPort = config['sendPort'] as SendPort;
+  setupLogger(
+    forwardDiagnosticLog: (text) =>
+        mainPort.send({'kind': 'diagnosticLog', 'text': text}),
+  );
   final appDataRootPath = _string(config['appDataRootPath']);
   if (appDataRootPath.isEmpty) {
     throw StateError('Download isolate app data path is missing.');
@@ -393,9 +413,8 @@ Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
   // on macOS. The main isolate has already resolved this application path, so
   // use the explicit root and keep download-engine startup plugin-free.
   final paths = await AppPaths.fromRootDirectory(Directory(appDataRootPath));
-  await configureFileLogging(paths.logsDirectory);
+  await configureFileLogging(paths.logsDirectory, fileName: 'downloads.log');
 
-  final mainPort = config['sendPort'] as SendPort;
   final commandPort = ReceivePort();
   InProcessDownloadRuntime? runtime;
   StreamSubscription<DownloadManagerState>? stateSubscription;
@@ -483,10 +502,15 @@ Future<void> _downloadIsolateEntry(Map<Object?, Object?> config) async {
       'stackTrace': '$stackTrace',
     });
   } finally {
-    await stateSubscription?.cancel();
-    await updateStateSubscription?.cancel();
-    await runtime?.dispose();
-    commandPort.close();
+    try {
+      await stateSubscription?.cancel();
+      await updateStateSubscription?.cancel();
+      await runtime?.dispose();
+    } finally {
+      await flushAppLogs();
+      mainPort.send({'kind': 'stopped'});
+      commandPort.close();
+    }
   }
 }
 
