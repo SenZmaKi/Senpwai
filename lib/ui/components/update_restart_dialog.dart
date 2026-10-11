@@ -21,8 +21,8 @@ class UpdateRestartDialog extends StatelessWidget {
       title: const Text('Transfers still running'),
       content: Text(
         '$total ${total == 1 ? 'transfer is' : 'transfers are'} still active. '
-        'Continuing will cancel ${total == 1 ? 'it' : 'them'} before Senpwai '
-        '$action. The prepared update can wait until you finish.',
+        'Progress will be saved before Senpwai proceeds to '
+        '$action. Downloads will resume when the app reopens.',
       ),
       actions: [
         TextButton(
@@ -33,8 +33,8 @@ class UpdateRestartDialog extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(true),
           child: Text(
             Platform.isAndroid
-                ? 'Cancel transfers and install'
-                : 'Cancel transfers and restart',
+                ? 'Save progress and install'
+                : 'Save progress and restart',
           ),
         ),
       ],

@@ -6,7 +6,12 @@ import 'package:senpwai/shared/net/http2_preferred_adapter.dart';
 import 'package:senpwai/shared/net/interceptors/connectivity.dart';
 
 Dio createDownloadDio({required String userAgent}) {
-  final dio = Dio();
+  final dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 20),
+      receiveTimeout: const Duration(seconds: 30),
+    ),
+  );
   HttpTransportConfig(userAgent: userAgent).attachToDio(dio);
   preferHttp2(dio);
   dio.interceptors.add(ConnectivityInterceptor(dio));

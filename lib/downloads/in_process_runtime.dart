@@ -1,5 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:logging/logging.dart';
+import 'repository.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -19,11 +23,17 @@ import 'package:senpwai/shared/persistence/app_paths.dart';
 import 'package:senpwai/updates/models.dart';
 import 'package:senpwai/updates/update_transfer.dart';
 
-typedef DownloadRuntimeErrorHandler = void Function({
-  required String title,
-  required String description,
-  String? copyPayload,
-});
+part 'runtime_persistence.dart';
+part 'runtime_http.dart';
+
+final _persistenceLog = Logger('senpwai.downloads.persistence');
+
+typedef DownloadRuntimeErrorHandler =
+    void Function({
+      required String title,
+      required String description,
+      String? copyPayload,
+    });
 
 abstract class DownloadRuntime {
   DownloadManagerState get currentState;
@@ -54,6 +64,7 @@ abstract class DownloadRuntime {
   });
   void updateTorrentSettings(TorrentPreferences settings);
   void updateNotificationSettings(NotificationPreferences settings);
+  Future<void> checkpoint();
   Future<void> dispose();
 }
 
@@ -68,6 +79,8 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   final Map<String, _ActiveTorrentDownload> _torrentDownloads = {};
   final Map<String, _ActiveMockDownload> _mockDownloads = {};
   final Map<String, void Function()> _pendingStarters = {};
+  final _scheduledStarts = <String, (int, void Function())>{};
+  int _startSequence = 0;
   final _stateController = StreamController<DownloadManagerState>.broadcast();
   Session? _torrentSession;
   late TorrentPreferences _torrentSettings;
@@ -78,6 +91,28 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   Timer? _progressPublishTimer;
   bool _progressStateDirty = false;
   int _idCounter = 0;
+  late final DownloadRepository _repository;
+  late final Directory _recoveryDirectory;
+  final Future<PreparedHttpDownloadJob> Function(PreparedHttpDownloadJob)?
+  refreshHttp;
+  final _jobs = <String, PreparedDownloadJob>{};
+  final _userPaused = <String>{};
+  final _seedStarted = <String, DateTime>{};
+  final _uploaded = <String, int>{};
+  final _generations = <String, int>{};
+  final _retryTimers = <String, Timer>{};
+  final _retryCounts = <String, int>{};
+  final _refreshRequired = <String>{};
+  final _closingTransfers = <String>{};
+  final _torrentSaves = <String, Future<void>>{};
+  Timer? _checkpointTimer;
+  Future<void>? _initialization;
+  Future<void> _enqueueTail = Future.value();
+  Future<void>? _checkpointing;
+  bool _initialized = false;
+  bool _closing = false;
+  bool _persistenceErrorShown = false;
+  bool _mockMode = false;
 
   InProcessDownloadRuntime({
     required String downloadUserAgent,
@@ -87,20 +122,33 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     required TorrentPreferences initialTorrentSettings,
     required AppPaths paths,
     required this.onError,
+    this.refreshHttp,
   }) : _downloadDio = createDownloadDio(userAgent: downloadUserAgent),
        _maxActiveHttpDownloads = initialMaxActiveHttpDownloads,
        _httpConnectionsPerDownload = initialHttpConnectionsPerDownload,
        _torrentSettings = initialTorrentSettings {
+    _repository = DownloadRepository(
+      File(path.join(paths.stateDirectory.path, 'downloads.json')),
+    );
+    _recoveryDirectory = Directory(
+      path.join(paths.stateDirectory.path, 'download_recovery'),
+    );
     _updateTransfer = UpdateTransfer(paths: paths, dio: _downloadDio);
     DownloadConfig.getInstance().updateMaxBytesPerSecond(
       initialMaxDownloadBytesPerSecond.toDouble(),
     );
   }
 
+  Future<void> initialize() => _initialization ??= _restore();
+
+  @override
+  Future<void> checkpoint() => _checkpointAll();
+
   DownloadManagerState get state => _state;
 
   set state(DownloadManagerState next) {
     _state = next;
+    _scheduleQueueSave();
     _publishStateImmediately();
   }
 
@@ -143,9 +191,46 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   Future<void> cancelUpdateDownload() => _updateTransfer.cancel();
 
   @override
-  Future<EnqueuedDownloadsResult> enqueueBatch(
+  Future<EnqueuedDownloadsResult> enqueueBatch(PreparedDownloadBatch batch) {
+    final operation = _enqueueTail.then((_) => _enqueueBatch(batch));
+    _enqueueTail = operation.then<void>((_) {}).catchError((Object _) {});
+    return operation;
+  }
+
+  Future<EnqueuedDownloadsResult> _enqueueBatch(
     PreparedDownloadBatch batch,
   ) async {
+    await initialize();
+    if (_closing) throw StateError('Download runtime is shutting down.');
+    if (_mockMode) {
+      throw StateError(
+        'Restart the app before creating real downloads after a mock preview.',
+      );
+    }
+    for (final job in batch.jobs) {
+      DownloadRepository.validateJob(job);
+    }
+    // A payload must have one writer. Reject overlapping output paths before
+    // creating any runtimes, including two selections within the same batch.
+    final targets = <String>{
+      for (final item in state.items.where(
+        (i) => !i.status.isTerminal || _closingTransfers.contains(i.id),
+      ))
+        ...item.filePaths.map((p) => path.normalize(path.absolute(p))),
+    };
+    for (final job in batch.jobs) {
+      final paths = switch (job) {
+        PreparedHttpDownloadJob() => [job.targetFilePath],
+        PreparedTorrentDownloadJob() => job.selectedFilePaths,
+      };
+      for (final target in paths) {
+        if (!targets.add(path.normalize(path.absolute(target)))) {
+          throw StateError(
+            'A download already owns this destination: ${path.basename(target)}',
+          );
+        }
+      }
+    }
     if (batch.jobs.isEmpty) {
       return EnqueuedDownloadsResult(queuedCount: 0, notices: batch.notices);
     }
@@ -170,6 +255,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
         itemIds: itemIds,
       ),
     );
+    await _saveQueue();
     _maybePromote();
     return EnqueuedDownloadsResult(
       queuedCount: batch.jobs.length,
@@ -181,155 +267,172 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   @override
   Future<void> pause(String id) async {
     if (!_canPauseItem(id)) return;
-
-    final mock = _mockDownloads[id];
-    if (mock != null) {
-      _updateItem(
-        id,
-        (item) => item.copyWith(
-          status: DownloadQueueStatus.paused,
-          bytesPerSecond: 0,
-        ),
-      );
-      return;
-    }
-
+    _userPaused.add(id);
+    _retryTimers.remove(id)?.cancel();
     final http = _httpDownloads[id];
-    if (http != null) {
-      http.download.state.pause();
-      _updateItem(
-        id,
-        (item) => item.copyWith(
-          status: DownloadQueueStatus.paused,
-          bytesPerSecond: 0,
-        ),
-      );
-      return;
-    }
-
     final torrent = _torrentDownloads[id];
+    if (http == null) _invalidateRecovery(id);
+    http?.download.state.pause();
+    torrent?.handle.pause();
     if (torrent != null) {
       torrent.pausedForSeedSlot = false;
-      torrent.handle.pause();
-      _updateItem(
-        id,
-        (item) => item.copyWith(
-          status: DownloadQueueStatus.paused,
-          bytesPerSecond: 0,
-        ),
-      );
+      torrent.pausedForDownloadSlot = false;
     }
+    _updateItem(
+      id,
+      (i) => i.copyWith(status: DownloadQueueStatus.paused, bytesPerSecond: 0),
+    );
+    try {
+      if (http != null) await http.download.checkpoint();
+      if (torrent != null) await _saveTorrent(id, torrent);
+      await _saveQueue();
+    } on Object catch (e, st) {
+      _reportPersistenceError(e, st);
+    }
+    _maybePromote();
   }
 
   @override
   Future<void> resume(String id) async {
     if (!_canResumeItem(id)) return;
-
-    final mock = _mockDownloads[id];
-    if (mock != null) {
-      _updateItem(
-        id,
-        (item) => item.copyWith(
-          status: DownloadQueueStatus.downloading,
-          clearError: true,
-        ),
-      );
-      return;
-    }
-
+    _userPaused.remove(id);
+    _retryCounts.remove(id);
+    final item = _findItem(id)!;
+    _ensureBatch(item);
     final http = _httpDownloads[id];
-    if (http != null) {
-      if (_httpSlotsAvailable() <= 0) return;
-      http.download.state.resume();
-      _updateItem(
-        id,
-        (item) => item.copyWith(
-          status: DownloadQueueStatus.downloading,
-          clearError: true,
-        ),
-      );
-      return;
-    }
-
     final torrent = _torrentDownloads[id];
-    if (torrent != null) {
-      if (torrent.seedingStartedAt == null && _torrentSlotsAvailable() <= 0) {
-        return;
+    _updateItem(
+      id,
+      (i) => i.copyWith(status: DownloadQueueStatus.queued, clearError: true),
+    );
+    if (http != null || torrent != null) {
+      _pendingStarters.putIfAbsent(
+        id,
+        () => () {
+          if (http != null) {
+            http.pausedForQueueSlot = false;
+            http.download.state.resume();
+          }
+          if (torrent != null) {
+            torrent.pausedForDownloadSlot = false;
+            torrent.pausedForSeedSlot = false;
+            torrent.handle.resume();
+            _reconcileSeedSlots();
+          }
+        },
+      );
+    } else if (_jobs[id] case final PreparedDownloadJob job) {
+      _invalidateRecovery(id);
+      switch (job) {
+        case PreparedHttpDownloadJob():
+          _pendingStarters[id] = () => unawaited(_startHttp(id));
+        case PreparedTorrentDownloadJob():
+          await _enqueueTorrent(job, batchId: item.batchId, restoredItem: item);
       }
-      torrent.pausedForSeedSlot = false;
-      torrent.handle.resume();
+    } else if (_mockDownloads.containsKey(id)) {
       _updateItem(
         id,
-        (item) => item.copyWith(
-          status: torrent.seedingStartedAt != null
-              ? DownloadQueueStatus.seeding
-              : DownloadQueueStatus.downloading,
-          clearError: true,
-        ),
+        (i) => i.copyWith(status: DownloadQueueStatus.downloading),
       );
     }
+    await _saveQueue();
+    _maybePromote();
   }
 
   @override
   Future<void> cancel(String id) async {
     if (!_canCancelItem(id)) return;
-
-    _pendingStarters.remove(id);
-    final mock = _mockDownloads.remove(id);
-    if (mock != null) {
-      mock.timer.cancel();
+    _closingTransfers.add(id);
+    try {
+      final cancellingItem = _findItem(id)!;
+      final keepCompleted = cancellingItem.isSeedingPhase;
+      _invalidateRecovery(id);
+      _userPaused.remove(id);
       _updateItem(
         id,
-        (item) => item.copyWith(
-          status: DownloadQueueStatus.cancelled,
-          bytesPerSecond: 0,
-        ),
-      );
-      _removeItemFromBatch(id);
-      _maybePromote();
-      return;
-    }
-
-    final http = _httpDownloads.remove(id);
-    if (http != null) {
-      await http.download.state.cancel();
-      await http.dispose();
-      _updateItem(
-        id,
-        (item) => item.copyWith(
-          status: DownloadQueueStatus.cancelled,
-          bytesPerSecond: 0,
-        ),
-      );
-      _removeItemFromBatch(id);
-      _maybePromote();
-      return;
-    }
-
-    final torrent = _torrentDownloads.remove(id);
-    if (torrent != null) {
-      final item = _findItem(id);
-      final wasSeeding =
-          torrent.seedingStartedAt != null ||
-          item?.status == DownloadQueueStatus.seeding;
-      await torrent.subscription.cancel();
-      if (wasSeeding) {
-        _torrentSession?.removeTorrent(torrent.handle, deleteFiles: false);
-      } else {
-        torrent.handle.cancel(deleteFiles: true, deletePartfile: true);
-      }
-      _updateItem(
-        id,
-        (item) => item.copyWith(
-          status: wasSeeding
+        (i) => i.copyWith(
+          status: keepCompleted
               ? DownloadQueueStatus.completed
               : DownloadQueueStatus.cancelled,
           bytesPerSecond: 0,
         ),
       );
+      _httpDownloads[id]?.download.state.pause();
+      _torrentDownloads[id]?.handle.pause();
+      await _saveQueue().catchError(_reportPersistenceError);
+      _pendingStarters.remove(id);
+      final mock = _mockDownloads.remove(id);
+      if (mock != null) {
+        mock.timer.cancel();
+        _updateItem(
+          id,
+          (item) => item.copyWith(
+            status: DownloadQueueStatus.cancelled,
+            bytesPerSecond: 0,
+          ),
+        );
+        _removeItemFromBatch(id);
+        _maybePromote();
+        return;
+      }
+
+      final http = _httpDownloads.remove(id);
+      if (http != null) {
+        await http.download.cancel();
+        await http.dispose();
+        _updateItem(
+          id,
+          (item) => item.copyWith(
+            status: DownloadQueueStatus.cancelled,
+            bytesPerSecond: 0,
+          ),
+        );
+        _removeItemFromBatch(id);
+        _maybePromote();
+        return;
+      }
+
+      final torrent = _torrentDownloads.remove(id);
+      if (torrent != null) {
+        final item = _findItem(id);
+        final wasSeeding =
+            torrent.seedingStartedAt != null ||
+            item?.status == DownloadQueueStatus.seeding;
+        await torrent.subscription.cancel();
+        if (wasSeeding) {
+          _torrentSession?.removeTorrent(torrent.handle, deleteFiles: false);
+        } else {
+          torrent.handle.cancel(deleteFiles: true, deletePartfile: true);
+        }
+        _updateItem(
+          id,
+          (item) => item.copyWith(
+            status: wasSeeding
+                ? DownloadQueueStatus.completed
+                : DownloadQueueStatus.cancelled,
+            bytesPerSecond: 0,
+          ),
+        );
+        _removeItemFromBatch(id);
+        _reconcileSeedSlots();
+        _maybePromote();
+        return;
+      }
+      if (_jobs[id] case final PreparedHttpDownloadJob job) {
+        final partial = File('${job.targetFilePath}.senpwai-part');
+        if (await partial.exists()) await partial.delete();
+      }
+      for (final file in [
+        _resumeFile(id),
+        _httpCheckpointFile(id),
+        File('${_httpCheckpointFile(id).path}.bak'),
+      ]) {
+        if (await file.exists()) await file.delete();
+      }
       _removeItemFromBatch(id);
-      _reconcileSeedSlots();
       _maybePromote();
+    } finally {
+      _closingTransfers.remove(id);
     }
   }
 
@@ -339,8 +442,9 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     for (final id in itemIds) {
       final item = _findItem(id);
       if (item == null) continue;
-      if (item.status == DownloadQueueStatus.downloading ||
-          item.status == DownloadQueueStatus.seeding) {
+      if (!item.status.isTerminal &&
+          item.status != DownloadQueueStatus.paused &&
+          item.status != DownloadQueueStatus.needsAction) {
         await pause(id);
       }
     }
@@ -352,8 +456,8 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     for (final id in itemIds) {
       final item = _findItem(id);
       if (item == null) continue;
-      if (item.status == DownloadQueueStatus.paused &&
-          (_isActiveBatch(batchId) || item.isSeedingPhase)) {
+      if (item.status == DownloadQueueStatus.paused ||
+          item.status == DownloadQueueStatus.needsAction) {
         await resume(id);
       }
     }
@@ -387,14 +491,40 @@ class InProcessDownloadRuntime implements DownloadRuntime {
 
   @override
   Future<void> dispose() async {
-    _progressPublishTimer?.cancel();
-    _progressPublishTimer = null;
-    _progressStateDirty = false;
-    for (final runtime in _httpDownloads.values) {
-      unawaited(runtime.dispose());
+    if (_closing) return;
+    _closing = true;
+    _checkpointTimer?.cancel();
+    for (final timer in _retryTimers.values) {
+      timer.cancel();
     }
-    for (final runtime in _torrentDownloads.values) {
-      unawaited(runtime.subscription.cancel());
+    _progressPublishTimer?.cancel();
+    try {
+      await _checkpointing;
+    } on Object catch (e, st) {
+      _reportPersistenceError(e, st);
+    }
+    try {
+      await _checkpointAll();
+    } on Object catch (e, st) {
+      _reportPersistenceError(e, st);
+    }
+    for (final runtime in _httpDownloads.values.toList()) {
+      try {
+        await runtime.download.suspend();
+      } on Object catch (e, st) {
+        _reportPersistenceError(e, st);
+      }
+      await runtime.dispose();
+    }
+    for (final runtime in _torrentDownloads.values.toList()) {
+      await runtime.subscription.cancel();
+    }
+    for (final save in _torrentSaves.values.toList()) {
+      try {
+        await save;
+      } on Object catch (e, st) {
+        _reportPersistenceError(e, st);
+      }
     }
     for (final runtime in _mockDownloads.values) {
       runtime.timer.cancel();
@@ -404,14 +534,21 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     _torrentSession?.close();
     _torrentSession = null;
     _mockDownloads.clear();
+    try {
+      await _saveQueue();
+    } on Object catch (e, st) {
+      _reportPersistenceError(e, st);
+    }
     await _updateTransfer.dispose();
     _downloadDio.close(force: true);
+    await _repository.close();
     await _stateController.close();
   }
 
   @override
   void seedMockDownloads() {
-    if (!kDebugMode) return;
+    if (!kDebugMode || state.items.any((i) => !i.status.isTerminal)) return;
+    _mockMode = true;
     for (final runtime in _httpDownloads.values) {
       unawaited(runtime.dispose());
     }
@@ -503,170 +640,81 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     _maybePromote();
   }
 
-  Future<String> _enqueueHttp(
-    PreparedHttpDownloadJob job, {
-    required String batchId,
-  }) async {
-    final id = _nextId();
-    final params = DownloadParams(
-      url: job.resolvedUrl,
-      targetFile: File(job.targetFilePath),
-      sizeBytes: job.totalBytes,
-      numberOfParts:
-          _httpConnectionsPerDownload ==
-              DownloadPreferences.automaticConnectionsPerDownload
-          ? _recommendedPartCount(job.totalBytes)
-          : _httpConnectionsPerDownload,
-      headers: job.headers,
-    );
-    final download = Download(params: params, dio: _downloadDio);
-    final progressSub = download.state.progressStream.listen((progress) {
-      _httpProgressRate.record(units: progress.bytesDownloaded);
-      _updateItem(
-        id,
-        (item) => item.copyWith(
-          status: download.state.isPaused
-              ? DownloadQueueStatus.paused
-              : DownloadQueueStatus.downloading,
-          downloadedBytes: (item.downloadedBytes + progress.bytesDownloaded)
-              .clamp(0, item.totalBytes),
-          bytesPerSecond: download.state.rateTracker.bytesPerSecond,
-        ),
-        publishImmediately: false,
-      );
-    });
-    final rateSub = download.state.rateTracker.updateStream.listen((bps) {
-      _updateItem(id, (item) {
-        if (item.status != DownloadQueueStatus.downloading) {
-          return item.copyWith(bytesPerSecond: 0);
-        }
-        return item.copyWith(bytesPerSecond: bps);
-      }, publishImmediately: false);
-    });
-    final statusSub = download.state.statusStream.listen((status) async {
-      switch (status) {
-        case DownloadStatus.downloading:
-          _updateItem(
-            id,
-            (item) => item.copyWith(
-              status: DownloadQueueStatus.downloading,
-              clearError: true,
-            ),
-          );
-        case DownloadStatus.paused:
-          _updateItem(
-            id,
-            (item) => item.copyWith(
-              status: _httpDownloads[id]?.pausedForQueueSlot == true
-                  ? DownloadQueueStatus.queued
-                  : DownloadQueueStatus.paused,
-              bytesPerSecond: 0,
-            ),
-          );
-        case DownloadStatus.completed:
-          await _disposeHttpRuntime(id);
-          _updateItem(
-            id,
-            (item) => item.copyWith(
-              status: DownloadQueueStatus.completed,
-              downloadedBytes: item.totalBytes,
-              bytesPerSecond: 0,
-              filePaths: [job.targetFilePath],
-            ),
-          );
-          _maybePromote();
-        case DownloadStatus.cancelled:
-          await _disposeHttpRuntime(id);
-          _updateItem(
-            id,
-            (item) => item.copyWith(
-              status: DownloadQueueStatus.cancelled,
-              bytesPerSecond: 0,
-            ),
-          );
-          _maybePromote();
-        case DownloadStatus.failed:
-          await _disposeHttpRuntime(id);
-          final message = 'Failed to download ${job.displayTitle}.';
-          _failItem(
-            id,
-            title: 'Download failed',
-            description: message,
-            copyPayload: null,
-          );
-          _showGlobalError(title: 'Download failed', description: message);
-          _maybePromote();
-        case DownloadStatus.idle:
-          break;
-      }
-    });
-
-    _httpDownloads[id] = _ActiveHttpDownload(
-      download: download,
-      progressSub: progressSub,
-      rateSub: rateSub,
-      statusSub: statusSub,
-    );
-    _appendItem(
-      DownloadQueueItem(
-        id: id,
-        batchId: batchId,
-        source: job.source,
-        animeTitle: job.animeTitle,
-        displayTitle: job.displayTitle,
-        destinationDirectory: job.destinationDirectory,
-        status: DownloadQueueStatus.queued,
-        totalBytes: job.totalBytes,
-        downloadedBytes: 0,
-        bytesPerSecond: 0,
-        createdAt: DateTime.now(),
-        filePaths: [job.targetFilePath],
-      ),
-    );
-
-    _pendingStarters[id] = () {
-      unawaited(
-        download.startAndWait().catchError((error, stackTrace) async {
-          await _disposeHttpRuntime(id);
-          _failItem(
-            id,
-            title: 'Download failed',
-            description: 'Failed to download ${job.displayTitle}.',
-            copyPayload: _formatErrorForCopy(error, stackTrace),
-          );
-          _showGlobalError(
-            title: 'Download failed',
-            description: 'Failed to download ${job.displayTitle}.',
-            copyPayload: _formatErrorForCopy(error, stackTrace),
-          );
-          _maybePromote();
-        }),
-      );
-    };
-    return id;
-  }
-
   Future<String> _enqueueTorrent(
     PreparedTorrentDownloadJob job, {
     required String batchId,
+    DownloadQueueItem? restoredItem,
   }) async {
-    final id = _nextId();
-    final session = _getTorrentSession();
+    final id = restoredItem?.id ?? _nextId();
+    _jobs[id] = job;
+    final generation = _generations[id] ?? 0;
     try {
+      final session = _getTorrentSession();
       await Directory(job.destinationDirectory).create(recursive: true);
       for (final filePath in job.selectedFilePaths) {
         await Directory(path.dirname(filePath)).create(recursive: true);
       }
-      final handle = session.addTorrentData(
-        torrentData: job.torrentData,
-        savePath: job.destinationDirectory,
-        renamedFiles: _validatedTorrentRenamePaths(
-          job.renamedFilePaths,
-          savePath: job.destinationDirectory,
+      Uint8List? resume;
+      final resumeFile = _resumeFile(id);
+      if (await resumeFile.exists()) resume = await resumeFile.readAsBytes();
+      if (restoredItem != null &&
+          (!_currentAttempt(id, generation) && !_userPaused.contains(id))) {
+        return id;
+      }
+      TorrentHandle add(Uint8List? data) => session.addTorrentFromTags([
+        LibtorrentTagItem.bytesValue(LibtorrentTag.torTorrent, job.torrentData),
+        LibtorrentTagItem.intValue(
+          LibtorrentTag.torTorrentSize,
+          job.torrentData.length,
         ),
-      );
+        LibtorrentTagItem.stringValue(
+          LibtorrentTag.torSavePath,
+          job.destinationDirectory,
+        ),
+        LibtorrentTagItem.intValue(LibtorrentTag.torPaused, 1),
+        LibtorrentTagItem.intValue(LibtorrentTag.torDuplicateIsError, 1),
+        LibtorrentTagItem.intValue(LibtorrentTag.torAutoManaged, 0),
+        LibtorrentTagItem.renamedFilesValue(
+          LibtorrentTag.torRenamedFiles,
+          _validatedTorrentRenamePaths(
+                job.renamedFilePaths,
+                savePath: job.destinationDirectory,
+              ) ??
+              const {},
+        ),
+        if (data != null) ...[
+          LibtorrentTagItem.bytesValue(LibtorrentTag.torResumeData, data),
+          LibtorrentTagItem.intValue(
+            LibtorrentTag.torResumeDataSize,
+            data.length,
+          ),
+        ],
+      ]);
+      late TorrentHandle handle;
+      try {
+        handle = add(resume);
+      } on Object catch (e, st) {
+        if (resume == null) rethrow;
+        _persistenceLog.warning(
+          'Native resume rejected; checking retained files',
+          e,
+          st,
+        );
+        handle = add(null);
+      }
       handle.unsetFlags(LibtorrentTorrentFlags.autoManaged);
       final torrentFiles = handle.getFiles();
+      if (job.selectedFileIndices.any((i) => i >= torrentFiles.length) ||
+          job.selectedFileIndices.fold<int>(
+                0,
+                (sum, i) => sum + torrentFiles[i].size,
+              ) !=
+              job.totalBytes) {
+        session.removeTorrent(handle, deleteFiles: false);
+        throw StateError(
+          'Saved torrent selection does not match its metadata.',
+        );
+      }
       final selectedFileSizes = <int, int>{
         for (final file in torrentFiles) file.index: file.size,
       };
@@ -679,6 +727,9 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       late final _ActiveTorrentDownload activeDownload;
       final subscription = handle.listenProgress(
         onData: (status) {
+          if (_closing || !identical(_torrentDownloads[id], activeDownload)) {
+            return;
+          }
           if (status.error.isNotEmpty) {
             _disposeTorrentRuntime(id, deleteFiles: false);
             _failItem(
@@ -718,23 +769,25 @@ class InProcessDownloadRuntime implements DownloadRuntime {
               activeDownload.seedingStartedAt == null;
           if (beganSeeding) {
             activeDownload.seedingStartedAt = DateTime.now();
+            _seedStarted[id] = activeDownload.seedingStartedAt!;
             _reconcileSeedSlots();
           }
 
+          _uploaded[id] = activeDownload.uploadedBefore + status.totalUpload;
           final liveStats = TorrentLiveStats(
             uploadBytesPerSecond: status.uploadRate,
             numSeeds: status.numSeeds,
             numPeers: status.numPeers,
             listSeeds: status.listSeeds,
             listPeers: status.listPeers,
-            totalUploaded: status.totalUpload,
+            totalUploaded: activeDownload.uploadedBefore + status.totalUpload,
           );
 
           if (selectedFilesDownloaded &&
               _torrentSeedingTargetMet(
                 activeDownload,
                 job.totalBytes,
-                status.totalUpload,
+                activeDownload.uploadedBefore + status.totalUpload,
               )) {
             _disposeTorrentRuntime(id, deleteFiles: false);
             _updateItem(
@@ -776,9 +829,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
                 clearError: true,
               );
             }
-            final userPaused =
-                !activeDownload.pausedForSeedSlot &&
-                (status.paused || item.status == DownloadQueueStatus.paused);
+            final userPaused = _userPaused.contains(id);
             final seeding =
                 selectedFilesDownloaded &&
                 item.status != DownloadQueueStatus.paused;
@@ -814,35 +865,40 @@ class InProcessDownloadRuntime implements DownloadRuntime {
         selectedFileIndices: job.selectedFileIndices,
         selectedFileSizes: selectedFileSizes,
         selectedFilePaths: selectedFilePaths,
+        uploadedBefore: _uploaded[id] ?? 0,
       );
+      activeDownload.seedingStartedAt = _seedStarted[id];
       _prioritizeTorrentEpisodes(
         activeDownload,
         List<int>.filled(torrentFiles.length, 0),
       );
       _torrentDownloads[id] = activeDownload;
 
-      _appendItem(
-        DownloadQueueItem(
-          id: id,
-          batchId: batchId,
-          source: job.source,
-          animeTitle: job.animeTitle,
-          displayTitle: job.displayTitle,
-          destinationDirectory: job.destinationDirectory,
-          status: DownloadQueueStatus.queued,
-          totalBytes: job.totalBytes,
-          downloadedBytes: 0,
-          bytesPerSecond: 0,
-          createdAt: DateTime.now(),
-          filePaths: job.selectedFilePaths,
-          torrentFiles: _torrentFileProgress(
-            activeDownload,
-            List<int>.filled(torrentFiles.length, 0),
+      if (restoredItem == null) {
+        _appendItem(
+          DownloadQueueItem(
+            id: id,
+            batchId: batchId,
+            source: job.source,
+            animeTitle: job.animeTitle,
+            displayTitle: job.displayTitle,
+            destinationDirectory: job.destinationDirectory,
+            status: DownloadQueueStatus.queued,
+            totalBytes: job.totalBytes,
+            downloadedBytes: 0,
+            bytesPerSecond: 0,
+            createdAt: DateTime.now(),
+            filePaths: job.selectedFilePaths,
+            torrentFiles: _torrentFileProgress(
+              activeDownload,
+              List<int>.filled(torrentFiles.length, 0),
+            ),
           ),
-        ),
-      );
+        );
+      }
 
       _pendingStarters[id] = () {
+        activeDownload.pausedForDownloadSlot = false;
         // Flip pending → downloading so subsequent listener events stop
         // treating this item as never-started.
         _updateItem(
@@ -856,25 +912,36 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       };
     } catch (error, stackTrace) {
       _disposeTorrentRuntime(id, deleteFiles: false);
-      _appendItem(
-        DownloadQueueItem(
-          id: id,
-          batchId: batchId,
-          source: job.source,
-          animeTitle: job.animeTitle,
-          displayTitle: job.displayTitle,
-          destinationDirectory: job.destinationDirectory,
-          status: DownloadQueueStatus.failed,
-          totalBytes: job.totalBytes,
-          downloadedBytes: 0,
-          bytesPerSecond: 0,
-          createdAt: DateTime.now(),
-          filePaths: job.selectedFilePaths,
-          errorTitle: 'Torrent failed',
-          errorDescription: 'Failed to start ${job.displayTitle}.',
-          errorCopyPayload: _formatErrorForCopy(error, stackTrace),
-        ),
-      );
+      if (restoredItem == null) {
+        _appendItem(
+          DownloadQueueItem(
+            id: id,
+            batchId: batchId,
+            source: job.source,
+            animeTitle: job.animeTitle,
+            displayTitle: job.displayTitle,
+            destinationDirectory: job.destinationDirectory,
+            status: DownloadQueueStatus.failed,
+            totalBytes: job.totalBytes,
+            downloadedBytes: 0,
+            bytesPerSecond: 0,
+            createdAt: DateTime.now(),
+            filePaths: job.selectedFilePaths,
+            errorTitle: 'Torrent failed',
+            errorDescription: 'Failed to start ${job.displayTitle}.',
+            errorCopyPayload: _formatErrorForCopy(error, stackTrace),
+          ),
+        );
+      }
+      if (restoredItem != null) {
+        _failItem(
+          id,
+          title: 'Torrent recovery failed',
+          description:
+              'Could not restore ${job.displayTitle}. Retry to check retained files.',
+          copyPayload: _formatErrorForCopy(error, stackTrace),
+        );
+      }
       _showGlobalError(
         title: 'Torrent failed',
         description: 'Failed to start ${job.displayTitle}.',
@@ -1185,6 +1252,7 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   /// If no active batch is running, find the next batch with pending starters
   /// and kick it off. Also clears the active id if its batch is fully terminal.
   void _maybePromote() {
+    if (!_initialized || _closing) return;
     _dropTerminalBatches();
     final activeId = state.activeBatchId;
     if (activeId != null) {
@@ -1228,6 +1296,12 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     var httpSlots = _httpSlotsAvailable();
     var torrentSlots = _torrentSlotsAvailable();
     for (final id in batch.itemIds) {
+      final pendingItem = _findItem(id);
+      if (pendingItem == null ||
+          _userPaused.contains(id) ||
+          pendingItem.status != DownloadQueueStatus.queued) {
+        continue;
+      }
       final starter = _pendingStarters.remove(id);
       if (starter == null) continue;
       final item = _findItem(id);
@@ -1256,12 +1330,23 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     DownloadQueueItem Function(DownloadQueueItem item) update, {
     bool publishImmediately = true,
   }) {
+    final previous = _findItem(id);
     _state = state.copyWith(
       items: [
         for (final item in state.items)
           if (item.id == id) update(item) else item,
       ],
     );
+    final next = _findItem(id);
+    if (previous != null &&
+        next != null &&
+        (previous.status != next.status ||
+            previous.totalBytes != next.totalBytes ||
+            previous.errorTitle != next.errorTitle ||
+            previous.errorDescription != next.errorDescription ||
+            previous.seedingTargetReached != next.seedingTargetReached)) {
+      _scheduleQueueSave();
+    }
     if (publishImmediately) {
       _publishStateImmediately();
     } else {
@@ -1270,15 +1355,44 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   }
 
   void _startPendingDownload(String id, void Function() starter) {
+    final sequence = ++_startSequence;
+    _scheduledStarts[id] = (sequence, starter);
     _updateItem(
       id,
       (item) => item.status == DownloadQueueStatus.queued
           ? item.copyWith(status: DownloadQueueStatus.downloading)
           : item,
     );
-    Timer.run(() {
+    Timer.run(() async {
+      try {
+        await _saveQueue();
+      } on Object catch (e, st) {
+        _reportPersistenceError(e, st);
+        if (_scheduledStarts[id]?.$1 != sequence ||
+            _findItem(id)?.status.isTerminal == true ||
+            _userPaused.contains(id)) {
+          return;
+        }
+        _scheduledStarts.remove(id);
+        _updateItem(
+          id,
+          (i) => i.copyWith(
+            status: DownloadQueueStatus.needsAction,
+            bytesPerSecond: 0,
+            errorTitle: 'Download could not be saved',
+            errorDescription: 'Check disk space and retry.',
+          ),
+        );
+        return;
+      }
+      if (_scheduledStarts[id]?.$1 != sequence) return;
+      _scheduledStarts.remove(id);
       final item = _findItem(id);
-      if (item == null || item.status.isTerminal) return;
+      if (_closing || item == null || item.status.isTerminal) return;
+      if (_userPaused.contains(id) || state.activeBatchId != item.batchId) {
+        _pendingStarters[id] = starter;
+        return;
+      }
       try {
         starter();
       } on Object catch (error, stackTrace) {
@@ -1364,13 +1478,11 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     return null;
   }
 
-  bool _isActiveBatch(String batchId) => state.activeBatchId == batchId;
-
-  bool _isItemInActiveBatch(DownloadQueueItem item) =>
-      _isActiveBatch(item.batchId);
-
   bool _blocksQueuePromotion(DownloadQueueItem item) =>
-      !item.status.isTerminal && item.status != DownloadQueueStatus.seeding;
+      !item.status.isTerminal &&
+      item.status != DownloadQueueStatus.seeding &&
+      item.status != DownloadQueueStatus.needsAction &&
+      !_userPaused.contains(item.id);
 
   int _torrentSlotsAvailable() {
     if (_torrentSettings.maxActiveDownloads == -1) {
@@ -1385,26 +1497,30 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   int _httpSlotsAvailable() {
     if (_maxActiveHttpDownloads == -1) return 1 << 30;
     final running = state.items.where((item) {
-      return !item.isTorrent && item.status == DownloadQueueStatus.downloading;
+      return !item.isTorrent &&
+          (item.status == DownloadQueueStatus.downloading ||
+              item.status == DownloadQueueStatus.recovering);
     }).length;
     return _maxActiveHttpDownloads - running;
   }
 
   bool _canPauseItem(String id) {
     final item = _findItem(id);
-    if (item == null) return false;
-    if (item.status == DownloadQueueStatus.seeding) return true;
-    return _isItemInActiveBatch(item) &&
-        item.status == DownloadQueueStatus.downloading;
+    return item != null &&
+        !item.status.isTerminal &&
+        item.status != DownloadQueueStatus.paused &&
+        item.status != DownloadQueueStatus.needsAction;
   }
 
   bool _canResumeItem(String id) {
     final item = _findItem(id);
-    if (item == null || item.status != DownloadQueueStatus.paused) {
-      return false;
-    }
-    if (_torrentDownloads[id]?.seedingStartedAt != null) return true;
-    return _isItemInActiveBatch(item);
+    return !_closing &&
+        item != null &&
+        [
+          DownloadQueueStatus.paused,
+          DownloadQueueStatus.failed,
+          DownloadQueueStatus.needsAction,
+        ].contains(item.status);
   }
 
   bool _canCancelItem(String id) {
@@ -1472,16 +1588,16 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     state = state.copyWith(batches: batches, clearActiveBatchId: removedActive);
   }
 
-  Future<void> _disposeHttpRuntime(String id) async {
-    final runtime = _httpDownloads.remove(id);
-    if (runtime == null) return;
-    await runtime.dispose();
-  }
-
   void _disposeTorrentRuntime(String id, {required bool deleteFiles}) {
     final runtime = _torrentDownloads.remove(id);
     if (runtime == null) return;
     runtime.subscription.cancel();
+    if (!deleteFiles) {
+      final data = runtime.handle.getResumeData(flags: 2);
+      unawaited(
+        _writeTorrentResume(id, data).catchError(_reportPersistenceError),
+      );
+    }
     _torrentSession?.removeTorrent(runtime.handle, deleteFiles: deleteFiles);
     _reconcileSeedSlots();
   }
@@ -1531,32 +1647,50 @@ class InProcessDownloadRuntime implements DownloadRuntime {
       for (final id in _itemIdsFor(activeId)) {
         final item = _findItem(id);
         if (item == null) continue;
-        if (item.status == DownloadQueueStatus.downloading) {
-          unawaited(pause(id));
+        if (item.status == DownloadQueueStatus.downloading ||
+            item.status == DownloadQueueStatus.recovering) {
+          final http = _httpDownloads[id];
+          final torrent = _torrentDownloads[id];
+          if (http != null) {
+            http.pausedForQueueSlot = true;
+            http.download.state.pause();
+          }
+          if (torrent != null) {
+            torrent.pausedForDownloadSlot = true;
+            torrent.handle.pause();
+          }
+          _updateItem(
+            id,
+            (i) => i.copyWith(
+              status: DownloadQueueStatus.queued,
+              bytesPerSecond: 0,
+            ),
+          );
+          if (http == null && torrent == null && _scheduledStarts[id] == null) {
+            _invalidateRecovery(id);
+            _refreshRequired.add(id);
+            _pendingStarters[id] = () => unawaited(_startHttp(id));
+          } else {
+            _pendingStarters[id] =
+                _scheduledStarts[id]?.$2 ??
+                () {
+                  if (http != null) {
+                    http.pausedForQueueSlot = false;
+                    http.download.state.resume();
+                  }
+                  if (torrent != null) {
+                    torrent.pausedForDownloadSlot = false;
+                    torrent.handle.resume();
+                  }
+                };
+          }
         }
       }
       state = state.copyWith(clearActiveBatchId: true);
     }
 
-    final hasPending = top.itemIds.any(
-      (id) => _pendingStarters.containsKey(id),
-    );
     state = state.copyWith(activeBatchId: top.id);
-    if (hasPending) {
-      for (final id in top.itemIds) {
-        final starter = _pendingStarters.remove(id);
-        if (starter == null) continue;
-        _startPendingDownload(id, starter);
-      }
-    } else {
-      for (final id in top.itemIds) {
-        final item = _findItem(id);
-        if (item == null) continue;
-        if (item.status == DownloadQueueStatus.paused) {
-          unawaited(resume(id));
-        }
-      }
-    }
+    _startPendingItems(top);
   }
 
   @override
@@ -1595,11 +1729,17 @@ class InProcessDownloadRuntime implements DownloadRuntime {
   @override
   void dismiss(String id) {
     final item = _findItem(id);
+    if (item == null ||
+        (!item.status.isTerminal &&
+            item.status != DownloadQueueStatus.needsAction)) {
+      return;
+    }
+    _invalidateRecovery(id);
     state = state.copyWith(
       items: state.items.where((i) => i.id != id).toList(),
       batches: [
         for (final batch in state.batches)
-          if (item == null || batch.id != item.batchId)
+          if (batch.id != item.batchId)
             batch
           else
             batch.copyWith(
@@ -1668,6 +1808,7 @@ class _ActiveTorrentDownload {
   DateTime? seedingStartedAt;
   bool pausedForSeedSlot = false;
   bool pausedForDownloadSlot = false;
+  final int uploadedBefore;
 
   _ActiveTorrentDownload({
     required this.handle,
@@ -1675,6 +1816,7 @@ class _ActiveTorrentDownload {
     required this.selectedFileIndices,
     required this.selectedFileSizes,
     required this.selectedFilePaths,
+    this.uploadedBefore = 0,
   });
 }
 

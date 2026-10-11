@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:senpwai/downloads/in_process_runtime.dart';
+import 'package:senpwai/downloads/http_refresh_bridge.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/runtime_codec.dart';
 import 'package:senpwai/settings/settings.dart';
@@ -36,11 +37,12 @@ class DownloadIsolateRuntime implements DownloadRuntime {
     'downloads.main_isolate_state_rate',
   );
 
-  final _stopped = Completer<void>();
   Isolate? _isolate;
   SendPort? _commandPort;
   ReceivePort? _receivePort;
   Completer<void>? _ready;
+  final _stopped = Completer<void>();
+  Future<void>? _shutdown;
 
   DownloadIsolateRuntime({
     required int initialMaxDownloadBytesPerSecond,
@@ -190,7 +192,19 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   void updateNotificationSettings(NotificationPreferences settings) {}
 
   @override
-  Future<void> dispose() async {
+  Future<void> checkpoint() => _sendVoidCommand('checkpoint', const {});
+
+  @override
+  Future<void> dispose() => _shutdown ??= _dispose();
+
+  Future<void> _dispose() async {
+    if (_commandPort == null && _ready != null) {
+      try {
+        await _ready!.future.timeout(const Duration(seconds: 15));
+      } on Object {
+        /* Startup failure has already been reported. */
+      }
+    }
     final port = _commandPort;
     if (port != null) {
       port.send(const {'kind': 'shutdown'});
@@ -205,7 +219,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
       try {
         await _stopped.future.timeout(const Duration(seconds: 15));
       } on TimeoutException {
-        /* Forced termination cannot guarantee delivery of pending logs. */
+        /* Periodic checkpoints cover forced termination. */
       }
     }
     _receivePort?.close();
@@ -227,7 +241,13 @@ class DownloadIsolateRuntime implements DownloadRuntime {
     _CommandPayload payload, {
     Duration? timeout = const Duration(seconds: 30),
   }) async {
+    if (_shutdown != null) {
+      throw StateError('Download worker is shutting down.');
+    }
     await _ensureReady();
+    if (_shutdown != null) {
+      throw StateError('Download worker is shutting down.');
+    }
     final requestId = _nextRequestId();
     final completer = Completer<Object?>();
     _pendingRequests[requestId] = completer;
@@ -296,8 +316,6 @@ class DownloadIsolateRuntime implements DownloadRuntime {
     switch (_string(message['kind'])) {
       case 'diagnosticLog':
         receiveDiagnosticLog(_string(message['text']));
-      case 'stopped':
-        if (!_stopped.isCompleted) _stopped.complete();
       case 'ready':
         _commandPort = message['sendPort'] as SendPort?;
         final stateValue = message['state'];
@@ -312,6 +330,15 @@ class DownloadIsolateRuntime implements DownloadRuntime {
         }
         final ready = _ready;
         if (ready != null && !ready.isCompleted) ready.complete();
+      case 'refreshHttp':
+        unawaited(
+          HttpRefreshBridge.handle(
+            message,
+            (reply) => _commandPort?.send(reply),
+          ),
+        );
+      case 'stopped':
+        if (!_stopped.isCompleted) _stopped.complete();
       case 'state':
         final encodedState = _map(message['state']);
         final itemCount = _list(encodedState['items']).length;
@@ -417,6 +444,7 @@ Future<void> _runDownloadIsolate(Map<Object?, Object?> config) async {
 
   final commandPort = ReceivePort();
   InProcessDownloadRuntime? runtime;
+  final refreshBridge = HttpRefreshBridge(mainPort.send);
   StreamSubscription<DownloadManagerState>? stateSubscription;
   StreamSubscription<UpdateTransferState>? updateStateSubscription;
   final sentStateRate = TimelineRateCounter('downloads.worker_state_rate');
@@ -471,7 +499,9 @@ Future<void> _runDownloadIsolate(Map<Object?, Object?> config) async {
       ),
       paths: paths,
       onError: sendError,
+      refreshHttp: refreshBridge.refresh,
     );
+    await runtime.initialize();
     stateSubscription = runtime.stateStream.listen(sendState);
     updateStateSubscription = runtime.updateStateStream.listen((state) {
       mainPort.send({'kind': 'updateState', 'state': state.toJson()});
@@ -486,6 +516,10 @@ Future<void> _runDownloadIsolate(Map<Object?, Object?> config) async {
     await for (final data in commandPort) {
       final message = _mapString(data);
       if (_string(message['kind']) == 'shutdown') break;
+      if (_string(message['kind']) == 'httpRefreshed') {
+        refreshBridge.receive(message);
+        continue;
+      }
       if (_string(message['kind']) != 'command') continue;
       if (_string(message['type']) == 'downloadUpdate') {
         // Keep consuming commands so a desktop update can be cancelled while
@@ -505,6 +539,7 @@ Future<void> _runDownloadIsolate(Map<Object?, Object?> config) async {
     try {
       await stateSubscription?.cancel();
       await updateStateSubscription?.cancel();
+      refreshBridge.close();
       await runtime?.dispose();
     } finally {
       await flushAppLogs();
@@ -525,6 +560,9 @@ Future<void> _handleDownloadCommand(
   try {
     final Object? result;
     switch (type) {
+      case 'checkpoint':
+        await runtime.checkpoint();
+        result = null;
       case 'enqueueBatch':
         final batch = DownloadRuntimeCodec.decodePreparedBatch(
           _map(payload['batch']),

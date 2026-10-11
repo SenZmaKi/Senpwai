@@ -108,6 +108,11 @@ class DownloadManagerNotifier extends Notifier<DownloadManagerState> {
 
   Future<void> cancelUpdateDownload() => _runtime.cancelUpdateDownload();
 
+  Future<void> checkpoint() => _runtime.checkpoint();
+
+  Future<void> prepareForExit() =>
+      Platform.isAndroid ? _runtime.checkpoint() : _runtime.dispose();
+
   Future<void> pause(String id) => _runtime.pause(id);
 
   Future<void> resume(String id) => _runtime.resume(id);

@@ -34,12 +34,14 @@ class DownloadStatusStyle {
         icon: Icons.pause_circle_rounded,
         label: status.label,
       ),
-      DownloadQueueStatus.queued => DownloadStatusStyle(
+      DownloadQueueStatus.queued ||
+      DownloadQueueStatus.waiting => DownloadStatusStyle(
         color: palette.queued,
         icon: Icons.hourglass_empty_rounded,
         label: status.label,
       ),
-      DownloadQueueStatus.preparing => DownloadStatusStyle(
+      DownloadQueueStatus.preparing ||
+      DownloadQueueStatus.recovering => DownloadStatusStyle(
         color: palette.downloading,
         icon: Icons.hourglass_top_rounded,
         label: status.label,
@@ -49,7 +51,8 @@ class DownloadStatusStyle {
         icon: Icons.check_circle_rounded,
         label: status.label,
       ),
-      DownloadQueueStatus.failed => DownloadStatusStyle(
+      DownloadQueueStatus.failed ||
+      DownloadQueueStatus.needsAction => DownloadStatusStyle(
         color: palette.failed,
         icon: Icons.error_rounded,
         label: status.label,

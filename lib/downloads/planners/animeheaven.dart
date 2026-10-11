@@ -151,6 +151,11 @@ class AnimeHeavenDownloadPlanner {
               contentType: resolvedTarget.contentType,
             );
             final job = PreparedHttpDownloadJob(
+              recovery: HttpRecoveryRecipe(
+                animeLocator: animeMatch.url,
+                episode: episodePage.episodeNumber,
+                sourceFileName: sourceFileName,
+              ),
               source: AnimeSource.animeheaven,
               animeTitle: request.anime.title.display,
               displayTitle: plannedTarget.fileName,

@@ -224,6 +224,15 @@ class AnimePaheDownloadPlanner {
                   contentType: resolvedTarget.contentType,
                 );
                 final job = PreparedHttpDownloadJob(
+                  recovery: HttpRecoveryRecipe(
+                    animeLocator: animeMatch.session,
+                    animeId: animeMatch.id,
+                    episode: selectedLink.episodeNumber,
+                    sourceFileName: selectedLink.filename,
+                    resolution: selectedLink.resolution.name,
+                    language: selectedLink.audioLanguage.name,
+                    linkLocator: selectedLink.url,
+                  ),
                   source: AnimeSource.animepahe,
                   animeTitle: request.anime.title.display,
                   displayTitle: plannedTarget.fileName,

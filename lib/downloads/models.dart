@@ -1,5 +1,8 @@
 import 'dart:typed_data';
 
+import 'http_recovery_recipe.dart';
+export 'http_recovery_recipe.dart';
+
 import 'package:path/path.dart' as path;
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/downloads/nyaa_recovery.dart';
@@ -24,6 +27,9 @@ extension AnimeSourceExtension on AnimeSource {
 
 enum DownloadQueueStatus {
   preparing,
+  recovering,
+  waiting,
+  needsAction,
   // Enqueued and waiting its turn. Has never been the first batch in the
   // queue — has not started downloading yet. Distinct from [paused], which
   // implies the item was running and got stopped.
@@ -46,6 +52,9 @@ extension DownloadQueueStatusExtension on DownloadQueueStatus {
 
   String get label => switch (this) {
     DownloadQueueStatus.preparing => 'Preparing',
+    DownloadQueueStatus.recovering => 'Restoring',
+    DownloadQueueStatus.waiting => 'Waiting to retry',
+    DownloadQueueStatus.needsAction => 'Needs attention',
     DownloadQueueStatus.queued => 'Queued',
     DownloadQueueStatus.downloading => 'Downloading',
     DownloadQueueStatus.seeding => 'Seeding',
@@ -156,6 +165,7 @@ sealed class PreparedDownloadJob {
 }
 
 final class PreparedHttpDownloadJob extends PreparedDownloadJob {
+  final HttpRecoveryRecipe? recovery;
   final String resolvedUrl;
   final String fileName;
   final int? episodeNumber;
@@ -167,6 +177,7 @@ final class PreparedHttpDownloadJob extends PreparedDownloadJob {
     required super.displayTitle,
     required super.destinationDirectory,
     required super.totalBytes,
+    this.recovery,
     required this.resolvedUrl,
     required this.fileName,
     this.headers = const {},
@@ -174,6 +185,23 @@ final class PreparedHttpDownloadJob extends PreparedDownloadJob {
   });
 
   String get targetFilePath => path.join(destinationDirectory, fileName);
+
+  PreparedHttpDownloadJob withAccess({
+    required String url,
+    required int size,
+    required Map<String, dynamic> headers,
+  }) => PreparedHttpDownloadJob(
+    source: source,
+    animeTitle: animeTitle,
+    displayTitle: displayTitle,
+    destinationDirectory: destinationDirectory,
+    totalBytes: size,
+    resolvedUrl: url,
+    fileName: fileName,
+    headers: headers,
+    episodeNumber: episodeNumber,
+    recovery: recovery,
+  );
 }
 
 class TorrentReviewMetadata {

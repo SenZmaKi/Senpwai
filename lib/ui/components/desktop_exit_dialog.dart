@@ -22,7 +22,9 @@ class DesktopExitDialog extends StatelessWidget {
     ];
     return AlertDialog(
       title: const Text('Transfers still running'),
-      content: Text('${activities.join(' and ')}. Quitting will stop them.'),
+      content: Text(
+        '${activities.join(' and ')}. Quitting will save their progress. Downloads will resume when you reopen Senpwai.',
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),

@@ -272,6 +272,9 @@ class _AppRootState extends ConsumerState<_AppRoot> {
       if (closeToTray) {
         await DesktopTrayController.instance.minimizeToTray();
       } else {
+        await ref
+            .read(DownloadManagerNotifier.provider.notifier)
+            .prepareForExit();
         await DesktopTrayController.instance.closeWindow();
       }
       return false;
@@ -281,6 +284,8 @@ class _AppRootState extends ConsumerState<_AppRoot> {
     final activeDownloads = downloadState.items.where(
       (item) =>
           item.status == DownloadQueueStatus.preparing ||
+          item.status == DownloadQueueStatus.recovering ||
+          item.status == DownloadQueueStatus.waiting ||
           item.status == DownloadQueueStatus.queued ||
           item.status == DownloadQueueStatus.downloading,
     );
@@ -289,6 +294,9 @@ class _AppRootState extends ConsumerState<_AppRoot> {
     );
 
     if (activeDownloads.isEmpty && activeSeeds.isEmpty) {
+      await ref
+          .read(DownloadManagerNotifier.provider.notifier)
+          .prepareForExit();
       switch (request) {
         case DesktopExitRequest.trayQuit:
           await DesktopTrayController.instance.quitApp();
@@ -313,6 +321,9 @@ class _AppRootState extends ConsumerState<_AppRoot> {
       );
       switch (choice) {
         case DesktopExitChoice.quit:
+          await ref
+              .read(DownloadManagerNotifier.provider.notifier)
+              .prepareForExit();
           if (request == DesktopExitRequest.systemQuit) return true;
           await DesktopTrayController.instance.quitApp();
           break;
@@ -334,6 +345,8 @@ class _AppRootState extends ConsumerState<_AppRoot> {
         .where(
           (item) => switch (item.status) {
             DownloadQueueStatus.preparing ||
+            DownloadQueueStatus.recovering ||
+            DownloadQueueStatus.waiting ||
             DownloadQueueStatus.queued ||
             DownloadQueueStatus.downloading ||
             DownloadQueueStatus.seeding => true,
@@ -354,16 +367,16 @@ class _AppRootState extends ConsumerState<_AppRoot> {
         ),
       );
       if (shouldContinue != true || !mounted) return;
-      final manager = ref.read(DownloadManagerNotifier.provider.notifier);
-      for (final item in activeItems) {
-        await manager.cancel(item.id);
-      }
     }
 
+    await ref.read(DownloadManagerNotifier.provider.notifier).checkpoint();
     final disposition = await ref
         .read(UpdateController.provider.notifier)
         .installAndRestart();
     if (disposition == UpdateInstallDisposition.quitThenRelaunch) {
+      await ref
+          .read(DownloadManagerNotifier.provider.notifier)
+          .prepareForExit();
       await DesktopTrayController.instance.quitApp();
     }
   }

@@ -87,7 +87,7 @@ class DownloadState {
     }
     if (isPaused && cancelOnPause) {
       token.cancel(pauseCancelReason);
-    } else if (isCancelled) {
+    } else if (isTerminal) {
       token.cancel(cancelReason);
     }
     return token;
@@ -141,13 +141,17 @@ class DownloadState {
     if (statuses == null || statuses.isEmpty) {
       return statusStream.first;
     }
+    if (statuses.contains(status)) return Future.value(status);
     return statusStream.firstWhere((status) => statuses.contains(status));
   }
 
-  Future<void> cancel() async {
-    if (isTerminal || status == DownloadStatus.idle) {
+  Future<void> cancel() => abort(DownloadStatus.cancelled);
+
+  Future<void> abort(DownloadStatus terminal) async {
+    if (isTerminal) {
       return;
     }
+    finalize(terminal);
     for (final token in _iterationTokens.values) {
       if (!token.isCancelled) token.cancel(cancelReason);
     }
@@ -173,7 +177,5 @@ class DownloadState {
       }
     }
     _partCompleters.clear();
-
-    finalize(DownloadStatus.cancelled);
   }
 }

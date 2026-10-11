@@ -155,7 +155,10 @@ class _DownloadNotificationBridgeState
   void _handleTerminalItem(DownloadManagerState state, DownloadQueueItem item) {
     final previousStatus = _lastItemStatuses[item.id];
     _lastItemStatuses[item.id] = item.status;
-    if (!item.status.isTerminal) return;
+    if (!item.status.isTerminal &&
+        item.status != DownloadQueueStatus.needsAction) {
+      return;
+    }
     if (previousStatus == item.status) return;
     if (item.status == DownloadQueueStatus.cancelled) return;
 
@@ -330,6 +333,7 @@ class _DownloadNotificationBridgeState
           ),
         );
       case DownloadQueueStatus.failed:
+      case DownloadQueueStatus.needsAction:
         await AppNotificationService.instance.showDownloadFailed(
           id: id,
           title: item.displayTitle,
@@ -337,7 +341,9 @@ class _DownloadNotificationBridgeState
         );
       case DownloadQueueStatus.cancelled:
         break;
-      case DownloadQueueStatus.preparing ||
+      case DownloadQueueStatus.recovering ||
+          DownloadQueueStatus.waiting ||
+          DownloadQueueStatus.preparing ||
           DownloadQueueStatus.queued ||
           DownloadQueueStatus.downloading ||
           DownloadQueueStatus.seeding ||
@@ -420,7 +426,8 @@ class _DownloadNotificationBridgeState
     final status = switch (item.status) {
       DownloadQueueStatus.completed =>
         seedingTargetReached ? 'Seeding target reached' : 'Download completed',
-      DownloadQueueStatus.failed => item.errorTitle ?? 'Download failed',
+      DownloadQueueStatus.failed || DownloadQueueStatus.needsAction =>
+        item.errorTitle ?? 'Download needs attention',
       DownloadQueueStatus.cancelled => 'Download cancelled',
       _ => 'Download updated',
     };

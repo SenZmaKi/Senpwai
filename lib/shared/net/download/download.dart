@@ -7,6 +7,8 @@ import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/download/download_config.dart';
+import 'package:senpwai/shared/net/download/http_checkpoint.dart';
+import 'package:senpwai/shared/persistence/json_file_store.dart';
 import 'package:senpwai/shared/net/download/download_state.dart';
 import 'package:senpwai/shared/net/download/download_throttler.dart';
 import 'package:senpwai/shared/net/download/shared.dart';
@@ -14,12 +16,19 @@ import 'package:senpwai/shared/net/interceptors/connectivity.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
 
+part 'download_target.dart';
+
 final log = Logger("senpwai.shared.net.download.download");
 
 enum _RangeRequestSupport { supported, unsupported }
 
 Map<String, dynamic> _downloadRequestExtra() => {
-  skipConnectivityErrorTypesExtraKey: [DioExceptionType.receiveTimeout],
+  skipConnectivityErrorTypesExtraKey: [
+    DioExceptionType.connectionError,
+    DioExceptionType.connectionTimeout,
+    DioExceptionType.sendTimeout,
+    DioExceptionType.receiveTimeout,
+  ],
 };
 
 Map<String, dynamic> _downloadProbeRequestExtra() =>
@@ -36,13 +45,52 @@ class Download {
   Future<void>? _downloadFuture;
   _OffsetFileWriter? _targetWriter;
   int _activeKwikConnections = 0;
+  final File? checkpointFile;
+  final void Function(int bytes, String? restartReason)? onRestored;
+  HttpCheckpoint? _checkpoint;
+  Timer? _checkpointTimer;
+  bool _preservePartial = false;
+  bool _suspending = false;
+  bool _publishedByThisAttempt = false;
+  bool _discardRequested = false;
+  String? _resource;
+  Object? error;
+  File get _payload => checkpointFile == null
+      ? params.targetFile
+      : File('${params.targetFile.path}.senpwai-part');
+
+  Future<void> checkpoint() async {
+    final writer = _targetWriter;
+    if (writer == null || _checkpoint == null || checkpointFile == null) return;
+    await writer.checkpoint(() => _checkpoint!.save());
+  }
+
+  Future<void> cancel() async {
+    _discardRequested = true;
+    _preservePartial = false;
+    await state.cancel();
+    await _downloadFuture;
+    await _cleanup();
+  }
+
+  Future<void> suspend() async {
+    _preservePartial = true;
+    _suspending = true;
+    await state.cancel();
+    await _downloadFuture;
+  }
 
   /// `If-Range` validator (ETag preferred, falling back to Last-Modified)
   /// captured from the first 206 response. Subsequent reconnects send this
   /// so the server returns 200 (and we abort) if the file has changed.
   String? _ifRangeValidator;
 
-  Download({required this.params, required this._dio});
+  Download({
+    required this.params,
+    required this._dio,
+    this.checkpointFile,
+    this.onRestored,
+  });
 
   static Future<ResolvedDownloadTarget> probeSingleFile({
     required String url,
@@ -52,8 +100,12 @@ class Download {
     final response = await dio.get<ResponseBody>(
       url,
       options: Options(
-        // AnimeHeaven treats 0-0 as a full-file request; use two bytes.
-        headers: {...?headers, 'Range': 'bytes=0-1'},
+        headers: {
+          ...?headers,
+          // AnimeHeaven treats 0-0 as a full-file request; use two bytes.
+          'Range': 'bytes=0-1',
+          'Accept-Encoding': 'identity',
+        },
         responseType: ResponseType.stream,
         validateStatus: (status) => status == 200 || status == 206,
         extra: _downloadProbeRequestExtra(),
@@ -72,6 +124,16 @@ class Download {
       final sizeBytes = supportsRangeRequests
           ? _parseContentRangeSize(contentRange)
           : int.tryParse(contentLength ?? '');
+      final encoding = response.headers.value('content-encoding');
+      final type = response.headers.value('content-type')?.toLowerCase() ?? '';
+      if (type.contains('text/html') ||
+          (encoding != null && encoding != 'identity') ||
+          (supportsRangeRequests &&
+              contentRange != 'bytes 0-${sizeBytes == 1 ? 0 : 1}/$sizeBytes')) {
+        throw const DownloadProbeException(
+          'The source did not return the selected file.',
+        );
+      }
       if (sizeBytes == null || sizeBytes <= 0) {
         throw const DownloadProbeException(
           'Could not determine the final content length for this file.',
@@ -187,6 +249,7 @@ class Download {
     var remainingBytes = lengthBytes;
 
     while (remainingBytes > 0 && !state.isTerminal) {
+      if (state.isPaused) await _waitForResume(partNumber);
       try {
         final processedCount = await _runDownloadIteration(
           partNumber: partNumber,
@@ -195,17 +258,18 @@ class Download {
           rangeRequestSupport: rangeRequestSupport,
         );
 
+        if (processedCount == 0 && !state.isPaused && !state.isTerminal) {
+          throw const DownloadResourceChangedException(
+            'The server returned an empty or truncated response.',
+          );
+        }
         currentOffset += processedCount;
         remainingBytes -= processedCount;
 
         if (state.isPaused && remainingBytes > 0) {
           await _waitForResume(partNumber);
         }
-      } on DioException catch (e) {
-        if (e.type == DioExceptionType.receiveTimeout) {
-          await _handleTimeoutAndPause(partNumber);
-          continue;
-        }
+      } on DioException {
         rethrow;
       }
     }
@@ -314,10 +378,21 @@ class Download {
         );
       }
 
-      if (rangeRequestSupport == _RangeRequestSupport.supported) {
-        _ifRangeValidator ??=
-            response.headers.value('etag') ??
-            response.headers.value('last-modified');
+      final encoding = response.headers.value('content-encoding');
+      if (response.realUri.toString() != _resource ||
+          (encoding != null && encoding != 'identity')) {
+        await _discardResponseBody(response);
+        throw const DownloadResourceChangedException(
+          'The server returned a different representation.',
+        );
+      }
+      if (_ifRangeValidator != null &&
+          HttpCheckpoint.strongEtag(response.headers.value('etag')) !=
+              _ifRangeValidator) {
+        await _discardResponseBody(response);
+        throw const DownloadResourceChangedException(
+          'The remote file identity changed.',
+        );
       }
 
       final throttledStream = DownloadThrottler.getInstance()
@@ -344,7 +419,10 @@ class Download {
               );
             }
 
-            await targetWriter.writeAt(offset + bytes, data);
+            await targetWriter.writeAt(offset + bytes, data, () {
+              final part = _checkpoint?.parts[partNumber - 1];
+              if (part != null) part.record(offset + bytes, data);
+            });
 
             firstChunkFingerprint ??= _fingerprint(data);
 
@@ -365,7 +443,9 @@ class Download {
           }
           subscription?.resume();
         },
-        onDone: completer.complete,
+        onDone: () {
+          if (!completer.isCompleted) completer.complete();
+        },
         onError: (Object e, StackTrace st) {
           if (!completer.isCompleted) completer.completeError(e, st);
         },
@@ -394,6 +474,13 @@ class Download {
         );
       }
 
+      if (!state.isTerminal &&
+          !state.isPaused &&
+          bytes != expectedResponseBytes) {
+        throw const DownloadResourceChangedException(
+          'The server ended the transfer before its declared length.',
+        );
+      }
       return bytes;
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
@@ -433,7 +520,21 @@ class Download {
     CancelToken cancelToken,
     _RangeRequestSupport rangeRequestSupport,
   ) {
-    final headers = <String, dynamic>{...params.headers};
+    final headers = <String, dynamic>{
+      ...params.headers,
+      'Accept-Encoding': 'identity',
+    };
+    if (rangeRequestSupport == _RangeRequestSupport.supported &&
+        _ifRangeValidator == null &&
+        offset !=
+            (_checkpoint?.parts
+                    .firstWhere((p) => offset >= p.start && offset < p.end)
+                    .start ??
+                0)) {
+      throw const DownloadResourceChangedException(
+        'This server cannot safely resume partial bytes.',
+      );
+    }
     if (rangeRequestSupport == _RangeRequestSupport.supported) {
       final end = offset + length - 1;
       headers["Range"] = "bytes=$offset-$end";
@@ -451,24 +552,10 @@ class Download {
         // letting Dio throw a generic badResponse.
         validateStatus: (status) =>
             status == 200 || status == 206 || status == 416,
-        extra: _downloadRequestExtra(),
+        extra: _downloadProbeRequestExtra(),
       ),
       cancelToken: cancelToken,
     );
-  }
-
-  Future<void> _handleTimeoutAndPause(int partNumber) async {
-    log.warning(
-      "Part $partNumber: Network idle. Standing by for resume signal.",
-    );
-
-    final status = await state.waitTillStatus();
-
-    if (status != DownloadStatus.downloading) {
-      throw DownloadCancelledException(
-        "Resume aborted. System status: $status",
-      );
-    }
   }
 
   Future<void> startAndWait() {
@@ -480,109 +567,112 @@ class Download {
   }
 
   Future<void> _internalStartAndWait() async {
+    if (state.isTerminal) {
+      await _cleanup();
+      return;
+    }
     state.updateToDownloading();
-
     try {
-      await _prepareTargetFile();
-
-      final rangeRequestSupport = await _probeRangeRequestSupport();
-      final numberOfParts =
-          rangeRequestSupport == _RangeRequestSupport.supported
-          ? params.numberOfParts
-          : 1;
-      if (_isKwikDownload) {
-        log.infoWithMetadata(
-          'Kwik download starting',
-          metadata: {
-            'fileName': params.targetFile.uri.pathSegments.last,
-            'sizeBytes': params.sizeBytes,
-            'rangeRequestsSupported':
-                rangeRequestSupport == _RangeRequestSupport.supported,
-            'configuredParts': params.numberOfParts,
-            'activeParts': numberOfParts,
-          },
-        );
+      final saved = checkpointFile == null
+          ? null
+          : await HttpCheckpoint.load(checkpointFile!, params.targetFile.path);
+      // A completed checkpoint is written before publication. This also
+      // recovers termination between renaming the payload and saving queue state.
+      if (saved?.complete == true &&
+          saved!.size == params.sizeBytes &&
+          await saved.verify(
+            params.targetFile,
+            shouldContinue: () => !state.isTerminal,
+          )) {
+        onRestored?.call(saved.size, null);
+        state.finalize(DownloadStatus.completed);
+        return;
       }
-      final partRanges = computePartRanges(
-        sizeBytes: params.sizeBytes,
-        numberOfParts: numberOfParts,
-      );
+      if (saved?.complete == true &&
+          saved!.size == params.sizeBytes &&
+          !await params.targetFile.exists() &&
+          await saved.verify(
+            _payload,
+            shouldContinue: () => !state.isTerminal,
+          )) {
+        if (state.isTerminal) {
+          throw DownloadCancelledException('Download stopped');
+        }
+        await _payload.rename(params.targetFile.path);
+        _publishedByThisAttempt = true;
+        onRestored?.call(saved.size, null);
+        state.finalize(DownloadStatus.completed);
+        return;
+      }
+      final support = await _probeRangeRequestSupport();
+      if (state.isTerminal) {
+        throw DownloadCancelledException('Download stopped');
+      }
+      await _prepareTargetFile(saved, support);
+      if (state.isTerminal) {
+        throw DownloadCancelledException('Download stopped');
+      }
+      _checkpointTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        unawaited(
+          checkpoint().catchError((Object e, StackTrace st) {
+            log.warning('Could not checkpoint HTTP progress', e, st);
+          }),
+        );
+      });
       state.startRateTracking();
-
-      final tasks = partRanges.mapIndexed(
-        (idx, range) => _downloadPart(
-          partNumber: idx + 1,
-          startOffsetBytes: range.startOffsetBytes,
-          lengthBytes: range.lengthBytes,
-          rangeRequestSupport: rangeRequestSupport,
-        ),
-      );
-
-      await Future.wait(tasks);
+      final parts = _checkpoint!.parts;
+      await Future.wait([
+        for (var i = 0; i < parts.length; i++)
+          _downloadPart(
+            partNumber: i + 1,
+            startOffsetBytes: parts[i].start + parts[i].done,
+            lengthBytes: parts[i].end - parts[i].start - parts[i].done,
+            rangeRequestSupport: support,
+          ),
+      ]);
+      if (state.isTerminal || _suspending) {
+        throw DownloadCancelledException('Download stopped');
+      }
+      if (parts.any((p) => p.done != p.end - p.start)) {
+        throw const DownloadResourceChangedException('The file is incomplete.');
+      }
+      _checkpoint!.complete = true;
+      await checkpoint();
       await _closeTargetWriter();
+      if (state.isTerminal) {
+        throw DownloadCancelledException('Download stopped');
+      }
+      if (checkpointFile != null) {
+        if (await params.targetFile.exists()) {
+          throw const DownloadResourceChangedException(
+            'The destination already contains another file.',
+          );
+        }
+        if (state.isTerminal) {
+          throw DownloadCancelledException('Download stopped');
+        }
+        await _payload.rename(params.targetFile.path);
+        _publishedByThisAttempt = true;
+      }
       state.finalize(DownloadStatus.completed);
     } on DownloadCancelledException {
-      // State already finalized by cancel()
+      // Cancel and shutdown retain their own user intent in the queue.
     } catch (e, st) {
-      log.severeWithMetadata("Download failed", error: e, stackTrace: st);
-      state.finalize(DownloadStatus.failed);
+      if (!state.isCancelled) {
+        error = e;
+        log.warning('Download failed (${e.runtimeType})', null, st);
+        // Cancel sibling connections before closing the writer. Failure retains
+        // the payload, whereas an explicit user cancellation deletes it.
+        _preservePartial = true;
+        await state.abort(DownloadStatus.failed);
+      }
     } finally {
-      await _closeTargetWriter();
-    }
-
-    await _cleanup();
-  }
-
-  Future<void> _prepareTargetFile() async {
-    if (!await params.downloadDirectory.exists()) {
-      await params.downloadDirectory.create(recursive: true);
-    }
-    if (await params.targetFile.exists()) {
-      await params.targetFile.delete();
-    }
-    final raf = await params.targetFile.open(mode: FileMode.write);
-    try {
-      await raf.truncate(params.sizeBytes);
-      _targetWriter = _OffsetFileWriter(raf);
-    } catch (_) {
-      await raf.close();
-      rethrow;
-    }
-  }
-
-  Future<void> _closeTargetWriter() async {
-    final writer = _targetWriter;
-    if (writer == null) return;
-    _targetWriter = null;
-    await writer.close();
-  }
-
-  Future<_RangeRequestSupport> _probeRangeRequestSupport() async {
-    final response = await _dio.get<ResponseBody>(
-      params.url,
-      options: Options(
-        headers: {...params.headers, "Range": "bytes=0-1"},
-        responseType: ResponseType.stream,
-        validateStatus: (status) => status == 200 || status == 206,
-        extra: _downloadRequestExtra(),
-      ),
-    );
-    try {
-      if (response.statusCode == 206) return _RangeRequestSupport.supported;
-      return _RangeRequestSupport.unsupported;
-    } finally {
-      await _discardResponseBody(response);
-    }
-  }
-
-  Future<void> _cleanup() async {
-    if (state.isCancelled) {
+      _checkpointTimer?.cancel();
       try {
-        if (await params.targetFile.exists()) {
-          await params.targetFile.delete();
-        }
-      } on PathAccessException {
-        log.warning("Could not delete partial file: ${params.targetFile}");
+        await checkpoint();
+      } finally {
+        await _closeTargetWriter();
+        await _cleanup();
       }
     }
   }
@@ -597,7 +687,7 @@ class _OffsetFileWriter {
 
   _OffsetFileWriter(this._file);
 
-  Future<void> writeAt(int offset, Uint8List data) {
+  Future<void> writeAt(int offset, Uint8List data, void Function() committed) {
     if (_isClosed) {
       return Future.error(StateError('The download target writer is closed.'));
     }
@@ -605,9 +695,21 @@ class _OffsetFileWriter {
     final write = _pendingWrite.then((_) async {
       await _file.setPosition(offset);
       await _file.writeFrom(data);
+      committed();
     });
     _pendingWrite = write;
     return write;
+  }
+
+  Future<void> checkpoint(Future<void> Function() save) {
+    if (_isClosed) return Future.value();
+    final operation = _pendingWrite.then((_) async {
+      await _file.flush();
+      await save();
+    });
+    // A failed checkpoint must not poison subsequent payload writes.
+    _pendingWrite = operation.catchError((Object _) {});
+    return operation;
   }
 
   Future<void> close() async {

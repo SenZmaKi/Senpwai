@@ -166,6 +166,7 @@ class DownloadRuntimeCodec {
         ...base,
         'type': 'http',
         'resolvedUrl': job.resolvedUrl,
+        'recovery': job.recovery?.toJson(),
         'fileName': job.fileName,
         'episodeNumber': job.episodeNumber,
         'headers': jsonEncode(job.headers),
@@ -200,6 +201,9 @@ class DownloadRuntimeCodec {
         destinationDirectory: _string(map['destinationDirectory']),
         totalBytes: _int(map['totalBytes']),
         resolvedUrl: _string(map['resolvedUrl']),
+        recovery: map['recovery'] == null
+            ? null
+            : HttpRecoveryRecipe.fromJson(_map(map['recovery'])),
         fileName: _string(map['fileName']),
         episodeNumber: _nullableInt(map['episodeNumber']),
         headers: _decodeHeaders(_string(map['headers'])),

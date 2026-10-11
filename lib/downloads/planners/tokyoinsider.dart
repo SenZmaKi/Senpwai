@@ -167,6 +167,14 @@ class TokyoInsiderDownloadPlanner {
               contentType: resolvedTarget.contentType,
             );
             final job = PreparedHttpDownloadJob(
+              recovery: HttpRecoveryRecipe(
+                animeLocator: animeMatch.url,
+                episode: selectedLink.episodeNumber,
+                sourceFileName: selectedLink.filename,
+                resolution: selectedLink.resolution?.name,
+                language: selectedLink.language?.name,
+                linkLocator: selectedLink.url,
+              ),
               source: AnimeSource.tokyoinsider,
               animeTitle: request.anime.title.display,
               displayTitle: plannedTarget.fileName,

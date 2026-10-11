@@ -93,7 +93,16 @@ class DownloadBatchSnapshot {
     if (downloadingCount > 0) return DownloadQueueStatus.downloading;
     if (seedingCount > 0) return DownloadQueueStatus.seeding;
     if (pausedCount > 0) return DownloadQueueStatus.paused;
+    if (items.any((i) => i.status == DownloadQueueStatus.recovering)) {
+      return DownloadQueueStatus.recovering;
+    }
+    if (items.any((i) => i.status == DownloadQueueStatus.waiting)) {
+      return DownloadQueueStatus.waiting;
+    }
     if (queuedCount > 0) return DownloadQueueStatus.queued;
+    if (items.any((i) => i.status == DownloadQueueStatus.needsAction)) {
+      return DownloadQueueStatus.needsAction;
+    }
     if (failedCount > 0) return DownloadQueueStatus.failed;
     if (items.every((i) => i.status == DownloadQueueStatus.completed)) {
       return DownloadQueueStatus.completed;
@@ -107,7 +116,16 @@ class DownloadBatchSnapshot {
   bool get isTerminal =>
       items.isNotEmpty && items.every((i) => i.status.isTerminal);
 
-  bool get canPause => downloadingCount > 0 || seedingCount > 0;
+  bool get canPause =>
+      downloadingCount > 0 ||
+      seedingCount > 0 ||
+      items.any(
+        (i) => [
+          DownloadQueueStatus.recovering,
+          DownloadQueueStatus.waiting,
+          DownloadQueueStatus.queued,
+        ].contains(i.status),
+      );
   bool get canResume => pausedCount > 0;
 }
 

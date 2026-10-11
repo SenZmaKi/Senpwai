@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart' as path;
+import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'dart:ui';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:logging/logging.dart';
 import 'package:senpwai/downloads/in_process_runtime.dart';
+import 'package:senpwai/downloads/http_refresh_bridge.dart';
+import 'package:senpwai/downloads/repository.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/runtime_codec.dart';
 import 'package:senpwai/notifications/app_notification_service.dart';
@@ -192,8 +197,19 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
   }
 
   Future<void> _sendSettingsIfRunning() async {
-    if (!Platform.isAndroid || !await FlutterForegroundTask.isRunningService) {
-      return;
+    if (!Platform.isAndroid) return;
+    if (!await FlutterForegroundTask.isRunningService) {
+      final queue = File(
+        path.join(AppPersistence.paths.stateDirectory.path, 'downloads.json'),
+      );
+      if (!await queue.exists()) return;
+      final saved = await DownloadRepository(queue).load();
+      if (saved.state.items.every((i) => i.status.isTerminal)) {
+        _stateSnapshot = saved.state;
+        if (!_stateController.isClosed) _stateController.add(_stateSnapshot);
+        return;
+      }
+      await _ensureService();
     }
     _sendCurrentSettings();
   }
@@ -231,6 +247,16 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
     _sendUntrackedCommand('updateNotificationSettings', {
       'settings': _encodeNotificationSettings(_notificationSettings),
     });
+  }
+
+  @override
+  Future<void> checkpoint() async {
+    await _sendCommand(
+      'checkpoint',
+      const {},
+      startIfNeeded: false,
+      timeout: const Duration(seconds: 20),
+    );
   }
 
   @override
@@ -357,6 +383,13 @@ class AndroidForegroundDownloadRuntime implements DownloadRuntime {
     switch (_string(message['kind'])) {
       case 'diagnosticLog':
         receiveDiagnosticLog(_string(message['text']));
+      case 'refreshHttp':
+        unawaited(
+          HttpRefreshBridge.handle(
+            message,
+            FlutterForegroundTask.sendDataToTask,
+          ),
+        );
       case 'state':
         final encodedState = _map(message['state']);
         final next = traceSync(
@@ -428,6 +461,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
   final Map<String, DownloadQueueStatus> _lastItemStatuses = {};
   final Set<String> _batchesWithDownloadCompletionNotified = {};
   InProcessDownloadRuntime? _runtime;
+  late final HttpRefreshBridge _refreshBridge;
   final _runtimeReady = Completer<InProcessDownloadRuntime>();
   StreamSubscription<DownloadManagerState>? _stateSubscription;
   StreamSubscription<UpdateTransferState>? _updateStateSubscription;
@@ -469,19 +503,29 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
       onDidReceiveBackgroundNotificationResponse:
           handleBackgroundNotificationResponse,
     );
+    // Do not recover with default network policy: a bound VPN or proxy must
+    // be in effect before any restored torrent is added to the session.
+    final savedSettings = AppSettings.fromJson(
+      Map<String, dynamic>.from(
+        jsonDecode(await paths.settingsFile.readAsString()) as Map,
+      ),
+    );
+    _notificationSettings = savedSettings.notifications;
+    _refreshBridge = HttpRefreshBridge(FlutterForegroundTask.sendDataToMain);
     _runtime = InProcessDownloadRuntime(
       downloadUserAgent: getRandomUserAgent(),
-      initialMaxDownloadBytesPerSecond: 0,
-      initialMaxActiveHttpDownloads: 2,
+      initialMaxDownloadBytesPerSecond:
+          savedSettings.downloads.maxDownloadBytesPerSecond,
+      initialMaxActiveHttpDownloads: savedSettings.downloads.maxActiveDownloads,
       initialHttpConnectionsPerDownload:
-          DownloadPreferences.automaticConnectionsPerDownload,
-      initialTorrentSettings: const TorrentPreferences(),
+          savedSettings.downloads.connectionsPerDownload,
+      initialTorrentSettings: savedSettings.torrent,
       paths: paths,
       onError: _sendError,
+      refreshHttp: _refreshBridge.refresh,
     );
-    if (!_runtimeReady.isCompleted) {
-      _runtimeReady.complete(_runtime);
-    }
+    await _runtime!.initialize();
+    _baselineTerminalState(_runtime!.currentState);
     _stateSubscription = _runtime!.stateStream.listen((state) {
       _sendState(state);
       _stateHandling = _stateHandling
@@ -509,6 +553,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
             );
           });
     });
+    if (!_runtimeReady.isCompleted) _runtimeReady.complete(_runtime);
     _sendState(_runtime!.currentState);
     _baselineTerminalState(_runtime!.currentState);
     await _updateForegroundNotification(_runtime!.currentState, force: true);
@@ -535,6 +580,7 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
       await _stateSubscription?.cancel();
       await _updateStateSubscription?.cancel();
       await _stateHandling;
+      _refreshBridge.close();
       await _runtime?.dispose();
     } finally {
       await flushAppLogs();
@@ -602,6 +648,10 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
   }
 
   Future<void> _handleCommand(Map<String, dynamic> message) async {
+    if (_string(message['kind']) == 'httpRefreshed') {
+      _refreshBridge.receive(message);
+      return;
+    }
     if (_string(message['kind']) != 'command') return;
     final requestId = _string(message['requestId']);
     final type = _string(message['type']);
@@ -614,6 +664,9 @@ class _DownloadForegroundTaskHandler extends TaskHandler {
     try {
       final Object? result;
       switch (type) {
+        case 'checkpoint':
+          await runtime.checkpoint();
+          result = null;
         case 'enqueueBatch':
           final batch = DownloadRuntimeCodec.decodePreparedBatch(
             _map(payload['batch']),
@@ -1231,7 +1284,8 @@ String _terminalEpisodeBody(DownloadQueueItem item, DownloadBatchQueue? batch) {
       item.seedingTargetReached
           ? 'Seeding target reached'
           : 'Download completed',
-    DownloadQueueStatus.failed => item.errorTitle ?? 'Download failed',
+    DownloadQueueStatus.failed || DownloadQueueStatus.needsAction =>
+      item.errorTitle ?? 'Download needs attention',
     DownloadQueueStatus.cancelled => 'Download cancelled',
     DownloadQueueStatus.seeding => 'Seeding',
     _ => 'Download updated',
