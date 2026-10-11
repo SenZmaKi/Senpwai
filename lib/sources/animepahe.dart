@@ -344,6 +344,14 @@ class Source {
     }
     final withinRangeEpisodeSessions = episodeSessions
         .sublist(startIdx, endIdx + 1)
+        // Keep the opaque session for fetching links, but expose season-relative
+        // numbers to the planner, download jobs, and destination filenames.
+        .map(
+          (episode) => EpisodeSession(
+            session: episode.session,
+            number: episode.number - (firstEpisode - 1),
+          ),
+        )
         .toList();
     log.fineWithMetadata(
       "Found episode sessions within range",
