@@ -85,9 +85,12 @@ const downloadCards = [
       <h1 class="display">Get Senpwai for your device.</h1>
     </div>
 
-    <div class="release-tabs" role="tablist" aria-label="Release channel" hidden>
-      <button type="button" id="stable-tab" role="tab" aria-selected="true" aria-controls="downloads-panel" data-channel="stable">Stable</button>
-      <button type="button" id="nightly-tab" role="tab" aria-selected="false" aria-controls="downloads-panel" tabindex="-1" data-channel="nightly">Nightly</button>
+    <div class="channel-switcher" hidden>
+      <div class="channel-track" role="tablist" aria-label="Release channel">
+        <div class="channel-indicator" aria-hidden="true"></div>
+        <button type="button" id="stable-tab" role="tab" aria-selected="true" aria-controls="downloads-panel" data-channel="stable">Stable</button>
+        <button type="button" id="nightly-tab" role="tab" aria-selected="false" aria-controls="downloads-panel" tabindex="-1" data-channel="nightly">Nightly</button>
+      </div>
     </div>
     <p class="channel-note" role="status" aria-live="polite">Stable releases are recommended for everyday use.</p>
 
@@ -193,6 +196,14 @@ const downloadCards = [
   let generation = 0;
   const status = document.querySelector<HTMLElement>('.channel-note')!;
   const tabs = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  const indicator = document.querySelector<HTMLElement>('.channel-indicator')!;
+
+  function moveIndicator(ch: Channel) {
+    const activeTab = tabs.find((t) => t.dataset.channel === ch);
+    if (!activeTab || !indicator) return;
+    indicator.style.left = activeTab.offsetLeft + 'px';
+    indicator.style.width = activeTab.offsetWidth + 'px';
+  }
 
   function updateDownload(card: HTMLElement) {
     const button = card.querySelector<HTMLAnchorElement>('.dl-button');
@@ -206,15 +217,23 @@ const downloadCards = [
     }
   }
 
-  async function selectChannel(selected: Channel) {
+  function pushChannelToUrl(ch: Channel) {
+    const url = new URL(location.href);
+    url.searchParams.set('channel', ch);
+    history.replaceState(null, '', url);
+  }
+
+  async function selectChannel(selected: Channel, pushUrl = true) {
     channel = selected;
     release = undefined;
     const request = ++generation;
+    if (pushUrl) pushChannelToUrl(channel);
     tabs.forEach((tab) => {
       const active = tab.dataset.channel === channel;
       tab.setAttribute('aria-selected', String(active));
       tab.tabIndex = active ? 0 : -1;
     });
+    moveIndicator(channel);
     document.querySelector('#downloads-panel')?.setAttribute('aria-labelledby', `${channel}-tab`);
     cards.forEach((card) => {
       updateDownload(card);
@@ -316,7 +335,11 @@ const downloadCards = [
     });
   }
 
-  document.querySelector<HTMLElement>('[role="tablist"]')!.hidden = false;
+  document.querySelector<HTMLElement>('.channel-switcher')!.hidden = false;
+  // Place indicator without transition on load, then re-enable.
+  indicator.style.transition = 'none';
+  const initialChannel: Channel = new URLSearchParams(location.search).get('channel') === 'nightly' ? 'nightly' : 'stable';
+  moveIndicator(initialChannel);
   tabs.forEach((tab, index) => {
     tab.addEventListener('click', () => void selectChannel(tab.dataset.channel as Channel));
     tab.addEventListener('keydown', (event) => {
@@ -329,7 +352,10 @@ const downloadCards = [
       tabs[next].click();
     });
   });
-  void selectChannel(new URLSearchParams(location.search).get('channel') === 'nightly' ? 'nightly' : 'stable');
+  requestAnimationFrame(() => {
+    indicator.style.transition = '';
+    void selectChannel(initialChannel);
+  });
 
   const macHelpDialog = document.querySelector<HTMLDialogElement>('#mac-gatekeeper-help');
   const macHelpTrigger = document.querySelector<HTMLButtonElement>('.mac-help-trigger');
@@ -343,11 +369,53 @@ const downloadCards = [
 </script>
 
 <style>
-  .release-tabs { display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1rem; }
-  .release-tabs[hidden] { display: none; }
-  .release-tabs button { cursor: pointer; padding: 0.65rem 1.4rem; border: 1px solid #5d5360; border-radius: 0.5rem; background: #191921; color: #f4f1eb; font: inherit; }
-  .release-tabs button[aria-selected="true"] { background: #a92936; border-color: #ff5252; }
-  .release-tabs button:focus-visible { outline: 2px solid #ffb3a7; outline-offset: 3px; }
+  /* ── Channel Switcher ── */
+  .channel-switcher { display: flex; justify-content: center; margin-bottom: 1rem; }
+  .channel-switcher[hidden] { display: none; }
+
+  .channel-track {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+    padding: 3px;
+    border-radius: 0.65rem;
+    background: #0d0d11;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
+  .channel-indicator {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    border-radius: 0.48rem;
+    background: #f04444;
+    box-shadow: 0 0 16px rgba(240, 68, 68, 0.35);
+    transition: left 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+
+  .channel-track [role="tab"] {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.5rem 1.1rem;
+    border: none;
+    border-radius: 0.48rem;
+    background: transparent;
+    color: #7a7880;
+    font: 700 0.75rem/1 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: color 0.18s ease;
+    white-space: nowrap;
+  }
+
+  .channel-track [role="tab"][aria-selected="true"] { color: #ffffff; }
+  .channel-track [role="tab"]:focus-visible { outline: 2px solid #ffcf54; outline-offset: 3px; }
+
   .channel-note { text-align: center; margin-bottom: 1.5rem; }
 
   .download-section {
