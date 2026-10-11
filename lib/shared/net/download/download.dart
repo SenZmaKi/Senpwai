@@ -52,7 +52,8 @@ class Download {
     final response = await dio.get<ResponseBody>(
       url,
       options: Options(
-        headers: {'Range': 'bytes=0-0', ...?headers},
+        // AnimeHeaven treats 0-0 as a full-file request; use two bytes.
+        headers: {...?headers, 'Range': 'bytes=0-1'},
         responseType: ResponseType.stream,
         validateStatus: (status) => status == 200 || status == 206,
         extra: _downloadProbeRequestExtra(),
@@ -560,7 +561,7 @@ class Download {
     final response = await _dio.get<ResponseBody>(
       params.url,
       options: Options(
-        headers: {"Range": "bytes=0-0", ...params.headers},
+        headers: {...params.headers, "Range": "bytes=0-1"},
         responseType: ResponseType.stream,
         validateStatus: (status) => status == 200 || status == 206,
         extra: _downloadRequestExtra(),
