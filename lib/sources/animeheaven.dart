@@ -7,6 +7,7 @@ import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/net/interceptors/cookie_manager.dart';
 import 'package:senpwai/shared/net/net.dart';
 import 'package:senpwai/shared/net/net_config.dart';
+import 'package:senpwai/shared/net/request_cancellation_scope.dart';
 import 'package:senpwai/shared/source_directory/source_directory.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 
@@ -186,13 +187,49 @@ class Source {
   Future<String> fetchDownloadUrl({required EpisodePage episodePage}) async {
     await SourceDirectory.waitForRefresh();
     final options = _noCacheOptions;
-    final response = await _dio.get(
-      "${Constants.baseUrl}/gate.php",
-      options: options.copyWith(
-        headers: {'Cookie': 'key=${episodePage.key}'},
-        extra: {...?options.extra, skipCookieManagerExtraKey: true},
-      ),
-    );
-    return parseDownloadUrl(parseHtml(response.data));
+    for (var attempt = 1; ; attempt++) {
+      throwIfRequestScopeCancelled();
+      try {
+        final response = await _dio.get(
+          "${Constants.baseUrl}/gate.php",
+          options: options.copyWith(
+            headers: {'Cookie': 'key=${episodePage.key}'},
+            extra: {...?options.extra, skipCookieManagerExtraKey: true},
+          ),
+        );
+        return parseDownloadUrl(parseHtml(response.data));
+      } on DioException catch (error) {
+        final transient =
+            error.response == null &&
+            switch (error.type) {
+              DioExceptionType.connectionError ||
+              DioExceptionType.connectionTimeout ||
+              DioExceptionType.sendTimeout ||
+              DioExceptionType.receiveTimeout => true,
+              _ => false,
+            };
+        if (!transient || attempt >= 3) rethrow;
+        throwIfRequestScopeCancelled();
+        if (error.requestOptions.cancelToken?.isCancelled ?? false) rethrow;
+        log.warningWithMetadata(
+          'Retrying AnimeHeaven episode lookup after connection failure',
+          metadata: {
+            'episode': episodePage.episodeNumber,
+            'attempt': attempt,
+            'type': error.type.name,
+          },
+        );
+        final delay = Future<void>.delayed(
+          Duration(milliseconds: 500 * attempt),
+        );
+        final token = error.requestOptions.cancelToken;
+        if (token == null) {
+          await delay;
+        } else {
+          await Future.any([delay, token.whenCancel]);
+          if (token.isCancelled) throw token.cancelError!;
+        }
+      }
+    }
   }
 }
