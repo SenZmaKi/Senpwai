@@ -33,7 +33,12 @@ class _AnimePosterCardState extends ConsumerState<AnimePosterCard>
     final title = ref
         .watch(AppSettingsNotifier.provider)
         .displayTitle(anime.title);
-    final score = anime.averageScore;
+    final hideRatings = ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.hideAnimeRatings,
+      ),
+    );
+    final score = hideRatings ? null : anime.averageScore;
 
     final w = MediaQuery.sizeOf(context).width;
     final isSmall = w < 380;

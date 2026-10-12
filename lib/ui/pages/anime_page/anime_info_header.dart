@@ -136,6 +136,11 @@ class _TitleBlock extends ConsumerWidget {
     final title = ref
         .watch(AppSettingsNotifier.provider)
         .displayTitle(anime.title);
+    final hideRatings = ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.hideAnimeRatings,
+      ),
+    );
     final nativeTitle = anime.title.native?.trim();
 
     return Column(
@@ -152,7 +157,12 @@ class _TitleBlock extends ConsumerWidget {
             height: 1.2,
           ),
         ),
-        if (nativeTitle != null &&
+        if (ref.watch(
+              AppSettingsNotifier.provider.select(
+                (settings) => settings.appearance.showNativeTitle,
+              ),
+            ) &&
+            nativeTitle != null &&
             nativeTitle.isNotEmpty &&
             nativeTitle != title) ...[
           const SizedBox(height: 4),
@@ -172,7 +182,7 @@ class _TitleBlock extends ConsumerWidget {
           spacing: 8,
           runSpacing: 6,
           children: [
-            if (anime.averageScore != null)
+            if (!hideRatings && anime.averageScore != null)
               _StatChip(
                 icon: Icons.star_rounded,
                 label: (anime.averageScore! / 10).toStringAsFixed(1),
@@ -261,13 +271,13 @@ class _StatChip extends StatelessWidget {
 }
 
 /// Compact metadata: genres as chips + inline detail text.
-class AnimeMetadataSection extends StatelessWidget {
+class AnimeMetadataSection extends ConsumerWidget {
   final AnilistAnimeBase anime;
 
   const AnimeMetadataSection({super.key, required this.anime});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final pad = horizontalPadding(context);
@@ -287,7 +297,12 @@ class AnimeMetadataSection extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Genres
-            if (anime.genres.isNotEmpty) ...[
+            if (ref.watch(
+                  AppSettingsNotifier.provider.select(
+                    (settings) => settings.appearance.showGenres,
+                  ),
+                ) &&
+                anime.genres.isNotEmpty) ...[
               Wrap(
                 spacing: 6,
                 runSpacing: 6,

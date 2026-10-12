@@ -38,7 +38,15 @@ class _AnimeTableCardState extends ConsumerState<AnimeTableCard>
     final title = ref
         .watch(AppSettingsNotifier.provider)
         .displayTitle(anime.title);
-    final score = anime.averageScore;
+    final hideRatings = ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.hideAnimeRatings,
+      ),
+    );
+    final appearance = ref.watch(
+      AppSettingsNotifier.provider.select((settings) => settings.appearance),
+    );
+    final score = hideRatings ? null : anime.averageScore;
 
     final placeholderColor = ext.randomColour(anime.id);
 
@@ -90,7 +98,7 @@ class _AnimeTableCardState extends ConsumerState<AnimeTableCard>
                       ],
                     ),
                     const SizedBox(height: 6),
-                    if (anime.genres.isNotEmpty)
+                    if (appearance.showGenres && anime.genres.isNotEmpty)
                       Wrap(spacing: 4, runSpacing: 3, children: genreChips),
                     const Spacer(),
                     SingleChildScrollView(
@@ -162,7 +170,7 @@ class _AnimeTableCardState extends ConsumerState<AnimeTableCard>
                       ],
                     ),
                     const SizedBox(height: 8),
-                    if (anime.genres.isNotEmpty)
+                    if (appearance.showGenres && anime.genres.isNotEmpty)
                       Wrap(spacing: 5, runSpacing: 4, children: genreChips),
                   ],
                 ),
@@ -236,7 +244,7 @@ class _AnimeTableCardState extends ConsumerState<AnimeTableCard>
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: appearance.compactCards ? 4 : 10),
       child: buildHoverableCard(
         ext: ext,
         theme: theme,

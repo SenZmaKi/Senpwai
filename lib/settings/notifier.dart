@@ -99,6 +99,42 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setHideSynopses(bool value) => _commit(
+    state.copyWith(appearance: state.appearance.copyWith(hideSynopses: value)),
+  );
+
+  Future<void> setPauseBannerRotation(bool value) => _commit(
+    state.copyWith(
+      appearance: state.appearance.copyWith(pauseBannerRotation: value),
+    ),
+  );
+
+  Future<void> setCompactCards(bool value) => _commit(
+    state.copyWith(appearance: state.appearance.copyWith(compactCards: value)),
+  );
+
+  Future<void> setShowNativeTitle(bool value) => _commit(
+    state.copyWith(
+      appearance: state.appearance.copyWith(showNativeTitle: value),
+    ),
+  );
+
+  Future<void> setShowGenres(bool value) => _commit(
+    state.copyWith(appearance: state.appearance.copyWith(showGenres: value)),
+  );
+
+  Future<void> setReduceMotion(bool value) => _commit(
+    state.copyWith(appearance: state.appearance.copyWith(reduceMotion: value)),
+  );
+
+  Future<void> setHideAnimeRatings(bool hide) {
+    return _commit(
+      state.copyWith(
+        appearance: state.appearance.copyWith(hideAnimeRatings: hide),
+      ),
+    );
+  }
+
   Future<void> setWindowAlwaysOnTop(bool alwaysOnTop) {
     return _commit(
       state.copyWith(window: state.window.copyWith(alwaysOnTop: alwaysOnTop)),

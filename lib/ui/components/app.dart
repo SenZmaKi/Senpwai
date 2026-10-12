@@ -70,14 +70,26 @@ class App extends ConsumerWidget {
         .watch(AppSettingsNotifier.provider)
         .appearance
         .toThemeConfig();
+    final reduceMotion = ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.reduceMotion,
+      ),
+    );
     return ToastificationWrapper(
       child: DownloadNotificationBridge(
         onOpenDownloads: () =>
             ref.read(AppPageNotifier.provider.notifier).showDownloads(),
         child: MaterialApp(
           navigatorKey: navigatorKey,
-          builder: (context, child) =>
-              BrowserTransportHost(child: child ?? const SizedBox.shrink()),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              disableAnimations:
+                  reduceMotion || MediaQuery.disableAnimationsOf(context),
+            ),
+            child: BrowserTransportHost(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
           title: ApplicationIdentity.name,
           initialRoute: '/',
           theme: themeConfig.buildLightTheme(),

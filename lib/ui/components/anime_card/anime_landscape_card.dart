@@ -41,8 +41,16 @@ class _AnimeLandscapeCardState extends ConsumerState<AnimeLandscapeCard>
     final title = ref
         .watch(AppSettingsNotifier.provider)
         .displayTitle(anime.title);
-    final score = anime.averageScore;
-    final desc = anime.description;
+    final hideRatings = ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.hideAnimeRatings,
+      ),
+    );
+    final appearance = ref.watch(
+      AppSettingsNotifier.provider.select((settings) => settings.appearance),
+    );
+    final score = hideRatings ? null : anime.averageScore;
+    final desc = appearance.hideSynopses ? null : anime.description;
 
     final w = MediaQuery.sizeOf(context).width;
     final isSmall = w < 380;
@@ -195,7 +203,7 @@ class _AnimeLandscapeCardState extends ConsumerState<AnimeLandscapeCard>
                     )
                   else
                     const Spacer(),
-                  if (anime.genres.isNotEmpty) ...[
+                  if (appearance.showGenres && anime.genres.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 4,

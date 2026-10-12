@@ -145,6 +145,8 @@ class SettingsSearchResults extends ConsumerWidget {
       settings.appearance.displayFontFamily,
       settings.appearance.bodyFontFamily,
       'Card Layout anime card style Home Search poster landscape table grid list',
+      'Hide anime ratings scores stars cards banners details',
+      'Browsing Content visibility card density motion Hide synopses by default plot summaries cards details until revealed Show genres genre tags banners Show native title secondary Pause banner rotation home still swipe arrows Compact cards Home Search Reduce motion animations system',
       if (supportsWindowCustomization)
         'Window Launch at startup Always on top Minimize to tray Open maximized Open in full screen',
       'Media Preferences default resolution audio language title display',

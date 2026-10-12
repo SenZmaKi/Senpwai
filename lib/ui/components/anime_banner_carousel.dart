@@ -16,7 +16,7 @@ import 'package:senpwai/ui/shared/theme/theme.dart';
 import 'package:senpwai/ui/components/shimmer_card.dart';
 import 'package:senpwai/ui/pages/anime_page/anime_page.dart';
 
-class AnimeBannerCarousel extends StatefulWidget {
+class AnimeBannerCarousel extends ConsumerStatefulWidget {
   final List<AnilistAnimeBase> anime;
   final bool isLoading;
   final int maxItems;
@@ -31,10 +31,11 @@ class AnimeBannerCarousel extends StatefulWidget {
   });
 
   @override
-  State<AnimeBannerCarousel> createState() => _AnimeBannerCarouselState();
+  ConsumerState<AnimeBannerCarousel> createState() =>
+      _AnimeBannerCarouselState();
 }
 
-class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
+class _AnimeBannerCarouselState extends ConsumerState<AnimeBannerCarousel> {
   late final PageController _pageController;
   Timer? _autoScrollTimer;
   int _currentPage = 0;
@@ -62,7 +63,12 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
     super.initState();
     _pageController = PageController();
     _items = _computeItems(widget.anime);
-    _startAutoScroll();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _restartAutoScroll();
   }
 
   @override
@@ -87,6 +93,11 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
 
   void _startAutoScroll() {
     _autoScrollTimer?.cancel();
+    if (ref.read(AppSettingsNotifier.provider).appearance.pauseBannerRotation ||
+        MediaQuery.disableAnimationsOf(context) ||
+        _items.length < 2) {
+      return;
+    }
     _autoScrollTimer = Timer.periodic(widget.autoScrollInterval, (_) {
       if (_userInteracting || !mounted || _items.isEmpty) return;
       final next = (_currentPage + 1) % _items.length;
@@ -113,7 +124,11 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
     required Curve curve,
   }) {
     if (!_pageController.hasClients) return;
-    _pageController.animateToPage(page, duration: duration, curve: curve);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pageController.jumpToPage(page);
+    } else {
+      _pageController.animateToPage(page, duration: duration, curve: curve);
+    }
   }
 
   double _carouselHeight(BuildContext context) {
@@ -126,6 +141,17 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.pauseBannerRotation,
+      ),
+      (_, __) => _restartAutoScroll(),
+    );
+    ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.pauseBannerRotation,
+      ),
+    );
     final theme = Theme.of(context);
     final ext = theme.extension<SenpwaiThemeExtension>()!;
     final height = _carouselHeight(context);
@@ -195,7 +221,9 @@ class _AnimeBannerCarouselState extends State<AnimeBannerCarousel> {
                       _restartAutoScroll();
                     },
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 300),
                       curve: Curves.easeOut,
                       margin: const EdgeInsets.symmetric(horizontal: 3),
                       width: active ? 24 : 8,
@@ -252,7 +280,15 @@ class _BannerSlide extends ConsumerWidget {
     final title = ref
         .watch(AppSettingsNotifier.provider)
         .displayTitle(anime.title);
-    final score = anime.averageScore;
+    final hideRatings = ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.hideAnimeRatings,
+      ),
+    );
+    final appearance = ref.watch(
+      AppSettingsNotifier.provider.select((settings) => settings.appearance),
+    );
+    final score = hideRatings ? null : anime.averageScore;
     final genres = anime.genres.take(3).map((g) => g.toGraphql()).toList();
 
     final titleStyle = desktop
@@ -374,7 +410,7 @@ class _BannerSlide extends ConsumerWidget {
                 ],
               ),
 
-              if (genres.isNotEmpty) ...[
+              if (appearance.showGenres && genres.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,

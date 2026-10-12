@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/settings/notifier.dart';
 import 'package:senpwai/anilist/anilist.dart';
 import 'package:senpwai/settings/models.dart';
 import 'package:senpwai/ui/components/anime_card/anime_landscape_card.dart';
@@ -8,7 +10,7 @@ import 'package:senpwai/ui/components/empty_results_placeholder.dart';
 import 'package:senpwai/ui/components/shimmer_card.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
-class SearchResultsSection extends StatelessWidget {
+class SearchResultsSection extends ConsumerWidget {
   final List<AnilistAnimeBase> results;
   final bool loading;
   final bool loadingMore;
@@ -23,17 +25,23 @@ class SearchResultsSection extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final compact = ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.compactCards,
+      ),
+    );
     return switch (viewMode) {
-      CardViewMode.poster => _buildPosterGrid(context),
-      CardViewMode.landscape => _buildLandscapeList(context),
-      CardViewMode.table => _buildTableList(context),
+      CardViewMode.poster => _buildPosterGrid(context, compact),
+      CardViewMode.landscape => _buildLandscapeList(context, compact),
+      CardViewMode.table => _buildTableList(context, compact),
     };
   }
 
-  Widget _buildPosterGrid(BuildContext context) {
-    final cols = gridCrossAxisCount(context);
-    final spacing = gridSpacing(context);
+  Widget _buildPosterGrid(BuildContext context, bool compact) {
+    final cols =
+        gridCrossAxisCount(context) + (compact && !isMobile(context) ? 1 : 0);
+    final spacing = gridSpacing(context) * (compact ? 0.6 : 1);
     final aspectRatio = gridChildAspectRatio(context);
 
     if (loading) {
@@ -62,14 +70,14 @@ class SearchResultsSection extends StatelessWidget {
     );
   }
 
-  Widget _buildTableList(BuildContext context) {
+  Widget _buildTableList(BuildContext context, bool compact) {
     final skeletonHeight = tableCardHeight(context);
 
     if (loading) {
       return SliverList(
         delegate: SliverChildBuilderDelegate(
           (_, __) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.only(bottom: compact ? 4 : 10),
             child: SizedBox(height: skeletonHeight, child: const ShimmerCard()),
           ),
           childCount: 6,
@@ -88,17 +96,19 @@ class SearchResultsSection extends StatelessWidget {
           return AnimeTableCard(anime: results[i]);
         }
         return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: EdgeInsets.only(bottom: compact ? 4 : 10),
           child: SizedBox(height: skeletonHeight, child: const ShimmerCard()),
         );
       }, childCount: results.length + shimmerCount),
     );
   }
 
-  Widget _buildLandscapeList(BuildContext context) {
-    final cols = isDesktop(context) ? 3 : (isMobile(context) ? 1 : 2);
+  Widget _buildLandscapeList(BuildContext context, bool compact) {
+    final cols =
+        (isDesktop(context) ? 3 : (isMobile(context) ? 1 : 2)) +
+        (compact && !isMobile(context) ? 1 : 0);
     final landscapeRatio = landscapeCardAspectRatio(context);
-    final spacing = gridSpacing(context);
+    final spacing = gridSpacing(context) * (compact ? 0.6 : 1);
 
     if (loading) {
       return _ResultsGrid(

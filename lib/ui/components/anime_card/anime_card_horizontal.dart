@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:senpwai/settings/notifier.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/settings/models.dart';
 import 'package:senpwai/ui/components/anime_card/anime_landscape_card.dart';
@@ -7,7 +9,7 @@ import 'package:senpwai/ui/components/anime_card/anime_table_card.dart';
 import 'package:senpwai/ui/components/shimmer_card.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 
-class AnimeCardHorizontal extends StatefulWidget {
+class AnimeCardHorizontal extends ConsumerStatefulWidget {
   final List<AnilistAnimeBase> anime;
   final CardViewMode viewMode;
   final bool isLoading;
@@ -24,10 +26,11 @@ class AnimeCardHorizontal extends StatefulWidget {
   });
 
   @override
-  State<AnimeCardHorizontal> createState() => _AnimeCardHorizontalState();
+  ConsumerState<AnimeCardHorizontal> createState() =>
+      _AnimeCardHorizontalState();
 }
 
-class _AnimeCardHorizontalState extends State<AnimeCardHorizontal> {
+class _AnimeCardHorizontalState extends ConsumerState<AnimeCardHorizontal> {
   final _scrollController = ScrollController();
   static const _scrollThreshold = 200.0;
 
@@ -54,13 +57,23 @@ class _AnimeCardHorizontalState extends State<AnimeCardHorizontal> {
 
   @override
   Widget build(BuildContext context) {
+    final compact = ref.watch(
+      AppSettingsNotifier.provider.select(
+        (settings) => settings.appearance.compactCards,
+      ),
+    );
     final pad = horizontalPadding(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final spacing = gridSpacing(context);
+        final spacing = gridSpacing(context) * (compact ? 0.6 : 1);
         final available = constraints.maxWidth - 2 * pad;
-        final (itemWidth, itemHeight) = _itemSize(context, available, spacing);
+        final (itemWidth, itemHeight) = _itemSize(
+          context,
+          available,
+          spacing,
+          compact,
+        );
 
         if (widget.isLoading) {
           return SizedBox(
@@ -122,19 +135,27 @@ class _AnimeCardHorizontalState extends State<AnimeCardHorizontal> {
     BuildContext context,
     double available,
     double spacing,
+    bool compact,
   ) {
     return switch (widget.viewMode) {
       CardViewMode.poster => () {
-        final columns = gridCrossAxisCount(context);
+        final columns =
+            gridCrossAxisCount(context) +
+            (compact && !isMobile(context) ? 1 : 0);
         final width = (available - (columns - 1) * spacing) / columns;
         return (width, width / gridChildAspectRatio(context));
       }(),
       CardViewMode.landscape => () {
-        final columns = isDesktop(context) ? 3 : (isMobile(context) ? 1 : 2);
+        final columns =
+            (isDesktop(context) ? 3 : (isMobile(context) ? 1 : 2)) +
+            (compact && !isMobile(context) ? 1 : 0);
         final width = (available - (columns - 1) * spacing) / columns;
         return (width, width / landscapeCardAspectRatio(context));
       }(),
-      CardViewMode.table => (available, tableCardHeight(context) + 10),
+      CardViewMode.table => (
+        available,
+        tableCardHeight(context) + (compact ? 4 : 10),
+      ),
     };
   }
 

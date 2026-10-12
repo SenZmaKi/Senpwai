@@ -11,6 +11,7 @@ mixin CardHoverMixin<T extends StatefulWidget> on State<T> {
     VoidCallback? onTap,
     double hoverScale = 1.03,
   }) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -18,11 +19,15 @@ mixin CardHoverMixin<T extends StatefulWidget> on State<T> {
       child: GestureDetector(
         onTap: onTap ?? () {},
         child: AnimatedScale(
-          scale: _hovered ? hoverScale : 1.0,
-          duration: const Duration(milliseconds: 200),
+          scale: _hovered && !reduceMotion ? hoverScale : 1.0,
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
           curve: Curves.easeOut,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+            duration: reduceMotion
+                ? Duration.zero
+                : const Duration(milliseconds: 200),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
               color: theme.cardTheme.color ?? theme.colorScheme.surface,

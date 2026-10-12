@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:senpwai/settings/settings.dart';
-import 'package:senpwai/ui/components/anime_card/card_switcher.dart';
+import 'package:senpwai/ui/pages/settings_page/browsing_settings.dart';
 import 'package:senpwai/ui/pages/settings_page/font_autocomplete.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 import 'package:senpwai/ui/pages/settings_page/window_settings.dart';
@@ -68,31 +68,10 @@ class AppearanceSettings extends StatelessWidget {
             ),
           ],
         ),
-        SettingsGroupCard(
-          title: 'Card Layout',
-          icon: Icons.view_quilt_outlined,
-          description: 'Choose how anime cards appear across the app',
+        BrowsingSettings(
+          settings: settings,
+          notifier: notifier,
           searchQuery: searchQuery,
-          searchTerms: const [
-            'Card view layout',
-            'Poster grid',
-            'Landscape',
-            'Table list',
-            'Home search results',
-          ],
-          children: [
-            SettingsTile(
-              icon: Icons.dashboard_customize_outlined,
-              title: 'Anime card style',
-              subtitle: 'Used on Home and Search',
-              keywords: 'poster landscape table grid list',
-              searchQuery: searchQuery,
-              trailing: CardSwitcher(
-                selected: settings.appearance.cardViewMode,
-                onSwitch: (mode) => unawaited(notifier.setCardViewMode(mode)),
-              ),
-            ),
-          ],
         ),
         if (supportsWindowCustomization)
           WindowSettings(

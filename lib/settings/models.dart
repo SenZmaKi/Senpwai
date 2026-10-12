@@ -203,6 +203,13 @@ class AppearancePreferences {
   final String displayFontFamily;
   final String bodyFontFamily;
   final CardViewMode cardViewMode;
+  final bool hideSynopses;
+  final bool pauseBannerRotation;
+  final bool compactCards;
+  final bool showNativeTitle;
+  final bool showGenres;
+  final bool reduceMotion;
+  final bool hideAnimeRatings;
 
   const AppearancePreferences({
     this.brightnessMode = BrightnessMode.system,
@@ -210,6 +217,13 @@ class AppearancePreferences {
     this.displayFontFamily = 'Orbitron',
     this.bodyFontFamily = 'Exo 2',
     this.cardViewMode = CardViewMode.poster,
+    this.hideSynopses = false,
+    this.pauseBannerRotation = false,
+    this.compactCards = false,
+    this.showNativeTitle = true,
+    this.showGenres = true,
+    this.reduceMotion = false,
+    this.hideAnimeRatings = false,
   });
 
   factory AppearancePreferences.fromJson(Map<String, dynamic> json) =>
@@ -224,6 +238,13 @@ class AppearancePreferences {
           json['themePreset'],
           SenpwaiThemePreset.defaultTheme,
         ),
+        hideSynopses: _boolValue(json['hideSynopses'], false),
+        pauseBannerRotation: _boolValue(json['pauseBannerRotation'], false),
+        compactCards: _boolValue(json['compactCards'], false),
+        showNativeTitle: _boolValue(json['showNativeTitle'], true),
+        showGenres: _boolValue(json['showGenres'], true),
+        reduceMotion: _boolValue(json['reduceMotion'], false),
+        hideAnimeRatings: _boolValue(json['hideAnimeRatings'], false),
         displayFontFamily: _stringValue(json['displayFontFamily'], 'Orbitron'),
         bodyFontFamily: _stringValue(json['bodyFontFamily'], 'Exo 2'),
         cardViewMode: _enumValue(
@@ -239,6 +260,13 @@ class AppearancePreferences {
     'displayFontFamily': displayFontFamily,
     'bodyFontFamily': bodyFontFamily,
     'cardViewMode': cardViewMode.name,
+    'hideSynopses': hideSynopses,
+    'pauseBannerRotation': pauseBannerRotation,
+    'compactCards': compactCards,
+    'showNativeTitle': showNativeTitle,
+    'showGenres': showGenres,
+    'reduceMotion': reduceMotion,
+    'hideAnimeRatings': hideAnimeRatings,
   };
 
   ThemeConfig toThemeConfig() {
@@ -261,6 +289,13 @@ class AppearancePreferences {
     String? displayFontFamily,
     String? bodyFontFamily,
     CardViewMode? cardViewMode,
+    bool? hideSynopses,
+    bool? pauseBannerRotation,
+    bool? compactCards,
+    bool? showNativeTitle,
+    bool? showGenres,
+    bool? reduceMotion,
+    bool? hideAnimeRatings,
   }) {
     final nextPreset = themePreset ?? this.themePreset;
     final presetChanged =
@@ -280,6 +315,13 @@ class AppearancePreferences {
               ? presetTheme.typography.bodyFamily
               : this.bodyFontFamily),
       cardViewMode: cardViewMode ?? this.cardViewMode,
+      hideSynopses: hideSynopses ?? this.hideSynopses,
+      pauseBannerRotation: pauseBannerRotation ?? this.pauseBannerRotation,
+      compactCards: compactCards ?? this.compactCards,
+      showNativeTitle: showNativeTitle ?? this.showNativeTitle,
+      showGenres: showGenres ?? this.showGenres,
+      reduceMotion: reduceMotion ?? this.reduceMotion,
+      hideAnimeRatings: hideAnimeRatings ?? this.hideAnimeRatings,
     );
   }
 }
