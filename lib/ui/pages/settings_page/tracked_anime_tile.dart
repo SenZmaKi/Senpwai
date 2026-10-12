@@ -90,76 +90,85 @@ class TrackedAnimeTile extends ConsumerWidget {
                   fontWeight: FontWeight.w700,
                 ),
               );
-              Widget controls(double width) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TrackedSourceControl(
-                    tracked: tracked,
-                    enabledSources: enabledSources,
-                    sourceWidth: compact ? width : 180,
-                    trailing: [
-                      SizedBox(
-                        width: compact ? (width - 8) / 2 : 112,
-                        child: Semantics(
-                          label: 'Tracking resolution',
-                          child: DownloadDropdown<Resolution>(
-                            label: 'Resolution',
-                            showLabel: false,
-                            options: downloadResolutionOptions,
-                            selected: tracked.resolution,
-                            labelBuilder: (value) => value.toString(),
-                            onSelected: (value) => unawaited(
-                              _savePreferences(context, resolution: value),
+              Widget controls(double width) {
+                if (width <= 0) return const SizedBox.shrink();
+                final preferenceWidth = compact
+                    ? width < 240
+                          ? width
+                          : (width - 8) / 2
+                    : 112.0;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TrackedSourceControl(
+                      tracked: tracked,
+                      enabledSources: enabledSources,
+                      sourceWidth: compact ? width : 180,
+                      trailing: [
+                        SizedBox(
+                          width: preferenceWidth,
+                          child: Semantics(
+                            label: 'Tracking resolution',
+                            child: DownloadDropdown<Resolution>(
+                              label: 'Resolution',
+                              showLabel: false,
+                              options: downloadResolutionOptions,
+                              selected: tracked.resolution,
+                              labelBuilder: (value) => value.toString(),
+                              onSelected: (value) => unawaited(
+                                _savePreferences(context, resolution: value),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        width: compact ? (width - 8) / 2 : 140,
-                        child: Semantics(
-                          label: 'Tracking language',
-                          child: DownloadDropdown<Language>(
-                            label: 'Language',
-                            showLabel: false,
-                            options: Language.values,
-                            selected: tracked.language,
-                            labelBuilder: (value) => value.toString(),
-                            onSelected: (value) => unawaited(
-                              _savePreferences(context, language: value),
+                        SizedBox(
+                          width: compact ? preferenceWidth : 140,
+                          child: Semantics(
+                            label: 'Tracking language',
+                            child: DownloadDropdown<Language>(
+                              label: 'Language',
+                              showLabel: false,
+                              options: Language.values,
+                              selected: tracked.language,
+                              labelBuilder: (value) => value.toString(),
+                              onSelected: (value) => unawaited(
+                                _savePreferences(context, language: value),
+                              ),
                             ),
                           ),
+                        ),
+                      ],
+                      checkSource: (source) =>
+                          notifier.checkSource(tracked.anilistId, source),
+                      onChanged: (source) =>
+                          notifier.updateSource(tracked.anilistId, source),
+                    ),
+                    const SizedBox(height: 8),
+                    TrackedFolderControl(
+                      folder: tracked.downloadFolder,
+                      onChanged: (folder) => ref
+                          .read(AppSettingsNotifier.provider.notifier)
+                          .upsertCustomAnimeFolder(
+                            animeTitle: title,
+                            folder: folder,
+                          ),
+                    ),
+                    if (tracked.lastError != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        tracked.lastError!,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.error,
                         ),
                       ),
                     ],
-                    checkSource: (source) =>
-                        notifier.checkSource(tracked.anilistId, source),
-                    onChanged: (source) =>
-                        notifier.updateSource(tracked.anilistId, source),
-                  ),
-                  const SizedBox(height: 8),
-                  TrackedFolderControl(
-                    folder: tracked.downloadFolder,
-                    onChanged: (folder) => ref
-                        .read(AppSettingsNotifier.provider.notifier)
-                        .upsertCustomAnimeFolder(
-                          animeTitle: title,
-                          folder: folder,
-                        ),
-                  ),
-                  if (tracked.lastError != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      tracked.lastError!,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.error,
-                      ),
-                    ),
                   ],
-                ],
-              );
+                );
+              }
+
               if (compact) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

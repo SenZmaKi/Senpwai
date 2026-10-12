@@ -73,6 +73,10 @@ List<AnimeResult> parseSearchResults(Document htmlPage) => [
 
 final _searchSeparators = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
 final _episodeKeyPattern = RegExp(r'^[0-9a-f]{32}$');
+final _rawEpisodePattern = RegExp(
+  r'^\d+(?:\.\d+)?\s*raw$',
+  caseSensitive: false,
+);
 
 /// Parses the episode list of an anime page. AnimeHeaven only lists the
 /// episodes it hosts, so gaps in long-running series are expected.
@@ -83,9 +87,14 @@ List<EpisodePage> parseEpisodePages(
   final episodePages = <EpisodePage>[];
   for (final anchor in htmlPage.querySelectorAll('a[onclick^="gatea"]')) {
     final key = anchor.id;
-    final number = num.tryParse(
-      anchor.querySelector('.watch2')?.text.trim() ?? '',
-    );
+    final label = anchor.querySelector('.watch2')?.text.trim() ?? '';
+    // Raw releases have no subtitles and are outside the subbed catalogue
+    // exposed by this source. They must not invalidate the remaining rows.
+    if (_episodeKeyPattern.hasMatch(key) &&
+        _rawEpisodePattern.hasMatch(label)) {
+      continue;
+    }
+    final number = num.tryParse(label);
     if (!_episodeKeyPattern.hasMatch(key) || number == null) {
       throw SourceException(
         message: "Could not parse AnimeHeaven episode row",
