@@ -66,7 +66,7 @@ class BatchQueueCard extends ConsumerWidget {
             if (snapshot.destinationDirectory case final folder?)
               _IconButton(
                 icon: Icons.folder_open_rounded,
-                tooltip: 'Open batch folder',
+                tooltip: 'Open folder\n$folder',
                 color: theme.colorScheme.primary,
                 onTap: () async {
                   final error = await PlatformFileOpener.openFolder(folder);

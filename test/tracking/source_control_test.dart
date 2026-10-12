@@ -45,7 +45,7 @@ void main() {
         ),
       );
       Future<void> choose(String label) async {
-        await tester.tap(find.byTooltip('Choose tracking source'));
+        await tester.tap(find.byType(DropdownButton<String>));
         // A pending check deliberately keeps its progress animation running.
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
@@ -125,7 +125,7 @@ void main() {
       ),
     );
     await show(tracked);
-    await tester.tap(find.byTooltip('Choose tracking source'));
+    await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(
@@ -152,7 +152,7 @@ void main() {
     );
     expect(find.text(AnimeSource.nyaa.label), findsOneWidget);
     expect(find.byIcon(Icons.lock_outline), findsOneWidget);
-    await tester.tap(find.byTooltip('Choose tracking source'));
+    await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     await tester.tap(find.widgetWithText(DropdownMenuItem<String>, 'Auto'));

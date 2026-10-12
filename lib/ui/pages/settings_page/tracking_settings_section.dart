@@ -229,14 +229,13 @@ class _IconActionButton extends StatelessWidget {
           ? SystemMouseCursors.basic
           : SystemMouseCursors.click,
       child: IconButton(
-        tooltip: tooltip,
         onPressed: onPressed,
         icon: loading
             ? const SizedBox.square(
                 dimension: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : Icon(icon, size: 20),
+            : Icon(icon, size: 20, semanticLabel: tooltip),
       ),
     );
   }

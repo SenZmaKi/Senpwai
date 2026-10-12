@@ -32,15 +32,18 @@ class AnimeLibraryFoldersTile extends StatelessWidget {
         : '${folders.length} folders, searched in order';
     return Column(
       children: [
-        SettingsTile(
-          icon: Icons.video_library_outlined,
-          title: 'Anime Library Folders',
-          subtitle: subtitle,
-          searchQuery: searchQuery,
-          trailing: IconButton(
-            tooltip: 'Add folder',
-            onPressed: () => _pickFolder(context),
-            icon: const Icon(Icons.add_rounded, size: 20),
+        Tooltip(
+          message: folders.isEmpty ? '' : folders.join('\n'),
+          child: SettingsTile(
+            icon: Icons.video_library_outlined,
+            title: 'Anime Library Folders',
+            subtitle: subtitle,
+            searchQuery: searchQuery,
+            trailing: IconButton(
+              tooltip: 'Add folder',
+              onPressed: () => _pickFolder(context),
+              icon: const Icon(Icons.add_rounded, size: 20),
+            ),
           ),
         ),
         if (folders.isNotEmpty)

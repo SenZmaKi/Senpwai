@@ -8,6 +8,7 @@ import 'package:senpwai/ui/pages/anime_page/anime_source_ui.dart';
 
 class TrackedSourceControl extends StatefulWidget {
   final TrackedAnime tracked;
+  final double sourceWidth;
   final Set<AnimeSource> enabledSources;
   final List<Widget> trailing;
   final Future<void> Function(AnimeSource?) onChanged;
@@ -16,6 +17,7 @@ class TrackedSourceControl extends StatefulWidget {
   const TrackedSourceControl({
     super.key,
     required this.tracked,
+    this.sourceWidth = 180,
     this.enabledSources = const {
       AnimeSource.animeheaven,
       AnimeSource.animepahe,
@@ -124,12 +126,12 @@ class _TrackedSourceControlState extends State<TrackedSourceControl> {
         : null;
     final accent = source?.color ?? theme.colorScheme.outline;
     final options = [null, ...AnimeSource.values];
-    final control = Tooltip(
-      message: 'Choose tracking source',
+    final control = Semantics(
+      label: 'Tracking source',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Container(
-          width: 180,
+          width: widget.sourceWidth,
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(

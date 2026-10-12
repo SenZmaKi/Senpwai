@@ -150,45 +150,48 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
     bool mobile,
     bool canStartDownload,
   ) {
-    final folderPicker = MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => _pickFolder(context),
-        child: Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: theme.colorScheme.outline.withValues(alpha: 0.25),
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.folder_outlined,
-                size: 18,
-                color: theme.colorScheme.primary,
+    final folderPicker = Tooltip(
+      message: state.downloadFolder ?? 'Choose folder',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => _pickFolder(context),
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: theme.colorScheme.outline.withValues(alpha: 0.25),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  state.downloadFolder ?? 'Choose folder',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: state.downloadFolder != null
-                        ? theme.colorScheme.onSurface
-                        : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.folder_outlined,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    state.downloadFolder ?? 'Choose folder',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: state.downloadFolder != null
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
                   ),
                 ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                size: 16,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-              ),
-            ],
+                Icon(
+                  Icons.chevron_right,
+                  size: 16,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                ),
+              ],
+            ),
           ),
         ),
       ),
