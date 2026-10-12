@@ -28,6 +28,7 @@ class WindowSettings extends StatelessWidget {
         'launch at login automatically open when computer starts',
         'always on top',
         'close minimize hide system tray notification area',
+        'confirm quit exit active transfers downloads seeding',
         'open maximized',
         'open full screen fullscreen',
       ],
@@ -63,6 +64,17 @@ class WindowSettings extends StatelessWidget {
           trailing: AsyncSwitch(
             value: preferences.closeToTray,
             onChanged: notifier.setWindowCloseToTray,
+          ),
+        ),
+        SettingsTile(
+          icon: Icons.exit_to_app_rounded,
+          title: 'Confirm on quit',
+          subtitle: 'Ask before quitting while downloads or seeding are active',
+          keywords: 'desktop window close exit active transfers confirmation',
+          searchQuery: searchQuery,
+          trailing: AsyncSwitch(
+            value: preferences.confirmOnQuit,
+            onChanged: notifier.setWindowConfirmOnQuit,
           ),
         ),
         SettingsTile(

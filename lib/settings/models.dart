@@ -1052,6 +1052,7 @@ class NotificationPreferences {
 class WindowPreferences {
   final bool alwaysOnTop;
   final bool closeToTray;
+  final bool confirmOnQuit;
   final bool startMaximized;
   final bool startFullScreen;
   final bool launchAtStartup;
@@ -1059,6 +1060,7 @@ class WindowPreferences {
   const WindowPreferences({
     this.alwaysOnTop = false,
     this.closeToTray = false,
+    this.confirmOnQuit = true,
     this.startMaximized = true,
     this.startFullScreen = false,
     this.launchAtStartup = false,
@@ -1068,6 +1070,7 @@ class WindowPreferences {
       WindowPreferences(
         alwaysOnTop: _boolValue(json['alwaysOnTop'], false),
         closeToTray: _boolValue(json['closeToTray'], false),
+        confirmOnQuit: _boolValue(json['confirmOnQuit'], true),
         startMaximized: _boolValue(json['startMaximized'], true),
         startFullScreen: _boolValue(json['startFullScreen'], false),
         launchAtStartup: _boolValue(json['launchAtStartup'], false),
@@ -1076,6 +1079,7 @@ class WindowPreferences {
   Map<String, dynamic> toJson() => {
     'alwaysOnTop': alwaysOnTop,
     'closeToTray': closeToTray,
+    'confirmOnQuit': confirmOnQuit,
     'startMaximized': startMaximized,
     'startFullScreen': startFullScreen,
     'launchAtStartup': launchAtStartup,
@@ -1084,6 +1088,7 @@ class WindowPreferences {
   WindowPreferences copyWith({
     bool? alwaysOnTop,
     bool? closeToTray,
+    bool? confirmOnQuit,
     bool? startMaximized,
     bool? startFullScreen,
     bool? launchAtStartup,
@@ -1091,6 +1096,7 @@ class WindowPreferences {
     return WindowPreferences(
       alwaysOnTop: alwaysOnTop ?? this.alwaysOnTop,
       closeToTray: closeToTray ?? this.closeToTray,
+      confirmOnQuit: confirmOnQuit ?? this.confirmOnQuit,
       startMaximized: startMaximized ?? this.startMaximized,
       startFullScreen: startFullScreen ?? this.startFullScreen,
       launchAtStartup: launchAtStartup ?? this.launchAtStartup,

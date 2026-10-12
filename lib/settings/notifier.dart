@@ -147,6 +147,14 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
   }
 
+  Future<void> setWindowConfirmOnQuit(bool confirmOnQuit) {
+    return _commit(
+      state.copyWith(
+        window: state.window.copyWith(confirmOnQuit: confirmOnQuit),
+      ),
+    );
+  }
+
   Future<void> setWindowStartMaximized(bool startMaximized) {
     return _commit(
       state.copyWith(

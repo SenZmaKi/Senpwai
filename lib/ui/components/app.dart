@@ -276,19 +276,9 @@ class _AppRootState extends ConsumerState<_AppRoot> {
 
   Future<bool> _handleDesktopExitRequest(DesktopExitRequest request) async {
     if (_isHandlingDesktopExit) return false;
-    final closeToTray = ref
-        .read(AppSettingsNotifier.provider)
-        .window
-        .closeToTray;
-    if (request == DesktopExitRequest.windowClose) {
-      if (closeToTray) {
-        await DesktopTrayController.instance.minimizeToTray();
-      } else {
-        await ref
-            .read(DownloadManagerNotifier.provider.notifier)
-            .prepareForExit();
-        await DesktopTrayController.instance.closeWindow();
-      }
+    final preferences = ref.read(AppSettingsNotifier.provider).window;
+    if (request == DesktopExitRequest.windowClose && preferences.closeToTray) {
+      await DesktopTrayController.instance.minimizeToTray();
       return false;
     }
 
@@ -305,7 +295,8 @@ class _AppRootState extends ConsumerState<_AppRoot> {
       (item) => item.status == DownloadQueueStatus.seeding,
     );
 
-    if (activeDownloads.isEmpty && activeSeeds.isEmpty) {
+    if (!preferences.confirmOnQuit ||
+        (activeDownloads.isEmpty && activeSeeds.isEmpty)) {
       await ref
           .read(DownloadManagerNotifier.provider.notifier)
           .prepareForExit();
@@ -316,13 +307,15 @@ class _AppRootState extends ConsumerState<_AppRoot> {
         case DesktopExitRequest.systemQuit:
           return true;
         case DesktopExitRequest.windowClose:
-          return false;
+          await DesktopTrayController.instance.closeWindow();
+          break;
       }
       return false;
     }
 
     _isHandlingDesktopExit = true;
     try {
+      await WindowManager.getInstance().focus();
       if (!mounted) return false;
       final choice = await showDialog<DesktopExitChoice>(
         context: context,
@@ -337,7 +330,11 @@ class _AppRootState extends ConsumerState<_AppRoot> {
               .read(DownloadManagerNotifier.provider.notifier)
               .prepareForExit();
           if (request == DesktopExitRequest.systemQuit) return true;
-          await DesktopTrayController.instance.quitApp();
+          if (request == DesktopExitRequest.windowClose) {
+            await DesktopTrayController.instance.closeWindow();
+          } else {
+            await DesktopTrayController.instance.quitApp();
+          }
           break;
         case DesktopExitChoice.minimizeToTray:
           await DesktopTrayController.instance.minimizeToTray();
