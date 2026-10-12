@@ -2,13 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/tracking/models.dart';
 import 'package:senpwai/tracking/notifier.dart';
-import 'package:senpwai/ui/components/anime_cover_image.dart';
-import 'package:senpwai/ui/components/confirm_dialog.dart';
 import 'package:senpwai/ui/pages/settings_page/anilist_account_card.dart';
+import 'package:senpwai/ui/pages/settings_page/tracked_anime_tile.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_search.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_controls.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
@@ -51,7 +49,9 @@ class TrackingSettingsSection extends ConsumerWidget {
         SettingsGroupCard(
           title: 'Tracked Anime Auto-Downloader',
           icon: Icons.radar_rounded,
-          description: tracking.checkInProgress
+          description: trackerDisabled
+              ? 'Tracking disabled · saved preferences can still be edited'
+              : tracking.checkInProgress
               ? 'Checking tracked anime for new episodes...'
               : 'Monitors releases and automatically downloads new episodes',
           searchQuery: searchQuery,
@@ -104,6 +104,7 @@ class TrackingSettingsSection extends ConsumerWidget {
               notifier: trackingNotifier,
               searchQuery: searchQuery,
               generalTrackingMatch: generalTrackingMatch,
+              enabled: !trackerDisabled,
             ),
           ],
         ),
@@ -120,12 +121,14 @@ class _TrackedAnimeList extends StatelessWidget implements SettingsSearchable {
   final TrackingNotifier notifier;
   final String? searchQuery;
   final bool generalTrackingMatch;
+  final bool enabled;
 
   const _TrackedAnimeList({
     required this.trackedAnime,
     required this.notifier,
     required this.searchQuery,
     required this.generalTrackingMatch,
+    required this.enabled,
   });
 
   @override
@@ -141,7 +144,10 @@ class _TrackedAnimeList extends StatelessWidget implements SettingsSearchable {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      Opacity(opacity: enabled ? 1 : 0.45, child: _buildList(context));
+
+  Widget _buildList(BuildContext context) {
     final isSearching = searchQuery?.trim().isNotEmpty ?? false;
     if (trackedAnime.isEmpty) {
       return const SettingsTile(
@@ -162,7 +168,7 @@ class _TrackedAnimeList extends StatelessWidget implements SettingsSearchable {
       return Column(
         children: [
           for (final entry in matchingTrackedAnime)
-            _TrackedAnimeTile(
+            TrackedAnimeTile(
               key: ValueKey(entry.$2.anilistId),
               tracked: entry.$2,
               index: entry.$1,
@@ -182,7 +188,7 @@ class _TrackedAnimeList extends StatelessWidget implements SettingsSearchable {
           unawaited(notifier.reorder(oldIndex, newIndex)),
       itemBuilder: (context, index) {
         final tracked = trackedAnime[index];
-        return _TrackedAnimeTile(
+        return TrackedAnimeTile(
           key: ValueKey(tracked.anilistId),
           tracked: tracked,
           index: index,
@@ -199,178 +205,9 @@ bool _matchesTrackedAnime(TrackedAnime tracked, String? query) =>
       tracked.downloadFolder,
       tracked.resolution.toString(),
       tracked.language.toString(),
-      _sourceLabel(tracked),
+      trackedSourceLabel(tracked),
       if (tracked.lastError != null) tracked.lastError!,
     ]);
-
-class _TrackedAnimeTile extends StatelessWidget {
-  final TrackedAnime tracked;
-  final int index;
-  final TrackingNotifier notifier;
-  final bool showDragHandle;
-
-  const _TrackedAnimeTile({
-    super.key,
-    required this.tracked,
-    required this.index,
-    required this.notifier,
-    this.showDragHandle = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final anime = tracked.animeSnapshot;
-    final title = anime.title.display;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: theme.colorScheme.outline.withValues(alpha: 0.12),
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (showDragHandle)
-                ReorderableDragStartListener(
-                  index: index,
-                  child: const MouseRegion(
-                    cursor: SystemMouseCursors.grab,
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 24, right: 8),
-                      child: Icon(Icons.drag_indicator_rounded, size: 20),
-                    ),
-                  ),
-                )
-              else
-                const SizedBox(width: 28),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: SizedBox(
-                  width: 52,
-                  height: 74,
-                  child: AnimeCoverImage(
-                    imageUrl: anime.coverImage?.best,
-                    placeholderColor: theme.colorScheme.surfaceContainerHighest,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        _MetaChip(_sourceLabel(tracked)),
-                        _MetaChip(tracked.resolution.toString()),
-                        _MetaChip(tracked.language.toString()),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      tracked.downloadFolder,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.55,
-                        ),
-                      ),
-                    ),
-                    if (tracked.lastError != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        tracked.lastError!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.error,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(top: 18),
-                child: _IconActionButton(
-                  icon: Icons.delete_outline_rounded,
-                  tooltip: 'Remove tracking',
-                  onPressed: () =>
-                      unawaited(_confirmAndUntrack(context, title)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _confirmAndUntrack(BuildContext context, String title) async {
-    final confirmed = await showConfirmDialog(
-      context,
-      title: 'Remove tracked anime?',
-      message:
-          'Stop tracking "$title" for new episodes. This will not delete downloaded files.',
-      confirmLabel: 'Remove',
-      destructive: true,
-    );
-    if (!confirmed) return;
-    await notifier.untrackAnime(tracked.anilistId);
-  }
-}
-
-String _sourceLabel(TrackedAnime tracked) {
-  final source = tracked.preferredSource;
-  if (source == null) return 'Auto';
-  if (tracked.sourceSelectedByUser) return source.label;
-  return 'Auto: ${source.label}';
-}
-
-class _MetaChip extends StatelessWidget {
-  final String label;
-
-  const _MetaChip(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-        child: Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _IconActionButton extends StatelessWidget {
   final IconData icon;

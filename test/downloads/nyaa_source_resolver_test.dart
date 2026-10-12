@@ -5,6 +5,7 @@ import 'package:senpwai/downloads/source_resolver/nyaa.dart';
 import 'package:senpwai/sources/nyaa.dart' as nyaa;
 import 'package:senpwai/sources/shared/matcher/nyaa.dart';
 import 'package:senpwai/sources/shared/shared.dart';
+import 'package:senpwai/shared/shared.dart' show Pagination;
 
 import '../support/support.dart';
 
@@ -14,6 +15,24 @@ void main() {
   });
 
   group('NyaaDownloadSourceResolver', () {
+    test(
+      'TV search rejects unrelated results and accepts matching releases',
+      () async {
+        final source = _FakeSource();
+        final resolver = NyaaDownloadSourceResolver(source: source);
+        const anime = AnilistAnime(
+          id: 1,
+          title: AnilistTitle(romaji: 'Death Note'),
+          genres: [],
+        );
+        source.filename = '[Group] Naruto - 01 [1080p].mkv';
+        final unrelated = await resolver.resolve(anime);
+        expect(unrelated.noMatch, isTrue);
+        source.filename = '[Group] Death Note - 01 [1080p].mkv';
+        expect((await resolver.resolve(anime)).isMatched, isTrue);
+      },
+    );
+
     test('resolves movies through parsed Nyaa movie matches', () async {
       final resolver = NyaaDownloadSourceResolver(
         matcher: _FakeNyaaMatcher(matches: [_scoredMovieResult()]),
@@ -78,4 +97,32 @@ class _FakeNyaaMatcher extends NyaaMatcher {
   ) async {
     return matches;
   }
+}
+
+class _FakeSource implements nyaa.Source {
+  String filename = '';
+  @override
+  Future<Pagination<List<nyaa.AnimeResult>>> search({
+    required nyaa.SearchParams params,
+  }) async => Pagination(
+    currentPage: 1,
+    totalPages: 1,
+    perPage: 75,
+    fetchNextPage: null,
+    items: [
+      nyaa.AnimeResult(
+        filename: filename,
+        torrentFileUrl: 'https://nyaa.si/download/1.torrent',
+        magnetUrl: 'magnet:?xt=urn:btih:1',
+        sizeBytes: 1024,
+        dateAdded: DateTime(2026),
+        seeders: 1,
+        leechers: 0,
+        torrentFileDownloadCount: 1,
+      ),
+    ],
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

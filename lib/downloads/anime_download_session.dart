@@ -212,7 +212,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         AnimeDownloadSessionNotifier,
         AnimeDownloadSessionState,
         AnilistAnimeBase
-      >((anime) => AnimeDownloadSessionNotifier._(anime));
+      >((anime) => AnimeDownloadSessionNotifier(anime));
 
   CancelToken? _planningCancelToken;
 
@@ -231,7 +231,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   bool _resolvedFolderExisted = false;
   bool? _startEpisodeSelectedByUser;
 
-  AnimeDownloadSessionNotifier._(
+  AnimeDownloadSessionNotifier(
     this._anime, {
     DownloadSourceResolver? sourceResolver,
     AnimeDownloadCoordinator? coordinator,
@@ -246,6 +246,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
   AnimeDownloadSessionState build() {
     final settings = ref.read(AppSettingsNotifier.provider);
     final tracking = ref.read(TrackingNotifier.provider);
+    final tracked = tracking.trackedById(_anime.id);
     ref.listen(
       TrackingNotifier.provider.select(
         (trackingState) => trackingState.isTracked(_anime.id),
@@ -281,8 +282,14 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     Future.microtask(_initialize);
     return AnimeDownloadSessionState(
       anime: _anime,
-      selectedResolution: settings.content.defaultResolution,
-      selectedLanguage: settings.content.defaultAudioLanguage,
+      selectedSource: tracked?.preferredSource,
+      sourceSelectedByUser: tracked?.sourceSelectedByUser ?? false,
+      downloadFolder: tracked?.downloadFolder,
+      downloadFolderSelectedByUser: tracked != null,
+      selectedResolution:
+          tracked?.resolution ?? settings.content.defaultResolution,
+      selectedLanguage:
+          tracked?.language ?? settings.content.defaultAudioLanguage,
       startEpisode: 1,
       endEpisode: _defaultAvailableEpisode,
       trackingEnabled: tracking.isTracked(_anime.id),
@@ -319,12 +326,11 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
           : [defaultRoot],
       customAnimeFolders: settings.downloads.customAnimeFolders,
     );
-    final folderExists = await Directory(
-      plannedLocation.episodeDirectory,
-    ).exists();
-    final ownedEpisodes = await _ownedEpisodes(
-      plannedLocation.episodeDirectory,
-    );
+    final folder = state.downloadFolderSelectedByUser && !replaceSelectedFolder
+        ? state.downloadFolder ?? plannedLocation.episodeDirectory
+        : plannedLocation.episodeDirectory;
+    final folderExists = await Directory(folder).exists();
+    final ownedEpisodes = await _ownedEpisodes(folder);
     if (!ref.mounted) return;
     final resolvedStartEpisode = _recommendedStartEpisode(ownedEpisodes);
     state = state.copyWith(

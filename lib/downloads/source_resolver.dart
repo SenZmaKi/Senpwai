@@ -48,6 +48,21 @@ class DownloadSourceResolver {
            tokyoinsiderResolver ?? TokyoinsiderDownloadSourceResolver(),
        _nyaaResolver = nyaaResolver ?? NyaaDownloadSourceResolver();
 
+  Future<SourceMatchState<Object>> resolveSource(
+    AnilistAnimeBase anime,
+    AnimeSource source,
+  ) async {
+    if (!settings.enabledSources.contains(source)) {
+      return const SourceMatchState.failed('Source disabled');
+    }
+    return switch (source) {
+      AnimeSource.animeheaven => await _animeheavenResolver.resolve(anime),
+      AnimeSource.animepahe => await _animepaheResolver.resolve(anime),
+      AnimeSource.tokyoinsider => await _tokyoinsiderResolver.resolve(anime),
+      AnimeSource.nyaa => await _nyaaResolver.resolve(anime),
+    };
+  }
+
   Future<ResolvedSourceMatches> resolveAll(AnilistAnimeBase anime) async {
     final results = await Future.wait<dynamic>([
       settings.enabledSources.contains(AnimeSource.animeheaven)
@@ -106,7 +121,15 @@ class DownloadSourceResolver {
     required ResolvedSourceMatches matches,
     required bool sourceSelectedByUser,
     required AnimeSource? selectedSource,
+    bool lockSelectedSource = false,
   }) {
+    if (lockSelectedSource) {
+      return selectedSource != null &&
+              settings.enabledSources.contains(selectedSource) &&
+              isSourceAvailable(matches, selectedSource)
+          ? selectedSource
+          : null;
+    }
     if (sourceSelectedByUser &&
         selectedSource != null &&
         isSourceAvailable(matches, selectedSource)) {

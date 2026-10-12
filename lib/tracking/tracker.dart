@@ -108,6 +108,7 @@ class AnimeTracker {
     required AppSettings settings,
     required DownloadManagerState downloadState,
     required TrackingEnqueueBatch enqueueBatch,
+    bool Function(TrackedAnime)? isCurrent,
   }) async {
     final now = _now();
     var queuedBatchCount = 0;
@@ -125,6 +126,7 @@ class AnimeTracker {
           downloadState: downloadState,
           enqueueBatch: enqueueBatch,
           checkedAt: now,
+          isCurrent: isCurrent,
         );
         final nextTracked = checked.tracked;
         if (nextTracked != null) {
@@ -185,6 +187,7 @@ class AnimeTracker {
     required DownloadManagerState downloadState,
     required TrackingEnqueueBatch enqueueBatch,
     required DateTime checkedAt,
+    bool Function(TrackedAnime)? isCurrent,
   }) async {
     final freshAnime =
         await (_animeLoader?.call(tracked.anilistId) ??
@@ -305,6 +308,14 @@ class AnimeTracker {
       throw StateError('No downloadable episodes were found.');
     }
 
+    if (isCurrent != null && !isCurrent(tracked)) {
+      return (
+        tracked: tracked,
+        queuedBatch: false,
+        queuedEpisodes: 0,
+        events: const <TrackingEvent>[],
+      );
+    }
     final result = await enqueueBatch(batch);
     if (result.queuedCount <= 0) {
       throw StateError('The tracker prepared episodes but none were queued.');
@@ -365,9 +376,14 @@ class AnimeTracker {
       matches: matches,
       sourceSelectedByUser: tracked.sourceSelectedByUser,
       selectedSource: tracked.preferredSource,
+      lockSelectedSource: tracked.sourceSelectedByUser,
     );
     if (source == null) {
-      throw StateError('No enabled source is available for this anime.');
+      throw StateError(
+        tracked.sourceSelectedByUser
+            ? 'Locked source ${tracked.preferredSource?.label ?? "unknown"} is disabled or unavailable. Unlock or choose another source to continue.'
+            : 'No enabled source is available for this anime.',
+      );
     }
 
     final folder = tracked.downloadFolder.trim().isNotEmpty

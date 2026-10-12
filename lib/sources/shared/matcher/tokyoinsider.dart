@@ -1,4 +1,5 @@
 import 'package:logging/logging.dart';
+import 'package:senpwai/sources/shared/shared.dart' show Constants;
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/sources/tokyoinsider.dart' as tokyoinsider;
@@ -17,6 +18,7 @@ class TokyoinsiderMatcher {
   ) async {
     final titleCandidates = anime.title.toTitleCandidates();
     if (titleCandidates.isEmpty) return [];
+    Object? searchError;
 
     final allMatches = <SourceMatch<tokyoinsider.AnimeResult>>[];
     final seenUrls = <String>{};
@@ -28,6 +30,7 @@ class TokyoinsiderMatcher {
         );
         return (title: title, results: results);
       } catch (e) {
+        searchError = e;
         _log.warningWithMetadata(
           "TokyoInsider search failed for title candidate",
           metadata: {"title": title, "error": e.toString()},
@@ -57,6 +60,11 @@ class TokyoinsiderMatcher {
         "topScore": allMatches.isNotEmpty ? allMatches.first.score : null,
       },
     );
+    if (searchError != null &&
+        (allMatches.isEmpty ||
+            allMatches.first.score < Constants.minMatchScore)) {
+      throw searchError!;
+    }
     return allMatches;
   }
 }

@@ -5,11 +5,13 @@ import 'package:logging/logging.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/downloads/manager.dart';
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/source_resolver.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/tracking/models.dart';
+import 'package:senpwai/tracking/repository.dart';
 import 'package:senpwai/tracking/tracker.dart';
 
 final _log = Logger('senpwai.tracking.notifier');
@@ -19,7 +21,14 @@ class TrackingNotifier extends Notifier<TrackingState> {
     TrackingNotifier.new,
   );
 
-  final _tracker = AnimeTracker();
+  final AnimeTracker _tracker;
+
+  final TrackingRepository? repository;
+
+  TrackingNotifier({AnimeTracker? tracker, this.repository})
+    : _tracker = tracker ?? AnimeTracker();
+  Future<void> _commitTail = Future.value();
+  int _commitRevision = 0;
 
   @override
   TrackingState build() => TrackingState(
@@ -36,27 +45,81 @@ class TrackingNotifier extends Notifier<TrackingState> {
     required Language language,
     required String downloadFolder,
   }) async {
-    final now = DateTime.now();
-    final existing = state.trackedById(anime.id);
-    final tracked = TrackedAnime(
-      anilistId: anime.id,
-      animeSnapshot: animeSnapshotFromBase(anime),
-      preferredSource: preferredSource,
-      sourceSelectedByUser: sourceSelectedByUser && preferredSource != null,
-      resolution: resolution,
-      language: language,
-      downloadFolder: downloadFolder,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-      lastCheckedAt: existing?.lastCheckedAt,
-      lastError: existing?.lastError,
+    await _commit(() {
+      final now = DateTime.now();
+      final existing = state.trackedById(anime.id);
+      final tracked = TrackedAnime(
+        anilistId: anime.id,
+        animeSnapshot: animeSnapshotFromBase(anime),
+        preferredSource: preferredSource,
+        sourceSelectedByUser: sourceSelectedByUser && preferredSource != null,
+        resolution: resolution,
+        language: language,
+        downloadFolder: downloadFolder,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        lastCheckedAt: existing?.lastCheckedAt,
+        lastError: existing?.lastError,
+      );
+      final next = [
+        for (final item in state.trackedAnime)
+          if (item.anilistId == anime.id) tracked else item,
+        if (existing == null) tracked,
+      ];
+      return next;
+    });
+  }
+
+  Future<void> updatePreferences(
+    int anilistId, {
+    Resolution? resolution,
+    Language? language,
+  }) async {
+    await _commit(
+      () => [
+        for (final item in state.trackedAnime)
+          if (item.anilistId == anilistId)
+            item.copyWith(
+              resolution: resolution,
+              language: language,
+              updatedAt: DateTime.now(),
+              clearLastError: true,
+              clearCompletionBatchId: true,
+            )
+          else
+            item,
+      ],
     );
-    final next = [
-      for (final item in state.trackedAnime)
-        if (item.anilistId == anime.id) tracked else item,
-      if (existing == null) tracked,
-    ];
-    await _commit(next);
+  }
+
+  Future<SourceMatchState<Object>> checkSource(
+    int anilistId,
+    AnimeSource source,
+  ) async {
+    final tracked = state.trackedById(anilistId);
+    if (tracked == null) return const SourceMatchState.failed('Item removed');
+    return DownloadSourceResolver(
+      settings: ref.read(AppSettingsNotifier.provider).sources,
+    ).resolveSource(tracked.animeSnapshot, source);
+  }
+
+  Future<void> updateSource(int anilistId, AnimeSource? source) async {
+    await _commit(
+      () => [
+        for (final item in state.trackedAnime)
+          if (item.anilistId == anilistId)
+            item.copyWith(
+              preferredSource: source,
+              clearPreferredSource: source == null,
+              sourceSelectedByUser: source != null,
+              updatedAt: DateTime.now(),
+              clearLastError: true,
+              clearCompletionBatchId: true,
+            )
+          else
+            item,
+      ],
+    );
   }
 
   Future<void> updateDownloadFolder({
@@ -71,32 +134,36 @@ class TrackingNotifier extends Notifier<TrackingState> {
         .any((title) => titleKey(title) == selectedTitleKey);
     final matches = state.trackedAnime.where(matchesTitle);
     if (matches.every((item) => item.downloadFolder == folder)) return;
-    await _commit([
-      for (final item in state.trackedAnime)
-        if (matchesTitle(item))
-          item.copyWith(
-            downloadFolder: folder,
-            updatedAt: DateTime.now(),
-            clearCompletionBatchId: true,
-          )
-        else
-          item,
-    ]);
+    await _commit(
+      () => [
+        for (final item in state.trackedAnime)
+          if (matchesTitle(item))
+            item.copyWith(
+              downloadFolder: folder,
+              updatedAt: DateTime.now(),
+              clearCompletionBatchId: true,
+            )
+          else
+            item,
+      ],
+    );
   }
 
   Future<void> untrackAnime(int anilistId) async {
-    await _commit([
-      for (final item in state.trackedAnime)
-        if (item.anilistId != anilistId) item,
-    ]);
+    await _commit(
+      () => [
+        for (final item in state.trackedAnime)
+          if (item.anilistId != anilistId) item,
+      ],
+    );
   }
 
-  Future<void> reorder(int oldIndex, int newIndex) async {
+  Future<void> reorder(int oldIndex, int newIndex) => _commit(() {
     final next = [...state.trackedAnime];
     final item = next.removeAt(oldIndex);
     next.insert(newIndex, item);
-    await _commit(next);
-  }
+    return next;
+  });
 
   Future<void> handleDownloadState(DownloadManagerState downloadState) async {
     final completionBatchIds = {
@@ -121,10 +188,12 @@ class TrackingNotifier extends Notifier<TrackingState> {
       for (final tracked in state.trackedAnime)
         if (completedBatchIds.contains(tracked.completionBatchId)) tracked,
     ];
-    await _commit([
-      for (final tracked in state.trackedAnime)
-        if (!completedBatchIds.contains(tracked.completionBatchId)) tracked,
-    ]);
+    await _commit(
+      () => [
+        for (final tracked in state.trackedAnime)
+          if (!completedBatchIds.contains(tracked.completionBatchId)) tracked,
+      ],
+    );
     for (final tracked in removed) {
       _emitEvent(
         TrackingEvent.create(
@@ -154,25 +223,55 @@ class TrackingNotifier extends Notifier<TrackingState> {
       lastCheckStartedAt: startedAt,
     );
     try {
+      await _commitTail;
       final checkedAnime = state.trackedAnime;
+      final checkRevision = _commitRevision;
       final result = await _tracker.check(
         trackedAnime: checkedAnime,
+        isCurrent: (checked) {
+          final current = state.trackedById(checked.anilistId);
+          return checkRevision == _commitRevision &&
+              ref
+                      .read(AppSettingsNotifier.provider)
+                      .anilist
+                      .trackerCheckIntervalHours >
+                  0 &&
+              current != null &&
+              current.preferredSource == checked.preferredSource &&
+              current.sourceSelectedByUser == checked.sourceSelectedByUser &&
+              current.downloadFolder == checked.downloadFolder &&
+              current.resolution == checked.resolution &&
+              current.language == checked.language;
+        },
         settings: ref.read(AppSettingsNotifier.provider),
         downloadState: ref.read(DownloadManagerNotifier.provider),
         enqueueBatch: (batch) => ref
             .read(DownloadManagerNotifier.provider.notifier)
             .enqueueBatch(batch),
       );
+      final discardResult =
+          checkRevision != _commitRevision ||
+          ref
+                  .read(AppSettingsNotifier.provider)
+                  .anilist
+                  .trackerCheckIntervalHours ==
+              0;
       await _commit(
-        [
+        () => [
           for (final current in state.trackedAnime)
-            if (!checkedAnime.any(
+            if (discardResult ||
+                !checkedAnime.any(
                   (item) => item.anilistId == current.anilistId,
                 ) ||
                 checkedAnime.any(
                   (item) =>
                       item.anilistId == current.anilistId &&
-                      item.downloadFolder != current.downloadFolder,
+                      (item.resolution != current.resolution ||
+                          item.language != current.language ||
+                          item.downloadFolder != current.downloadFolder ||
+                          item.preferredSource != current.preferredSource ||
+                          item.sourceSelectedByUser !=
+                              current.sourceSelectedByUser),
                 ))
               current
             else if (result.trackedAnime
@@ -195,8 +294,10 @@ class TrackingNotifier extends Notifier<TrackingState> {
           },
         );
       }
-      for (final event in result.events) {
-        _emitEvent(event);
+      if (!discardResult) {
+        for (final event in result.events) {
+          _emitEvent(event);
+        }
       }
     } on Object catch (error, stackTrace) {
       _log.warningWithMetadata(
@@ -211,20 +312,25 @@ class TrackingNotifier extends Notifier<TrackingState> {
   }
 
   Future<void> _commit(
-    List<TrackedAnime> trackedAnime, {
+    List<TrackedAnime> Function() change, {
     bool? checkInProgress,
     DateTime? lastCheckStartedAt,
     DateTime? lastCheckCompletedAt,
-  }) async {
-    final next = List<TrackedAnime>.unmodifiable(trackedAnime);
-    state = state.copyWith(
-      trackedAnime: next,
-      checkInProgress: checkInProgress,
-      lastCheckStartedAt: lastCheckStartedAt,
-      lastCheckCompletedAt: lastCheckCompletedAt,
-    );
-    await AppPersistence.trackingRepository.save(next);
-    AppPersistence.trackedAnime = next;
+  }) {
+    _commitRevision++;
+    final operation = _commitTail.then((_) async {
+      final next = List<TrackedAnime>.unmodifiable(change());
+      await (repository ?? AppPersistence.trackingRepository).save(next);
+      AppPersistence.trackedAnime = next;
+      state = state.copyWith(
+        trackedAnime: next,
+        checkInProgress: checkInProgress,
+        lastCheckStartedAt: lastCheckStartedAt,
+        lastCheckCompletedAt: lastCheckCompletedAt,
+      );
+    });
+    _commitTail = operation.catchError((Object _) {});
+    return operation;
   }
 
   void _emitEvent(TrackingEvent event) {

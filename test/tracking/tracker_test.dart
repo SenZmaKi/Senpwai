@@ -145,6 +145,31 @@ void main() {
     expect(result.events.single.kind, TrackingEventKind.reviewNeeded);
   });
 
+  test('does not enqueue a batch after its tracking choice changes', () async {
+    var current = true;
+    final tracker = AnimeTracker(
+      loadAnime: (_) async => _anime(episode: 3, episodes: 12),
+      resolveLastEpisode: (_, _) async => 1,
+      prepareBatch: (tracked, anime, settings, start, end, episodes) async {
+        current = false;
+        return TrackingPreparedBatch(
+          batch: PreparedDownloadBatch(jobs: [_job()]),
+          source: AnimeSource.animepahe,
+          downloadFolder: tracked.downloadFolder,
+        );
+      },
+    );
+    final result = await tracker.check(
+      trackedAnime: [_tracked()],
+      settings: const AppSettings(),
+      downloadState: const DownloadManagerState(),
+      isCurrent: (_) => current,
+      enqueueBatch: (_) async => fail('Stale batch must not be queued'),
+    );
+    expect(result.queuedEpisodeCount, 0);
+    expect(result.events, isEmpty);
+  });
+
   test('isolates one title failure and continues checking the rest', () async {
     final tracker = AnimeTracker(
       now: () => checkedAt,

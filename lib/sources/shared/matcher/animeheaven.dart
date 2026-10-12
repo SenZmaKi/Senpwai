@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:logging/logging.dart';
+import 'package:senpwai/sources/shared/shared.dart' show Constants;
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/shared/log.dart';
 import 'package:senpwai/sources/animeheaven.dart' as animeheaven;
@@ -30,12 +31,14 @@ class AnimeheavenMatcher {
   ) async {
     final titleCandidates = anime.title.toTitleCandidates();
     if (titleCandidates.isEmpty) return [];
+    Object? searchError;
 
     var searchResults = await Future.wait(
       titleCandidates.map((title) async {
         try {
           return (title: title, results: await _source.search(term: title));
         } catch (e) {
+          searchError = e;
           _log.warningWithMetadata(
             "AnimeHeaven search failed for title candidate",
             metadata: {"title": title, "error": e.toString()},
@@ -60,6 +63,10 @@ class AnimeheavenMatcher {
         "topScore": matches.firstOrNull?.score,
       },
     );
+    if (searchError != null &&
+        (matches.isEmpty || matches.first.score < Constants.minMatchScore)) {
+      throw searchError!;
+    }
     return matches;
   }
 

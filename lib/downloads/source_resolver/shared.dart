@@ -9,16 +9,22 @@ class SourceMatchState<T> {
   final SourceMatchStatus status;
   final T? result;
   final String? error;
+  final bool noMatch;
 
-  const SourceMatchState._({required this.status, this.result, this.error});
+  const SourceMatchState._({
+    required this.status,
+    this.result,
+    this.error,
+    this.noMatch = false,
+  });
 
   const SourceMatchState.loading() : this._(status: SourceMatchStatus.loading);
 
   const SourceMatchState.matched(T result)
     : this._(status: SourceMatchStatus.matched, result: result);
 
-  const SourceMatchState.failed(String error)
-    : this._(status: SourceMatchStatus.failed, error: error);
+  const SourceMatchState.failed(String error, {bool noMatch = false})
+    : this._(status: SourceMatchStatus.failed, error: error, noMatch: noMatch);
 
   bool get isLoading => status == SourceMatchStatus.loading;
   bool get isMatched => status == SourceMatchStatus.matched;
@@ -33,7 +39,7 @@ Future<SourceMatchState<SourceMatch<T>>> resolveScoredSourceMatch<T>({
   try {
     final matches = await loadMatches();
     if (matches.isEmpty || matches.first.score < Constants.minMatchScore) {
-      return const SourceMatchState.failed('No match found');
+      return const SourceMatchState.failed('No match found', noMatch: true);
     }
     return SourceMatchState.matched(matches.first);
   } catch (error, stackTrace) {

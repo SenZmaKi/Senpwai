@@ -328,8 +328,9 @@ List<ScoredNyaaResult> _scoreAndSort({
 
 class NyaaMatcher {
   final nyaa.Source _source;
+  final bool strictSearchErrors;
 
-  NyaaMatcher({nyaa.Source? source})
+  NyaaMatcher({nyaa.Source? source, this.strictSearchErrors = false})
     : _source = source ?? nyaa.Source.getInstance();
 
   Future<List<nyaa.AnimeResult>> _search(String term, int anilistId) async {
@@ -343,6 +344,7 @@ class NyaaMatcher {
         "Nyaa search failed",
         metadata: {"term": term, "anilistId": anilistId, "error": e.toString()},
       );
+      if (strictSearchErrors) rethrow;
       return [];
     }
   }

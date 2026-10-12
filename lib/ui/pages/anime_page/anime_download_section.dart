@@ -314,12 +314,7 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
                     child: DownloadDropdown<Resolution>(
                       label: 'Quality',
                       icon: Icons.hd_outlined,
-                      options: const [
-                        Resolution.res1080p,
-                        Resolution.res720p,
-                        Resolution.res480p,
-                        Resolution.res360p,
-                      ],
+                      options: downloadResolutionOptions,
                       selected: state.selectedResolution,
                       labelBuilder: (r) => r.toString(),
                       onSelected: notifier.setResolution,

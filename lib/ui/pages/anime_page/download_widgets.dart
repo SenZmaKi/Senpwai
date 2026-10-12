@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/source_resolver.dart';
 import 'package:senpwai/ui/pages/anime_page/anime_source_ui.dart';
+
+const downloadResolutionOptions = [
+  Resolution.res1080p,
+  Resolution.res720p,
+  Resolution.res480p,
+  Resolution.res360p,
+];
 
 // ── Source dropdown ───────────────────────────────────────────────────────────
 
@@ -182,6 +190,7 @@ class DownloadSectionLabel extends StatelessWidget {
 
 class DownloadDropdown<T> extends StatelessWidget {
   final String label;
+  final bool showLabel;
   final IconData? icon;
   final List<T> options;
   final T selected;
@@ -191,6 +200,7 @@ class DownloadDropdown<T> extends StatelessWidget {
   const DownloadDropdown({
     super.key,
     required this.label,
+    this.showLabel = true,
     this.icon,
     required this.options,
     required this.selected,
@@ -205,10 +215,13 @@ class DownloadDropdown<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        DownloadSectionLabel(label: label, icon: icon),
-        const SizedBox(height: 6),
+        if (showLabel) ...[
+          DownloadSectionLabel(label: label, icon: icon),
+          const SizedBox(height: 6),
+        ],
         DropdownButtonHideUnderline(
           child: Container(
+            height: showLabel ? null : 40,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
             decoration: BoxDecoration(
               border: Border.all(
@@ -217,9 +230,15 @@ class DownloadDropdown<T> extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             child: DropdownButton<T>(
-              value: selected,
+              value: options.contains(selected) ? selected : null,
+              hint: Text(
+                labelBuilder(selected),
+                style: theme.textTheme.bodySmall,
+              ),
               isExpanded: true,
               isDense: true,
+              borderRadius: BorderRadius.circular(10),
+              dropdownColor: theme.colorScheme.surfaceContainerHigh,
               items: options
                   .map(
                     (opt) => DropdownMenuItem<T>(

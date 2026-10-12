@@ -20,6 +20,7 @@ class AnimepaheMatcher {
   ) async {
     final titleCandidates = anime.title.toTitleCandidates();
     if (titleCandidates.isEmpty) return [];
+    Object? searchError;
 
     final allMatches = <SourceMatch<animepahe.AnimeResult>>[];
     final seenIds = <int>{};
@@ -33,6 +34,7 @@ class AnimepaheMatcher {
         );
         return (title: title, results: results.items);
       } on DioException catch (error) {
+        searchError = error;
         _log.warningWithMetadata(
           "AnimePahe search failed for title candidate",
           metadata: {
@@ -45,6 +47,7 @@ class AnimepaheMatcher {
         );
         return (title: title, results: <animepahe.AnimeResult>[]);
       } catch (error) {
+        searchError = error;
         _log.warningWithMetadata(
           "AnimePahe search failed for title candidate",
           metadata: {"title": title, "error": error.toString()},
@@ -93,6 +96,11 @@ class AnimepaheMatcher {
         "topScore": topMatch?.score,
       },
     );
+    if (searchError != null &&
+        (allMatches.isEmpty ||
+            allMatches.first.score < shared.Constants.minMatchScore)) {
+      throw searchError!;
+    }
     return allMatches;
   }
 
