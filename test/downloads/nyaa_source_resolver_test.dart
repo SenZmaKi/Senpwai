@@ -2,6 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:senpwai/anilist/enums.dart';
 import 'package:senpwai/anilist/models.dart';
 import 'package:senpwai/downloads/source_resolver/nyaa.dart';
+import 'package:senpwai/downloads/source_resolver.dart';
+import 'package:senpwai/downloads/anime_download_session.dart';
+import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/sources/nyaa.dart' as nyaa;
 import 'package:senpwai/sources/shared/matcher/nyaa.dart';
 import 'package:senpwai/sources/shared/shared.dart';
@@ -20,6 +24,10 @@ void main() {
       () async {
         final source = _FakeSource();
         final resolver = NyaaDownloadSourceResolver(source: source);
+        final allSources = DownloadSourceResolver(
+          settings: const SourcePreferences(enabledSources: {AnimeSource.nyaa}),
+          nyaaResolver: resolver,
+        );
         const anime = AnilistAnime(
           id: 1,
           title: AnilistTitle(romaji: 'Death Note'),
@@ -28,8 +36,25 @@ void main() {
         source.filename = '[Group] Naruto - 01 [1080p].mkv';
         final unrelated = await resolver.resolve(anime);
         expect(unrelated.noMatch, isTrue);
+        final unrelatedMatches = await allSources.resolveAll(anime);
+        expect(unrelatedMatches.nyaaMatch.noMatch, isTrue);
+        expect(
+          AnimeDownloadSessionState(
+            anime: anime,
+            nyaaMatch: unrelatedMatches.nyaaMatch,
+          ).isSourceAvailable(AnimeSource.nyaa),
+          isFalse,
+        );
         source.filename = '[Group] Death Note - 01 [1080p].mkv';
         expect((await resolver.resolve(anime)).isMatched, isTrue);
+        final matchingSources = await allSources.resolveAll(anime);
+        expect(
+          AnimeDownloadSessionState(
+            anime: anime,
+            nyaaMatch: matchingSources.nyaaMatch,
+          ).isSourceAvailable(AnimeSource.nyaa),
+          isTrue,
+        );
       },
     );
 
