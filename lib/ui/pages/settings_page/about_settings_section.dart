@@ -21,6 +21,7 @@ class AboutSettingsSection extends ConsumerWidget {
     this.searchQuery,
   });
 
+  static const _websiteUrl = 'https://senpwai.com';
   static const _discordUrl = 'https://discord.gg/e9UxkuyDX2';
   static const _githubUrl = 'https://github.com/SenZmaKi/Senpwai';
   static const _redditUrl = 'https://reddit.com/r/Senpwai';
@@ -127,6 +128,20 @@ class AboutSettingsSection extends ConsumerWidget {
           description: 'Join the community, report bugs, or suggest features',
           searchQuery: sq,
           children: [
+            SettingsTile(
+              leadingWidget: Image.asset(
+                'assets/images/senpwai-icon.png',
+                width: 24,
+                height: 24,
+                fit: BoxFit.contain,
+              ),
+              title: 'Senpwai Website',
+              subtitle: _websiteUrl,
+              keywords: 'website official homepage senpwai downloads',
+              searchQuery: sq,
+              trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+              onTap: () => _openUrl(_websiteUrl),
+            ),
             SettingsTile(
               leadingWidget: Image.asset(
                 'assets/images/link_icons/discord.png',

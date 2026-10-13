@@ -211,7 +211,7 @@ class SettingsSearchResults extends ConsumerWidget {
       'Image Cache Limit Live Search Results Catalogue Data Reference Data',
       'Clear Image Cache Clear HTTP Cache Clear All Caches',
       'Browser Sessions cookies protected site data Clear Browser Sessions',
-      'About Senpwai Version 1.0.0 updates releases check for updates social links discord github reddit sponsors support open source licenses bug report feature request',
+      'About Senpwai Version 1.0.0 updates releases check for updates social links website official homepage downloads discord github reddit sponsors support open source licenses bug report feature request',
     ]);
   }
 }
