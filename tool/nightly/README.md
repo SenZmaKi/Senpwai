@@ -12,6 +12,11 @@ stable GitHub latest release.
 `nightly_branding.py` runs in each disposable CI checkout before building. It
 badges launcher/tray icons, changes displayed names and native application IDs,
 and gives the Windows installer a separate ID and installation directory.
+After badging the source icon, it runs `tool/generate_splash_icons.py` to generate
+matching light/dark Android splash icons at every density, including Android 12's
+masked splash. To regenerate stable splash artwork, run
+`python tool/generate_splash_icons.py` with Pillow installed. As with Sentorr,
+Nightly assets are generated in the disposable build checkout.
 `ApplicationIdentity` selects isolated data, credentials and startup entries via
 `--dart-define UPDATE_CHANNEL=nightly`. Executable names and asset naming remain
 compatible with the existing packaging and updater infrastructure.

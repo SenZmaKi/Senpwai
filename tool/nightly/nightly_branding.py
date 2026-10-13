@@ -4,6 +4,8 @@ Adapted from Sentorr's nightly_branding.py and nightly_identity.py.
 Requires Pillow. Source files are changed only in the ephemeral build checkout.
 """
 from pathlib import Path
+import subprocess
+import sys
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -74,6 +76,8 @@ icons += list((ROOT / 'macos/Runner/Assets.xcassets/AppIcon.appiconset').glob('*
 icons += list((ROOT / 'android/app/src/main/res').glob('mipmap-*/ic_launcher.png'))
 for icon in icons:
     badge(icon)
+
+subprocess.run([sys.executable, str(ROOT / 'tool/generate_splash_icons.py')], check=True)
 
 for relative, before, after in (
     ('android/app/build.gradle.kts', 'applicationId = "com.senpwai.app"',
