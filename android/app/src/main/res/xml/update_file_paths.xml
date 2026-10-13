@@ -3,4 +3,7 @@
     <files-path
         name="prepared_updates"
         path="SenpwaiData/updates/" />
+    <files-path
+        name="prepared_nightly_updates"
+        path="SenpwaiNightlyData/updates/" />
 </paths>
