@@ -1,4 +1,5 @@
 # Senpwai
+output/
 ai-outputs/
 .dev-garbage/
 .test-downloads/
