@@ -8,7 +8,10 @@ import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/ui/pages/anime_page/download_widgets.dart';
 import 'package:senpwai/tracking/models.dart';
 import 'package:senpwai/tracking/notifier.dart';
+import 'package:senpwai/tracking/tracker.dart';
+import 'package:senpwai/ui/components/skip_fillers_control.dart';
 import 'package:senpwai/ui/components/anime_cover_image.dart';
+import 'package:senpwai/ui/components/overlay_chip.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/settings_page/tracked_source_control.dart';
@@ -82,13 +85,48 @@ class TrackedAnimeTile extends ConsumerWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 600;
-              Widget titleText() => Text(
-                title,
-                maxLines: compact ? 3 : 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+              final episode = availableEpisodesForTracking(
+                tracked.animeSnapshot,
+              );
+              final episodeKnown =
+                  tracked.animeSnapshot.episode != null ||
+                  tracked.animeSnapshot.episodes != null;
+              final episodeDescription = !episodeKnown
+                  ? 'Latest aired episode unknown'
+                  : episode == 0
+                  ? 'No aired episodes yet'
+                  : 'Latest aired episode: $episode';
+              Widget titleText() => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      title,
+                      maxLines: compact ? 3 : 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: episodeDescription,
+                    child: Semantics(
+                      label: episodeDescription,
+                      excludeSemantics: true,
+                      child: OverlayChip(
+                        child: Text(
+                          episodeKnown ? 'EP $episode' : 'EP —',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               );
               Widget controls(double width) {
                 if (width <= 0) return const SizedBox.shrink();
@@ -97,6 +135,19 @@ class TrackedAnimeTile extends ConsumerWidget {
                           ? width
                           : (width - 8) / 2
                     : 112.0;
+                final fillerControl = SkipFillersControl(
+                  value:
+                      tracked.skipFillers ??
+                      ref.watch(
+                        AppSettingsNotifier.provider.select(
+                          (s) => s.downloads.skipFillers,
+                        ),
+                      ),
+                  onChanged: (value) => notifier.updatePreferences(
+                    tracked.anilistId,
+                    skipFillers: value,
+                  ),
+                );
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -104,8 +155,13 @@ class TrackedAnimeTile extends ConsumerWidget {
                     TrackedSourceControl(
                       tracked: tracked,
                       enabledSources: enabledSources,
-                      sourceWidth: compact ? width : 180,
+                      sourceWidth: compact ? (width - 8) / 2 : 180,
                       trailing: [
+                        if (compact)
+                          SizedBox(
+                            width: preferenceWidth,
+                            child: fillerControl,
+                          ),
                         SizedBox(
                           width: preferenceWidth,
                           child: Semantics(
@@ -138,6 +194,7 @@ class TrackedAnimeTile extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        if (!compact) fillerControl,
                       ],
                       checkSource: (source) =>
                           notifier.checkSource(tracked.anilistId, source),

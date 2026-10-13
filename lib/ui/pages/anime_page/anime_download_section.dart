@@ -10,6 +10,7 @@ import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/ui/components/app.dart';
+import 'package:senpwai/ui/components/skip_fillers_control.dart';
 import 'package:senpwai/ui/components/confirm_dialog.dart';
 import 'package:senpwai/ui/pages/anime_page/anime_download_button.dart';
 import 'package:senpwai/ui/components/toast.dart';
@@ -109,30 +110,36 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
                 ),
                 SizedBox(height: 8),
 
-                // Source dropdown + Track switch in one row
-                Row(
+                SourceDropdown(state: state, notifier: notifier),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 16,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Expanded(
-                      child: SourceDropdown(state: state, notifier: notifier),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Track', style: theme.textTheme.bodySmall),
+                        const SizedBox(width: 4),
+                        Switch(
+                          value: state.trackingEnabled,
+                          mouseCursor: SystemMouseCursors.click,
+                          onChanged: (enabled) =>
+                              unawaited(_setTrackingEnabled(context, enabled)),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Track',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Switch(
-                      value: state.trackingEnabled,
-                      onChanged: (enabled) =>
-                          unawaited(_setTrackingEnabled(context, enabled)),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    SkipFillersControl(
+                      value: state.skipFillers,
+                      onChanged: state.isSubmittingDownload
+                          ? null
+                          : notifier.setSkipFillers,
                     ),
                   ],
                 ),
                 SizedBox(height: 8),
-
                 downloadControls,
               ],
             ),

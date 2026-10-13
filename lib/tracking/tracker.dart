@@ -230,7 +230,8 @@ class AnimeTracker {
 
     final startEpisode = havedEpisode + 1;
     final endEpisode = availableEpisodes;
-    final fillerEpisodes = settings.downloads.skipFillers
+    final fillerEpisodes =
+        (tracked.skipFillers ?? settings.downloads.skipFillers)
         ? await (_fillerLoader?.call(freshAnime, availableEpisodes) ??
               _fillerService!.getFillerEpisodes(
                 anime: freshAnime,

@@ -53,6 +53,7 @@ class TrackedAnime {
   final bool sourceSelectedByUser;
   final Resolution resolution;
   final Language language;
+  final bool? skipFillers;
   final String downloadFolder;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -66,6 +67,7 @@ class TrackedAnime {
     required this.downloadFolder,
     required this.resolution,
     required this.language,
+    this.skipFillers,
     required this.createdAt,
     required this.updatedAt,
     this.preferredSource,
@@ -94,6 +96,9 @@ class TrackedAnime {
         json['language'],
         Language.japanese,
       ),
+      skipFillers: json['skipFillers'] is bool
+          ? json['skipFillers'] as bool
+          : null,
       downloadFolder: _stringValue(json['downloadFolder'], ''),
       createdAt: _dateTimeValue(json['createdAt'], now),
       updatedAt: _dateTimeValue(json['updatedAt'], now),
@@ -110,6 +115,7 @@ class TrackedAnime {
     'sourceSelectedByUser': sourceSelectedByUser,
     'resolution': resolution.name,
     'language': language.name,
+    'skipFillers': skipFillers,
     'downloadFolder': downloadFolder,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
@@ -124,6 +130,7 @@ class TrackedAnime {
     bool? sourceSelectedByUser,
     Resolution? resolution,
     Language? language,
+    bool? skipFillers,
     String? downloadFolder,
     DateTime? updatedAt,
     DateTime? lastCheckedAt,
@@ -144,6 +151,7 @@ class TrackedAnime {
           (clearPreferredSource ? false : this.sourceSelectedByUser),
       resolution: resolution ?? this.resolution,
       language: language ?? this.language,
+      skipFillers: skipFillers ?? this.skipFillers,
       downloadFolder: downloadFolder ?? this.downloadFolder,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

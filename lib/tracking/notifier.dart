@@ -43,6 +43,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
     required bool sourceSelectedByUser,
     required Resolution resolution,
     required Language language,
+    bool? skipFillers,
     required String downloadFolder,
   }) async {
     await _commit(() {
@@ -55,6 +56,10 @@ class TrackingNotifier extends Notifier<TrackingState> {
         sourceSelectedByUser: sourceSelectedByUser && preferredSource != null,
         resolution: resolution,
         language: language,
+        skipFillers:
+            skipFillers ??
+            existing?.skipFillers ??
+            ref.read(AppSettingsNotifier.provider).downloads.skipFillers,
         downloadFolder: downloadFolder,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
@@ -74,6 +79,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
     int anilistId, {
     Resolution? resolution,
     Language? language,
+    bool? skipFillers,
   }) async {
     await _commit(
       () => [
@@ -82,6 +88,7 @@ class TrackingNotifier extends Notifier<TrackingState> {
             item.copyWith(
               resolution: resolution,
               language: language,
+              skipFillers: skipFillers,
               updatedAt: DateTime.now(),
               clearLastError: true,
               clearCompletionBatchId: true,
@@ -241,7 +248,8 @@ class TrackingNotifier extends Notifier<TrackingState> {
               current.sourceSelectedByUser == checked.sourceSelectedByUser &&
               current.downloadFolder == checked.downloadFolder &&
               current.resolution == checked.resolution &&
-              current.language == checked.language;
+              current.language == checked.language &&
+              current.skipFillers == checked.skipFillers;
         },
         settings: ref.read(AppSettingsNotifier.provider),
         downloadState: ref.read(DownloadManagerNotifier.provider),

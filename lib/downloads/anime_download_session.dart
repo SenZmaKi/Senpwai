@@ -68,6 +68,7 @@ class AnimeDownloadSessionState {
   final AnimeSource? selectedSource;
   final Resolution selectedResolution;
   final Language selectedLanguage;
+  final bool skipFillers;
   final int startEpisode;
   final int endEpisode;
   final String? downloadFolder;
@@ -91,6 +92,7 @@ class AnimeDownloadSessionState {
     this.selectedSource,
     this.selectedResolution = Resolution.res1080p,
     this.selectedLanguage = Language.japanese,
+    this.skipFillers = false,
     this.startEpisode = 1,
     this.endEpisode = 1,
     this.downloadFolder,
@@ -157,6 +159,7 @@ class AnimeDownloadSessionState {
     AnimeSource? selectedSource,
     Resolution? selectedResolution,
     Language? selectedLanguage,
+    bool? skipFillers,
     int? startEpisode,
     int? endEpisode,
     String? downloadFolder,
@@ -184,6 +187,7 @@ class AnimeDownloadSessionState {
           : (selectedSource ?? this.selectedSource),
       selectedResolution: selectedResolution ?? this.selectedResolution,
       selectedLanguage: selectedLanguage ?? this.selectedLanguage,
+      skipFillers: skipFillers ?? this.skipFillers,
       startEpisode: startEpisode ?? this.startEpisode,
       endEpisode: endEpisode ?? this.endEpisode,
       downloadFolder: downloadFolder ?? this.downloadFolder,
@@ -257,6 +261,14 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
         }
       },
     );
+    ref.listen(
+      TrackingNotifier.provider.select(
+        (tracking) => tracking.trackedById(_anime.id)?.skipFillers,
+      ),
+      (_, skip) {
+        if (skip != null) state = state.copyWith(skipFillers: skip);
+      },
+    );
     ref.listen(AppSettingsNotifier.provider.select((s) => s.sources), (_, _) {
       if (_sourceResolverOverride == null) unawaited(_resolveSources());
     });
@@ -290,6 +302,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
           tracked?.resolution ?? settings.content.defaultResolution,
       selectedLanguage:
           tracked?.language ?? settings.content.defaultAudioLanguage,
+      skipFillers: tracked?.skipFillers ?? settings.downloads.skipFillers,
       startEpisode: 1,
       endEpisode: _defaultAvailableEpisode,
       trackingEnabled: tracking.isTracked(_anime.id),
@@ -558,6 +571,15 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
     state = state.copyWith(selectedLanguage: language);
   }
 
+  Future<void> setSkipFillers(bool skip) async {
+    if (state.trackingEnabled) {
+      await ref
+          .read(TrackingNotifier.provider.notifier)
+          .updatePreferences(state.anime.id, skipFillers: skip);
+    }
+    state = state.copyWith(skipFillers: skip);
+  }
+
   void setStartEpisode(int episode) {
     _startEpisodeSelectedByUser = true;
     state = state.copyWith(startEpisode: episode);
@@ -609,6 +631,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
             sourceSelectedByUser: state.sourceSelectedByUser,
             resolution: state.selectedResolution,
             language: state.selectedLanguage,
+            skipFillers: state.skipFillers,
             downloadFolder: folder,
           );
     } else {
@@ -726,8 +749,7 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
             'Every episode in that range already exists in the selected folder.',
       );
     }
-    final settings = ref.read(AppSettingsNotifier.provider);
-    final fillerEpisodes = settings.downloads.skipFillers
+    final fillerEpisodes = state.skipFillers
         ? await _fillerService.getFillerEpisodes(
             anime: state.anime,
             episodeCount: state.availableEpisodes,
