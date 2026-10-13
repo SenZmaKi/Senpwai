@@ -88,7 +88,7 @@ class DesktopTrayController with TrayListener {
 
   String get _iconPath {
     if (!Platform.isWindows) {
-      return 'assets/images/senpwai-icon.png';
+      return ApplicationIdentity.iconAsset;
     }
 
     return [

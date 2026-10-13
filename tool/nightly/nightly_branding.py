@@ -5,6 +5,7 @@ Requires Pillow. Source files are changed only in the ephemeral build checkout.
 """
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 from PIL import Image, ImageDraw
 
@@ -69,6 +70,10 @@ def badge(path):
         else:
             image.save(path)
 
+
+nightly_icon = ROOT / 'assets/images/senpwai-nightly-icon.png'
+shutil.copyfile(ROOT / 'assets/images/senpwai-icon.png', nightly_icon)
+badge(nightly_icon)
 
 icons = [ROOT / 'assets/images/senpwai-icon.png',
          ROOT / 'windows/runner/resources/app_icon.ico']

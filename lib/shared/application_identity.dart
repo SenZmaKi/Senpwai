@@ -9,6 +9,9 @@ abstract final class ApplicationIdentity {
       ? 'com.senpwai.app.nightly'
       : 'com.senpwai.app';
   static const name = nightly ? 'Senpwai Nightly' : 'Senpwai';
+  static const iconAsset = nightly
+      ? 'assets/images/senpwai-nightly-icon.png'
+      : 'assets/images/senpwai-icon.png';
   static const dataDirectory = nightly ? 'SenpwaiNightlyData' : 'SenpwaiData';
   static const credentialsAccount = nightly
       ? 'com.senpwai.app.nightly.credentials'

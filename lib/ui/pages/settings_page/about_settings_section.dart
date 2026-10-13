@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:senpwai/settings/settings.dart';
+import 'package:senpwai/shared/application_identity.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_tile.dart';
 import 'package:senpwai/ui/pages/settings_page/settings_controls.dart';
@@ -130,7 +131,7 @@ class AboutSettingsSection extends ConsumerWidget {
           children: [
             SettingsTile(
               leadingWidget: Image.asset(
-                'assets/images/senpwai-icon.png',
+                ApplicationIdentity.iconAsset,
                 width: 24,
                 height: 24,
                 fit: BoxFit.contain,
@@ -260,7 +261,7 @@ class AboutSettingsSection extends ConsumerWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Image.asset(
-              'assets/images/senpwai-icon.png',
+              ApplicationIdentity.iconAsset,
               width: 56,
               height: 56,
               fit: BoxFit.cover,

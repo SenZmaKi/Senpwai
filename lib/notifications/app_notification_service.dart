@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:senpwai/settings/settings.dart';
+import 'package:senpwai/shared/application_identity.dart';
 import 'package:senpwai/shared/persistence/app_persistence.dart';
 import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/shared/theme/theme.dart';
@@ -80,7 +81,7 @@ class AppNotificationService {
     );
     final linux = LinuxInitializationSettings(
       defaultActionName: 'Open Senpwai',
-      defaultIcon: AssetsLinuxIcon('images/senpwai-icon.png'),
+      defaultIcon: AssetsLinuxIcon(ApplicationIdentity.iconAsset),
     );
     final windows = WindowsInitializationSettings(
       appName: 'Senpwai',
@@ -393,10 +394,12 @@ class AppNotificationService {
   String? get _windowsNotificationIconPath {
     if (!Platform.isWindows) return null;
     final executableDirectory = File(Platform.resolvedExecutable).parent.path;
-    return '$executableDirectory${Platform.pathSeparator}data'
-        '${Platform.pathSeparator}flutter_assets${Platform.pathSeparator}assets'
-        '${Platform.pathSeparator}images${Platform.pathSeparator}'
-        'senpwai-icon.png';
+    return [
+      executableDirectory,
+      'data',
+      'flutter_assets',
+      ...ApplicationIdentity.iconAsset.split('/'),
+    ].join(Platform.pathSeparator);
   }
 
   bool get _fallbackShouldUseToast =>
