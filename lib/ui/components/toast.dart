@@ -4,9 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:toastification/toastification.dart';
 import 'package:senpwai/ui/shared/responsive.dart';
 import 'package:senpwai/shared/error_report.dart';
+import 'package:senpwai/ui/shared/app_error_diagnostics.dart';
+import 'package:senpwai/ui/components/discord_report_dialog.dart';
 
 class AppToast {
   AppToast._();
+
+  static bool _reporting = false;
 
   static ToastificationItem showError(
     BuildContext context, {
@@ -117,21 +121,54 @@ class AppToast {
     String? copyPayload,
   }) {
     final mob = isMobile(context);
-    return toastification.show(
+    final isError = type == ToastificationType.error;
+    final payload = isError
+        ? copyPayload ??
+              formatErrorForCopy(
+                '$title${description == null ? '' : '\n$description'}',
+                null,
+                buildAppErrorDiagnostics(context),
+              )
+        : copyPayload;
+    late final ToastificationItem toast;
+    toast = toastification.show(
       context: context,
       type: type,
       style: ToastificationStyle.flatColored,
-      autoCloseDuration: copyPayload == null
-          ? const Duration(seconds: 8)
-          : null,
+      autoCloseDuration: payload == null ? const Duration(seconds: 8) : null,
       title: Text(
         title,
         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       ),
-      description: description != null || copyPayload != null
-          ? _ToastBody(description: description, copyPayload: copyPayload)
+      description: description != null || payload != null
+          ? _ToastBody(
+              description: description,
+              copyPayload: payload,
+              onReport: !isError
+                  ? null
+                  : () async {
+                      if (_reporting || !context.mounted) return;
+                      _reporting = true;
+                      toastification.dismiss(toast);
+                      try {
+                        final sent = await showDialog<bool>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) => DiscordReportDialog(
+                            title: title,
+                            diagnostics: payload!,
+                          ),
+                        );
+                        if (sent == true && context.mounted) {
+                          showInfo(context, title: 'Report sent to Discord');
+                        }
+                      } finally {
+                        _reporting = false;
+                      }
+                    },
+            )
           : null,
       alignment: mob ? Alignment.bottomCenter : Alignment.topRight,
       margin: mob
@@ -144,6 +181,7 @@ class AppToast {
       applyBlurEffect: false,
       pauseOnHover: true,
     );
+    return toast;
   }
 }
 
@@ -151,7 +189,9 @@ class _ToastBody extends StatelessWidget {
   final String? description;
   final String? copyPayload;
 
-  const _ToastBody({this.description, this.copyPayload});
+  final VoidCallback? onReport;
+
+  const _ToastBody({this.description, this.copyPayload, this.onReport});
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +212,25 @@ class _ToastBody extends StatelessWidget {
         if (copyPayload != null)
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: _CopyButton(payload: copyPayload!),
+            child: Wrap(
+              spacing: 4,
+              children: [
+                _CopyButton(payload: copyPayload!),
+                if (onReport != null)
+                  TextButton.icon(
+                    onPressed: onReport,
+                    icon: const Icon(Icons.bug_report_outlined, size: 13),
+                    label: const Text(
+                      'Report to Discord',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+              ],
+            ),
           ),
       ],
     );

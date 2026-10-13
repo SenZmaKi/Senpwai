@@ -111,11 +111,15 @@ String sanitizeDiagnosticText(String text) {
       .replaceAllMapped(RegExp(r'https?://[^\s<>"\x27]+'), (match) {
         final uri = Uri.tryParse(match[0]!);
         if (uri == null) return '[invalid URL]';
+        if (uri.host.endsWith('discord.com') &&
+            uri.path.contains('/webhooks/')) {
+          return '[Discord webhook URL redacted]';
+        }
         return '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}${uri.path}';
       })
       .replaceAll(
         RegExp(
-          r'(authorization|cookie|set-cookie|password|access_token|refresh_token)\s*[:=]\s*[^\n]+',
+          r'(authorization|cookie|set-cookie|password|access_token|refresh_token|bot_token|api_key|client_secret)\s*[:=]\s*[^\n]+',
           caseSensitive: false,
         ),
         '[sensitive field redacted]',

@@ -61,3 +61,30 @@ need `DISCORD_BOT_TOKEN`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`,
 5. Check all platform jobs, the published release assets, Pages update feeds,
    and Discord and Reddit announcement jobs. A failed announcement can be
    retried separately, but first check whether a post was already created.
+
+## In-app Discord error reports
+
+Release builds embed the dedicated report webhook from the GitHub Actions secret
+`DISCORD_REPORT_WEBHOOK_URL` on every platform. This is separate from the release
+announcement bot token. The webhook URL is extractable from the app by design;
+use a dedicated report channel and replace the webhook if abused. Do not commit
+the URL or include it in diagnostic output.
+
+For local development, put the URL in ignored `.credentials/error-report.json`:
+
+```json
+{ "DISCORD_REPORT_WEBHOOK_URL": "YOUR_DEDICATED_WEBHOOK_URL" }
+```
+
+Run or build with `--dart-define-from-file=.credentials/error-report.json`, for example:
+
+```sh
+flutter run --dart-define-from-file=.credentials/error-report.json
+```
+
+A build without the define can copy diagnostics but cannot send a report. Reports
+are submitted only after the user presses Send report; they include a summary,
+self-reported username, optional context, timestamp, report ID, and a bounded
+text attachment containing sanitized diagnostics. Usernames are stored locally
+in the app settings directory. Mentions are disabled. Discord rate limits are
+respected without automatic retries of potentially completed submissions.

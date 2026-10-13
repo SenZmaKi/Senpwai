@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  DISCORD_REPORT_WEBHOOK_URL: ${{ secrets.DISCORD_REPORT_WEBHOOK_URL }}
+
 concurrency:
   group: release-${{ github.event_name == 'push' && github.ref_name || 'nightly' }}
   cancel-in-progress: false
@@ -143,7 +146,8 @@ jobs:
             --release \
             --build-name "$VERSION" \
             --build-number "$BUILD_NUMBER" \
-            --dart-define "UPDATE_CHANNEL=${{ needs.prepare.outputs.channel }}"
+            --dart-define "UPDATE_CHANNEL=${{ needs.prepare.outputs.channel }}" \
+            --dart-define "DISCORD_REPORT_WEBHOOK_URL=$DISCORD_REPORT_WEBHOOK_URL"
 
       - name: Verify and package macOS app
         shell: bash
@@ -343,7 +347,8 @@ jobs:
           flutter build linux --release \
             --build-name "$VERSION" \
             --build-number "$BUILD_NUMBER" \
-            --dart-define "UPDATE_CHANNEL=${{ needs.prepare.outputs.channel }}"
+            --dart-define "UPDATE_CHANNEL=${{ needs.prepare.outputs.channel }}" \
+            --dart-define "DISCORD_REPORT_WEBHOOK_URL=$DISCORD_REPORT_WEBHOOK_URL"
 
       - name: Package AppImage
         shell: bash
@@ -486,7 +491,8 @@ jobs:
           flutter build apk --release --split-per-abi \
             --build-name "$VERSION" \
             --build-number "$BUILD_NUMBER" \
-            --dart-define "UPDATE_CHANNEL=$UPDATE_CHANNEL"
+            --dart-define "UPDATE_CHANNEL=$UPDATE_CHANNEL" \
+            --dart-define "DISCORD_REPORT_WEBHOOK_URL=$DISCORD_REPORT_WEBHOOK_URL"
 
       - name: Verify and package APKs
         shell: bash
@@ -589,7 +595,8 @@ jobs:
           flutter build windows --release `
             --build-name $env:VERSION `
             --build-number $env:BUILD_NUMBER `
-            --dart-define "UPDATE_CHANNEL=$env:UPDATE_CHANNEL"
+            --dart-define "UPDATE_CHANNEL=$env:UPDATE_CHANNEL" `
+            --dart-define "DISCORD_REPORT_WEBHOOK_URL=$env:DISCORD_REPORT_WEBHOOK_URL"
 
           $bundle = "build\windows\$env:ARCHITECTURE\runner\Release"
           if (-not (Test-Path -LiteralPath "$bundle\senpwai.exe")) {
