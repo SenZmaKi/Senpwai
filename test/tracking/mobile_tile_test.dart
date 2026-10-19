@@ -6,11 +6,31 @@ import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/tracking/models.dart';
 import 'package:senpwai/tracking/notifier.dart';
+import 'package:senpwai/ui/shared/theme/theme.dart';
 import 'package:senpwai/ui/pages/settings_page/tracked_anime_tile.dart';
 
 import '../support/support.dart';
 
 void main() {
+  final appTheme = SenpwaiThemePreset.defaultTheme.toTheme();
+  final colors = appTheme.colors.dark;
+  final theme = ThemeData.dark().copyWith(
+    extensions: [
+      SenpwaiThemeExtension(
+        cardRadius: appTheme.shape.cardRadius,
+        cardBorderColor: colors.surfaceVariant,
+        cardBorderWidth: appTheme.shape.cardBorderWidth,
+        cardShadows: const [],
+        shimmerBase: colors.surface,
+        shimmerHighlight: colors.surfaceVariant,
+        randomColourPalette: colors.randomColors,
+        imageOverlay: colors.imageOverlay,
+        onImageOverlay: colors.onImageOverlay,
+        textShadow: colors.textShadow,
+        downloadColors: SenpwaiDownloadColors.deriveFrom(colors),
+      ),
+    ],
+  );
   setUpAll(() async {
     final originalDebugPrint = debugPrint;
     await setupTestApp();
@@ -47,7 +67,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
-            theme: ThemeData.dark(),
+            theme: theme,
             home: Scaffold(
               body: MediaQuery(
                 data: MediaQueryData(

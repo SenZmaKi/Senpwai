@@ -1,7 +1,8 @@
 # Releases
 
 All application platforms are published by `.github/workflows/release.yml`.
-The workflow only runs for a version tag that exactly matches `pubspec.yaml`.
+Version tags must exactly match `pubspec.yaml`. Scheduled and manually dispatched
+runs build nightlies from master.
 
 ## Versioning
 
@@ -15,7 +16,8 @@ missing notes, and tags outside the current `master` commit.
 
 ## Orchestration
 
-The workflow builds these artifacts in parallel:
+After the shared Flutter CI quality checks pass, the workflow builds these
+artifacts in parallel:
 
 - signed Android APKs for ARM, ARM64, and x64;
 - Linux AppImages for x64 and ARM64;
@@ -48,10 +50,19 @@ also include the four `SENPWAI_ANDROID_*` Android signing secrets. Announcements
 need `DISCORD_BOT_TOKEN`, `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`,
 `REDDIT_USERNAME`, and `REDDIT_PASSWORD`.
 
+The Reddit account must have permission to submit to r/Senpwai. Successful OAuth
+authentication alone does not establish posting access. If Reddit rejects a
+submission, check the authenticated account, community restrictions, and the
+response body; an HTTP 403 may also be a network security block. The script's
+post approval step runs only after submission succeeds.
+
+The website's Stable tab selects published releases without GitHub's prerelease
+flag. Nightlies have their own tab; future betas do not replace stable downloads.
+
 ## Publishing a release
 
 1. Bump `pubspec.yaml` to the new version and a higher build number, for example
-   `3.0.0-beta.2+2`.
+   `3.0.0+4` for the first stable v3 release.
 2. Write `release-notes/<version>.md`. Its first-line `# ` heading becomes the
    GitHub release title, and the whole file becomes the release body.
 3. Merge both changes into `master`.

@@ -9,7 +9,9 @@ export async function loadChannel(channel: 'stable' | 'nightly') {
   if (!response.ok) throw new Error(`Release lookup failed: ${response.status}`);
   const data: Release[] = await response.json();
   const release = data.find((item) =>
-    !item.draft && item.tag_name.includes('-nightly.') === (channel === 'nightly'));
+    !item.draft && (channel === 'nightly'
+      ? item.tag_name.includes('-nightly.')
+      : !item.prerelease));
   if (!release) throw new Error('No published release yet');
   return release;
 }

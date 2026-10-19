@@ -54,7 +54,7 @@ jobs:
             --jq .isDraft)"
           [[ "$is_draft" == false ]]
 
-          dart pub get --directory source-directory/signer
+          dart pub get --enforce-lockfile --directory source-directory/signer
           curl --fail --silent --show-error --location \
             --retry 4 --retry-all-errors \
             https://senpwai.com/update-manifest.json \

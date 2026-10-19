@@ -250,9 +250,7 @@ const downloadCards = [
       });
       status.textContent = channel === 'nightly'
         ? 'Nightly builds include the latest changes and may be unstable.'
-        : loaded.prerelease
-          ? 'The latest release is a beta. Some features may still change before the stable release.'
-          : 'Stable releases are recommended for everyday use.';
+        : 'Stable releases are recommended for everyday use.';
     } catch {
       if (request !== generation) return;
       cards.forEach((card) => {

@@ -30,6 +30,8 @@ tokyo.html
 .DS_Store
 *.class
 *.lock
+!/pubspec.lock
+!/source-directory/signer/pubspec.lock
 *.log
 *.pyc
 *.swp

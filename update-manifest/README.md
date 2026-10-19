@@ -66,9 +66,14 @@ workflow. After Pages deploys and verifies the release is represented in the
 public manifest, it dispatches the announcement workflow. Discord and Reddit
 are separate jobs so a failed destination can be retried independently.
 
+Release builds also depend on the shared Flutter CI quality job. Keep the app
+and signer `pubspec.lock` files in Git; CI enforces them so scheduled builds do
+not silently select new dependency versions. The macOS runner uses macOS 15
+with Xcode 26.3 selected explicitly.
+
 ## Prereleases
 
-Use a prerelease version and matching tag, for example `3.1.0-beta.1+3` and
+Use a prerelease version and matching tag, for example `3.1.0-beta.1+5` and
 `v3.1.0-beta.1`. The same workflow builds every platform, marks the GitHub
 release as a prerelease, and publishes prerelease update entries.
 
@@ -80,9 +85,33 @@ Before the first run, configure these repository Actions secrets:
 - `SENPWAI_ANDROID_KEY_ALIAS`
 - `SENPWAI_ANDROID_KEY_PASSWORD`
 
-Use the same keystore for every Android prerelease and the later public Android
-release. Android rejects updates signed by a different key, and every new APK
+Use the same keystore for Android prereleases and stable releases. Android
+rejects updates signed by a different key, and every new APK
 must have a higher build number (`versionCode`) than the installed APK.
+
+## Moving beta users to stable
+
+All v3 betas accept the `stable` update channel. Beta and stable builds share
+their package identifiers, Windows installer AppId, data directory, and
+credential identity, so upgrading in place preserves user data. Keep the
+existing Android keystore and Sparkle signing key.
+
+For the first stable release, use `3.0.0+4` or a higher build: beta 3 shipped as
+build 3. The release workflow rejects a non-nightly build that does not exceed
+the builds in previously published non-nightly update entries. Nightlies have
+separate identities and timestamp builds, so they do not affect this check.
+
+On Android, Windows, and Linux, Pages includes the stable update entry in the
+signed manifest already consumed by beta installations. On macOS, Pages copies
+the stable Sparkle feed to `appcast-prerelease.xml` when its build supersedes
+the beta, allowing installed betas to discover stable without a bridge release.
+The stable app then uses the stable feed and channel for future checks.
+
+Before publishing, review `release-notes/3.0.0.md`, confirm the matching pubspec
+version, and commit the release state to master. After publication, verify the Pages
+deployment, both Sparkle feed URLs, and the signed manifest. An in-place upgrade
+on each platform is still needed to verify installer behavior and preserved
+settings; static analysis alone cannot establish that.
 
 The DMG is the human-facing macOS installer. The ZIP is Sparkle's update
 payload. Both contain the same ad-hoc-signed app, so Gatekeeper approval remains

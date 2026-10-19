@@ -20,6 +20,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  quality:
+    name: Release quality checks
+    uses: ./.github/workflows/ci.yml
+
   prepare:
     name: Validate release version
     runs-on: ubuntu-latest
@@ -36,6 +40,8 @@ jobs:
       - name: Match tag to pubspec version
         id: version
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           package_version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)"
@@ -81,6 +87,22 @@ jobs:
             channel=nightly
           fi
 
+          if [[ "$channel" != nightly ]]; then
+            # Android and Sparkle require increasing builds across beta/stable.
+            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq '.[] | select(.draft == false) | select(.tag_name | contains("-nightly.") | not) | select(.tag_name != "'"$expected_tag"'") | .assets[] | select(.name == "update-entry.json") | .url' \
+              > "$RUNNER_TEMP/previous-update-entries.txt"
+            while IFS= read -r entry_url; do
+              [[ -n "$entry_url" ]] || continue
+              previous_build="$(gh api "$entry_url" -H 'Accept: application/octet-stream' \
+                --jq '[.releases[].build] | max')"
+              if [[ ! "$previous_build" =~ ^[1-9][0-9]*$ || "$build_number" -le "$previous_build" ]]; then
+                echo "Release build $build_number must exceed published build $previous_build" >&2
+                exit 64
+              fi
+            done < "$RUNNER_TEMP/previous-update-entries.txt"
+          fi
+
           {
             echo "version=$version"
             echo "build_number=$build_number"
@@ -91,8 +113,8 @@ jobs:
 
   build-macos:
     name: Build universal macOS app
-    needs: prepare
-    runs-on: macos-14
+    needs: [prepare, quality]
+    runs-on: macos-15
     timeout-minutes: 45
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
@@ -105,6 +127,12 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+
+      - name: Select Xcode toolchain
+        run: |
+          sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+          xcrun swift --version
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -120,7 +148,7 @@ jobs:
           python tool/nightly/nightly_branding.py
 
       - name: Install Flutter dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Analyze Flutter code
         run: flutter analyze
@@ -228,7 +256,7 @@ jobs:
           printf '%s\n' '{"schemaVersion":1,"releases":[]}' > "$empty_manifest"
 
           cd source-directory/signer
-          dart pub get
+          dart pub get --enforce-lockfile
           dart run bin/build_update_feeds.dart \
             --release "$descriptor" \
             --manifest "$empty_manifest" \
@@ -252,7 +280,7 @@ jobs:
 
   build-linux:
     name: Build ${{ matrix.display_architecture }} Linux AppImage
-    needs: prepare
+    needs: [prepare, quality]
     strategy:
       fail-fast: false
       matrix:
@@ -335,7 +363,7 @@ jobs:
           python tool/nightly/nightly_branding.py
 
       - name: Install Flutter dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Analyze Flutter code
         run: flutter analyze
@@ -431,7 +459,7 @@ jobs:
 
   build-android:
     name: Build signed Android APKs
-    needs: prepare
+    needs: [prepare, quality]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -460,7 +488,7 @@ jobs:
           python tool/nightly/nightly_branding.py
 
       - name: Install Flutter dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Analyze Flutter code
         run: flutter analyze
@@ -526,7 +554,7 @@ jobs:
 
   build-windows:
     name: Build Windows ${{ matrix.architecture }} installer
-    needs: prepare
+    needs: [prepare, quality]
     strategy:
       fail-fast: false
       matrix:
@@ -580,7 +608,7 @@ jobs:
           python tool/nightly/nightly_branding.py
 
       - name: Install Flutter dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Analyze Flutter code
         run: flutter analyze
@@ -793,7 +821,7 @@ jobs:
           printf '%s\n' '{"schemaVersion":1,"releases":[]}' > "$empty_manifest"
 
           cd source-directory/signer
-          dart pub get
+          dart pub get --enforce-lockfile
           dart run bin/build_update_feeds.dart \
             --release "$descriptor" \
             --manifest "$empty_manifest" \

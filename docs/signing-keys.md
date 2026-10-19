@@ -14,7 +14,7 @@ encrypted GitHub Actions secrets in `SenZmaKi/Senpwai` and as generic-password
 entries in the maintainer's macOS login Keychain. Private values must never be
 committed, pasted into logs, or included in release artifacts.
 
-The public keys provisioned before the v3.0.0 launch are:
+The public keys trusted by v3 clients, including the published betas, are:
 
 | Trust domain | Public key |
 | --- | --- |
@@ -79,12 +79,12 @@ copy before removing the temporary file.
 
 ## Rotation
 
-Before v3.0.0 ships, keys may be replaced directly because there is no installed
-v3 trust root to preserve. After launch, do not replace an embedded public key
-and immediately start signing with its private half: existing clients would
-reject the new signature.
+Published v3 betas already contain installed trust roots. Preserve their signing
+keys when moving to stable. Do not replace an embedded public key and immediately
+start signing with its private half: existing clients would reject the new
+signature.
 
-For a post-launch release-key rotation:
+For a release-key rotation:
 
 1. Create a transition release signed by the old private key.
 2. Embed the new public key in that transition release.

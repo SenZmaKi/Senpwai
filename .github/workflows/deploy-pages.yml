@@ -54,7 +54,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          dart pub get --directory source-directory/signer
+          dart pub get --enforce-lockfile --directory source-directory/signer
           npm ci --prefix website
 
       - name: Check and build website
@@ -159,7 +159,10 @@ jobs:
 
           if [[ -f "$state_dir/appcast.xml" ]]; then
             stable_build="$(sed -n 's/.*sparkle:version="\([0-9][0-9]*\)".*/\1/p' "$state_dir/appcast.xml" | head -n1)"
-            prerelease_build="$(sed -n 's/.*sparkle:version="\([0-9][0-9]*\)".*/\1/p' "$state_dir/appcast-prerelease.xml" 2>/dev/null | head -n1)"
+            prerelease_build=""
+            if [[ -f "$state_dir/appcast-prerelease.xml" ]]; then
+              prerelease_build="$(sed -n 's/.*sparkle:version="\([0-9][0-9]*\)".*/\1/p' "$state_dir/appcast-prerelease.xml" | head -n1)"
+            fi
             if [[ -z "$prerelease_build" || "$stable_build" -ge "$prerelease_build" ]]; then
               cp "$state_dir/appcast.xml" "$state_dir/appcast-prerelease.xml"
             fi
