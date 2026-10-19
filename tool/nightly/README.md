@@ -1,8 +1,12 @@
 # Nightly releases
 
-The release workflow runs daily at 02:57 UTC (05:57 Africa/Nairobi), matching
-Sentorr, and can be dispatched manually from `master`. Tag pushes retain the
-existing stable/prerelease version and release-notes checks.
+The release workflow checks daily at 02:57 UTC (05:57 Africa/Nairobi), matching
+Sentorr, and can be dispatched manually from `master`. Scheduled and manual
+nightly runs compare HEAD with the commit of the latest published nightly. If
+they match, the workflow skips quality checks, builds, publishing, and Pages
+deployment. A first nightly or a different commit proceeds normally. Drafts and
+failed releases do not suppress retries. Tag pushes bypass this comparison and
+retain the existing stable/prerelease version and release-notes checks.
 
 Nightlies use `<base>-nightly.<run number>.<run attempt>` with a Unix timestamp
 build number. The same platform builds and signing secrets produce a GitHub

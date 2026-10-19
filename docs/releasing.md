@@ -2,7 +2,8 @@
 
 All application platforms are published by `.github/workflows/release.yml`.
 Version tags must exactly match `pubspec.yaml`. Scheduled and manually dispatched
-runs build nightlies from master.
+runs check master for changes since the latest published nightly and build only
+when the commit differs. Unchanged runs skip all downstream work.
 
 ## Versioning
 
