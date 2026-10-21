@@ -38,8 +38,8 @@ jobs:
             exit 0
           fi
 
-          latest_tag="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq '[.[][] | select(.draft == false) | select(.tag_name | contains("-nightly."))] | sort_by(.published_at) | last | .tag_name // empty')"
+          latest_tag="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" |
+            jq -r '[.[][] | select(.draft == false) | select(.tag_name | contains("-nightly."))] | sort_by(.published_at) | last | .tag_name // empty')"
           if [[ -z "$latest_tag" ]]; then
             echo "No published nightly exists; creating the first one."
             echo "release=true" >> "$GITHUB_OUTPUT"
