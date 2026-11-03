@@ -344,6 +344,22 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
                   ),
                 ],
               ),
+              if (state.selectedSource == AnimeSource.animeheaven &&
+                  state.selectedLanguage == Language.english)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    ref
+                            .watch(AppSettingsNotifier.provider)
+                            .content
+                            .allowAudioFallback
+                        ? 'AnimeHeaven has Japanese audio only. This download will use Japanese audio.'
+                        : 'AnimeHeaven has Japanese audio only. Select Japanese audio or enable audio fallback in Settings.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -399,7 +415,17 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
       initialDirectory: initialDirectory,
     );
     if (result != null) {
-      await widget.notifier.setDownloadFolder(result);
+      try {
+        await widget.notifier.setDownloadFolder(result);
+      } on DownloadUserError catch (error) {
+        if (!context.mounted) return;
+        AppToast.showError(
+          context,
+          title: error.title,
+          description: error.description,
+          copyPayload: error.copyPayload,
+        );
+      }
     }
   }
 

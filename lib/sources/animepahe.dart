@@ -478,16 +478,21 @@ class Source {
       'a.dropdown-item[target="_blank"]',
     );
     final episodeNumber = episodeSession.number;
-    final downloadLinks = downloadAElements
-        .map(
-          (element) => _parseDownloadLink(
+    final downloadLinks = <DownloadLink>[];
+    for (final element in downloadAElements) {
+      try {
+        downloadLinks.add(
+          _parseDownloadLink(
             element: element,
             animeTitle: animeTitle,
             episodeNumber: episodeNumber,
             refererUrl: episodePageUrl,
           ),
-        )
-        .toList();
+        );
+      } on SourceException catch (error) {
+        log.warning('Skipping an unreadable AnimePahe download option: $error');
+      }
+    }
     log.fineWithMetadata(
       "Fetched download links",
       metadata: {"downloadLinks": downloadLinks},

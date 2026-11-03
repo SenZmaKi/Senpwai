@@ -210,6 +210,23 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     for (final job in batch.jobs) {
       DownloadRepository.validateJob(job);
     }
+    final activeTorrentData = <Uint8List>[
+      for (final item in state.items.where(
+        (item) =>
+            !item.status.isTerminal ||
+            _closingTransfers.contains(item.id) ||
+            _torrentDownloads.containsKey(item.id),
+      ))
+        if (_jobs[item.id] case PreparedTorrentDownloadJob(:final torrentData))
+          torrentData,
+    ];
+    for (final job in batch.jobs) {
+      if (job is! PreparedTorrentDownloadJob) continue;
+      if (activeTorrentData.any((data) => listEquals(data, job.torrentData))) {
+        throw StateError('This torrent is already in the download queue.');
+      }
+      activeTorrentData.add(job.torrentData);
+    }
     // A payload must have one writer. Reject overlapping output paths before
     // creating any runtimes, including two selections within the same batch.
     final targets = <String>{

@@ -875,12 +875,20 @@ class AnimeDownloadSessionNotifier extends Notifier<AnimeDownloadSessionState> {
       final directory = Directory(folder);
       if (!await directory.exists()) return const <int>{};
       final episodes = <int>[];
-      await for (final entity in directory.list(followLinks: false)) {
-        if (entity is! File) continue;
-        final fileName = entity.uri.pathSegments.last;
-        if (fileName.contains('[Downloading]')) continue;
-        final episode = anitomy_parser.parseFilename(fileName).episode;
-        if (episode != null && episode > 0) episodes.add(episode);
+      try {
+        await for (final entity in directory.list(followLinks: false)) {
+          if (entity is! File) continue;
+          final fileName = entity.uri.pathSegments.last;
+          if (fileName.contains('[Downloading]')) continue;
+          final episode = anitomy_parser.parseFilename(fileName).episode;
+          if (episode != null && episode > 0) episodes.add(episode);
+        }
+      } on FileSystemException {
+        throw DownloadUserError(
+          title: 'Download folder unavailable',
+          description:
+              'Senpwai cannot read this folder. Choose a folder the app can access.',
+        );
       }
       return episodes.toSet();
     }, arguments: {'anilistId': _anime.id});

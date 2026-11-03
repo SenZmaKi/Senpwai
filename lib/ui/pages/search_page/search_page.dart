@@ -118,6 +118,12 @@ class _SearchPageState extends ConsumerState<SearchPage>
         title = 'Search error';
         description = error.message ?? error.toString();
       }
+    } else if (error is AnilistGraphqlException &&
+        error.errors.any(
+          (item) => item.message.contains('temporarily disabled'),
+        )) {
+      title = 'AniList temporarily unavailable';
+      description = 'AniList is temporarily unavailable. Try again later.';
     } else if (error is AnilistException) {
       title = 'Search error';
       description = error.message;

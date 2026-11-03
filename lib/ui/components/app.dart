@@ -283,8 +283,9 @@ class _AppRootState extends ConsumerState<_AppRoot> {
   }
 
   Future<bool> _handleDesktopExitRequest(DesktopExitRequest request) async {
-    if (_isHandlingDesktopExit) return false;
+    if (!mounted || _isHandlingDesktopExit) return false;
     final preferences = ref.read(AppSettingsNotifier.provider).window;
+    final downloadManager = ref.read(DownloadManagerNotifier.provider.notifier);
     if (request == DesktopExitRequest.windowClose && preferences.closeToTray) {
       await DesktopTrayController.instance.minimizeToTray();
       return false;
@@ -305,9 +306,7 @@ class _AppRootState extends ConsumerState<_AppRoot> {
 
     if (!preferences.confirmOnQuit ||
         (activeDownloads.isEmpty && activeSeeds.isEmpty)) {
-      await ref
-          .read(DownloadManagerNotifier.provider.notifier)
-          .prepareForExit();
+      await downloadManager.prepareForExit();
       switch (request) {
         case DesktopExitRequest.trayQuit:
           await DesktopTrayController.instance.quitApp();
@@ -332,11 +331,10 @@ class _AppRootState extends ConsumerState<_AppRoot> {
           seedCount: activeSeeds.length,
         ),
       );
+      if (!mounted) return false;
       switch (choice) {
         case DesktopExitChoice.quit:
-          await ref
-              .read(DownloadManagerNotifier.provider.notifier)
-              .prepareForExit();
+          await downloadManager.prepareForExit();
           if (request == DesktopExitRequest.systemQuit) return true;
           if (request == DesktopExitRequest.windowClose) {
             await DesktopTrayController.instance.closeWindow();

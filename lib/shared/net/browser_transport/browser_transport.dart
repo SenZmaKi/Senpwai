@@ -307,13 +307,25 @@ class BrowserTransportService extends ChangeNotifier {
   }
 
   Future<void> _clearSessions() async {
-    await CookieManager.instance().deleteAllCookies();
+    // Windows may not have a WebView environment yet (or it may already be
+    // shutting down). Still reset the live sessions when cookie cleanup fails.
+    Object? cookieError;
+    StackTrace? cookieStack;
+    try {
+      await CookieManager.instance().deleteAllCookies();
+    } catch (error, stack) {
+      cookieError = error;
+      cookieStack = stack;
+    }
     // flutter_inappwebview_windows exposes clearAllCache in Dart but does not
     // register the manager-channel method in its native implementation.
     if (defaultTargetPlatform != TargetPlatform.windows) {
       await InAppWebViewController.clearAllCache();
     }
     await Future.wait(sessions.map((session) => session.reset()));
+    if (cookieError != null) {
+      Error.throwWithStackTrace(cookieError, cookieStack!);
+    }
   }
 
   void reconcileOrigins(Map<String, Uri> origins) {

@@ -35,6 +35,13 @@ class AnimeHeavenDownloadPlanner {
         description: 'This anime does not currently have an AnimeHeaven match.',
       );
     }
+    if (!request.allowAudioFallback && request.language != Language.japanese) {
+      throw const DownloadUserError(
+        title: 'Requested audio unavailable',
+        description:
+            'AnimeHeaven only provides Japanese audio. Select Japanese audio or enable audio fallback in Settings.',
+      );
+    }
 
     void report({
       required DownloadPlanningPhase phase,
@@ -76,14 +83,6 @@ class AnimeHeavenDownloadPlanner {
         title: 'No episodes found',
         description:
             'AnimeHeaven could not find any episodes in the requested range.',
-      );
-    }
-
-    if (!request.allowAudioFallback && request.language != Language.japanese) {
-      throw const DownloadUserError(
-        title: 'Requested audio unavailable',
-        description:
-            'AnimeHeaven only provides Japanese audio. Audio fallback is disabled.',
       );
     }
 
