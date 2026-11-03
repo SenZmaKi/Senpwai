@@ -16,6 +16,7 @@ import 'package:senpwai/ui/shared/anilist.dart';
 import 'package:senpwai/ui/shared/app_error_diagnostics.dart';
 import 'package:senpwai/ui/components/desktop_exit_dialog.dart';
 import 'package:senpwai/ui/components/toast.dart';
+import 'package:senpwai/ui/components/github_star_prompt.dart';
 import 'package:senpwai/ui/pages/downloads_page.dart';
 import 'package:senpwai/ui/pages/home_page.dart';
 import 'package:senpwai/ui/pages/search_page/search_page.dart';
@@ -126,6 +127,13 @@ class _AppRootState extends ConsumerState<_AppRoot> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_handleHardwareKey);
+    if (kReleaseMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (await shouldShowGithubStarPrompt() && mounted) {
+          await showGithubStarPrompt(context);
+        }
+      });
+    }
     final settings = ref.read(AppSettingsNotifier.provider);
     ref
         .read(AnilistNotifier.provider.notifier)
