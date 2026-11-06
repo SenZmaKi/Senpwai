@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:libtorrent_dart/libtorrent_dart.dart';
 import 'package:path/path.dart' as path;
 import 'package:senpwai/downloads/models.dart';
+import 'package:senpwai/downloads/torrent_identity.dart';
 import 'package:senpwai/downloads/torrent_network_settings.dart';
 import 'package:senpwai/settings/settings.dart';
 import 'package:senpwai/shared/error_report.dart';
@@ -210,22 +211,29 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     for (final job in batch.jobs) {
       DownloadRepository.validateJob(job);
     }
-    final activeTorrentData = <Uint8List>[
+    final candidateJobs = Map<String, PreparedDownloadJob>.of(_jobs);
+    final activeTorrentIds = <String>[
       for (final item in state.items.where(
         (item) =>
             !item.status.isTerminal ||
             _closingTransfers.contains(item.id) ||
             _torrentDownloads.containsKey(item.id),
       ))
-        if (_jobs[item.id] case PreparedTorrentDownloadJob(:final torrentData))
-          torrentData,
+        item.id,
     ];
     for (final job in batch.jobs) {
       if (job is! PreparedTorrentDownloadJob) continue;
-      if (activeTorrentData.any((data) => listEquals(data, job.torrentData))) {
+      if (activeTorrentOwner(
+            candidateJobs,
+            activeTorrentIds,
+            job.torrentData,
+          ) !=
+          null) {
         throw StateError('This torrent is already in the download queue.');
       }
-      activeTorrentData.add(job.torrentData);
+      final id = '_new-${activeTorrentIds.length}';
+      candidateJobs[id] = job;
+      activeTorrentIds.add(id);
     }
     // A payload must have one writer. Reject overlapping output paths before
     // creating any runtimes, including two selections within the same batch.
@@ -318,6 +326,25 @@ class InProcessDownloadRuntime implements DownloadRuntime {
     _ensureBatch(item);
     final http = _httpDownloads[id];
     final torrent = _torrentDownloads[id];
+    if (torrent == null && _jobs[id] is PreparedTorrentDownloadJob) {
+      final job = _jobs[id]! as PreparedTorrentDownloadJob;
+      if (activeTorrentOwner(
+            _jobs,
+            _torrentDownloads.keys,
+            job.torrentData,
+            exceptId: id,
+          ) !=
+          null) {
+        _failItem(
+          id,
+          title: 'Torrent already active',
+          description: 'This torrent is already active in another download.',
+          copyPayload: null,
+        );
+        await _saveQueue();
+        return;
+      }
+    }
     _updateItem(
       id,
       (i) => i.copyWith(status: DownloadQueueStatus.queued, clearError: true),

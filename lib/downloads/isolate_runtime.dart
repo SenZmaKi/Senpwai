@@ -24,6 +24,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
   final _updateStateController =
       StreamController<UpdateTransferState>.broadcast();
   final _pendingRequests = <String, Completer<Object?>>{};
+  final _pendingStarts = <String, Completer<void>>{};
 
   int _maxDownloadBytesPerSecond;
   int _maxActiveHttpDownloads;
@@ -215,6 +216,10 @@ class DownloadIsolateRuntime implements DownloadRuntime {
       }
     }
     _pendingRequests.clear();
+    for (final completer in _pendingStarts.values) {
+      if (!completer.isCompleted) completer.complete();
+    }
+    _pendingStarts.clear();
     if (port != null) {
       try {
         await _stopped.future.timeout(const Duration(seconds: 15));
@@ -250,7 +255,9 @@ class DownloadIsolateRuntime implements DownloadRuntime {
     }
     final requestId = _nextRequestId();
     final completer = Completer<Object?>();
+    final started = Completer<void>();
     _pendingRequests[requestId] = completer;
+    _pendingStarts[requestId] = started;
     _commandPort?.send({
       'kind': 'command',
       'requestId': requestId,
@@ -259,9 +266,17 @@ class DownloadIsolateRuntime implements DownloadRuntime {
     });
     final future = completer.future;
     if (timeout == null) return future;
+    try {
+      await started.future.timeout(const Duration(minutes: 2));
+    } on TimeoutException {
+      _pendingStarts.remove(requestId);
+      _pendingRequests.remove(requestId);
+      throw TimeoutException('Timed out queueing download command $type.');
+    }
     return future.timeout(
       timeout,
       onTimeout: () {
+        _pendingStarts.remove(requestId);
         _pendingRequests.remove(requestId);
         throw TimeoutException('Timed out waiting for download command $type.');
       },
@@ -361,6 +376,11 @@ class DownloadIsolateRuntime implements DownloadRuntime {
         }
       case 'response':
         _onResponse(message);
+      case 'started':
+        final requestId = message['requestId'];
+        if (requestId is String) {
+          _pendingStarts.remove(requestId)?.complete();
+        }
       case 'error':
         onError(
           title: _string(message['title']),
@@ -384,6 +404,7 @@ class DownloadIsolateRuntime implements DownloadRuntime {
     final requestId = message['requestId'];
     if (requestId is! String) return;
     final completer = _pendingRequests.remove(requestId);
+    _pendingStarts.remove(requestId)?.complete();
     if (completer == null || completer.isCompleted) return;
     final error = message['error'];
     if (error is String && error.isNotEmpty) {
@@ -408,6 +429,10 @@ class DownloadIsolateRuntime implements DownloadRuntime {
       }
     }
     _pendingRequests.clear();
+    for (final completer in _pendingStarts.values) {
+      if (!completer.isCompleted) completer.complete();
+    }
+    _pendingStarts.clear();
     onError(
       title: 'Download engine failed',
       description: '$error',
@@ -557,6 +582,7 @@ Future<void> _handleDownloadCommand(
   final requestId = _string(message['requestId']);
   final type = _string(message['type']);
   final payload = _map(message['payload']);
+  mainPort.send({'kind': 'started', 'requestId': requestId});
   try {
     final Object? result;
     switch (type) {
