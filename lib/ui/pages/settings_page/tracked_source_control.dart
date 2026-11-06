@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/source_resolver.dart';
 import 'package:senpwai/tracking/models.dart';
+import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/anime_page/anime_source_ui.dart';
 
 class TrackedSourceControl extends StatefulWidget {
@@ -59,6 +60,14 @@ class _TrackedSourceControlState extends State<TrackedSourceControl> {
   }
 
   Future<void> _select(AnimeSource? source) async {
+    final audioError = sourceAudioSelectionError(
+      source,
+      widget.tracked.language,
+    );
+    if (audioError != null) {
+      _showAudioError(audioError);
+      return;
+    }
     final generation = ++_generation;
     setState(() {
       _pending = source;
@@ -103,6 +112,14 @@ class _TrackedSourceControlState extends State<TrackedSourceControl> {
         _saving = false;
         _message = source == null ? null : 'Found · locked to ${source.label}';
       });
+    } on DownloadUserError catch (error) {
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _pending = null;
+        _saving = false;
+        _message = null;
+      });
+      _showAudioError(error);
     } catch (_) {
       final wasSaving = _saving;
       if (!mounted || generation != _generation) return;
@@ -116,6 +133,14 @@ class _TrackedSourceControlState extends State<TrackedSourceControl> {
             : 'Couldn’t check ${source?.label ?? 'source'}';
       });
     }
+  }
+
+  void _showAudioError(DownloadUserError error) {
+    AppToast.showError(
+      context,
+      title: error.title,
+      description: error.description,
+    );
   }
 
   @override

@@ -286,6 +286,13 @@ class TrackedAnimeTile extends ConsumerWidget {
         resolution: resolution,
         language: language,
       );
+    } on DownloadUserError catch (error) {
+      if (!context.mounted) return;
+      AppToast.showError(
+        context,
+        title: error.title,
+        description: error.description,
+      );
     } catch (_) {
       if (context.mounted) {
         AppToast.showError(

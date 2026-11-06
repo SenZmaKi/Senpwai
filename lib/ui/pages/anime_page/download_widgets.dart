@@ -3,6 +3,7 @@ import 'package:senpwai/sources/shared/shared.dart';
 import 'package:senpwai/downloads/anime_download_session.dart';
 import 'package:senpwai/downloads/models.dart';
 import 'package:senpwai/downloads/source_resolver.dart';
+import 'package:senpwai/ui/components/toast.dart';
 import 'package:senpwai/ui/pages/anime_page/anime_source_ui.dart';
 
 const downloadResolutionOptions = [
@@ -147,7 +148,20 @@ class SourceDropdown extends StatelessWidget {
             );
           }).toList(),
           onChanged: (source) {
-            if (source != null) notifier.selectSource(source);
+            if (source == null) return;
+            final error = sourceAudioSelectionError(
+              source,
+              notifier.currentState.selectedLanguage,
+            );
+            if (error != null) {
+              AppToast.showError(
+                context,
+                title: error.title,
+                description: error.description,
+              );
+              return;
+            }
+            notifier.selectSource(source);
           },
         ),
       ),

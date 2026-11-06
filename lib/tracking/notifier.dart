@@ -81,8 +81,16 @@ class TrackingNotifier extends Notifier<TrackingState> {
     Language? language,
     bool? skipFillers,
   }) async {
-    await _commit(
-      () => [
+    await _commit(() {
+      final tracked = state.trackedById(anilistId);
+      if (language != null && tracked?.sourceSelectedByUser == true) {
+        final error = sourceAudioSelectionError(
+          tracked?.preferredSource,
+          language,
+        );
+        if (error != null) throw error;
+      }
+      return [
         for (final item in state.trackedAnime)
           if (item.anilistId == anilistId)
             item.copyWith(
@@ -95,8 +103,8 @@ class TrackingNotifier extends Notifier<TrackingState> {
             )
           else
             item,
-      ],
-    );
+      ];
+    });
   }
 
   Future<SourceMatchState<Object>> checkSource(
@@ -111,8 +119,13 @@ class TrackingNotifier extends Notifier<TrackingState> {
   }
 
   Future<void> updateSource(int anilistId, AnimeSource? source) async {
-    await _commit(
-      () => [
+    await _commit(() {
+      final tracked = state.trackedById(anilistId);
+      if (tracked != null) {
+        final error = sourceAudioSelectionError(source, tracked.language);
+        if (error != null) throw error;
+      }
+      return [
         for (final item in state.trackedAnime)
           if (item.anilistId == anilistId)
             item.copyWith(
@@ -125,8 +138,8 @@ class TrackingNotifier extends Notifier<TrackingState> {
             )
           else
             item,
-      ],
-    );
+      ];
+    });
   }
 
   Future<void> updateDownloadFolder({

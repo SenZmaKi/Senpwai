@@ -10,6 +10,17 @@ import 'package:senpwai/sources/shared/shared.dart';
 
 enum AnimeSource { animeheaven, nyaa, animepahe, tokyoinsider }
 
+DownloadUserError? sourceAudioSelectionError(
+  AnimeSource? source,
+  Language language,
+) => source == AnimeSource.animeheaven && language == Language.english
+    ? const DownloadUserError(
+        title: 'English audio unavailable',
+        description:
+            'AnimeHeaven only offers Japanese audio. Select Japanese audio or choose another source.',
+      )
+    : null;
+
 extension AnimeSourceExtension on AnimeSource {
   String get label => switch (this) {
     AnimeSource.animeheaven => 'AnimeHeaven',

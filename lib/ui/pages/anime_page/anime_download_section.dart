@@ -339,27 +339,25 @@ class _AnimeDownloadSectionState extends ConsumerState<AnimeDownloadSection> {
                       options: Language.values,
                       selected: state.selectedLanguage,
                       labelBuilder: (l) => l.toString(),
-                      onSelected: notifier.setLanguage,
+                      onSelected: (language) {
+                        final error = sourceAudioSelectionError(
+                          notifier.currentState.selectedSource,
+                          language,
+                        );
+                        if (error != null) {
+                          AppToast.showError(
+                            context,
+                            title: error.title,
+                            description: error.description,
+                          );
+                          return;
+                        }
+                        notifier.setLanguage(language);
+                      },
                     ),
                   ),
                 ],
               ),
-              if (state.selectedSource == AnimeSource.animeheaven &&
-                  state.selectedLanguage == Language.english)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    ref
-                            .watch(AppSettingsNotifier.provider)
-                            .content
-                            .allowAudioFallback
-                        ? 'AnimeHeaven has Japanese audio only. This download will use Japanese audio.'
-                        : 'AnimeHeaven has Japanese audio only. Select Japanese audio or enable audio fallback in Settings.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
